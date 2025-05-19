@@ -1,0 +1,17 @@
+body {
+    font-family: Arial;
+    margin: 2rem;
+}
+input, button {
+    padding: 10px;
+    font-size: 16px;
+}
+.card {
+    margin-top: 2rem;
+    padding: 1rem;
+    border: 1px solid #ccc;
+}
+.error {
+    color: red;
+    margin-top: 1rem;
+}

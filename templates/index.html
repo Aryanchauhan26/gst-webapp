@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>GST Lookup</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <h1>GST Lookup Web App</h1>
+    <form method="post">
+        <input type="text" name="gstin" placeholder="Enter GST Number" required>
+        <button type="submit">Search</button>
+    </form>
+
+    {% if error %}
+        <p class="error">{{ error }}</p>
+    {% endif %}
+
+    {% if data %}
+        <div class="card">
+            <h2>{{ data.legalName }}</h2>
+            <p><strong>Trade Name:</strong> {{ data.tradeName }}</p>
+            <p><strong>Address:</strong> {{ data.address }}</p>
+            <p><strong>State:</strong> {{ data.state }}</p>
+            <p><strong>Status:</strong> {{ data.status }}</p>
+        </div>
+    {% endif %}
+</body>
+</html>
