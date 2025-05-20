@@ -5,49 +5,95 @@ from fastapi.templating import Jinja2Templates
 import requests
 
 app = FastAPI()
+
+# ────────────────────────────
+# Static files & templates
+# ────────────────────────────
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 
-RAPIDAPI_KEY = "08cbf9855dmsh5c8d8660645305cp1a8713jsn17eca3b207a5"
+# ────────────────────────────
+# RapidAPI credentials
+# ────────────────────────────
+RAPIDAPI_KEY  = "08cbf9855dmsh5c8d8660645305cp1a8713jsn17eca3b207a5"
 RAPIDAPI_HOST = "gst-insights-api.p.rapidapi.com"
 
+# ────────────────────────────
+# Routes
+# ────────────────────────────
 @app.get("/", response_class=HTMLResponse)
 def home(request: Request):
-    return templates.TemplateResponse("index.html", {"request": request, "data": None, "error": None})
+    """Render empty form on GET."""
+    return templates.TemplateResponse(
+        "index.html",
+        {"request": request, "data": None, "error": None}
+    )
 
 @app.post("/", response_class=HTMLResponse)
 def fetch_gst_data(request: Request, gstin: str = Form(...)):
+    """Fetch GST info for a given GSTIN and render result."""
     url = f"https://{RAPIDAPI_HOST}/getGSTDetailsUsingGST/{gstin}"
     headers = {
-        "X-RapidAPI-Key": RAPIDAPI_KEY,
-        "X-RapidAPI-Host": RAPIDAPI_HOST
+        "X-RapidAPI-Key":  RAPIDAPI_KEY,
+        "X-RapidAPI-Host": RAPIDAPI_HOST,
     }
 
     try:
-        response = requests.get(url, headers=headers)
+        response = requests.get(url, headers=headers, timeout=15)
         data = response.json()
-        print("FULL API Response:", data)
+        print("FULL API Response:", data)          # <-- helpful for future debugging
 
+        # Handle API-level errors
         if not data.get("success"):
-            return templates.TemplateResponse("index.html", {
-                "request": request,
-                "error": data.get("message", "Invalid GSTIN or API error."),
-                "data": None
-            })
+            return templates.TemplateResponse(
+                "index.html",
+                {
+                    "request": request,
+                    "error": data.get("message", "Invalid GSTIN or API error."),
+                    "data": None,
+                },
+            )
 
         gst_data = data["data"]
-        return templates.TemplateResponse("index.html", {
-            "request": request,
-            "data": {
-                "legalName": gst_data.get("lgnm"),
-                "tradeName": gst_data.get("tradeName"),
-                "address": gst_data.get("adr"),
-                "state": gst_data.get("stj"),
-                "status": gst_data.get("sts")
+
+        # ---------- Format address ----------
+        addr_obj = (
+            gst_data.get("principalAddress", {})
+            .get("address", {})
+        )
+        formatted_address = ", ".join(
+            filter(
+                None,
+                [
+                    addr_obj.get("buildingNumber"),
+                    addr_obj.get("street"),
+                    addr_obj.get("location"),
+                    addr_obj.get("district"),
+                    addr_obj.get("stateCode"),
+                    addr_obj.get("pincode"),
+                ],
+            )
+        )
+
+        # ---------- Render template ----------
+        return templates.TemplateResponse(
+            "index.html",
+            {
+                "request": request,
+                "data": {
+                    "legalName": gst_data.get("legalName"),
+                    "tradeName": gst_data.get("tradeName"),
+                    "address": formatted_address or "N/A",
+                    "state": gst_data.get("stateJurisdiction") or "N/A",
+                    "status": gst_data.get("status") or "N/A",
+                },
+                "error": None,
             },
-            "error": None
-        })
+        )
 
     except Exception as e:
         print("Exception:", e)
-        return templates.TemplateResponse("index.html", {"request": request, "error": "API call failed", "data": None})
+        return templates.TemplateResponse(
+            "index.html",
+            {"request": request, "error": "API call failed", "data": None},
+        )
