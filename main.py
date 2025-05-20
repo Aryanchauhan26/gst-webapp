@@ -41,7 +41,7 @@ def fetch_gst_data(request: Request, gstin: str = Form(...)):
     try:
         response = requests.get(url, headers=headers, timeout=15)
         data = response.json()
-        print("FULL API Response:", data)          # <-- helpful for future debugging
+        print("FULL API Response:", data)  # helpful for debugging
 
         # Handle API-level errors
         if not data.get("success"):
@@ -56,59 +56,38 @@ def fetch_gst_data(request: Request, gstin: str = Form(...)):
 
         gst_data = data["data"]
 
-        # ---------- Format address ----------
-        addr_obj = (
-            gst_data.get("principalAddress", {})
-            .get("address", {})
-        )
-        formatted_address = ", ".join(
-            filter(
-                None,
-                [
-                    addr_obj.get("buildingNumber"),
-                    addr_obj.get("street"),
-                    addr_obj.get("location"),
-                    addr_obj.get("district"),
-                    addr_obj.get("stateCode"),
-                    addr_obj.get("pincode"),
-                ],
-            )
-        )
-
-        # ---------- Render template ----------
         # Format principal address
-principal = gst_data.get("principalAddress", {}).get("address", {})
-principal_address = ", ".join(filter(None, [
-    principal.get("buildingNumber"),
-    principal.get("buildingName"),
-    principal.get("street"),
-    principal.get("location"),
-    principal.get("district"),
-    principal.get("stateCode"),
-    principal.get("pincode")
-]))
+        principal = gst_data.get("principalAddress", {}).get("address", {})
+        principal_address = ", ".join(filter(None, [
+            principal.get("buildingNumber"),
+            principal.get("buildingName"),
+            principal.get("street"),
+            principal.get("location"),
+            principal.get("district"),
+            principal.get("stateCode"),
+            principal.get("pincode"),
+        ]))
 
- return templates.TemplateResponse(
+        return templates.TemplateResponse(
             "index.html",
             {
                 "request": request,
                 "data": {
-    "gstin": gst_data.get("gstNumber"),
-    "legalName": gst_data.get("legalName"),
-    "tradeName": gst_data.get("tradeName"),
-    "status": gst_data.get("status"),
-    "registrationDate": gst_data.get("registration_date"),
-    "cancellationDate": gst_data.get("cancelledDate"),
-    "stateJurisdiction": gst_data.get("stateJurisdiction"),
-    "centreJurisdiction": gst_data.get("centerJurisdiction"),
-    "businessConstitution": gst_data.get("constitutionOfBusiness"),
-    "type": gst_data.get("taxType"),
-    "eInvoiceStatus": gst_data.get("eInvoiceStatus"),
-    "principalAddress": principal_address,
-    "additionalAddresses": gst_data.get("additionalAddress", []),
-    "businessActivityNature": gst_data.get("natureOfBusinessActivity", [])
-},
-                
+                    "gstin": gst_data.get("gstNumber"),
+                    "legalName": gst_data.get("legalName"),
+                    "tradeName": gst_data.get("tradeName"),
+                    "status": gst_data.get("status"),
+                    "registrationDate": gst_data.get("registration_date"),
+                    "cancellationDate": gst_data.get("cancelledDate"),
+                    "stateJurisdiction": gst_data.get("stateJurisdiction"),
+                    "centreJurisdiction": gst_data.get("centerJurisdiction"),
+                    "businessConstitution": gst_data.get("constitutionOfBusiness"),
+                    "type": gst_data.get("taxType"),
+                    "eInvoiceStatus": gst_data.get("eInvoiceStatus"),
+                    "principalAddress": principal_address,
+                    "additionalAddresses": gst_data.get("additionalAddress", []),
+                    "businessActivityNature": gst_data.get("natureOfBusinessActivity", []),
+                },
                 "error": None,
             },
         )
