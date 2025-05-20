@@ -76,7 +76,19 @@ def fetch_gst_data(request: Request, gstin: str = Form(...)):
         )
 
         # ---------- Render template ----------
-        return templates.TemplateResponse(
+        # Format principal address
+principal = gst_data.get("principalAddress", {}).get("address", {})
+principal_address = ", ".join(filter(None, [
+    principal.get("buildingNumber"),
+    principal.get("buildingName"),
+    principal.get("street"),
+    principal.get("location"),
+    principal.get("district"),
+    principal.get("stateCode"),
+    principal.get("pincode")
+]))
+
+ return templates.TemplateResponse(
             "index.html",
             {
                 "request": request,
