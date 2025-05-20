@@ -26,7 +26,7 @@ def fetch_gst_data(request: Request, gstin: str = Form(...)):
     try:
         response = requests.get(url, headers=headers)
         data = response.json()
-        print("API Response:", data)
+        print("FULL API Response:", data)
 
         if not data.get("success"):
             return templates.TemplateResponse("index.html", {
