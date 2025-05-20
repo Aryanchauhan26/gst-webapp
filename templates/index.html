@@ -1,11 +1,38 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>GST Lookup</title>
+    <title>GST Lookup Web App</title>
     <link rel="stylesheet" href="/static/style.css">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 40px;
+        }
+        .card {
+            border: 1px solid #ddd;
+            padding: 20px;
+            margin-top: 20px;
+            border-radius: 10px;
+        }
+        .section {
+            margin-top: 30px;
+        }
+        .section h3 {
+            margin-bottom: 10px;
+            color: #333;
+        }
+        .error {
+            color: red;
+        }
+        ul {
+            padding-left: 20px;
+        }
+    </style>
 </head>
 <body>
+
     <h1>GST Lookup Web App</h1>
+
     <form method="post">
         <input type="text" name="gstin" placeholder="Enter GST Number" required>
         <button type="submit">Search</button>
@@ -19,10 +46,58 @@
         <div class="card">
             <h2>{{ data.legalName }}</h2>
             <p><strong>Trade Name:</strong> {{ data.tradeName }}</p>
-            <p><strong>Address:</strong> {{ data.address }}</p>
-            <p><strong>State:</strong> {{ data.state }}</p>
+            <p><strong>GSTIN:</strong> {{ data.gstin }}</p>
             <p><strong>Status:</strong> {{ data.status }}</p>
+            <p><strong>Registration Date:</strong> {{ data.registrationDate }}</p>
+            {% if data.cancellationDate %}
+                <p><strong>Cancellation Date:</strong> {{ data.cancellationDate }}</p>
+            {% endif %}
+            <p><strong>GST Type:</strong> {{ data.type }}</p>
+            <p><strong>Business Constitution:</strong> {{ data.businessConstitution }}</p>
+            <p><strong>State Jurisdiction:</strong> {{ data.stateJurisdiction }}</p>
+            <p><strong>Centre Jurisdiction:</strong> {{ data.centreJurisdiction }}</p>
+            <p><strong>E-Invoice Status:</strong> {{ data.eInvoiceStatus }}</p>
         </div>
+
+        <div class="card section">
+            <h3>Principal Place of Business</h3>
+            <p>{{ data.principalAddress }}</p>
+        </div>
+
+        {% if data.additionalAddresses %}
+        <div class="card section">
+            <h3>Additional Places of Business</h3>
+            {% for addr in data.additionalAddresses %}
+                <div style="margin-bottom: 15px;">
+                    <p>
+                        {{ addr.address.door_num }}, {{ addr.address.building_name }},
+                        {{ addr.address.street }}, {{ addr.address.location }},
+                        {{ addr.address.district }}, {{ addr.address.state }},
+                        {{ addr.address.pin_code }}
+                    </p>
+                    <strong>Nature of Use:</strong>
+                    <ul>
+                        {% for nature in addr.nature %}
+                            <li>{{ nature }}</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        {% if data.businessActivityNature %}
+        <div class="card section">
+            <h3>Nature of Business Activities</h3>
+            <ul>
+                {% for activity in data.businessActivityNature %}
+                    <li>{{ activity }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+
     {% endif %}
+
 </body>
 </html>
