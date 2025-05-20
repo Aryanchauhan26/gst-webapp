@@ -1,30 +1,14 @@
-from fastapi import FastAPI, Request, Form
-from fastapi.responses import HTMLResponse
-from fastapi.staticfiles import StaticFiles
-from fastapi.templating import Jinja2Templates
-import requests
-import os
-
-app = FastAPI()
-
-# Read API key from environment variable for security
-API_KEY = os.getenv("API_KEY", "Kx2P5PaBsWburrwNCCaX3rKF7YQ2")
-
-# Mount static and templates directories
-app.mount("/static", StaticFiles(directory="static"), name="static")
-templates = Jinja2Templates(directory="templates")
-
-@app.get("/", response_class=HTMLResponse)
-def home(request: Request):
-    return templates.TemplateResponse("index.html", {"request": request, "data": None, "error": None})
-
 @app.post("/", response_class=HTMLResponse)
 def fetch_gst_data(request: Request, gstin: str = Form(...)):
     url = f"https://appyflow.in/api/verifyGST?gstNo={gstin}&key_secret={API_KEY}"
     
+    print(f"Fetching GST details for: {gstin}")
+    print(f"API URL: {url}")
+
     try:
         response = requests.get(url)
         data = response.json()
+        print("API Response:", data)
 
         if "error" in data:
             return templates.TemplateResponse("index.html", {"request": request, "error": data["error"], "data": None})
@@ -40,11 +24,7 @@ def fetch_gst_data(request: Request, gstin: str = Form(...)):
             },
             "error": None
         })
-    
-    except Exception as e:
-        return templates.TemplateResponse("index.html", {
-            "request": request,
-            "error": "API request failed. Please try again.",
-            "data": None
-        })
 
+    except Exception as e:
+        print("Exception:", e)
+        return templates.TemplateResponse("index.html", {"request": request, "error": "API call failed", "data": None})
