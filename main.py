@@ -81,12 +81,22 @@ def fetch_gst_data(request: Request, gstin: str = Form(...)):
             {
                 "request": request,
                 "data": {
-                    "legalName": gst_data.get("legalName"),
-                    "tradeName": gst_data.get("tradeName"),
-                    "address": formatted_address or "N/A",
-                    "state": gst_data.get("stateJurisdiction") or "N/A",
-                    "status": gst_data.get("status") or "N/A",
-                },
+    "gstin": gst_data.get("gstNumber"),
+    "legalName": gst_data.get("legalName"),
+    "tradeName": gst_data.get("tradeName"),
+    "status": gst_data.get("status"),
+    "registrationDate": gst_data.get("registration_date"),
+    "cancellationDate": gst_data.get("cancelledDate"),
+    "stateJurisdiction": gst_data.get("stateJurisdiction"),
+    "centreJurisdiction": gst_data.get("centerJurisdiction"),
+    "businessConstitution": gst_data.get("constitutionOfBusiness"),
+    "type": gst_data.get("taxType"),
+    "eInvoiceStatus": gst_data.get("eInvoiceStatus"),
+    "principalAddress": principal_address,
+    "additionalAddresses": gst_data.get("additionalAddress", []),
+    "businessActivityNature": gst_data.get("natureOfBusinessActivity", [])
+},
+                
                 "error": None,
             },
         )
