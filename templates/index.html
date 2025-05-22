@@ -77,9 +77,15 @@
                     </p>
                     <strong>Nature of Use:</strong>
                     <ul>
-                        {% for nature in addr.nature %}
-                            <li>{{ nature }}</li>
-                        {% endfor %}
+                        {% if addr.nature is string %}
+                            {% for nature in addr.nature.split(',') %}
+                                <li>{{ nature.strip() }}</li>
+                            {% endfor %}
+                        {% else %}
+                            {% for nature in addr.nature %}
+                                <li>{{ nature }}</li>
+                            {% endfor %}
+                        {% endif %}
                     </ul>
                 </div>
             {% endfor %}
@@ -101,3 +107,4 @@
 
 </body>
 </html>
+18:35 22-05-202518:35 22-05-2025
