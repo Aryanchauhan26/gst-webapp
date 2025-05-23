@@ -23,20 +23,16 @@ RAPIDAPI_HOST = "gst-insights-api.p.rapidapi.com"
 # ────────────────────────────
 @app.get("/", response_class=HTMLResponse)
 def home(request: Request):
-    """Render empty form on GET."""
-    return templates.TemplateResponse(
-        "index.html",
-        {"request": request, "data": None, "error": None}
-    )
+    return templates.TemplateResponse("index.html", {"request": request, "data": None, "error": None})
+
 @app.post("/", response_class=HTMLResponse)
 def fetch_gst_data(request: Request, gstin: str = Form(...)):
-    gstin = gstin.strip().upper()  # Clean and uppercase the input
+    gstin = gstin.strip().upper()
 
-    # ✅ Validate GSTIN format
     if len(gstin) != 15 or not gstin.isalnum():
         return templates.TemplateResponse("index.html", {
             "request": request,
-            "error": "❌ Invalid GST Number. Please enter a valid 15-character GSTIN in UPPERCASE (e.g. 07ABCDE1234F1Z5).",
+            "error": "❌ Invalid GST Number. Please enter a valid 15-character GSTIN in UPPERCASE.",
             "data": None
         })
 
@@ -49,7 +45,6 @@ def fetch_gst_data(request: Request, gstin: str = Form(...)):
     try:
         response = requests.get(url, headers=headers)
         data = response.json()
-        print("FULL API Response:", data)
 
         if not data.get("data"):
             return templates.TemplateResponse("index.html", {
@@ -60,7 +55,6 @@ def fetch_gst_data(request: Request, gstin: str = Form(...)):
 
         gst_data = data["data"]
 
-        # Format principal address
         principal = gst_data.get("principalAddress", {}).get("address", {})
         principal_address = ", ".join(filter(None, [
             principal.get("buildingNumber"),
@@ -94,10 +88,64 @@ def fetch_gst_data(request: Request, gstin: str = Form(...)):
         })
 
     except Exception as e:
-        print("Exception occurred:", str(e))
         return templates.TemplateResponse("index.html", {
             "request": request,
             "error": f"API call failed: {str(e)}",
             "data": None
+        })
+
+@app.get("/rate", response_class=HTMLResponse)
+def rate_company(request: Request, gstin: str):
+    url = f"https://{RAPIDAPI_HOST}/getGSTDetailsUsingGST/{gstin}"
+    headers = {
+        "X-RapidAPI-Key": RAPIDAPI_KEY,
+        "X-RapidAPI-Host": RAPIDAPI_HOST
+    }
+
+    try:
+        response = requests.get(url, headers=headers)
+        data = response.json()
+
+        if not data.get("data"):
+            return templates.TemplateResponse("rate.html", {
+                "request": request,
+                "error": "Could not retrieve data for rating.",
+                "rating": None
+            })
+
+        gst_data = data["data"]
+
+        score = 0
+        if gst_data.get("status") == "Active":
+            score += 2
+        if gst_data.get("eInvoiceStatus") == "Enabled":
+            score += 2
+        if gst_data.get("natureOfBusinessActivity"):
+            score += 1
+        if len(gst_data.get("additionalAddress", [])) > 0:
+            score += 1
+        if not gst_data.get("cancelledDate"):
+            score += 2
+
+        rating_out_of_5 = round(score / 8 * 5, 1)
+
+        return templates.TemplateResponse("rate.html", {
+            "request": request,
+            "rating": rating_out_of_5,
+            "details": {
+                "status": gst_data.get("status"),
+                "eInvoiceStatus": gst_data.get("eInvoiceStatus"),
+                "businessActivity": gst_data.get("natureOfBusinessActivity", []),
+                "additionalAddresses": len(gst_data.get("additionalAddress", [])),
+                "cancelledDate": gst_data.get("cancelledDate")
+            },
+            "error": None
+        })
+
+    except Exception as e:
+        return templates.TemplateResponse("rate.html", {
+            "request": request,
+            "error": f"Error fetching data: {str(e)}",
+            "rating": None
         })
 
