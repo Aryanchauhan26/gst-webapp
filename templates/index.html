@@ -1,40 +1,17 @@
 <!DOCTYPE html>
 <html>
 <head>
+    <meta charset="UTF-8">
     <title>GST Lookup Web App</title>
     <link rel="stylesheet" href="/static/style.css">
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 40px;
-        }
-        .card {
-            border: 1px solid #ddd;
-            padding: 20px;
-            margin-top: 20px;
-            border-radius: 10px;
-        }
-        .section {
-            margin-top: 30px;
-        }
-        .section h3 {
-            margin-bottom: 10px;
-            color: #333;
-        }
-        .error {
-            color: red;
-        }
-        ul {
-            padding-left: 20px;
-        }
-    </style>
 </head>
 <body>
 
 <h1>GST Lookup Web App</h1>
 
 <form method="post">
-    <input type="text" name="gstin" placeholder="Enter GST Number" required>
+    <label for="gstin">GST Number:</label>
+    <input type="text" id="gstin" name="gstin" placeholder="Enter GST Number" required>
     <button type="submit">Search</button>
 </form>
 
@@ -60,7 +37,7 @@
 
         <form method="get" action="/rate">
             <input type="hidden" name="gstin" value="{{ data.gstin }}">
-            <button type="submit" style="margin-top: 10px;">Rate Company</button>
+            <button type="submit">Rate Company</button>
         </form>
     </div>
 
@@ -69,33 +46,35 @@
         <p>{{ data.principalAddress }}</p>
     </div>
 
-    {% if data.additionalAddresses %}
     <div class="card section">
         <h3>Additional Places of Business</h3>
-        {% for addr in data.additionalAddresses %}
-            <div style="margin-bottom: 15px;">
-                <p>
-                    {{ addr.address.door_num }}, {{ addr.address.building_name }},
-                    {{ addr.address.street }}, {{ addr.address.location }},
-                    {{ addr.address.district }}, {{ addr.address.state }},
-                    {{ addr.address.pin_code }}
-                </p>
-                <strong>Nature of Use:</strong>
-                <ul>
-                    {% if addr.nature is string %}
-                        {% for nature in addr.nature.split(',') %}
-                            <li>{{ nature.strip() }}</li>
-                        {% endfor %}
-                    {% else %}
-                        {% for nature in addr.nature %}
-                            <li>{{ nature }}</li>
-                        {% endfor %}
-                    {% endif %}
-                </ul>
-            </div>
-        {% endfor %}
+        {% if data.additionalAddresses %}
+            {% for addr in data.additionalAddresses %}
+                <div style="margin-bottom: 15px;">
+                    <p>
+                        {{ addr.address.door_num }}, {{ addr.address.building_name }},
+                        {{ addr.address.street }}, {{ addr.address.location }},
+                        {{ addr.address.district }}, {{ addr.address.state }},
+                        {{ addr.address.pin_code }}
+                    </p>
+                    <strong>Nature of Use:</strong>
+                    <ul>
+                        {% if addr.nature is string %}
+                            {% for nature in addr.nature.split(',') %}
+                                <li>{{ nature.strip() }}</li>
+                            {% endfor %}
+                        {% else %}
+                            {% for nature in addr.nature %}
+                                <li>{{ nature }}</li>
+                            {% endfor %}
+                        {% endif %}
+                    </ul>
+                </div>
+            {% endfor %}
+        {% else %}
+            <p>No additional places of business listed.</p>
+        {% endif %}
     </div>
-    {% endif %}
 
     {% if data.businessActivityNature %}
     <div class="card section">
@@ -112,3 +91,4 @@
 
 </body>
 </html>
+

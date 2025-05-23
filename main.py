@@ -6,21 +6,12 @@ import requests
 
 app = FastAPI()
 
-# ────────────────────────────
-# Static files & templates
-# ────────────────────────────
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 
-# ────────────────────────────
-# RapidAPI credentials
-# ────────────────────────────
 RAPIDAPI_KEY  = "08cbf9855dmsh5c8d8660645305cp1a8713jsn17eca3b207a5"
 RAPIDAPI_HOST = "gst-insights-api.p.rapidapi.com"
 
-# ────────────────────────────
-# Routes
-# ────────────────────────────
 @app.get("/", response_class=HTMLResponse)
 def home(request: Request):
     return templates.TemplateResponse("index.html", {"request": request, "data": None, "error": None})
@@ -44,18 +35,18 @@ def fetch_gst_data(request: Request, gstin: str = Form(...)):
 
     try:
         response = requests.get(url, headers=headers)
-        data = response.json()
+        result = response.json()
 
-        if not data.get("data"):
+        if not result.get("data"):
             return templates.TemplateResponse("index.html", {
                 "request": request,
-                "error": data.get("message", "GSTIN not found or inactive."),
+                "error": result.get("message", "GSTIN not found or inactive."),
                 "data": None
             })
 
-        gst_data = data["data"]
+        data = result["data"]
 
-        principal = gst_data.get("principalAddress", {}).get("address", {})
+        principal = data.get("principalAddress", {}).get("address", {})
         principal_address = ", ".join(filter(None, [
             principal.get("buildingNumber"),
             principal.get("buildingName"),
@@ -69,20 +60,20 @@ def fetch_gst_data(request: Request, gstin: str = Form(...)):
         return templates.TemplateResponse("index.html", {
             "request": request,
             "data": {
-                "gstin": gst_data.get("gstNumber"),
-                "legalName": gst_data.get("legalName"),
-                "tradeName": gst_data.get("tradeName"),
-                "status": gst_data.get("status"),
-                "registrationDate": gst_data.get("registration_date"),
-                "cancellationDate": gst_data.get("cancelledDate"),
-                "stateJurisdiction": gst_data.get("stateJurisdiction"),
-                "centreJurisdiction": gst_data.get("centerJurisdiction"),
-                "businessConstitution": gst_data.get("constitutionOfBusiness"),
-                "type": gst_data.get("taxType"),
-                "eInvoiceStatus": gst_data.get("eInvoiceStatus"),
+                "gstin": data.get("gstNumber"),
+                "legalName": data.get("legalName"),
+                "tradeName": data.get("tradeName"),
+                "status": data.get("status"),
+                "registrationDate": data.get("registration_date"),
+                "cancellationDate": data.get("cancelledDate"),
+                "stateJurisdiction": data.get("stateJurisdiction"),
+                "centreJurisdiction": data.get("centerJurisdiction"),
+                "businessConstitution": data.get("constitutionOfBusiness"),
+                "type": data.get("taxType"),
+                "eInvoiceStatus": data.get("eInvoiceStatus"),
                 "principalAddress": principal_address,
-                "additionalAddresses": gst_data.get("additionalAddress", []),
-                "businessActivityNature": gst_data.get("natureOfBusinessActivity", [])
+                "additionalAddresses": data.get("additionalAddress", []),
+                "businessActivityNature": data.get("natureOfBusinessActivity", [])
             },
             "error": None
         })
@@ -104,27 +95,27 @@ def rate_company(request: Request, gstin: str):
 
     try:
         response = requests.get(url, headers=headers)
-        data = response.json()
+        result = response.json()
 
-        if not data.get("data"):
+        if not result.get("data"):
             return templates.TemplateResponse("rate.html", {
                 "request": request,
                 "error": "Could not retrieve data for rating.",
                 "rating": None
             })
 
-        gst_data = data["data"]
+        data = result["data"]
 
         score = 0
-        if gst_data.get("status") == "Active":
+        if data.get("status") == "Active":
             score += 2
-        if gst_data.get("eInvoiceStatus") == "Enabled":
+        if data.get("eInvoiceStatus") == "Enabled":
             score += 2
-        if gst_data.get("natureOfBusinessActivity"):
+        if data.get("natureOfBusinessActivity"):
             score += 1
-        if len(gst_data.get("additionalAddress", [])) > 0:
+        if len(data.get("additionalAddress", [])) > 0:
             score += 1
-        if not gst_data.get("cancelledDate"):
+        if not data.get("cancelledDate"):
             score += 2
 
         rating_out_of_5 = round(score / 8 * 5, 1)
@@ -133,11 +124,11 @@ def rate_company(request: Request, gstin: str):
             "request": request,
             "rating": rating_out_of_5,
             "details": {
-                "status": gst_data.get("status"),
-                "eInvoiceStatus": gst_data.get("eInvoiceStatus"),
-                "businessActivity": gst_data.get("natureOfBusinessActivity", []),
-                "additionalAddresses": len(gst_data.get("additionalAddress", [])),
-                "cancelledDate": gst_data.get("cancelledDate")
+                "status": data.get("status"),
+                "eInvoiceStatus": data.get("eInvoiceStatus"),
+                "businessActivity": data.get("natureOfBusinessActivity", []),
+                "additionalAddresses": len(data.get("additionalAddress", [])),
+                "cancelledDate": data.get("cancelledDate")
             },
             "error": None
         })
@@ -148,4 +139,3 @@ def rate_company(request: Request, gstin: str):
             "error": f"Error fetching data: {str(e)}",
             "rating": None
         })
-
