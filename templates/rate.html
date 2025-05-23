@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Company Rating</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 40px;
+        }
+        .card {
+            border: 1px solid #ddd;
+            padding: 20px;
+            border-radius: 10px;
+            background-color: #f9f9f9;
+        }
+        .score {
+            font-size: 2rem;
+            color: green;
+        }
+    </style>
+</head>
+<body>
+
+<h1>Company Rating</h1>
+
+{% if error %}
+    <p class="error">{{ error }}</p>
+{% else %}
+    <div class="card">
+        <h2>{{ data.legalName }}</h2>
+        <p><strong>GSTIN:</strong> {{ data.gstin }}</p>
+        <p><strong>Status:</strong> {{ data.status }}</p>
+        <p><strong>E-Invoice Status:</strong> {{ data.eInvoiceStatus }}</p>
+        <p><strong>Nature of Business:</strong> {{ data.businessActivityNature|join(", ") }}</p>
+        <p class="score"><strong>Rating Score:</strong> {{ rating }}/10</p>
+    </div>
+{% endif %}
+
+<a href="/">← Back to Search</a>
+
+</body>
+</html>
