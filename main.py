@@ -28,31 +28,35 @@ def home(request: Request):
         "index.html",
         {"request": request, "data": None, "error": None}
     )
-
 @app.post("/", response_class=HTMLResponse)
 def fetch_gst_data(request: Request, gstin: str = Form(...)):
-    """Fetch GST info for a given GSTIN and render result."""
+    gstin = gstin.strip().upper()  # Clean and uppercase the input
+
+    # ✅ Validate GSTIN format
+    if len(gstin) != 15 or not gstin.isalnum():
+        return templates.TemplateResponse("index.html", {
+            "request": request,
+            "error": "❌ Invalid GST Number. Please enter a valid 15-character GSTIN in UPPERCASE (e.g. 07ABCDE1234F1Z5).",
+            "data": None
+        })
+
     url = f"https://{RAPIDAPI_HOST}/getGSTDetailsUsingGST/{gstin}"
     headers = {
-        "X-RapidAPI-Key":  RAPIDAPI_KEY,
-        "X-RapidAPI-Host": RAPIDAPI_HOST,
+        "X-RapidAPI-Key": RAPIDAPI_KEY,
+        "X-RapidAPI-Host": RAPIDAPI_HOST
     }
 
     try:
-        response = requests.get(url, headers=headers, timeout=15)
+        response = requests.get(url, headers=headers)
         data = response.json()
-        print("FULL API Response:", data)  # helpful for debugging
+        print("FULL API Response:", data)
 
-        # Handle API-level errors
-        if not data.get("success"):
-            return templates.TemplateResponse(
-                "index.html",
-                {
-                    "request": request,
-                    "error": data.get("message", "Invalid GSTIN or API error."),
-                    "data": None,
-                },
-            )
+        if not data.get("data"):
+            return templates.TemplateResponse("index.html", {
+                "request": request,
+                "error": data.get("message", "GSTIN not found or inactive."),
+                "data": None
+            })
 
         gst_data = data["data"]
 
@@ -65,36 +69,35 @@ def fetch_gst_data(request: Request, gstin: str = Form(...)):
             principal.get("location"),
             principal.get("district"),
             principal.get("stateCode"),
-            principal.get("pincode"),
+            principal.get("pincode")
         ]))
 
-        return templates.TemplateResponse(
-            "index.html",
-            {
-                "request": request,
-                "data": {
-                    "gstin": gst_data.get("gstNumber"),
-                    "legalName": gst_data.get("legalName"),
-                    "tradeName": gst_data.get("tradeName"),
-                    "status": gst_data.get("status"),
-                    "registrationDate": gst_data.get("registration_date"),
-                    "cancellationDate": gst_data.get("cancelledDate"),
-                    "stateJurisdiction": gst_data.get("stateJurisdiction"),
-                    "centreJurisdiction": gst_data.get("centerJurisdiction"),
-                    "businessConstitution": gst_data.get("constitutionOfBusiness"),
-                    "type": gst_data.get("taxType"),
-                    "eInvoiceStatus": gst_data.get("eInvoiceStatus"),
-                    "principalAddress": principal_address,
-                    "additionalAddresses": gst_data.get("additionalAddress", []),
-                    "businessActivityNature": gst_data.get("natureOfBusinessActivity", []),
-                },
-                "error": None,
+        return templates.TemplateResponse("index.html", {
+            "request": request,
+            "data": {
+                "gstin": gst_data.get("gstNumber"),
+                "legalName": gst_data.get("legalName"),
+                "tradeName": gst_data.get("tradeName"),
+                "status": gst_data.get("status"),
+                "registrationDate": gst_data.get("registration_date"),
+                "cancellationDate": gst_data.get("cancelledDate"),
+                "stateJurisdiction": gst_data.get("stateJurisdiction"),
+                "centreJurisdiction": gst_data.get("centerJurisdiction"),
+                "businessConstitution": gst_data.get("constitutionOfBusiness"),
+                "type": gst_data.get("taxType"),
+                "eInvoiceStatus": gst_data.get("eInvoiceStatus"),
+                "principalAddress": principal_address,
+                "additionalAddresses": gst_data.get("additionalAddress", []),
+                "businessActivityNature": gst_data.get("natureOfBusinessActivity", [])
             },
-        )
+            "error": None
+        })
 
     except Exception as e:
-        print("Exception:", e)
-        return templates.TemplateResponse(
-            "index.html",
-            {"request": request, "error": "API call failed", "data": None},
-        )
+        print("Exception occurred:", str(e))
+        return templates.TemplateResponse("index.html", {
+            "request": request,
+            "error": f"API call failed: {str(e)}",
+            "data": None
+        })
+
