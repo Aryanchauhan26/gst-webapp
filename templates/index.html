@@ -105,27 +105,30 @@
                     </div>
                 </details>
             {% endfor %}
-        </div>
+                </div>
     {% else %}
         <p>No return data available.</p>
     {% endif %}
 </div>
 
-    <script>
-        const tabs = document.querySelectorAll(".tab");
-        const tabContents = document.querySelectorAll(".tab-content");
+{% endif %}  <!-- This closes the main {% if data %} block -->
 
-        tabs.forEach(tab => {
-            tab.addEventListener("click", () => {
-                tabs.forEach(t => t.classList.remove("active"));
-                tab.classList.add("active");
+<script>
+    const tabs = document.querySelectorAll(".tab");
+    const tabContents = document.querySelectorAll(".tab-content");
 
-                const target = tab.dataset.tab;
-                tabContents.forEach(tc => {
-                    tc.style.display = tc.id === target ? "block" : "none";
-                });
+    tabs.forEach(tab => {
+        tab.addEventListener("click", () => {
+            tabs.forEach(t => t.classList.remove("active"));
+            tab.classList.add("active");
+
+            const target = tab.dataset.tab;
+            tabContents.forEach(tc => {
+                tc.style.display = tc.id === target ? "block" : "none";
             });
         });
-    </script>
+    });
+</script>
 </body>
 </html>
+
