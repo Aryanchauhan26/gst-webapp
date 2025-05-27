@@ -51,12 +51,27 @@
             margin-bottom: 10px;
             color: #333;
         }
+        details.return-item {
+            margin-bottom: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 8px;
+            background: #fefefe;
+        }
+        details.return-item summary {
+            cursor: pointer;
+            font-weight: 600;
+            color: #007acc;
+        }
+        details.return-item summary:hover {
+            color: #005fa3;
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>GST Lookup & Rating</h1>
-        <form method="get" id="searchForm">
+        <form method="get" id="searchForm" style="margin-bottom: 1rem;">
             <input
                 type="text"
                 name="gstin"
@@ -73,62 +88,77 @@
         {% endif %}
 
         {% if data %}
-        <div style="margin-top: 2rem;">
-            <div class="tabs">
-                <div class="tab active" data-tab="details">Company Details</div>
-                <div class="tab" data-tab="returns">Return Filings</div>
-                <div class="tab" data-tab="rating">Company Rating</div>
-            </div>
-
-            <div class="tab-content" id="details">
-                {% for key, value in data.items() if key != 'returns' %}
-                    <div class="field-value">
-                        <span class="field-label">{{ key | replace("_", " ") | title }}:</span>
-                        <span>{{ value }}</span>
-                    </div>
-                {% endfor %}
-            </div>
-
-            <div id="returns" class="tab-content" style="display: none;">
-    {% if data.returns %}
-        <div class="returns-list">
-            {% for r in data.returns %}
-                <details class="return-item">
-                    <summary>
-                        📅 {{ r.returnPeriod or 'N/A' }} – {{ r.returnType or 'N/A' }}
-                    </summary>
-                    <div class="return-details">
-                        <p><strong>Return Period:</strong> {{ r.returnPeriod or 'N/A' }}</p>
-                        <p><strong>Return Type:</strong> {{ r.returnType or 'N/A' }}</p>
-                        <p><strong>Filing Status:</strong> {{ r.filingStatus or 'N/A' }}</p>
-                        <p><strong>Filing Date:</strong> {{ r.filingDate or 'N/A' }}</p>
-                    </div>
-                </details>
-            {% endfor %}
+            <div style="margin-top: 2rem;">
+                <div class="tabs">
+                    <div class="tab active" data-tab="details">Company Details</div>
+                    <div class="tab" data-tab="returns">Return Filings</div>
+                    <div class="tab" data-tab="rating">Company Rating</div>
                 </div>
-    {% else %}
-        <p>No return data available.</p>
-    {% endif %}
-</div>
 
-{% endif %}  <!-- This closes the main {% if data %} block -->
+                <!-- Company Details Tab -->
+                <div class="tab-content" id="details">
+                    {% for key, value in data.items() if key != 'returns' %}
+                        <div class="field-value">
+                            <span class="field-label">{{ key | replace("_", " ") | title }}:</span>
+                            <span>{{ value }}</span>
+                        </div>
+                    {% endfor %}
+                </div>
 
-<script>
-    const tabs = document.querySelectorAll(".tab");
-    const tabContents = document.querySelectorAll(".tab-content");
+                <!-- Return Filings Tab -->
+                <div id="returns" class="tab-content" style="display: none;">
+                    {% if data.returns %}
+                        <div class="returns-list">
+                            {% for r in data.returns %}
+                                <details class="return-item">
+                                    <summary>
+                                        📅 {{ r.returnPeriod or 'N/A' }} – {{ r.returnType or 'N/A' }}
+                                    </summary>
+                                    <div class="return-details">
+                                        <p><strong>Return Period:</strong> {{ r.returnPeriod or 'N/A' }}</p>
+                                        <p><strong>Return Type:</strong> {{ r.returnType or 'N/A' }}</p>
+                                        <p><strong>Filing Status:</strong> {{ r.filingStatus or 'N/A' }}</p>
+                                        <p><strong>Filing Date:</strong> {{ r.filingDate or 'N/A' }}</p>
+                                    </div>
+                                </details>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <p>No return data available.</p>
+                    {% endif %}
+                </div>
 
-    tabs.forEach(tab => {
-        tab.addEventListener("click", () => {
-            tabs.forEach(t => t.classList.remove("active"));
-            tab.classList.add("active");
+                <!-- Company Rating Tab -->
+                <div id="rating" class="tab-content" style="display: none;">
+                    {% if rating %}
+                        <p><strong>Company Rating Score:</strong> {{ rating.score }}</p>
+                        <p><strong>Rating Summary:</strong> {{ rating.summary }}</p>
+                        <p><strong>Remarks:</strong> {{ rating.remarks }}</p>
+                    {% else %}
+                        <p>Rating data not available.</p>
+                    {% endif %}
+                </div>
+            </div>
+        {% endif %}
+    </div>
 
-            const target = tab.dataset.tab;
-            tabContents.forEach(tc => {
-                tc.style.display = tc.id === target ? "block" : "none";
+    <script>
+        const tabs = document.querySelectorAll(".tab");
+        const tabContents = document.querySelectorAll(".tab-content");
+
+        tabs.forEach(tab => {
+            tab.addEventListener("click", () => {
+                tabs.forEach(t => t.classList.remove("active"));
+                tab.classList.add("active");
+
+                const target = tab.dataset.tab;
+                tabContents.forEach(tc => {
+                    tc.style.display = tc.id === target ? "block" : "none";
+                });
             });
         });
-    });
-</script>
+    </script>
 </body>
 </html>
+
 
