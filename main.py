@@ -42,6 +42,10 @@ async def home(request: Request, gstin: str = None):
                 res = response.json()
                 if res.get("success"):
                     data = res.get("data")
+                    # Filter returns: keep only those with a valid filingDate
+                    returns = data.get("returns", [])
+                    filtered_returns = [r for r in returns if r.get("filingDate")]
+                    data["returns"] = filtered_returns
                     context["data"] = data
                     context["rating"] = calculate_rating(data)
                 else:
@@ -49,4 +53,3 @@ async def home(request: Request, gstin: str = None):
             else:
                 context["error"] = f"Error: {response.status_code}"
     return templates.TemplateResponse("index.html", context)
-

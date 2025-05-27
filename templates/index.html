@@ -89,23 +89,33 @@
                 {% endfor %}
             </div>
 
-            <div class="tab-content" id="returns" style="display:none;">
-                {% if data.returns %}
-                    <div class="dropdown">
-                    {% for ret in data.returns %}
-                        <div class="field-value">
-                            <span class="field-label">Return Period:</span> {{ ret.returnPeriod }}<br />
-                            <span class="field-label">Return Type:</span> {{ ret.returnType }}<br />
-                            <span class="field-label">Filing Status:</span> {{ ret.filingStatus }}<br />
-                            <span class="field-label">Filing Date:</span> {{ ret.filingDate if ret.filingDate else 'N/A' }}
-                        </div>
-                        <hr />
-                    {% endfor %}
-                    </div>
-                {% else %}
-                    <p>No return filings data available.</p>
-                {% endif %}
+            <div id="returns" class="tab-content">
+  {% if data.returns %}
+    {% set valid_returns = data.returns | selectattr('returnPeriod', 'ne', 'N/A') | list %}
+    {% if valid_returns %}
+      <div class="returns-list">
+        {% for r in valid_returns %}
+          <details class="return-item">
+            <summary>
+              📅 {{ r.returnPeriod or 'No Period' }} – {{ r.returnType or 'Unknown Type' }}
+            </summary>
+            <div class="return-details">
+              <p><strong>Return Period:</strong> {{ r.returnPeriod or 'N/A' }}</p>
+              <p><strong>Return Type:</strong> {{ r.returnType or 'N/A' }}</p>
+              <p><strong>Filing Status:</strong> {{ r.filingStatus or 'N/A' }}</p>
+              <p><strong>Filing Date:</strong> {{ r.filingDate or 'N/A' }}</p>
             </div>
+          </details>
+        {% endfor %}
+      </div>
+    {% else %}
+      <p>No valid returns available.</p>
+    {% endif %}
+  {% else %}
+    <p>No return data available.</p>
+  {% endif %}
+</div>
+
 
             <div class="tab-content" id="rating" style="display:none;">
                 <h3>Company Rating</h3>
