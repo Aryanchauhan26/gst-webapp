@@ -1,94 +1,50 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <meta charset="UTF-8">
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>GST Lookup Web App</title>
-    <link rel="stylesheet" href="/static/style.css">
+    <link rel="stylesheet" href="/static/style.css" />
 </head>
 <body>
+    <h1>GST Lookup Web App</h1>
 
-<h1>GST Lookup Web App</h1>
+    <form method="post">
+        <input type="text" name="gstin" placeholder="Enter GSTIN" required />
+        <button type="submit">Search</button>
+    </form>
 
-<form method="post">
-    <label for="gstin">GST Number:</label>
-    <input type="text" id="gstin" name="gstin" placeholder="Enter GST Number" required>
-    <button type="submit">Search</button>
-</form>
+    {% if error %}
+        <p class="error">{{ error }}</p>
+    {% endif %}
 
-{% if error %}
-    <p class="error">{{ error }}</p>
-{% endif %}
-
-{% if data %}
-    <div class="card">
-        <h2>{{ data.legalName }}</h2>
-        <p><strong>Trade Name:</strong> {{ data.tradeName }}</p>
-        <p><strong>GSTIN:</strong> {{ data.gstin }}</p>
-        <p><strong>Status:</strong> {{ data.status }}</p>
-        <p><strong>Registration Date:</strong> {{ data.registrationDate }}</p>
-        {% if data.cancellationDate %}
-            <p><strong>Cancellation Date:</strong> {{ data.cancellationDate }}</p>
-        {% endif %}
-        <p><strong>GST Type:</strong> {{ data.type }}</p>
-        <p><strong>Business Constitution:</strong> {{ data.businessConstitution }}</p>
-        <p><strong>State Jurisdiction:</strong> {{ data.stateJurisdiction }}</p>
-        <p><strong>Centre Jurisdiction:</strong> {{ data.centreJurisdiction }}</p>
-        <p><strong>E-Invoice Status:</strong> {{ data.eInvoiceStatus }}</p>
+    {% if data %}
+        <h2>Return Filing Summary for {{ data.gstin }} ({{ data.financialYear }})</h2>
+        <table border="1" cellpadding="8">
+            <thead>
+                <tr>
+                    <th>Return Type</th>
+                    <th>Period</th>
+                    <th>Status</th>
+                    <th>Filed Date</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for r in data.returns %}
+                <tr>
+                    <td>{{ r.returnType }}</td>
+                    <td>{{ r.filingPeriod }}</td>
+                    <td>{{ r.filingStatus }}</td>
+                    <td>{{ r.lastFiledDate }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
 
         <form method="get" action="/rate">
             <input type="hidden" name="gstin" value="{{ data.gstin }}">
             <button type="submit">Rate Company</button>
         </form>
-    </div>
-
-    <div class="card section">
-        <h3>Principal Place of Business</h3>
-        <p>{{ data.principalAddress }}</p>
-    </div>
-
-    <div class="card section">
-        <h3>Additional Places of Business</h3>
-        {% if data.additionalAddresses %}
-            {% for addr in data.additionalAddresses %}
-                <div style="margin-bottom: 15px;">
-                    <p>
-                        {{ addr.address.door_num }}, {{ addr.address.building_name }},
-                        {{ addr.address.street }}, {{ addr.address.location }},
-                        {{ addr.address.district }}, {{ addr.address.state }},
-                        {{ addr.address.pin_code }}
-                    </p>
-                    <strong>Nature of Use:</strong>
-                    <ul>
-                        {% if addr.nature is string %}
-                            {% for nature in addr.nature.split(',') %}
-                                <li>{{ nature.strip() }}</li>
-                            {% endfor %}
-                        {% else %}
-                            {% for nature in addr.nature %}
-                                <li>{{ nature }}</li>
-                            {% endfor %}
-                        {% endif %}
-                    </ul>
-                </div>
-            {% endfor %}
-        {% else %}
-            <p>No additional places of business listed.</p>
-        {% endif %}
-    </div>
-
-    {% if data.businessActivityNature %}
-    <div class="card section">
-        <h3>Nature of Business Activities</h3>
-        <ul>
-            {% for activity in data.businessActivityNature %}
-                <li>{{ activity }}</li>
-            {% endfor %}
-        </ul>
-    </div>
     {% endif %}
-
-{% endif %}
-
 </body>
 </html>
-

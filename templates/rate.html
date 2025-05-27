@@ -4,13 +4,6 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Company Rating</title>
-
-    <!-- Favicon Links -->
-    <link rel="apple-touch-icon" sizes="180x180" href="/static/favicon_io/apple-touch-icon.png" />
-    <link rel="icon" type="image/png" sizes="32x32" href="/static/favicon_io/favicon-32x32.png" />
-    <link rel="icon" type="image/png" sizes="16x16" href="/static/favicon_io/favicon-16x16.png" />
-    <link rel="manifest" href="/static/favicon_io/site.webmanifest" />
-
     <link rel="stylesheet" href="/static/style.css" />
 </head>
 <body>
@@ -20,28 +13,13 @@
         <p class="error">{{ error }}</p>
     {% else %}
         <p><strong>Rating (out of 5):</strong> {{ rating }}</p>
-
-        <div class="card">
-            <p><strong>Status:</strong> {{ details.status }}</p>
-            <p><strong>E-Invoice Status:</strong> {{ details.eInvoiceStatus }}</p>
-            <p><strong>Number of Additional Addresses:</strong> {{ details.additionalAddresses }}</p>
-            {% if details.businessActivity %}
-                <p><strong>Business Activities:</strong></p>
-                <ul>
-                    {% for activity in details.businessActivity %}
-                        <li>{{ activity }}</li>
-                    {% endfor %}
-                </ul>
-            {% endif %}
-            {% if details.cancelledDate %}
-                <p><strong>Cancelled On:</strong> {{ details.cancelledDate }}</p>
-            {% endif %}
-        </div>
+        <p><strong>Returns Filed:</strong> {{ filed }} / {{ total }}</p>
+        <p><strong>Financial Year:</strong> {{ financialYear }}</p>
     {% endif %}
 
     <br />
     <a href="/">← Back to Search</a>
 </body>
 </html>
-s
+
 

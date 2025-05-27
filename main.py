@@ -10,10 +10,8 @@ app = FastAPI()
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 
-# New API details
-RAPIDAPI_KEY  = "08cbf9855dmsh5c8d8660645305cp1a8713jsn17eca3b207a5"
-NEW_API_HOST = "gst-return-filing-data.p.rapidapi.com"
-OLD_API_HOST = "gst-insights-api.p.rapidapi.com"
+RAPIDAPI_KEY = "08cbf9855dmsh5c8d8660645305cp1a8713jsn17eca3b207a5"
+API_HOST = "gst-return-filing-data.p.rapidapi.com"
 
 @app.get("/", response_class=HTMLResponse)
 def home(request: Request):
@@ -25,17 +23,17 @@ def fetch_gst_returns(request: Request, gstin: str = Form(...)):
     if len(gstin) != 15 or not gstin.isalnum():
         return templates.TemplateResponse("index.html", {
             "request": request,
-            "error": "❌ Invalid GST Number. Please enter a valid 15-character GSTIN in UPPERCASE.",
+            "error": "❌ Invalid GST Number. Please enter a valid 15-character GSTIN.",
             "data": None
         })
 
     current_year = datetime.now().year
-    financial_year = f"{current_year-1}-{str(current_year)[-2:]}"  # Example: 2024-25
+    financial_year = f"{current_year - 1}-{str(current_year)[-2:]}"  # Example: 2024-25
 
-    url = f"https://{NEW_API_HOST}/v1/gst-returns/{gstin}/{financial_year}"
+    url = f"https://{API_HOST}/v1/gst-returns/{gstin}/{financial_year}"
     headers = {
         "X-RapidAPI-Key": RAPIDAPI_KEY,
-        "X-RapidAPI-Host": NEW_API_HOST
+        "X-RapidAPI-Host": API_HOST
     }
 
     try:
@@ -49,13 +47,12 @@ def fetch_gst_returns(request: Request, gstin: str = Form(...)):
                 "data": None
             })
 
-        data = result["data"]
         return templates.TemplateResponse("index.html", {
             "request": request,
             "data": {
                 "gstin": gstin,
                 "financialYear": financial_year,
-                "returnSummary": data
+                "returns": result["data"]
             },
             "error": None
         })
@@ -69,55 +66,42 @@ def fetch_gst_returns(request: Request, gstin: str = Form(...)):
 
 @app.get("/rate", response_class=HTMLResponse)
 def rate_company(request: Request, gstin: str):
-    url = f"https://{OLD_API_HOST}/getGSTDetailsUsingGST/{gstin}"
+    current_year = datetime.now().year
+    financial_year = f"{current_year - 1}-{str(current_year)[-2:]}"
+    url = f"https://{API_HOST}/v1/gst-returns/{gstin}/{financial_year}"
     headers = {
         "X-RapidAPI-Key": RAPIDAPI_KEY,
-        "X-RapidAPI-Host": OLD_API_HOST
+        "X-RapidAPI-Host": API_HOST
     }
 
     try:
         response = requests.get(url, headers=headers)
         result = response.json()
+        filings = result.get("data", [])
 
-        if not result.get("data"):
+        if not filings:
             return templates.TemplateResponse("rate.html", {
                 "request": request,
-                "error": "Could not retrieve data for rating.",
+                "error": "No filing data found for rating.",
                 "rating": None
             })
 
-        data = result["data"]
-
-        score = 0
-        if data.get("status") == "Active":
-            score += 2
-        if data.get("eInvoiceStatus") == "Enabled":
-            score += 2
-        if data.get("natureOfBusinessActivity"):
-            score += 1
-        if len(data.get("additionalAddress", [])) > 0:
-            score += 1
-        if not data.get("cancelledDate"):
-            score += 2
-
-        rating_out_of_5 = round(score / 8 * 5, 1)
+        filed_returns = sum(1 for f in filings if f.get("filingStatus", "").lower() == "filed")
+        total_returns = len(filings)
+        score = (filed_returns / total_returns) * 5 if total_returns else 0
 
         return templates.TemplateResponse("rate.html", {
             "request": request,
-            "rating": rating_out_of_5,
-            "details": {
-                "status": data.get("status"),
-                "eInvoiceStatus": data.get("eInvoiceStatus"),
-                "businessActivity": data.get("natureOfBusinessActivity", []),
-                "additionalAddresses": len(data.get("additionalAddress", [])),
-                "cancelledDate": data.get("cancelledDate")
-            },
+            "rating": round(score, 1),
+            "filed": filed_returns,
+            "total": total_returns,
+            "financialYear": financial_year,
             "error": None
         })
 
     except Exception as e:
         return templates.TemplateResponse("rate.html", {
             "request": request,
-            "error": f"Error fetching data: {str(e)}",
+            "error": f"Rating fetch failed: {str(e)}",
             "rating": None
         })
