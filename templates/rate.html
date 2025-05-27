@@ -1,14 +1,23 @@
 <!DOCTYPE html>
 <html>
 <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Company Rating</title>
-    <link rel="stylesheet" href="/static/style.css">
+
+    <!-- Favicon Links -->
+    <link rel="apple-touch-icon" sizes="180x180" href="/static/favicon_io/apple-touch-icon.png" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/static/favicon_io/favicon-32x32.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/static/favicon_io/favicon-16x16.png" />
+    <link rel="manifest" href="/static/favicon_io/site.webmanifest" />
+
+    <link rel="stylesheet" href="/static/style.css" />
 </head>
 <body>
     <h1>Company Rating</h1>
 
     {% if error %}
-        <p style="color: red;">{{ error }}</p>
+        <p class="error">{{ error }}</p>
     {% else %}
         <p><strong>Rating (out of 5):</strong> {{ rating }}</p>
 
@@ -30,9 +39,9 @@
         </div>
     {% endif %}
 
-    <br>
+    <br />
     <a href="/">← Back to Search</a>
 </body>
 </html>
-
+s
 
