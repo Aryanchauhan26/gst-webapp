@@ -42,9 +42,9 @@ async def home(request: Request, gstin: str = None):
                 res = response.json()
                 if res.get("success"):
                     data = res.get("data")
-                    # Filter returns: keep only those with a valid filingDate
+                    # Filter returns: keep only those with valid filingDate
                     returns = data.get("returns", [])
-                    filtered_returns = [r for r in returns if r.get("filingDate")]
+                    filtered_returns = [r for r in returns if r.get("filingDate") and r.get("filingDate") != "N/A"]
                     data["returns"] = filtered_returns
                     context["data"] = data
                     context["rating"] = calculate_rating(data)
