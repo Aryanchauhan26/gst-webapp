@@ -1,17 +1,16 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>GST Lookup Web App</title>
-    <link rel="stylesheet" href="/static/style.css" />
+    <meta charset="UTF-8">
+    <title>GSTIN Lookup</title>
+    <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
-    <h1>GST Lookup Web App</h1>
-
+    <h1>GSTIN Lookup</h1>
     <form method="post">
-        <input type="text" name="gstin" placeholder="Enter GSTIN" required />
-        <button type="submit">Search</button>
+        <label for="gstin">Enter GSTIN:</label>
+        <input type="text" id="gstin" name="gstin" required>
+        <button type="submit">Fetch</button>
     </form>
 
     {% if error %}
@@ -19,32 +18,35 @@
     {% endif %}
 
     {% if data %}
-        <h2>Return Filing Summary for {{ data.gstin }} ({{ data.financialYear }})</h2>
-        <table border="1" cellpadding="8">
-            <thead>
-                <tr>
-                    <th>Return Type</th>
-                    <th>Period</th>
-                    <th>Status</th>
-                    <th>Filed Date</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for r in data.returns %}
-                <tr>
-                    <td>{{ r.returnType }}</td>
-                    <td>{{ r.filingPeriod }}</td>
-                    <td>{{ r.filingStatus }}</td>
-                    <td>{{ r.lastFiledDate }}</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+    <div class="card">
+        <h2>{{ data.tradeName }} ({{ data.gstin }})</h2>
+        <p><strong>Legal Name:</strong> {{ data.lgnm }}</p>
+        <p><strong>Company Type:</strong> {{ data.ctb }}</p>
+        <p><strong>GST Status:</strong> {{ data.sts }}</p>
+        <p><strong>Company Category:</strong> {{ data.compCategory }}</p>
+        <p><strong>Nature of Business:</strong> {{ data.nba | join(', ') }}</p>
+        <p><strong>Date of Registration:</strong> {{ data.rgdt }}</p>
+        <p><strong>Address:</strong> {{ data.adr }}</p>
+        <p><strong>Jurisdiction (Central):</strong> {{ data.ctj }}</p>
+        <p><strong>Jurisdiction (State):</strong> {{ data.stj }}</p>
+        <p><strong>HSN Codes:</strong> {{ data.hsn | join(', ') }}</p>
+        <p><strong>E-Invoice Mandated:</strong> {{ data.mandatedeInvoice }}</p>
+        <p><strong>E-Invoice Status:</strong> {{ data.einvoiceStatus }}</p>
 
-        <form method="get" action="/rate">
+        <div class="section">
+            <h3>GST Returns Filed:</h3>
+            <select>
+                {% for ret in data.returns %}
+                    <option>{{ ret.rtntype }} - {{ ret.taxp }} {{ ret.fy }} (Filed: {{ ret.dof }})</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <form action="/rate" method="post" style="margin-top: 20px;">
             <input type="hidden" name="gstin" value="{{ data.gstin }}">
-            <button type="submit">Rate Company</button>
+            <button type="submit">Rate This Company</button>
         </form>
+    </div>
     {% endif %}
 </body>
 </html>

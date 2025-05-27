@@ -1,25 +1,22 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta charset="UTF-8">
     <title>Company Rating</title>
-    <link rel="stylesheet" href="/static/style.css" />
+    <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
     <h1>Company Rating</h1>
-
     {% if error %}
         <p class="error">{{ error }}</p>
     {% else %}
-        <p><strong>Rating (out of 5):</strong> {{ rating }}</p>
-        <p><strong>Returns Filed:</strong> {{ filed }} / {{ total }}</p>
-        <p><strong>Financial Year:</strong> {{ financialYear }}</p>
+        <div class="card">
+            <p><strong>GSTIN:</strong> {{ gstin }}</p>
+            <p><strong>Company:</strong> {{ company }}</p>
+            <p><strong>Status:</strong> {{ status }}</p>
+            <p><strong>Returns Filed:</strong> {{ returns_filed }}</p>
+            <p><strong>Compliance Rating:</strong> <strong>{{ rating }}</strong></p>
+        </div>
     {% endif %}
-
-    <br />
-    <a href="/">← Back to Search</a>
 </body>
 </html>
-
-

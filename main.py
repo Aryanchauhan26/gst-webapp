@@ -1,107 +1,103 @@
 from fastapi import FastAPI, Request, Form
 from fastapi.responses import HTMLResponse
-from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-import requests
-from datetime import datetime
+from fastapi.staticfiles import StaticFiles
+import httpx
 
 app = FastAPI()
-
-app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
 RAPIDAPI_KEY = "08cbf9855dmsh5c8d8660645305cp1a8713jsn17eca3b207a5"
-API_HOST = "gst-return-filing-data.p.rapidapi.com"
+RAPIDAPI_HOST = "gst-return-status.p.rapidapi.com"
+BASE_URL = "https://gst-return-status.p.rapidapi.com/free/gstin/"
 
 @app.get("/", response_class=HTMLResponse)
-def home(request: Request):
+def index(request: Request):
     return templates.TemplateResponse("index.html", {"request": request, "data": None, "error": None})
 
 @app.post("/", response_class=HTMLResponse)
-def fetch_gst_returns(request: Request, gstin: str = Form(...)):
-    gstin = gstin.strip().upper()
-    if len(gstin) != 15 or not gstin.isalnum():
-        return templates.TemplateResponse("index.html", {
-            "request": request,
-            "error": "❌ Invalid GST Number. Please enter a valid 15-character GSTIN.",
-            "data": None
-        })
+async def fetch_gst_data(request: Request, gstin: str = Form(...)):
+    gstin = gstin.upper()
+    url = f"{BASE_URL}{gstin}"
 
-    current_year = datetime.now().year
-    financial_year = f"{current_year - 1}-{str(current_year)[-2:]}"  # Example: 2024-25
-
-    url = f"https://{API_HOST}/v1/gst-returns/{gstin}/{financial_year}"
     headers = {
-        "X-RapidAPI-Key": RAPIDAPI_KEY,
-        "X-RapidAPI-Host": API_HOST
+        "x-rapidapi-key": RAPIDAPI_KEY,
+        "x-rapidapi-host": RAPIDAPI_HOST,
+        "Content-Type": "application/json"
     }
 
     try:
-        response = requests.get(url, headers=headers)
-        result = response.json()
-
-        if not result.get("data"):
-            return templates.TemplateResponse("index.html", {
-                "request": request,
-                "error": result.get("message", "GST return data not found."),
-                "data": None
-            })
-
-        return templates.TemplateResponse("index.html", {
-            "request": request,
-            "data": {
-                "gstin": gstin,
-                "financialYear": financial_year,
-                "returns": result["data"]
-            },
-            "error": None
-        })
-
+        async with httpx.AsyncClient() as client:
+            response = await client.get(url, headers=headers)
+            result = response.json()
+            if result.get("success"):
+                return templates.TemplateResponse("index.html", {
+                    "request": request,
+                    "data": result["data"],
+                    "error": None
+                })
+            else:
+                return templates.TemplateResponse("index.html", {
+                    "request": request,
+                    "data": None,
+                    "error": "No data found for this GSTIN."
+                })
     except Exception as e:
         return templates.TemplateResponse("index.html", {
             "request": request,
-            "error": f"API call failed: {str(e)}",
-            "data": None
+            "data": None,
+            "error": f"Error: {str(e)}"
         })
 
-@app.get("/rate", response_class=HTMLResponse)
-def rate_company(request: Request, gstin: str):
-    current_year = datetime.now().year
-    financial_year = f"{current_year - 1}-{str(current_year)[-2:]}"
-    url = f"https://{API_HOST}/v1/gst-returns/{gstin}/{financial_year}"
+@app.post("/rate", response_class=HTMLResponse)
+async def rate_company(request: Request, gstin: str = Form(...)):
+    gstin = gstin.upper()
+    url = f"{BASE_URL}{gstin}"
+
     headers = {
-        "X-RapidAPI-Key": RAPIDAPI_KEY,
-        "X-RapidAPI-Host": API_HOST
+        "x-rapidapi-key": RAPIDAPI_KEY,
+        "x-rapidapi-host": RAPIDAPI_HOST,
+        "Content-Type": "application/json"
     }
 
     try:
-        response = requests.get(url, headers=headers)
-        result = response.json()
-        filings = result.get("data", [])
+        async with httpx.AsyncClient() as client:
+            response = await client.get(url, headers=headers)
+            result = response.json()
 
-        if not filings:
-            return templates.TemplateResponse("rate.html", {
-                "request": request,
-                "error": "No filing data found for rating.",
-                "rating": None
-            })
+        if not result.get("success"):
+            raise ValueError("No data found for this GSTIN.")
 
-        filed_returns = sum(1 for f in filings if f.get("filingStatus", "").lower() == "filed")
-        total_returns = len(filings)
-        score = (filed_returns / total_returns) * 5 if total_returns else 0
+        data = result["data"]
+        returns = data.get("returns", [])
+
+        on_time_count = len(returns)
+        status = data.get("sts", "").lower()
+        category = data.get("compCategory", "")
+
+        # Rating logic
+        if status == "active" and on_time_count >= 18:
+            rating = "A+ (Excellent Compliance)"
+        elif status == "active" and on_time_count >= 12:
+            rating = "A (Good Compliance)"
+        elif status == "active":
+            rating = "B (Moderate Compliance)"
+        else:
+            rating = "C (Inactive or Poor Compliance)"
 
         return templates.TemplateResponse("rate.html", {
             "request": request,
-            "rating": round(score, 1),
-            "filed": filed_returns,
-            "total": total_returns,
-            "financialYear": financial_year,
-            "error": None
+            "gstin": gstin,
+            "company": data.get("lgnm"),
+            "status": status.title(),
+            "returns_filed": on_time_count,
+            "rating": rating
         })
 
     except Exception as e:
         return templates.TemplateResponse("rate.html", {
             "request": request,
-            "error": f"Rating fetch failed: {str(e)}",
-            "rating": None
+            "gstin": gstin,
+            "error": f"Error: {str(e)}"
         })
