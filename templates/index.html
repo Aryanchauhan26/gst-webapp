@@ -1,52 +1,141 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <title>GSTIN Lookup</title>
-    <link rel="stylesheet" href="/static/style.css">
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>GST Lookup & Rating</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+    <style>
+        /* Inline overrides for tabs */
+        .tabs {
+            display: flex;
+            border-bottom: 2px solid #007acc;
+            margin-bottom: 1rem;
+        }
+        .tab {
+            padding: 10px 20px;
+            cursor: pointer;
+            border: 1px solid #007acc;
+            border-bottom: none;
+            background: #eee;
+            margin-right: 5px;
+            border-radius: 5px 5px 0 0;
+            font-weight: 600;
+            color: #333;
+            user-select: none;
+        }
+        .tab.active {
+            background: white;
+            color: #007acc;
+            font-weight: 700;
+        }
+        .tab-content {
+            border: 1px solid #007acc;
+            border-radius: 0 5px 5px 5px;
+            padding: 1rem;
+            background: white;
+        }
+        .dropdown {
+            max-height: 200px;
+            overflow-y: auto;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            padding: 8px;
+            background: #f9f9f9;
+        }
+        .field-label {
+            font-weight: 700;
+            color: #007acc;
+        }
+        .field-value {
+            margin-bottom: 10px;
+            color: #333;
+        }
+    </style>
 </head>
 <body>
-    <h1>GSTIN Lookup</h1>
-    <form method="post">
-        <label for="gstin">Enter GSTIN:</label>
-        <input type="text" id="gstin" name="gstin" required>
-        <button type="submit">Fetch</button>
-    </form>
-
-    {% if error %}
-        <p class="error">{{ error }}</p>
-    {% endif %}
-
-    {% if data %}
-    <div class="card">
-        <h2>{{ data.tradeName }} ({{ data.gstin }})</h2>
-        <p><strong>Legal Name:</strong> {{ data.lgnm }}</p>
-        <p><strong>Company Type:</strong> {{ data.ctb }}</p>
-        <p><strong>GST Status:</strong> {{ data.sts }}</p>
-        <p><strong>Company Category:</strong> {{ data.compCategory }}</p>
-        <p><strong>Nature of Business:</strong> {{ data.nba | join(', ') }}</p>
-        <p><strong>Date of Registration:</strong> {{ data.rgdt }}</p>
-        <p><strong>Address:</strong> {{ data.adr }}</p>
-        <p><strong>Jurisdiction (Central):</strong> {{ data.ctj }}</p>
-        <p><strong>Jurisdiction (State):</strong> {{ data.stj }}</p>
-        <p><strong>HSN Codes:</strong> {{ data.hsn | join(', ') }}</p>
-        <p><strong>E-Invoice Mandated:</strong> {{ data.mandatedeInvoice }}</p>
-        <p><strong>E-Invoice Status:</strong> {{ data.einvoiceStatus }}</p>
-
-        <div class="section">
-            <h3>GST Returns Filed:</h3>
-            <select>
-                {% for ret in data.returns %}
-                    <option>{{ ret.rtntype }} - {{ ret.taxp }} {{ ret.fy }} (Filed: {{ ret.dof }})</option>
-                {% endfor %}
-            </select>
-        </div>
-
-        <form action="/rate" method="post" style="margin-top: 20px;">
-            <input type="hidden" name="gstin" value="{{ data.gstin }}">
-            <button type="submit">Rate This Company</button>
+    <div class="container">
+        <h1>GST Lookup & Rating</h1>
+        <form method="get" id="searchForm">
+            <input
+                type="text"
+                name="gstin"
+                placeholder="Enter GSTIN"
+                value="{{ request.query_params.get('gstin', '') }}"
+                required
+                style="padding: 8px; width: 300px; font-size: 1rem;"
+            />
+            <button type="submit" style="padding: 8px 15px; font-size: 1rem; background-color:#007acc; color:#fff; border:none; border-radius:4px;">Search</button>
         </form>
+
+        {% if error %}
+            <p style="color: red; margin-top: 1rem;">{{ error }}</p>
+        {% endif %}
+
+        {% if data %}
+        <div style="margin-top: 2rem;">
+            <div class="tabs">
+                <div class="tab active" data-tab="details">Company Details</div>
+                <div class="tab" data-tab="returns">Return Filings</div>
+                <div class="tab" data-tab="rating">Company Rating</div>
+            </div>
+
+            <div class="tab-content" id="details">
+                {% for key, value in data.items() if key != 'returns' %}
+                    <div class="field-value">
+                        <span class="field-label">{{ key | replace("_", " ") | title }}:</span>
+                        <span>{{ value }}</span>
+                    </div>
+                {% endfor %}
+            </div>
+
+            <div class="tab-content" id="returns" style="display:none;">
+                {% if data.returns %}
+                    <div class="dropdown">
+                    {% for ret in data.returns %}
+                        <div class="field-value">
+                            <span class="field-label">Return Period:</span> {{ ret.returnPeriod }}<br />
+                            <span class="field-label">Return Type:</span> {{ ret.returnType }}<br />
+                            <span class="field-label">Filing Status:</span> {{ ret.filingStatus }}<br />
+                            <span class="field-label">Filing Date:</span> {{ ret.filingDate if ret.filingDate else 'N/A' }}
+                        </div>
+                        <hr />
+                    {% endfor %}
+                    </div>
+                {% else %}
+                    <p>No return filings data available.</p>
+                {% endif %}
+            </div>
+
+            <div class="tab-content" id="rating" style="display:none;">
+                <h3>Company Rating</h3>
+                <p style="font-size: 1.5rem; font-weight: 700; color:#007acc;">{{ rating }}/6</p>
+                <ul>
+                    <li>Status Active: {{ 'Yes' if data.sts == 'Active' else 'No' }}</li>
+                    <li>E-Invoice Enabled: {{ 'Yes' if data.einvoiceStatus == 'Yes' else 'No' }}</li>
+                    <li>Returns Filed: {{ data.returns | length }}</li>
+                    <li>Company Category Green: {{ 'Yes' if data.compCategory == 'Green' else 'No' }}</li>
+                </ul>
+            </div>
+        </div>
+        {% endif %}
     </div>
-    {% endif %}
+
+    <script>
+        const tabs = document.querySelectorAll(".tab");
+        const tabContents = document.querySelectorAll(".tab-content");
+
+        tabs.forEach(tab => {
+            tab.addEventListener("click", () => {
+                tabs.forEach(t => t.classList.remove("active"));
+                tab.classList.add("active");
+
+                const target = tab.dataset.tab;
+                tabContents.forEach(tc => {
+                    tc.style.display = tc.id === target ? "block" : "none";
+                });
+            });
+        });
+    </script>
 </body>
 </html>
