@@ -89,26 +89,26 @@
                 {% endfor %}
             </div>
 
-            <div id="returns" class="tab-content">
-  {% if data.returns %}
-    <div class="returns-list">
-      {% for r in data.returns %}
-        <details class="return-item">
-          <summary>
-            📅 {{ r.returnPeriod or 'Unknown Period' }} – {{ r.returnType or 'Unknown Type' }}
-          </summary>
-          <div class="return-details">
-            <p><strong>Return Period:</strong> {{ r.returnPeriod or 'N/A' }}</p>
-            <p><strong>Return Type:</strong> {{ r.returnType or 'N/A' }}</p>
-            <p><strong>Filing Status:</strong> {{ r.filingStatus or 'N/A' }}</p>
-            <p><strong>Filing Date:</strong> {{ r.filingDate or 'N/A' }}</p>
-          </div>
-        </details>
-      {% endfor %}
-    </div>
-  {% else %}
-    <p>No return data available.</p>
-  {% endif %}
+            <div id="returns" class="tab-content" style="display: none;">
+    {% if data.returns %}
+        <div class="returns-list">
+            {% for r in data.returns %}
+                <details class="return-item">
+                    <summary>
+                        📅 {{ r.returnPeriod or 'N/A' }} – {{ r.returnType or 'N/A' }}
+                    </summary>
+                    <div class="return-details">
+                        <p><strong>Return Period:</strong> {{ r.returnPeriod or 'N/A' }}</p>
+                        <p><strong>Return Type:</strong> {{ r.returnType or 'N/A' }}</p>
+                        <p><strong>Filing Status:</strong> {{ r.filingStatus or 'N/A' }}</p>
+                        <p><strong>Filing Date:</strong> {{ r.filingDate or 'N/A' }}</p>
+                    </div>
+                </details>
+            {% endfor %}
+        </div>
+    {% else %}
+        <p>No return data available.</p>
+    {% endif %}
 </div>
 
     <script>

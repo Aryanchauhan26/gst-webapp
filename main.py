@@ -44,7 +44,7 @@ async def home(request: Request, gstin: str = None):
                     data = res.get("data")
                     # Filter returns: keep only those with valid filingDate
                     returns = data.get("returns", [])
-                    data["returns"] = returns
+                    data["returns"] = data.get("returns",[])
                     context["data"] = data
                     context["rating"] = calculate_rating(data)
                 else:
