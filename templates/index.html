@@ -91,53 +91,25 @@
 
             <div id="returns" class="tab-content">
   {% if data.returns %}
-    {% set valid_returns = [] %}
-    {% for r in data.returns %}
-      {% if r.returnPeriod and r.returnPeriod != 'N/A' and
-            r.returnType and r.returnType != 'N/A' and
-            r.filingStatus and r.filingStatus != 'N/A' and
-            r.filingDate and r.filingDate != 'N/A' %}
-        {% set _ = valid_returns.append(r) %}
-      {% endif %}
-    {% endfor %}
-
-    {% if valid_returns %}
-      <div class="returns-list">
-        {% for r in valid_returns %}
-          <details class="return-item">
-            <summary>
-              📅 {{ r.returnPeriod }} – {{ r.returnType }}
-            </summary>
-            <div class="return-details">
-              <p><strong>Return Period:</strong> {{ r.returnPeriod }}</p>
-              <p><strong>Return Type:</strong> {{ r.returnType }}</p>
-              <p><strong>Filing Status:</strong> {{ r.filingStatus }}</p>
-              <p><strong>Filing Date:</strong> {{ r.filingDate }}</p>
-            </div>
-          </details>
-        {% endfor %}
-      </div>
-    {% else %}
-      <p>No valid return filings found.</p>
-    {% endif %}
+    <div class="returns-list">
+      {% for r in data.returns %}
+        <details class="return-item">
+          <summary>
+            📅 {{ r.returnPeriod or 'Unknown Period' }} – {{ r.returnType or 'Unknown Type' }}
+          </summary>
+          <div class="return-details">
+            <p><strong>Return Period:</strong> {{ r.returnPeriod or 'N/A' }}</p>
+            <p><strong>Return Type:</strong> {{ r.returnType or 'N/A' }}</p>
+            <p><strong>Filing Status:</strong> {{ r.filingStatus or 'N/A' }}</p>
+            <p><strong>Filing Date:</strong> {{ r.filingDate or 'N/A' }}</p>
+          </div>
+        </details>
+      {% endfor %}
+    </div>
   {% else %}
     <p>No return data available.</p>
   {% endif %}
 </div>
-
-            <div class="tab-content" id="rating" style="display:none;">
-                <h3>Company Rating</h3>
-                <p style="font-size: 1.5rem; font-weight: 700; color:#007acc;">{{ rating }}/6</p>
-                <ul>
-                    <li>Status Active: {{ 'Yes' if data.sts == 'Active' else 'No' }}</li>
-                    <li>E-Invoice Enabled: {{ 'Yes' if data.einvoiceStatus == 'Yes' else 'No' }}</li>
-                    <li>Returns Filed: {{ data.returns | length }}</li>
-                    <li>Company Category Green: {{ 'Yes' if data.compCategory == 'Green' else 'No' }}</li>
-                </ul>
-            </div>
-        </div>
-        {% endif %}
-    </div>
 
     <script>
         const tabs = document.querySelectorAll(".tab");
