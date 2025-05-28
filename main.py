@@ -8,6 +8,12 @@ from datetime import datetime
 import pandas as pd
 from io import BytesIO
 import urllib.parse
+from reportlab.lib import colors
+from reportlab.lib.pagesizes import letter, A4
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.units import inch
+from reportlab.lib.enums import TA_CENTER, TA_LEFT
 
 app = FastAPI()
 
@@ -115,8 +121,6 @@ async def post_index(request: Request, gstin: str = Form(...)):
 @app.post("/download/pdf")
 async def download_pdf(gstin: str = Form(...)):
     """Generate and download PDF report"""
-    # For this example, I'll create a simple text-based report
-    # In production, you'd want to use a proper PDF library like ReportLab
     
     url = f"https://gst-return-status.p.rapidapi.com/free/gstin/{gstin}"
     headers = {
@@ -130,55 +134,139 @@ async def download_pdf(gstin: str = Form(...)):
         json_data = response.json()
         data = json_data.get("data", {})
         
-        # Create a simple text report
-        report = f"""
-GST RETURN STATUS REPORT
-========================
-Generated on: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
-
-COMPANY INFORMATION
-------------------
-Legal Name: {data.get('lgnm', 'N/A')}
-Trade Name: {data.get('tradeName', 'N/A')}
-GSTIN: {data.get('gstin', 'N/A')}
-Status: {data.get('sts', 'N/A')}
-Registration Date: {data.get('rgdt', 'N/A')}
-Company Type: {data.get('ctb', 'N/A')}
-Address: {data.get('adr', 'N/A')}
-
-COMPLIANCE SUMMARY
------------------
-"""
+        # Create PDF in memory
+        buffer = BytesIO()
+        doc = SimpleDocTemplate(buffer, pagesize=A4)
+        styles = getSampleStyleSheet()
+        story = []
         
+        # Custom styles
+        title_style = ParagraphStyle(
+            'CustomTitle',
+            parent=styles['Heading1'],
+            fontSize=24,
+            spaceAfter=30,
+            alignment=TA_CENTER,
+            textColor=colors.darkblue
+        )
+        
+        heading_style = ParagraphStyle(
+            'CustomHeading',
+            parent=styles['Heading2'],
+            fontSize=16,
+            spaceAfter=12,
+            textColor=colors.darkblue
+        )
+        
+        # Title
+        story.append(Paragraph("GST RETURN STATUS REPORT", title_style))
+        story.append(Spacer(1, 20))
+        
+        # Generated date
+        story.append(Paragraph(f"Generated on: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", styles['Normal']))
+        story.append(Spacer(1, 20))
+        
+        # Company Information Section
+        story.append(Paragraph("COMPANY INFORMATION", heading_style))
+        
+        company_data = [
+            ['Legal Name:', data.get('lgnm', 'N/A')],
+            ['Trade Name:', data.get('tradeName', 'N/A')],
+            ['GSTIN:', data.get('gstin', 'N/A')],
+            ['Status:', data.get('sts', 'N/A')],
+            ['Registration Date:', data.get('rgdt', 'N/A')],
+            ['Company Type:', data.get('ctb', 'N/A')],
+            ['Address:', data.get('adr', 'N/A')[:100] + '...' if data.get('adr') and len(data.get('adr', '')) > 100 else data.get('adr', 'N/A')]
+        ]
+        
+        company_table = Table(company_data, colWidths=[2*inch, 4*inch])
+        company_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (0, -1), colors.lightgrey),
+            ('TEXTCOLOR', (0, 0), (-1, -1), colors.black),
+            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+            ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, -1), 10),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+            ('BACKGROUND', (1, 0), (1, -1), colors.beige),
+            ('GRID', (0, 0), (-1, -1), 1, colors.black)
+        ]))
+        
+        story.append(company_table)
+        story.append(Spacer(1, 20))
+        
+        # Compliance Summary
         compliance = calculate_compliance_score(data)
-        report += f"""
-Compliance Score: {compliance['score']}%
-Grade: {compliance['grade']}
-Status: {compliance['status']}
-Total Returns: {compliance['total_returns']}
-Filed Returns: {compliance['filed_returns']}
-
-FILING HISTORY
---------------
-"""
+        story.append(Paragraph("COMPLIANCE SUMMARY", heading_style))
+        
+        compliance_data = [
+            ['Compliance Score:', f"{compliance['score']}%"],
+            ['Grade:', compliance['grade']],
+            ['Status:', compliance['status']],
+            ['Total Returns:', str(compliance['total_returns'])],
+            ['Filed Returns:', str(compliance['filed_returns'])]
+        ]
+        
+        compliance_table = Table(compliance_data, colWidths=[2*inch, 4*inch])
+        compliance_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (0, -1), colors.lightblue),
+            ('TEXTCOLOR', (0, 0), (-1, -1), colors.black),
+            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+            ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, -1), 10),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+            ('BACKGROUND', (1, 0), (1, -1), colors.lightcyan),
+            ('GRID', (0, 0), (-1, -1), 1, colors.black)
+        ]))
+        
+        story.append(compliance_table)
+        story.append(Spacer(1, 20))
+        
+        # Filing History
+        story.append(Paragraph("FILING HISTORY", heading_style))
         
         if data.get('returns'):
-            for ret in data['returns']:
+            filing_data = [['Return Type', 'Tax Period', 'Financial Year', 'Status', 'Date Filed']]
+            
+            for ret in data['returns'][:20]:  # Limit to first 20 returns to avoid overflow
                 if ret.get('rtntype') and ret.get('taxp'):
-                    filed_status = "✓ Filed" if ret.get('dof') else "✗ Not Filed"
-                    report += f"{ret['rtntype']} - {ret['taxp']} {ret.get('fy', '')} - {filed_status}\n"
+                    filed_status = "Filed" if ret.get('dof') else "Not Filed"
+                    filing_data.append([
+                        ret.get('rtntype', 'N/A'),
+                        ret.get('taxp', 'N/A'),
+                        ret.get('fy', 'N/A'),
+                        filed_status,
+                        ret.get('dof', 'N/A')
+                    ])
+            
+            filing_table = Table(filing_data, colWidths=[1.2*inch, 1.2*inch, 1*inch, 1*inch, 1.6*inch])
+            filing_table.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, -1), 8),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+                ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+                ('GRID', (0, 0), (-1, -1), 1, colors.black),
+                ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+            ]))
+            
+            story.append(filing_table)
         else:
-            report += "No filing history available.\n"
+            story.append(Paragraph("No filing history available.", styles['Normal']))
         
-        # Return as downloadable text file (you can enhance this to actual PDF)
+        # Build PDF
+        doc.build(story)
+        buffer.seek(0)
+        
         return Response(
-            content=report,
-            media_type="text/plain",
-            headers={"Content-Disposition": f"attachment; filename=GST_Report_{gstin}.txt"}
+            content=buffer.getvalue(),
+            media_type="application/pdf",
+            headers={"Content-Disposition": f"attachment; filename=GST_Report_{gstin}.pdf"}
         )
         
     except Exception as e:
-        return Response(content=f"Error generating report: {str(e)}", status_code=500)
+        return Response(content=f"Error generating PDF report: {str(e)}", status_code=500)
 
 @app.post("/download/excel")
 async def download_excel(gstin: str = Form(...)):
@@ -213,12 +301,17 @@ async def download_excel(gstin: str = Form(...)):
                     data.get('adr', 'N/A')
                 ]
             }
-            pd.DataFrame(company_info).to_excel(writer, sheet_name='Company Info', index=False)
+            company_df = pd.DataFrame(company_info)
+            company_df.to_excel(writer, sheet_name='Company Info', index=False)
             
             # Returns History Sheet
             if data.get('returns'):
                 returns_df = pd.DataFrame(data['returns'])
                 returns_df.to_excel(writer, sheet_name='Filing History', index=False)
+            else:
+                # Create empty sheet with headers
+                empty_df = pd.DataFrame(columns=['rtntype', 'taxp', 'fy', 'dof', 'status'])
+                empty_df.to_excel(writer, sheet_name='Filing History', index=False)
             
             # Compliance Summary Sheet
             compliance = calculate_compliance_score(data)
@@ -227,7 +320,40 @@ async def download_excel(gstin: str = Form(...)):
                 'Value': [compliance['score'], compliance['grade'], compliance['status'], 
                          compliance['total_returns'], compliance['filed_returns']]
             }
-            pd.DataFrame(compliance_info).to_excel(writer, sheet_name='Compliance Summary', index=False)
+            compliance_df = pd.DataFrame(compliance_info)
+            compliance_df.to_excel(writer, sheet_name='Compliance Summary', index=False)
+            
+            # Format the Excel file
+            workbook = writer.book
+            
+            # Format Company Info sheet
+            company_sheet = writer.sheets['Company Info']
+            for column in company_sheet.columns:
+                max_length = 0
+                column_letter = column[0].column_letter
+                for cell in column:
+                    try:
+                        if len(str(cell.value)) > max_length:
+                            max_length = len(str(cell.value))
+                    except:
+                        pass
+                adjusted_width = min(max_length + 2, 50)
+                company_sheet.column_dimensions[column_letter].width = adjusted_width
+            
+            # Format Filing History sheet if it exists
+            if 'Filing History' in writer.sheets:
+                filing_sheet = writer.sheets['Filing History']
+                for column in filing_sheet.columns:
+                    max_length = 0
+                    column_letter = column[0].column_letter
+                    for cell in column:
+                        try:
+                            if len(str(cell.value)) > max_length:
+                                max_length = len(str(cell.value))
+                        except:
+                            pass
+                    adjusted_width = min(max_length + 2, 30)
+                    filing_sheet.column_dimensions[column_letter].width = adjusted_width
         
         output.seek(0)
         
