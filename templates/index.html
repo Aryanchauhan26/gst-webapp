@@ -193,10 +193,10 @@
                                 </h4>
                                 <div class="returns-grid">
                                     {% for ret in returns %}
-                                        {% if ret.rtntype and ret.taxp %}
+                                        {% if (ret.rtype or ret.rtntype) and ret.taxp %}
                                             <div class="return-card {% if ret.dof %}filed{% else %}pending{% endif %}">
                                                 <div class="return-header">
-                                                    <span class="return-type">{{ ret.rtntype }}</span>
+                                                    <span class="return-type">{{ ret.rtype or ret.rtntype }}</span>
                                                     <span class="return-status">
                                                         {% if ret.dof %}
                                                             <i class="fas fa-check-circle text-success"></i> Filed
