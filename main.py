@@ -1,5 +1,5 @@
 from fastapi import FastAPI, Request, Form, HTTPException
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
@@ -214,60 +214,82 @@ except ImportError:
     logger.warning("ReportLab not available - PDF generation will be limited")
 
 def calculate_enhanced_compliance_score(data: Dict) -> Dict:
-    try:
-        # Use 'returns' instead of 'filedreturns'
-        returns = data.get('returns', [])
-        if not returns:
-            return {
-                'score': 0,
-                'grade': 'N/A',
-                'status': 'No Returns Found',
-                'total_returns': 0,
-                'filed_returns': 0,
-                'pending_returns': 0,
-                'details': 'No return filing history available'
-            }
-        filed_count = sum(1 for ret in returns if ret.get('dof'))
-        total_count = len(returns)
-        score = round((filed_count / total_count) * 100, 1) if total_count else 0
-        if score >= 95:
-            grade = 'A+'
-        elif score >= 85:
-            grade = 'A'
-        elif score >= 75:
-            grade = 'B'
-        elif score >= 60:
-            grade = 'C'
-        else:
-            grade = 'D'
-        if score >= 90:
-            status = 'Excellent Compliance'
-        elif score >= 75:
-            status = 'Good Compliance'
-        elif score >= 60:
-            status = 'Fair Compliance'
-        else:
-            status = 'Poor Compliance'
-        return {
-            'score': score,
-            'grade': grade,
-            'status': status,
-            'total_returns': total_count,
-            'filed_returns': filed_count,
-            'pending_returns': total_count - filed_count,
-            'details': f'Filed {filed_count} out of {total_count} returns'
-        }
-    except Exception as e:
-        error_tracker.log_error("COMPLIANCE_CALCULATION", str(e), {"data_keys": list(data.keys())})
+    returns = data.get('returns', [])
+    if not returns:
         return {
             'score': 0,
-            'grade': 'Error',
-            'status': 'Calculation Error',
+            'grade': 'N/A',
+            'status': 'No Returns Found',
             'total_returns': 0,
             'filed_returns': 0,
             'pending_returns': 0,
-            'details': 'Error calculating compliance score'
+            'late_returns': 0,
+            'details': 'No return filing history available'
         }
+    filed_count = 0
+    late_count = 0
+    total_count = len(returns)
+    for ret in returns:
+        dof = ret.get("dof")
+        fy = ret.get("fy")
+        month_str = ret.get("taxp")
+        rtntype = ret.get("rtntype", "")
+        if fy and month_str and dof:
+            try:
+                if "-" in fy:
+                    year = int(fy.split("-")[0])
+                else:
+                    year = int(fy)
+                month_map = {m: i for i, m in enumerate(
+                    ["April","May","June","July","August","September","October","November","December","January","February","March"], start=4)}
+                month = month_map.get(month_str, None)
+                if month is not None:
+                    if month < 4:  # Jan/Feb/Mar in next year
+                        year += 1
+                    if rtntype.upper() == "GSTR1":
+                        due_day = 11
+                    elif rtntype.upper() == "GSTR3B":
+                        due_day = 20
+                    else:
+                        due_day = 20
+                    due_date = datetime(year, month, due_day)
+                    filed_date = datetime.strptime(dof, "%d/%m/%Y")
+                    if filed_date > due_date:
+                        late_count += 1
+            except Exception as ex:
+                pass
+        if dof:
+            filed_count += 1
+    on_time_count = filed_count - late_count
+    score = round(((on_time_count + 0.5 * late_count) / total_count) * 100, 1)
+    if score >= 95:
+        grade = 'A+'
+    elif score >= 85:
+        grade = 'A'
+    elif score >= 75:
+        grade = 'B'
+    elif score >= 60:
+        grade = 'C'
+    else:
+        grade = 'D'
+    if score >= 90:
+        status = 'Excellent Compliance'
+    elif score >= 75:
+        status = 'Good Compliance'
+    elif score >= 60:
+        status = 'Fair Compliance'
+    else:
+        status = 'Poor Compliance'
+    return {
+        'score': score,
+        'grade': grade,
+        'status': status,
+        'total_returns': total_count,
+        'filed_returns': filed_count,
+        'pending_returns': total_count - filed_count,
+        'late_returns': late_count,
+        'details': f'Filed {filed_count} out of {total_count} returns, {late_count} late'
+    }
 
 def organize_returns_by_year(returns: List[Dict]) -> Dict:
     try:
@@ -443,7 +465,6 @@ async def post_index(request: Request, gstin: str = Form(...)):
             raise GSTINValidationError(validation_message)
         gstin = gstin.strip().upper()
         raw_data = await api_client.fetch_gstin_data(gstin)
-        # Use 'returns' instead of 'filedreturns'
         compliance = calculate_enhanced_compliance_score(raw_data)
         returns_by_year = organize_returns_by_year(raw_data.get('returns', []))
         enhanced_data = {
@@ -479,6 +500,43 @@ async def post_index(request: Request, gstin: str = Form(...)):
             "error": "An unexpected error occurred while processing your request. Please try again.",
             "error_type": "processing"
         })
+
+@app.post("/download/pdf")
+async def download_pdf(gstin: str = Form(...)):
+    is_valid, validation_message = validate_gstin(gstin)
+    if not is_valid:
+        raise HTTPException(status_code=400, detail=validation_message)
+    raw_data = await api_client.fetch_gstin_data(gstin)
+    compliance = calculate_enhanced_compliance_score(raw_data)
+    returns_by_year = organize_returns_by_year(raw_data.get('returns', []))
+    # Generate PDF in memory
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(buffer)
+    elements = []
+    styles = getSampleStyleSheet()
+    elements.append(Paragraph(f"GST Status Report for {gstin}", styles["Title"]))
+    elements.append(Spacer(1, 12))
+    elements.append(Paragraph(f"Legal Name: {raw_data.get('lgnm', '')}", styles["Normal"]))
+    elements.append(Paragraph(f"Status: {raw_data.get('sts', '')}", styles["Normal"]))
+    elements.append(Paragraph(f"Compliance Score: {compliance['score']}% ({compliance['grade']})", styles["Normal"]))
+    elements.append(Paragraph(f"Late Returns: {compliance['late_returns']}", styles["Normal"]))
+    elements.append(Spacer(1, 12))
+    data = [["Year", "Return Type", "Tax Period", "Filing Date"]]
+    for fy, retlist in returns_by_year.items():
+        for ret in retlist:
+            data.append([fy, ret.get("rtntype", ""), ret.get("taxp", ""), ret.get("dof", "Pending")])
+    table = Table(data, repeatRows=1)
+    table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), colors.lightgrey),
+        ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
+        ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+    ]))
+    elements.append(table)
+    doc.build(elements)
+    buffer.seek(0)
+    return StreamingResponse(buffer, media_type="application/pdf", headers={
+        "Content-Disposition": f"attachment;filename={gstin}_gst_report.pdf"
+    })
 
 if __name__ == "__main__":
     import uvicorn

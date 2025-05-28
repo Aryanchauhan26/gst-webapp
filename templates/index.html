@@ -81,6 +81,10 @@
                             <span class="stat-value">{{ data.compliance.filed_returns }}</span>
                         </div>
                         <div class="stat-item">
+                            <span class="stat-label">Late Returns:</span>
+                            <span class="stat-value">{{ data.compliance.late_returns }}</span>
+                        </div>
+                        <div class="stat-item">
                             <span class="stat-label">Filing Rate:</span>
                             <span class="stat-value">{{ data.compliance.score }}%</span>
                         </div>
@@ -181,6 +185,10 @@
                                 <span class="summary-number">{{ (data.returns|length - data.compliance.filed_returns) if data.compliance and data.returns else 0 }}</span>
                                 <span class="summary-label">Pending Returns</span>
                             </div>
+                            <div class="summary-item">
+                                <span class="summary-number">{{ data.compliance.late_returns if data.compliance else 0 }}</span>
+                                <span class="summary-label">Late Returns</span>
+                            </div>
                         </div>
                     </div>
 
@@ -274,5 +282,3 @@ Registration Date: {{ data.rgdt or 'N/A' }}`;
     </script>
 </body>
 </html>
-
-
