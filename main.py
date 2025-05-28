@@ -215,7 +215,8 @@ except ImportError:
 
 def calculate_enhanced_compliance_score(data: Dict) -> Dict:
     try:
-        returns = data.get('filedreturns', [])
+        # Use 'returns' instead of 'filedreturns'
+        returns = data.get('returns', [])
         if not returns:
             return {
                 'score': 0,
@@ -272,21 +273,9 @@ def organize_returns_by_year(returns: List[Dict]) -> Dict:
     try:
         returns_by_year = defaultdict(list)
         for ret in returns:
-            if ret.get('taxp'):
-                try:
-                    tax_period = ret['taxp']
-                    if len(tax_period) >= 6:
-                        month = int(tax_period[:2])
-                        year = int(tax_period[2:6])
-                        if month >= 4:
-                            fy = f"{year}-{year+1}"
-                        else:
-                            fy = f"{year-1}-{year}"
-                        returns_by_year[fy].append(ret)
-                except (ValueError, IndexError):
-                    current_year = datetime.now().year
-                    fy = f"{current_year-1}-{current_year}"
-                    returns_by_year[fy].append(ret)
+            fy = ret.get('fy')
+            if fy:
+                returns_by_year[fy].append(ret)
         sorted_years = dict(sorted(returns_by_year.items(), reverse=True))
         return sorted_years
     except Exception as e:
@@ -454,13 +443,14 @@ async def post_index(request: Request, gstin: str = Form(...)):
             raise GSTINValidationError(validation_message)
         gstin = gstin.strip().upper()
         raw_data = await api_client.fetch_gstin_data(gstin)
+        # Use 'returns' instead of 'filedreturns'
         compliance = calculate_enhanced_compliance_score(raw_data)
-        returns_by_year = organize_returns_by_year(raw_data.get('filedreturns', []))
+        returns_by_year = organize_returns_by_year(raw_data.get('returns', []))
         enhanced_data = {
             **raw_data,
             'compliance': compliance,
             'returns_by_year': returns_by_year,
-            'returns': raw_data.get('filedreturns', [])
+            'returns': raw_data.get('returns', [])
         }
         return templates.TemplateResponse("index.html", {
             "request": request,
