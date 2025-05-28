@@ -1,163 +1,53 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>GST Lookup & Rating</title>
-    <link rel="stylesheet" href="/static/styles.css" />
-    <style>
-        /* Inline overrides for tabs */
-        .tabs {
-            display: flex;
-            border-bottom: 2px solid #007acc;
-            margin-bottom: 1rem;
-        }
-        .tab {
-            padding: 10px 20px;
-            cursor: pointer;
-            border: 1px solid #007acc;
-            border-bottom: none;
-            background: #eee;
-            margin-right: 5px;
-            border-radius: 5px 5px 0 0;
-            font-weight: 600;
-            color: #333;
-            user-select: none;
-        }
-        .tab.active {
-            background: white;
-            color: #007acc;
-            font-weight: 700;
-        }
-        .tab-content {
-            border: 1px solid #007acc;
-            border-radius: 0 5px 5px 5px;
-            padding: 1rem;
-            background: white;
-        }
-        .dropdown {
-            max-height: 200px;
-            overflow-y: auto;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-            padding: 8px;
-            background: #f9f9f9;
-        }
-        .field-label {
-            font-weight: 700;
-            color: #007acc;
-        }
-        .field-value {
-            margin-bottom: 10px;
-            color: #333;
-        }
-        details.return-item {
-            margin-bottom: 10px;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-            padding: 8px;
-            background: #fefefe;
-        }
-        details.return-item summary {
-            cursor: pointer;
-            font-weight: 600;
-            color: #007acc;
-        }
-        details.return-item summary:hover {
-            color: #005fa3;
-        }
-    </style>
+    <meta charset="UTF-8">
+    <title>GST Return Status Lookup</title>
+    <link rel="stylesheet" href="/static/styles.css">
 </head>
 <body>
     <div class="container">
-        <h1>GST Lookup & Rating</h1>
-        <form method="get" id="searchForm" style="margin-bottom: 1rem;">
-            <input
-                type="text"
-                name="gstin"
-                placeholder="Enter GSTIN"
-                value="{{ request.query_params.get('gstin', '') }}"
-                required
-                style="padding: 8px; width: 300px; font-size: 1rem;"
-            />
-            <button type="submit" style="padding: 8px 15px; font-size: 1rem; background-color:#007acc; color:#fff; border:none; border-radius:4px;">Search</button>
+        <h1>GST Return Status Lookup</h1>
+        <form method="post">
+            <input type="text" name="gstin" placeholder="Enter GSTIN" required>
+            <button type="submit">Search</button>
         </form>
 
         {% if error %}
-            <p style="color: red; margin-top: 1rem;">{{ error }}</p>
+            <div class="error">{{ error }}</div>
         {% endif %}
 
         {% if data %}
-            <div style="margin-top: 2rem;">
-                <div class="tabs">
-                    <div class="tab active" data-tab="details">Company Details</div>
-                    <div class="tab" data-tab="returns">Return Filings</div>
-                    <div class="tab" data-tab="rating">Company Rating</div>
-                </div>
-
-                <!-- Company Details Tab -->
-                <div class="tab-content" id="details">
-                    {% for key, value in data.items() if key != 'returns' %}
-                        <div class="field-value">
-                            <span class="field-label">{{ key | replace("_", " ") | title }}:</span>
-                            <span>{{ value }}</span>
-                        </div>
-                    {% endfor %}
-                </div>
-
-                <!-- Return Filings Tab -->
-                <div id="returns" class="tab-content" style="display: none;">
-                    {% if data.returns %}
-                        <div class="returns-list">
-                            {% for r in data.returns %}
-                                <details class="return-item">
-                                    <summary>
-                                        📅 {{ r.returnPeriod or 'N/A' }} – {{ r.returnType or 'N/A' }}
-                                    </summary>
-                                    <div class="return-details">
-                                        <p><strong>Return Period:</strong> {{ r.returnPeriod or 'N/A' }}</p>
-                                        <p><strong>Return Type:</strong> {{ r.returnType or 'N/A' }}</p>
-                                        <p><strong>Filing Status:</strong> {{ r.filingStatus or 'N/A' }}</p>
-                                        <p><strong>Filing Date:</strong> {{ r.filingDate or 'N/A' }}</p>
-                                    </div>
-                                </details>
-                            {% endfor %}
-                        </div>
-                    {% else %}
-                        <p>No return data available.</p>
-                    {% endif %}
-                </div>
-
-                <!-- Company Rating Tab -->
-                <div id="rating" class="tab-content" style="display: none;">
-                    {% if rating %}
-                        <p><strong>Company Rating Score:</strong> {{ rating.score }}</p>
-                        <p><strong>Rating Summary:</strong> {{ rating.summary }}</p>
-                        <p><strong>Remarks:</strong> {{ rating.remarks }}</p>
-                    {% else %}
-                        <p>Rating data not available.</p>
-                    {% endif %}
-                </div>
+            <div class="company-info">
+                <h2>Company Info</h2>
+                <p><strong>Legal Name:</strong> {{ data.lgnm }}</p>
+                <p><strong>Trade Name:</strong> {{ data.tradeName }}</p>
+                <p><strong>GSTIN:</strong> {{ data.gstin }}</p>
+                <p><strong>Status:</strong> {{ data.sts }}</p>
+                <p><strong>Registration Date:</strong> {{ data.rgdt }}</p>
+                <p><strong>Company Type:</strong> {{ data.ctb }}</p>
+                <p><strong>GST Jurisdiction:</strong> {{ data.ctj }}</p>
+                <p><strong>State Jurisdiction:</strong> {{ data.stj }}</p>
+                <p><strong>Address:</strong> {{ data.adr }}</p>
+                <p><strong>e-Invoicing Applicable:</strong> {{ data.mandatedeInvoice }}</p>
             </div>
+
+            {% if data.returns %}
+                <div class="returns-section">
+                    <h2>GST Return Filing History</h2>
+                    <select>
+                        {% for ret in data.returns %}
+                            {% if ret.rtntype and ret.taxp and ret.dof %}
+                                <option>📅 {{ ret.rtntype }} – {{ ret.taxp }} {{ ret.fy }} (Filed on {{ ret.dof }})</option>
+                            {% endif %}
+                        {% endfor %}
+                    </select>
+                </div>
+            {% else %}
+                <p>No return filing history found.</p>
+            {% endif %}
         {% endif %}
     </div>
-
-    <script>
-        const tabs = document.querySelectorAll(".tab");
-        const tabContents = document.querySelectorAll(".tab-content");
-
-        tabs.forEach(tab => {
-            tab.addEventListener("click", () => {
-                tabs.forEach(t => t.classList.remove("active"));
-                tab.classList.add("active");
-
-                const target = tab.dataset.tab;
-                tabContents.forEach(tc => {
-                    tc.style.display = tc.id === target ? "block" : "none";
-                });
-            });
-        });
-    </script>
 </body>
 </html>
 
