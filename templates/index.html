@@ -2,52 +2,276 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>GST Return Status Lookup</title>
     <link rel="stylesheet" href="/static/style.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
 </head>
 <body>
     <div class="container">
-        <h1>GST Return Status Lookup</h1>
-        <form method="post">
-            <input type="text" name="gstin" placeholder="Enter GSTIN" required>
-            <button type="submit">Search</button>
-        </form>
+        <div class="header">
+            <h1><i class="fas fa-search"></i> GST Return Status Lookup</h1>
+            <p class="subtitle">Get comprehensive GST compliance information for any business</p>
+        </div>
+
+        <div class="search-section">
+            <form method="post" class="search-form">
+                <div class="input-group">
+                    <input type="text" name="gstin" placeholder="Enter 15-digit GSTIN (e.g., 07AAGFF2194N1Z5)" required pattern="[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}" title="Please enter a valid 15-digit GSTIN">
+                    <button type="submit"><i class="fas fa-search"></i> Search</button>
+                </div>
+            </form>
+        </div>
 
         {% if error %}
-            <div class="error">{{ error }}</div>
+            <div class="alert error">
+                <i class="fas fa-exclamation-triangle"></i>
+                <strong>Error:</strong> {{ error }}
+            </div>
         {% endif %}
 
         {% if data %}
-            <div class="company-info">
-                <h2>Company Info</h2>
-                <p><strong>Legal Name:</strong> {{ data.lgnm }}</p>
-                <p><strong>Trade Name:</strong> {{ data.tradeName }}</p>
-                <p><strong>GSTIN:</strong> {{ data.gstin }}</p>
-                <p><strong>Status:</strong> {{ data.sts }}</p>
-                <p><strong>Registration Date:</strong> {{ data.rgdt }}</p>
-                <p><strong>Company Type:</strong> {{ data.ctb }}</p>
-                <p><strong>GST Jurisdiction:</strong> {{ data.ctj }}</p>
-                <p><strong>State Jurisdiction:</strong> {{ data.stj }}</p>
-                <p><strong>Address:</strong> {{ data.adr }}</p>
-                <p><strong>e-Invoicing Applicable:</strong> {{ data.mandatedeInvoice }}</p>
+            <!-- Quick Actions -->
+            <div class="quick-actions">
+                <h3><i class="fas fa-bolt"></i> Quick Actions</h3>
+                <div class="action-buttons">
+                    <form method="post" action="/download/pdf" style="display: inline;">
+                        <input type="hidden" name="gstin" value="{{ gstin }}">
+                        <button type="submit" class="btn btn-pdf">
+                            <i class="fas fa-file-pdf"></i> Download PDF
+                        </button>
+                    </form>
+                    
+                    <form method="post" action="/download/excel" style="display: inline;">
+                        <input type="hidden" name="gstin" value="{{ gstin }}">
+                        <button type="submit" class="btn btn-excel">
+                            <i class="fas fa-file-excel"></i> Download Excel
+                        </button>
+                    </form>
+                    
+                    <button onclick="shareWhatsApp('{{ gstin }}')" class="btn btn-whatsapp">
+                        <i class="fab fa-whatsapp"></i> Share on WhatsApp
+                    </button>
+                    
+                    <button onclick="copyToClipboard()" class="btn btn-copy">
+                        <i class="fas fa-copy"></i> Copy Summary
+                    </button>
+                </div>
             </div>
 
-            {% if data.returns %}
-                <div class="returns-section">
-                    <h2>GST Return Filing History</h2>
-                    <select>
-                        {% for ret in data.returns %}
-                            {% if ret.rtntype and ret.taxp and ret.dof %}
-                                <option>📅 {{ ret.rtntype }} – {{ ret.taxp }} {{ ret.fy }} (Filed on {{ ret.dof }})</option>
+            <!-- Compliance Dashboard -->
+            {% if data.compliance %}
+            <div class="compliance-dashboard">
+                <h3><i class="fas fa-chart-line"></i> Compliance Dashboard</h3>
+                <div class="compliance-grid">
+                    <div class="compliance-card">
+                        <div class="compliance-score compliance-{{ data.compliance.grade.lower().replace('+', 'plus') }}">
+                            {{ data.compliance.score }}%
+                        </div>
+                        <div class="compliance-grade">Grade: {{ data.compliance.grade }}</div>
+                        <div class="compliance-status">{{ data.compliance.status }}</div>
+                    </div>
+                    <div class="compliance-stats">
+                        <div class="stat-item">
+                            <span class="stat-label">Total Returns:</span>
+                            <span class="stat-value">{{ data.compliance.total_returns }}</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">Filed Returns:</span>
+                            <span class="stat-value">{{ data.compliance.filed_returns }}</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">Filing Rate:</span>
+                            <span class="stat-value">{{ data.compliance.score }}%</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Company Information -->
+            <div class="info-section">
+                <h3><i class="fas fa-building"></i> Company Information</h3>
+                <div class="info-grid">
+                    <div class="info-card">
+                        <div class="info-item">
+                            <span class="info-label"><i class="fas fa-certificate"></i> Legal Name:</span>
+                            <span class="info-value">{{ data.lgnm or 'N/A' }}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label"><i class="fas fa-store"></i> Trade Name:</span>
+                            <span class="info-value">{{ data.tradeName or 'N/A' }}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label"><i class="fas fa-id-card"></i> GSTIN:</span>
+                            <span class="info-value">{{ data.gstin or 'N/A' }}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label"><i class="fas fa-signal"></i> Status:</span>
+                            <span class="info-value status-{{ data.sts.lower() if data.sts else 'unknown' }}">
+                                {% if data.sts == 'Active' %}
+                                    <i class="fas fa-check-circle"></i>
+                                {% elif data.sts == 'Cancelled' %}
+                                    <i class="fas fa-times-circle"></i>
+                                {% else %}
+                                    <i class="fas fa-question-circle"></i>
+                                {% endif %}
+                                {{ data.sts or 'N/A' }}
+                            </span>
+                        </div>
+                    </div>
+                    
+                    <div class="info-card">
+                        <div class="info-item">
+                            <span class="info-label"><i class="fas fa-calendar-plus"></i> Registration Date:</span>
+                            <span class="info-value">{{ data.rgdt or 'N/A' }}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label"><i class="fas fa-industry"></i> Company Type:</span>
+                            <span class="info-value">{{ data.ctb or 'N/A' }}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label"><i class="fas fa-balance-scale"></i> GST Jurisdiction:</span>
+                            <span class="info-value">{{ data.ctj or 'N/A' }}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label"><i class="fas fa-map-marker-alt"></i> State Jurisdiction:</span>
+                            <span class="info-value">{{ data.stj or 'N/A' }}</span>
+                        </div>
+                    </div>
+                </div>
+                
+                {% if data.adr %}
+                <div class="address-section">
+                    <h4><i class="fas fa-location-dot"></i> Registered Address</h4>
+                    <p class="address">{{ data.adr }}</p>
+                </div>
+                {% endif %}
+                
+                <div class="additional-info">
+                    <div class="info-item">
+                        <span class="info-label"><i class="fas fa-file-invoice"></i> e-Invoicing Applicable:</span>
+                        <span class="info-value">
+                            {% if data.mandatedeInvoice %}
+                                <i class="fas fa-check text-success"></i> Yes
+                            {% else %}
+                                <i class="fas fa-times text-danger"></i> No
                             {% endif %}
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Filing History -->
+            {% if data.returns_by_year %}
+                <div class="returns-section">
+                    <h3><i class="fas fa-file-alt"></i> GST Return Filing History</h3>
+                    
+                    <div class="returns-summary">
+                        <div class="summary-stats">
+                            <div class="summary-item">
+                                <span class="summary-number">{{ data.returns|length if data.returns else 0 }}</span>
+                                <span class="summary-label">Total Returns</span>
+                            </div>
+                            <div class="summary-item">
+                                <span class="summary-number">{{ data.compliance.filed_returns if data.compliance else 0 }}</span>
+                                <span class="summary-label">Filed Returns</span>
+                            </div>
+                            <div class="summary-item">
+                                <span class="summary-number">{{ (data.returns|length - data.compliance.filed_returns) if data.compliance and data.returns else 0 }}</span>
+                                <span class="summary-label">Pending Returns</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="returns-timeline">
+                        {% for fy, returns in data.returns_by_year.items() %}
+                            <div class="year-section">
+                                <h4 class="year-header">
+                                    <i class="fas fa-calendar"></i> Financial Year {{ fy }}
+                                    <span class="year-stats">({{ returns|length }} returns)</span>
+                                </h4>
+                                <div class="returns-grid">
+                                    {% for ret in returns %}
+                                        {% if ret.rtntype and ret.taxp %}
+                                            <div class="return-card {% if ret.dof %}filed{% else %}pending{% endif %}">
+                                                <div class="return-header">
+                                                    <span class="return-type">{{ ret.rtntype }}</span>
+                                                    <span class="return-status">
+                                                        {% if ret.dof %}
+                                                            <i class="fas fa-check-circle text-success"></i> Filed
+                                                        {% else %}
+                                                            <i class="fas fa-clock text-warning"></i> Pending
+                                                        {% endif %}
+                                                    </span>
+                                                </div>
+                                                <div class="return-details">
+                                                    <div class="return-period">{{ ret.taxp }}</div>
+                                                    {% if ret.dof %}
+                                                        <div class="return-date">Filed: {{ ret.dof }}</div>
+                                                    {% endif %}
+                                                </div>
+                                            </div>
+                                        {% endif %}
+                                    {% endfor %}
+                                </div>
+                            </div>
                         {% endfor %}
-                    </select>
+                    </div>
                 </div>
             {% else %}
-                <p>No return filing history found.</p>
+                <div class="no-returns">
+                    <i class="fas fa-inbox"></i>
+                    <h3>No Filing History Found</h3>
+                    <p>No GST return filing history is available for this GSTIN.</p>
+                </div>
             {% endif %}
         {% endif %}
     </div>
+
+    <script>
+        async function shareWhatsApp(gstin) {
+            try {
+                const response = await fetch(`/whatsapp/${gstin}`);
+                const data = await response.json();
+                if (data.whatsapp_url) {
+                    window.open(data.whatsapp_url, '_blank');
+                } else {
+                    alert('Error generating WhatsApp link');
+                }
+            } catch (error) {
+                alert('Error sharing to WhatsApp');
+            }
+        }
+
+        function copyToClipboard() {
+            {% if data %}
+            const summary = `GST Status Report
+Company: {{ data.lgnm or 'N/A' }}
+GSTIN: {{ data.gstin or 'N/A' }}
+Status: {{ data.sts or 'N/A' }}
+{% if data.compliance %}Compliance Score: {{ data.compliance.score }}% ({{ data.compliance.grade }}){% endif %}
+Registration Date: {{ data.rgdt or 'N/A' }}`;
+            
+            navigator.clipboard.writeText(summary).then(() => {
+                alert('Summary copied to clipboard!');
+            }).catch(() => {
+                alert('Failed to copy to clipboard');
+            });
+            {% else %}
+            alert('No data to copy');
+            {% endif %}
+        }
+
+        // Form validation
+        document.querySelector('form').addEventListener('submit', function(e) {
+            const gstin = document.querySelector('input[name="gstin"]').value;
+            if (gstin.length !== 15) {
+                e.preventDefault();
+                alert('GSTIN must be exactly 15 characters long');
+            }
+        });
+    </script>
 </body>
 </html>
 
