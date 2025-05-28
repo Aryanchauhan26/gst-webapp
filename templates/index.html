@@ -13,7 +13,6 @@
             <h1><i class="fas fa-search"></i> GST Return Status Lookup</h1>
             <p class="subtitle">Get comprehensive GST compliance information for any business</p>
         </div>
-
         <div class="search-section">
             <form method="post" class="search-form">
                 <div class="input-group">
@@ -22,16 +21,13 @@
                 </div>
             </form>
         </div>
-
         {% if error %}
             <div class="alert error">
                 <i class="fas fa-exclamation-triangle"></i>
                 <strong>Error:</strong> {{ error }}
             </div>
         {% endif %}
-
         {% if data %}
-            <!-- Quick Actions -->
             <div class="quick-actions">
                 <h3><i class="fas fa-bolt"></i> Quick Actions</h3>
                 <div class="action-buttons">
@@ -41,25 +37,8 @@
                             <i class="fas fa-file-pdf"></i> Download PDF
                         </button>
                     </form>
-                    
-                    <form method="post" action="/download/excel" style="display: inline;">
-                        <input type="hidden" name="gstin" value="{{ gstin }}">
-                        <button type="submit" class="btn btn-excel">
-                            <i class="fas fa-file-excel"></i> Download Excel
-                        </button>
-                    </form>
-                    
-                    <button onclick="shareWhatsApp('{{ gstin }}')" class="btn btn-whatsapp">
-                        <i class="fab fa-whatsapp"></i> Share on WhatsApp
-                    </button>
-                    
-                    <button onclick="copyToClipboard()" class="btn btn-copy">
-                        <i class="fas fa-copy"></i> Copy Summary
-                    </button>
                 </div>
             </div>
-
-            <!-- Compliance Dashboard -->
             {% if data.compliance %}
             <div class="compliance-dashboard">
                 <h3><i class="fas fa-chart-line"></i> Compliance Dashboard</h3>
@@ -92,8 +71,6 @@
                 </div>
             </div>
             {% endif %}
-
-            <!-- Company Information -->
             <div class="info-section">
                 <h3><i class="fas fa-building"></i> Company Information</h3>
                 <div class="info-grid">
@@ -124,7 +101,6 @@
                             </span>
                         </div>
                     </div>
-                    
                     <div class="info-card">
                         <div class="info-item">
                             <span class="info-label"><i class="fas fa-calendar-plus"></i> Registration Date:</span>
@@ -144,14 +120,12 @@
                         </div>
                     </div>
                 </div>
-                
                 {% if data.adr %}
                 <div class="address-section">
                     <h4><i class="fas fa-location-dot"></i> Registered Address</h4>
                     <p class="address">{{ data.adr }}</p>
                 </div>
                 {% endif %}
-                
                 <div class="additional-info">
                     <div class="info-item">
                         <span class="info-label"><i class="fas fa-file-invoice"></i> e-Invoicing Applicable:</span>
@@ -165,12 +139,9 @@
                     </div>
                 </div>
             </div>
-
-            <!-- Filing History -->
             {% if data.returns_by_year %}
                 <div class="returns-section">
                     <h3><i class="fas fa-file-alt"></i> GST Return Filing History</h3>
-                    
                     <div class="returns-summary">
                         <div class="summary-stats">
                             <div class="summary-item">
@@ -191,7 +162,6 @@
                             </div>
                         </div>
                     </div>
-
                     <div class="returns-timeline">
                         {% for fy, returns in data.returns_by_year.items() %}
                             <div class="year-section">
@@ -216,7 +186,12 @@
                                                 <div class="return-details">
                                                     <div class="return-period">{{ ret.taxp }}</div>
                                                     {% if ret.dof %}
-                                                        <div class="return-date">Filed: {{ ret.dof }}</div>
+                                                        <div class="return-date">
+                                                            Filed: {{ ret.dof }}
+                                                            {% if ret.late %}
+                                                                <span class="late-label">(late)</span>
+                                                            {% endif %}
+                                                        </div>
                                                     {% endif %}
                                                 </div>
                                             </div>
@@ -236,49 +211,13 @@
             {% endif %}
         {% endif %}
     </div>
-
-    <script>
-        async function shareWhatsApp(gstin) {
-            try {
-                const response = await fetch(`/whatsapp/${gstin}`);
-                const data = await response.json();
-                if (data.whatsapp_url) {
-                    window.open(data.whatsapp_url, '_blank');
-                } else {
-                    alert('Error generating WhatsApp link');
-                }
-            } catch (error) {
-                alert('Error sharing to WhatsApp');
-            }
-        }
-
-        function copyToClipboard() {
-            {% if data %}
-            const summary = `GST Status Report
-Company: {{ data.lgnm or 'N/A' }}
-GSTIN: {{ data.gstin or 'N/A' }}
-Status: {{ data.sts or 'N/A' }}
-{% if data.compliance %}Compliance Score: {{ data.compliance.score }}% ({{ data.compliance.grade }}){% endif %}
-Registration Date: {{ data.rgdt or 'N/A' }}`;
-            
-            navigator.clipboard.writeText(summary).then(() => {
-                alert('Summary copied to clipboard!');
-            }).catch(() => {
-                alert('Failed to copy to clipboard');
-            });
-            {% else %}
-            alert('No data to copy');
-            {% endif %}
-        }
-
-        // Form validation
-        document.querySelector('form').addEventListener('submit', function(e) {
-            const gstin = document.querySelector('input[name="gstin"]').value;
-            if (gstin.length !== 15) {
-                e.preventDefault();
-                alert('GSTIN must be exactly 15 characters long');
-            }
-        });
-    </script>
+    <style>
+    .late-label {
+      font-size: 0.8em;
+      color: #d9534f;
+      font-style: italic;
+      margin-left: 3px;
+    }
+    </style>
 </body>
 </html>

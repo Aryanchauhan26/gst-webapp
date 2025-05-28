@@ -2,25 +2,20 @@ from fastapi import FastAPI, Request, Form, HTTPException
 from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.middleware.trustedhost import TrustedHostMiddleware
-import httpx
 from datetime import datetime
 from io import BytesIO
 from typing import Dict, List, Tuple
-from collections import defaultdict, deque
-import hashlib
+from collections import defaultdict
+import httpx
 import os
-from pathlib import Path
 import re
+from pathlib import Path
 
 from reportlab.lib.pagesizes import A4
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib import colors
 from reportlab.lib.units import cm
-
-# --- Logging, Error Tracker, Rate Limiter, etc omitted for brevity. Use your existing code for those. ---
 
 def validate_gstin(gstin: str) -> Tuple[bool, str]:
     try:
@@ -57,22 +52,9 @@ class GSAPIClient:
             raise HTTPException(status_code=400, detail=f"API Error: {data.get('message', 'Unknown error')}")
         return data.get("data", {})
 
-def calculate_enhanced_compliance_score(data: Dict) -> Dict:
-    returns = data.get('returns', [])
-    if not returns:
-        return {
-            'score': 0,
-            'grade': 'N/A',
-            'status': 'No Returns Found',
-            'total_returns': 0,
-            'filed_returns': 0,
-            'pending_returns': 0,
-            'late_returns': 0,
-            'details': 'No return filing history available'
-        }
-    filed_count, late_count = 0, 0
-    total_count = len(returns)
+def mark_late_returns(returns):
     for ret in returns:
+        ret['late'] = False
         dof = ret.get("dof")
         fy = ret.get("fy")
         month_str = ret.get("taxp")
@@ -93,10 +75,30 @@ def calculate_enhanced_compliance_score(data: Dict) -> Dict:
                     due_date = datetime(year, month, due_day)
                     filed_date = datetime.strptime(dof, "%d/%m/%Y")
                     if filed_date > due_date:
-                        late_count += 1
+                        ret['late'] = True
             except Exception:
                 pass
-        if dof:
+    return returns
+
+def calculate_enhanced_compliance_score(data: Dict) -> Dict:
+    returns = data.get('returns', [])
+    if not returns:
+        return {
+            'score': 0,
+            'grade': 'N/A',
+            'status': 'No Returns Found',
+            'total_returns': 0,
+            'filed_returns': 0,
+            'pending_returns': 0,
+            'late_returns': 0,
+            'details': 'No return filing history available'
+        }
+    filed_count, late_count = 0, 0
+    total_count = len(returns)
+    for ret in returns:
+        if ret.get('late'):
+            late_count += 1
+        if ret.get("dof"):
             filed_count += 1
     on_time_count = filed_count - late_count
     score = round(((on_time_count + 0.5 * late_count) / total_count) * 100, 1)
@@ -138,7 +140,6 @@ def organize_returns_by_year(returns: List[Dict]) -> Dict:
     sorted_years = dict(sorted(returns_by_year.items(), reverse=True))
     return sorted_years
 
-# --- FastAPI app setup ---
 app = FastAPI(title="GST Compliance Platform")
 static_dir = Path("static")
 static_dir.mkdir(exist_ok=True)
@@ -167,13 +168,15 @@ async def post_index(request: Request, gstin: str = Form(...)):
         })
     gstin = gstin.strip().upper()
     raw_data = await api_client.fetch_gstin_data(gstin)
+    returns = mark_late_returns(raw_data.get('returns', []))
+    raw_data['returns'] = returns
     compliance = calculate_enhanced_compliance_score(raw_data)
-    returns_by_year = organize_returns_by_year(raw_data.get('returns', []))
+    returns_by_year = organize_returns_by_year(returns)
     enhanced_data = {
         **raw_data,
         'compliance': compliance,
         'returns_by_year': returns_by_year,
-        'returns': raw_data.get('returns', [])
+        'returns': returns
     }
     return templates.TemplateResponse("index.html", {
         "request": request,
@@ -187,9 +190,10 @@ async def download_pdf(gstin: str = Form(...)):
     if not is_valid:
         raise HTTPException(status_code=400, detail=validation_message)
     raw_data = await api_client.fetch_gstin_data(gstin)
+    returns = mark_late_returns(raw_data.get('returns', []))
+    raw_data['returns'] = returns
     compliance = calculate_enhanced_compliance_score(raw_data)
-    returns_by_year = organize_returns_by_year(raw_data.get('returns', []))
-
+    returns_by_year = organize_returns_by_year(returns)
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=2*cm, leftMargin=2*cm, topMargin=2*cm, bottomMargin=2*cm)
     styles = getSampleStyleSheet()
@@ -218,12 +222,10 @@ async def download_pdf(gstin: str = Form(...)):
     normal = styles["Normal"]
     bold = ParagraphStyle(name="Bold", parent=normal, fontName="Helvetica-Bold")
     elements = []
-
-    # Colored title bar
+    # Title
     elements.append(Paragraph("GST Status Report", title_style))
     elements.append(Spacer(1, 10))
-
-    # Company info
+    # Company Information
     elements.append(Paragraph("Company Information", section_header))
     company_table = Table([
         ["Legal Name:", raw_data.get('lgnm', '')],
@@ -246,7 +248,6 @@ async def download_pdf(gstin: str = Form(...)):
     ]))
     elements.append(company_table)
     elements.append(Spacer(1, 18))
-
     # Compliance summary
     elements.append(Paragraph("Compliance Summary", section_header))
     compliance_grid = Table([
@@ -269,7 +270,6 @@ async def download_pdf(gstin: str = Form(...)):
     ]))
     elements.append(compliance_grid)
     elements.append(Spacer(1, 18))
-
     # Returns by year
     elements.append(Paragraph("GST Return Filing History", section_header))
     for fy, retlist in returns_by_year.items():
@@ -278,10 +278,14 @@ async def download_pdf(gstin: str = Form(...)):
         for idx, ret in enumerate(retlist):
             filed = bool(ret.get('dof'))
             status_text = "Filed" if filed else "Pending"
+            dof = ret.get('dof', 'Pending')
+            if ret.get('late'):
+                dof = f'{dof} <font size="8" color="#d9534f">(late)</font>'
+            dof = Paragraph(dof, normal)
             ret_data.append([
                 ret.get("rtntype", ""),
                 ret.get("taxp", ""),
-                ret.get("dof", "Pending"),
+                dof,
                 status_text
             ])
         table = Table(ret_data, colWidths=[3*cm, 4*cm, 4*cm, 3*cm], repeatRows=1)
