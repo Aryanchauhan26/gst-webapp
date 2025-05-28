@@ -156,7 +156,7 @@
                     <div class="info-item">
                         <span class="info-label"><i class="fas fa-file-invoice"></i> e-Invoicing Applicable:</span>
                         <span class="info-value">
-                            {% if data.mandatedeInvoice %}
+                            {% if data.mandatedeInvoice == 'Yes' or data.einvoiceStatus == 'Yes' %}
                                 <i class="fas fa-check text-success"></i> Yes
                             {% else %}
                                 <i class="fas fa-times text-danger"></i> No
