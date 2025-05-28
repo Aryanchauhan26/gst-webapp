@@ -79,10 +79,9 @@ pydantic-settings==2.2.1   # Settings management
 pytest==8.1.1
 pytest-asyncio==0.23.6
 pytest-cov==4.0.0
-httpx==0.28.1
 
 # API documentation enhancements
-python-markdown==3.6       # Markdown support for docs
+Markdown                   # Markdown support for docs (correct package name, unpinned)
 
 # Background tasks
 celery==5.3.6              # Background task processing
@@ -102,7 +101,7 @@ python-magic==0.4.27       # File type detection
 
 # Email notifications (optional)
 emails==0.6                # Email sending
-jinja2==3.1.6              # Template engine for emails
+# jinja2==3.1.6            # Already listed above
 
 # Enhanced error tracking
 sentry-sdk[fastapi]==1.45.0  # Error tracking and monitoring
