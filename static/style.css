@@ -40,25 +40,6 @@ body {
 }
 .btn-whatsapp:hover { background-color: #1ebea5; }
 
-.api-response-section {
-  background: #f6f8fa;
-  margin: 24px 0 0 0;
-  border-radius: 10px;
-  padding: 18px;
-  font-size: 0.93em;
-  overflow-x: auto;
-}
-.api-json {
-  background: #23272e;
-  color: #d6deeb;
-  padding: 12px;
-  border-radius: 8px;
-  font-family: "Fira Mono", "Consolas", "Menlo", monospace;
-  font-size: 0.98em;
-  white-space: pre-wrap;
-  word-break: break-all;
-}
-
 .header {
     background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
     color: white;
