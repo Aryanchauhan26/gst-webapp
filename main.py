@@ -205,7 +205,7 @@ async def download_pdf(request: Request, gstin: str = Form(...)):
         error=None
     )
     pdf_file = BytesIO()
-    HTML(string=html_content, base_url="").write_pdf(pdf_file)
+    HTML(string=html_content, base_url=os.path.abspath(".")).write_pdf(pdf_file)
     pdf_file.seek(0)
     return StreamingResponse(pdf_file, media_type="application/pdf", headers={
         "Content-Disposition": f"attachment; filename={gstin}_gst_dashboard.pdf"
