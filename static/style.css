@@ -603,3 +603,47 @@ body {
         display: none !important;
     }
 }
+
+/* --- PDF/Print: Prevent Overlapping and Overwriting --- */
+body, div, p, span, td, th {
+  word-break: break-word !important;
+  word-wrap: break-word !important;
+  white-space: normal !important;
+  box-sizing: border-box;
+}
+
+table {
+  width: 100% !important;
+  border-collapse: collapse;
+  table-layout: auto !important;
+}
+
+th, td {
+  min-width: 0 !important;
+  max-width: 100% !important;
+  overflow-wrap: break-word !important;
+  white-space: normal !important;
+  vertical-align: top;
+  padding: 8px 4px;
+  box-sizing: border-box;
+}
+
+.container, .returns-section, .info-section, .compliance-dashboard, .main, .content {
+  width: 100% !important;
+  max-width: 100% !important;
+  overflow-x: auto !important;
+  box-sizing: border-box;
+}
+
+@media print {
+  body, div, p, span, td, th {
+    word-break: break-word !important;
+    word-wrap: break-word !important;
+    white-space: normal !important;
+  }
+  th, td {
+    max-width: 100% !important;
+    overflow-wrap: break-word !important;
+    white-space: normal !important;
+  }
+}
