@@ -182,7 +182,7 @@ async def post_index(request: Request, gstin: str = Form(...)):
     })
 
 @app.post("/download/pdf")
-async def download_pdf(gstin: str = Form(...)):
+async def download_pdf(request: Request, gstin: str = Form(...)):
     is_valid, validation_message = validate_gstin(gstin)
     if not is_valid:
         raise HTTPException(status_code=400, detail=validation_message)
@@ -197,9 +197,12 @@ async def download_pdf(gstin: str = Form(...)):
         'returns_by_year': returns_by_year,
         'returns': returns
     }
-    # Render the PDF-specific template to HTML
+    # Pass 'request' so 'url_for' works in the template
     html_content = templates.get_template("pdf_template.html").render(
-        data=enhanced_data, gstin=gstin, error=None
+        request=request,
+        data=enhanced_data,
+        gstin=gstin,
+        error=None
     )
     pdf_file = BytesIO()
     HTML(string=html_content, base_url="").write_pdf(pdf_file)
