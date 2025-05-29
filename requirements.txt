@@ -28,7 +28,7 @@ openpyxl==3.1.2
 reportlab==4.0.7
 Pillow==10.1.0
 weasyprint==61.0
-pydyf=0.8.0
+pydyf==0.8.0
 
 # Date and time handling
 python-dateutil==2.9.0.post0
