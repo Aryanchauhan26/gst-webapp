@@ -584,22 +584,22 @@ body {
 }
 
 /* Print Styles */
+/* Print Styles */
 @media print {
     body {
-        background: white;
+        background: white !important;
         padding: 0;
     }
-    
+
     .container {
-        box-shadow: none;
+        box-shadow: none !important;
         border-radius: 0;
     }
-    
-    .quick-actions {
-        display: none;
-    }
-    
-    .btn {
-        display: none;
+
+    .quick-actions,
+    .search-section,
+    .btn,
+    .btn-whatsapp {
+        display: none !important;
     }
 }
