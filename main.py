@@ -1,5 +1,5 @@
 from fastapi import FastAPI, Request, Form, HTTPException
-from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
+from fastapi.responses import HTMLResponse, StreamingResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 from datetime import datetime
@@ -11,11 +11,8 @@ import os
 import re
 from pathlib import Path
 
-from reportlab.lib.pagesizes import A4
-from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.lib import colors
-from reportlab.lib.units import cm
+# Import WeasyPrint for HTML-to-PDF
+from weasyprint import HTML
 
 def validate_gstin(gstin: str) -> Tuple[bool, str]:
     try:
@@ -194,116 +191,19 @@ async def download_pdf(gstin: str = Form(...)):
     raw_data['returns'] = returns
     compliance = calculate_enhanced_compliance_score(raw_data)
     returns_by_year = organize_returns_by_year(returns)
-    buffer = BytesIO()
-    doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=2*cm, leftMargin=2*cm, topMargin=2*cm, bottomMargin=2*cm)
-    styles = getSampleStyleSheet()
-    title_style = ParagraphStyle(
-        name="TitleStyle",
-        parent=styles["Title"],
-        alignment=1,
-        fontSize=20,
-        textColor=colors.white,
-        backColor=colors.HexColor("#4169E1"),
-        spaceAfter=18,
-        spaceBefore=0,
-        leading=24,
-        borderPadding=(10,10,10,10)
+    enhanced_data = {
+        **raw_data,
+        'compliance': compliance,
+        'returns_by_year': returns_by_year,
+        'returns': returns
+    }
+    # Render the PDF-specific template to HTML
+    html_content = templates.get_template("pdf_template.html").render(
+        data=enhanced_data, gstin=gstin, error=None
     )
-    section_header = ParagraphStyle(
-        name="SectionHeader",
-        parent=styles["Heading2"],
-        fontSize=14,
-        textColor=colors.white,
-        backColor=colors.HexColor("#4682B4"),
-        spaceAfter=10,
-        leftIndent=0,
-        leading=18
-    )
-    normal = styles["Normal"]
-    bold = ParagraphStyle(name="Bold", parent=normal, fontName="Helvetica-Bold")
-    elements = []
-    # Title
-    elements.append(Paragraph("GST Status Report", title_style))
-    elements.append(Spacer(1, 10))
-    # Company Information
-    elements.append(Paragraph("Company Information", section_header))
-    company_table = Table([
-        ["Legal Name:", raw_data.get('lgnm', '')],
-        ["Trade Name:", raw_data.get('tradeName', '')],
-        ["GSTIN:", raw_data.get('gstin', '')],
-        ["Status:", raw_data.get('sts', '')],
-        ["Registration Date:", raw_data.get('rgdt', '')],
-        ["Company Type:", raw_data.get('ctb', '')],
-        ["Jurisdiction:", raw_data.get('ctj', '')],
-        ["Registered Address:", raw_data.get('adr', '')],
-        ["e-Invoicing Applicable:", "Yes" if raw_data.get("mandatedeInvoice") == "Yes" or raw_data.get("einvoiceStatus") == "Yes" else "No"],
-    ], hAlign="LEFT", colWidths=[5*cm, 10*cm])
-    company_table.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (0, -1), colors.HexColor("#E6E6FA")),
-        ('TEXTCOLOR', (0, 0), (0, -1), colors.HexColor("#4169E1")),
-        ('FONTSIZE', (0, 0), (-1, -1), 10),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
-        ('TOPPADDING', (0, 0), (-1, -1), 5),
-        ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-    ]))
-    elements.append(company_table)
-    elements.append(Spacer(1, 18))
-    # Compliance summary
-    elements.append(Paragraph("Compliance Summary", section_header))
-    compliance_grid = Table([
-        ["Compliance Score", f"{compliance['score']}%"],
-        ["Grade", compliance['grade']],
-        ["Status", compliance['status']],
-        ["Total Returns", compliance['total_returns']],
-        ["Filed Returns", compliance['filed_returns']],
-        ["Late Returns", compliance['late_returns']],
-        ["Pending Returns", compliance['pending_returns']],
-    ], hAlign="LEFT", colWidths=[6*cm, 4*cm])
-    compliance_grid.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (0, -1), colors.HexColor("#F0F8FF")),
-        ('TEXTCOLOR', (0, 0), (0, -1), colors.HexColor("#2F4F4F")),
-        ('TEXTCOLOR', (1, 0), (1, -1), colors.HexColor("#2F4F4F")),
-        ('FONTSIZE', (0, 0), (-1, -1), 10),
-        ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
-        ('TOPPADDING', (0, 0), (-1, -1), 5),
-    ]))
-    elements.append(compliance_grid)
-    elements.append(Spacer(1, 18))
-    # Returns by year
-    elements.append(Paragraph("GST Return Filing History", section_header))
-    for fy, retlist in returns_by_year.items():
-        elements.append(Paragraph(f"Financial Year: {fy}", bold))
-        ret_data = [["Return Type", "Tax Period", "Filing Date", "Status"]]
-        for idx, ret in enumerate(retlist):
-            filed = bool(ret.get('dof'))
-            status_text = "Filed" if filed else "Pending"
-            dof = ret.get('dof', 'Pending')
-            if ret.get('late'):
-                dof = f'{dof} <font size="8" color="#d9534f">(late)</font>'
-            dof = Paragraph(dof, normal)
-            ret_data.append([
-                ret.get("rtntype", ""),
-                ret.get("taxp", ""),
-                dof,
-                status_text
-            ])
-        table = Table(ret_data, colWidths=[3*cm, 4*cm, 4*cm, 3*cm], repeatRows=1)
-        table.setStyle(TableStyle([
-            ('BACKGROUND', (0,0), (-1,0), colors.HexColor("#B0C4DE")),
-            ('TEXTCOLOR', (0,0), (-1,0), colors.HexColor("#333333")),
-            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-            ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
-            ('FONTSIZE', (0,0), (-1,0), 11),
-            ('FONTSIZE', (0,1), (-1,-1), 9),
-            ('BOTTOMPADDING', (0,0), (-1,0), 6),
-            ('ROWBACKGROUNDS', (0,1), (-1,-1), [colors.HexColor("#E0FFFF"), colors.white]),
-            ('GRID', (0,0), (-1,-1), 0.3, colors.grey),
-        ]))
-        elements.append(table)
-        elements.append(Spacer(1, 10))
-    doc.build(elements)
-    buffer.seek(0)
-    return StreamingResponse(buffer, media_type="application/pdf", headers={
-        "Content-Disposition": f"attachment;filename={gstin}_gst_report.pdf"
+    pdf_file = BytesIO()
+    HTML(string=html_content, base_url="").write_pdf(pdf_file)
+    pdf_file.seek(0)
+    return StreamingResponse(pdf_file, media_type="application/pdf", headers={
+        "Content-Disposition": f"attachment; filename={gstin}_gst_dashboard.pdf"
     })
