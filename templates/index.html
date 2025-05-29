@@ -37,6 +37,11 @@
                             <i class="fas fa-file-pdf"></i> Download PDF
                         </button>
                     </form>
+                    <a href="https://wa.me/?text={{ 'GST Details for ' ~ (data.gstin or '') ~ ': Compliance Score ' ~ (data.compliance.score if data.compliance else 'N/A') ~ '%. View more on GST WebApp.' | urlencode }}" 
+                        target="_blank" 
+                        class="btn btn-whatsapp">
+                        <i class="fab fa-whatsapp"></i> Share on WhatsApp
+                    </a>
                 </div>
             </div>
             {% if data.compliance %}
@@ -209,15 +214,11 @@
                     <p>No GST return filing history is available for this GSTIN.</p>
                 </div>
             {% endif %}
+            <div class="api-response-section">
+                <h3>Full API Response</h3>
+                <pre class="api-json">{{ data|tojson(indent=2) }}</pre>
+            </div>
         {% endif %}
     </div>
-    <style>
-    .late-label {
-      font-size: 0.8em;
-      color: #d9534f;
-      font-style: italic;
-      margin-left: 3px;
-    }
-    </style>
 </body>
 </html>
