@@ -44,6 +44,164 @@
                     </a>
                 </div>
             </div>
+            <!-- Add this section to your index.html and pdf_template.html after the compliance dashboard -->
+{% if data.synopsis %}
+<div class="synopsis-section">
+    <h3><i class="fas fa-brain"></i> Intelligent Business Synopsis</h3>
+    
+    <!-- Executive Summary -->
+    <div class="synopsis-card narrative-summary">
+        <h4><i class="fas fa-file-text"></i> Executive Summary</h4>
+        <p class="narrative-text">{{ data.synopsis.narrative }}</p>
+    </div>
+    
+    <div class="synopsis-grid">
+        <!-- Business Profile -->
+        <div class="synopsis-card">
+            <h4><i class="fas fa-building"></i> Business Profile</h4>
+            <div class="synopsis-content">
+                <div class="synopsis-item">
+                    <span class="synopsis-label">Display Name:</span>
+                    <span class="synopsis-value">{{ data.synopsis.business_profile.display_name }}</span>
+                </div>
+                <div class="synopsis-item">
+                    <span class="synopsis-label">Business Age:</span>
+                    <span class="synopsis-value">{{ data.synopsis.business_profile.business_age }}</span>
+                </div>
+                <div class="synopsis-item">
+                    <span class="synopsis-label">Entity Type:</span>
+                    <span class="synopsis-value">{{ data.synopsis.business_profile.entity_type }}</span>
+                </div>
+                <div class="synopsis-item">
+                    <span class="synopsis-label">State:</span>
+                    <span class="synopsis-value">{{ data.synopsis.business_profile.state }}</span>
+                </div>
+                <div class="synopsis-item">
+                    <span class="synopsis-label">Status:</span>
+                    <span class="synopsis-value status-{{ data.synopsis.business_profile.operational_status.lower() }}">
+                        {{ data.synopsis.business_profile.operational_status }}
+                    </span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Operational Insights -->
+        <div class="synopsis-card">
+            <h4><i class="fas fa-chart-line"></i> Operational Insights</h4>
+            <div class="synopsis-content">
+                <div class="synopsis-item">
+                    <span class="synopsis-label">Filing Pattern:</span>
+                    <span class="synopsis-value filing-{{ data.synopsis.operational_insights.filing_consistency.lower().replace(' ', '-') }}">
+                        {{ data.synopsis.operational_insights.filing_consistency }}
+                    </span>
+                </div>
+                <div class="synopsis-item">
+                    <span class="synopsis-label">Recent Activity:</span>
+                    <span class="synopsis-value activity-{{ data.synopsis.operational_insights.recent_activity.lower().replace(' ', '-') }}">
+                        {{ data.synopsis.operational_insights.recent_activity }}
+                    </span>
+                </div>
+                <div class="synopsis-item">
+                    <span class="synopsis-label">Returns Filed:</span>
+                    <span class="synopsis-value">{{ data.synopsis.operational_insights.returns_filed }}/{{ data.synopsis.operational_insights.total_returns_due }}</span>
+                </div>
+                {% if data.synopsis.operational_insights.return_types %}
+                <div class="synopsis-item">
+                    <span class="synopsis-label">Return Types:</span>
+                    <span class="synopsis-value">{{ data.synopsis.operational_insights.return_types | join(', ') }}</span>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        
+        <!-- Compliance Summary -->
+        <div class="synopsis-card">
+            <h4><i class="fas fa-shield-alt"></i> Compliance Analysis</h4>
+            <div class="synopsis-content">
+                <div class="synopsis-item">
+                    <span class="synopsis-label">Overall Rating:</span>
+                    <span class="synopsis-value grade-{{ data.synopsis.compliance_summary.overall_rating.lower() }}">
+                        {{ data.synopsis.compliance_summary.overall_rating }}
+                    </span>
+                </div>
+                <div class="synopsis-item">
+                    <span class="synopsis-label">Compliance Score:</span>
+                    <span class="synopsis-value">{{ data.synopsis.compliance_summary.compliance_score }}%</span>
+                </div>
+                <div class="synopsis-item">
+                    <span class="synopsis-label">Filing Reliability:</span>
+                    <span class="synopsis-value">{{ data.synopsis.compliance_summary.filing_reliability }}</span>
+                </div>
+                <div class="synopsis-item">
+                    <span class="synopsis-label">Late Filing Rate:</span>
+                    <span class="synopsis-value">{{ data.synopsis.compliance_summary.late_filing_rate }}</span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Risk Assessment -->
+        <div class="synopsis-card risk-card">
+            <h4><i class="fas fa-exclamation-triangle"></i> Risk Assessment</h4>
+            <div class="synopsis-content">
+                <div class="synopsis-item">
+                    <span class="synopsis-label">Compliance Risk:</span>
+                    <span class="synopsis-value risk-{{ data.synopsis.risk_assessment.compliance_risk.lower().replace(' ', '-') }}">
+                        {{ data.synopsis.risk_assessment.compliance_risk }}
+                    </span>
+                </div>
+                <div class="synopsis-item">
+                    <span class="synopsis-label">Overall Risk Level:</span>
+                    <span class="synopsis-value risk-{{ data.synopsis.risk_assessment.risk_level.lower() }}">
+                        {{ data.synopsis.risk_assessment.risk_level }}
+                    </span>
+                </div>
+                {% if data.synopsis.risk_assessment.red_flags %}
+                <div class="synopsis-item red-flags">
+                    <span class="synopsis-label">Red Flags:</span>
+                    <div class="red-flags-list">
+                        {% for flag in data.synopsis.risk_assessment.red_flags %}
+                        <span class="red-flag-item">
+                            <i class="fas fa-flag"></i> {{ flag }}
+                        </span>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% else %}
+                <div class="synopsis-item">
+                    <span class="synopsis-label">Red Flags:</span>
+                    <span class="synopsis-value text-success">
+                        <i class="fas fa-check-circle"></i> None detected
+                    </span>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <!-- Key Metrics Summary -->
+    <div class="key-metrics">
+        <h4><i class="fas fa-tachometer-alt"></i> Key Metrics Overview</h4>
+        <div class="metrics-grid">
+            <div class="metric-item">
+                <span class="metric-number">{{ data.synopsis.key_metrics.business_age_years }}</span>
+                <span class="metric-label">Years in Business</span>
+            </div>
+            <div class="metric-item">
+                <span class="metric-number">{{ data.synopsis.key_metrics.filing_percentage }}</span>
+                <span class="metric-label">Filing Rate</span>
+            </div>
+            <div class="metric-item">
+                <span class="metric-number">{{ data.synopsis.key_metrics.compliance_grade }}</span>
+                <span class="metric-label">Compliance Grade</span>
+            </div>
+            <div class="metric-item">
+                <span class="metric-number">{{ data.synopsis.key_metrics.total_late_returns }}</span>
+                <span class="metric-label">Late Returns</span>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
             {% if data.compliance %}
             <div class="compliance-dashboard">
                 <h3><i class="fas fa-chart-line"></i> Compliance Dashboard</h3>

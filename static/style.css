@@ -665,3 +665,243 @@ th, td {
     white-space: normal !important;
   }
 }
+
+/* Synopsis Section Styles */
+.synopsis-section {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 12px;
+    padding: 25px;
+    margin: 25px 0;
+    color: white;
+    box-shadow: 0 8px 32px rgba(102, 126, 234, 0.3);
+}
+
+.synopsis-section h3 {
+    color: white;
+    margin-bottom: 20px;
+    font-size: 1.4rem;
+    font-weight: 600;
+}
+
+.synopsis-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 20px;
+    margin-top: 20px;
+}
+
+.synopsis-card {
+    background: rgba(255, 255, 255, 0.95);
+    border-radius: 10px;
+    padding: 20px;
+    color: #333;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.synopsis-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 25px rgba(0, 0, 0, 0.15);
+}
+
+.synopsis-card h4 {
+    color: #4a5568;
+    margin-bottom: 15px;
+    font-size: 1.1rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.synopsis-card h4 i {
+    color: #667eea;
+}
+
+.synopsis-content {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.synopsis-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    padding: 8px 0;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.synopsis-item:last-child {
+    border-bottom: none;
+}
+
+.synopsis-label {
+    font-weight: 500;
+    color: #4a5568;
+    min-width: 120px;
+}
+
+.synopsis-value {
+    font-weight: 600;
+    color: #2d3748;
+    text-align: right;
+    flex: 1;
+}
+
+/* Narrative Summary */
+.narrative-summary {
+    grid-column: 1 / -1;
+    background: rgba(255, 255, 255, 0.98);
+    margin-bottom: 10px;
+}
+
+.narrative-text {
+    font-size: 1.05rem;
+    line-height: 1.6;
+    color: #4a5568;
+    margin: 0;
+    font-style: italic;
+}
+
+/* Status-based styling */
+.status-active { color: #38a169; }
+.status-cancelled { color: #e53e3e; }
+.status-inactive { color: #d69e2e; }
+
+/* Filing pattern styling */
+.filing-highly-consistent-filer { color: #38a169; font-weight: 600; }
+.filing-regular-filer { color: #319795; font-weight: 600; }
+.filing-moderate-filer { color: #d69e2e; font-weight: 600; }
+.filing-irregular-filer { color: #e53e3e; font-weight: 600; }
+
+/* Activity styling */
+.activity-active-and-compliant { color: #38a169; font-weight: 600; }
+.activity-partially-active { color: #d69e2e; font-weight: 600; }
+.activity-inactive-filing { color: #e53e3e; font-weight: 600; }
+
+/* Grade styling */
+.grade-a\+, .grade-aplus { color: #38a169; font-weight: 700; }
+.grade-a { color: #38a169; font-weight: 600; }
+.grade-b { color: #319795; font-weight: 600; }
+.grade-c { color: #d69e2e; font-weight: 600; }
+.grade-d { color: #e53e3e; font-weight: 600; }
+
+/* Risk styling */
+.risk-low-risk, .risk-low { color: #38a169; font-weight: 600; }
+.risk-medium-risk, .risk-medium { color: #d69e2e; font-weight: 600; }
+.risk-high-risk, .risk-high { color: #e53e3e; font-weight: 600; }
+.risk-very-high-risk { color: #c53030; font-weight: 700; }
+
+/* Red flags */
+.red-flags-list {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.red-flag-item {
+    background: #fed7d7;
+    color: #c53030;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.red-flag-item i {
+    font-size: 0.75rem;
+}
+
+/* Key Metrics */
+.key-metrics {
+    margin-top: 20px;
+    background: rgba(255, 255, 255, 0.95);
+    border-radius: 10px;
+    padding: 20px;
+    color: #333;
+}
+
+.key-metrics h4 {
+    color: #4a5568;
+    margin-bottom: 15px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 15px;
+}
+
+.metric-item {
+    text-align: center;
+    padding: 15px 10px;
+    background: #f7fafc;
+    border-radius: 8px;
+    border: 2px solid #e2e8f0;
+    transition: all 0.2s ease;
+}
+
+.metric-item:hover {
+    border-color: #667eea;
+    background: #edf2f7;
+}
+
+.metric-number {
+    display: block;
+    font-size: 1.8rem;
+    font-weight: 700;
+    color: #667eea;
+    margin-bottom: 5px;
+}
+
+.metric-label {
+    font-size: 0.85rem;
+    color: #4a5568;
+    font-weight: 500;
+}
+
+/* Risk card specific styling */
+.risk-card {
+    border-left: 4px solid #f56565;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+    .synopsis-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .synopsis-item {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 5px;
+    }
+    
+    .synopsis-value {
+        text-align: left;
+    }
+    
+    .metrics-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 480px) {
+    .synopsis-section {
+        padding: 15px;
+    }
+    
+    .synopsis-card {
+        padding: 15px;
+    }
+    
+    .metrics-grid {
+        grid-template-columns: 1fr;
+    }
+}
