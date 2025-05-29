@@ -210,3 +210,272 @@ async def download_pdf(request: Request, gstin: str = Form(...)):
     return StreamingResponse(pdf_file, media_type="application/pdf", headers={
         "Content-Disposition": f"attachment; filename={gstin}_gst_dashboard.pdf"
     })
+
+# Add this to your main.py after the existing functions
+
+def generate_company_synopsis(data: Dict) -> Dict:
+    """Generate intelligent company synopsis from existing GST data"""
+    from datetime import datetime
+    
+    synopsis = {
+        'business_profile': {},
+        'operational_insights': {},
+        'compliance_summary': {},
+        'risk_assessment': {},
+        'key_metrics': {}
+    }
+    
+    # Business Profile
+    company_name = data.get('lgnm', 'Unknown Company')
+    trade_name = data.get('tradeName', '')
+    registration_date = data.get('rgdt', '')
+    company_type = data.get('ctb', '')
+    status = data.get('sts', '')
+    gstin = data.get('gstin', '')
+    
+    # Calculate business age
+    business_age = "Unknown"
+    if registration_date:
+        try:
+            reg_date = datetime.strptime(registration_date, "%d/%m/%Y")
+            age_days = (datetime.now() - reg_date).days
+            years = age_days // 365
+            months = (age_days % 365) // 30
+            if years > 0:
+                business_age = f"{years} year{'s' if years > 1 else ''}"
+                if months > 0:
+                    business_age += f", {months} month{'s' if months > 1 else ''}"
+            else:
+                business_age = f"{months} month{'s' if months > 1 else ''}"
+        except:
+            pass
+    
+    # State mapping
+    state_map = {
+        '01': 'Jammu & Kashmir', '02': 'Himachal Pradesh', '03': 'Punjab', '04': 'Chandigarh',
+        '05': 'Uttarakhand', '06': 'Haryana', '07': 'Delhi', '08': 'Rajasthan',
+        '09': 'Uttar Pradesh', '10': 'Bihar', '11': 'Sikkim', '12': 'Arunachal Pradesh',
+        '13': 'Nagaland', '14': 'Manipur', '15': 'Mizoram', '16': 'Tripura',
+        '17': 'Meghalaya', '18': 'Assam', '19': 'West Bengal', '20': 'Jharkhand',
+        '21': 'Odisha', '22': 'Chhattisgarh', '23': 'Madhya Pradesh', '24': 'Gujarat',
+        '25': 'Daman & Diu', '26': 'Dadra & Nagar Haveli', '27': 'Maharashtra',
+        '28': 'Andhra Pradesh', '29': 'Karnataka', '30': 'Goa', '31': 'Lakshadweep',
+        '32': 'Kerala', '33': 'Tamil Nadu', '34': 'Puducherry', '35': 'Andaman & Nicobar',
+        '36': 'Telangana', '37': 'Andhra Pradesh'
+    }
+    
+    state_code = gstin[:2] if gstin else ''
+    state_name = state_map.get(state_code, 'Unknown')
+    
+    synopsis['business_profile'] = {
+        'display_name': trade_name if trade_name and trade_name != company_name else company_name,
+        'legal_name': company_name,
+        'business_age': business_age,
+        'entity_type': company_type or 'Unknown',
+        'operational_status': status,
+        'state': state_name,
+        'state_code': state_code,
+        'jurisdiction': data.get('stj', 'Unknown')
+    }
+    
+    # Operational Insights from Returns Data
+    returns = data.get('returns', [])
+    compliance = data.get('compliance', {})
+    
+    # Filing pattern analysis
+    filing_consistency = "No filing history"
+    recent_activity = "No recent activity"
+    
+    if returns:
+        filed_returns = [r for r in returns if r.get('dof')]
+        filing_rate = len(filed_returns) / len(returns) if returns else 0
+        
+        if filing_rate >= 0.95:
+            filing_consistency = "Highly consistent filer"
+        elif filing_rate >= 0.8:
+            filing_consistency = "Regular filer"
+        elif filing_rate >= 0.6:
+            filing_consistency = "Moderate filer"
+        else:
+            filing_consistency = "Irregular filer"
+        
+        # Recent activity (last 3 returns)
+        recent_returns = sorted(returns, key=lambda x: (x.get('fy', ''), x.get('taxp', '')), reverse=True)[:3]
+        filed_recent = sum(1 for r in recent_returns if r.get('dof'))
+        
+        if filed_recent == len(recent_returns):
+            recent_activity = "Active and compliant"
+        elif filed_recent > 0:
+            recent_activity = "Partially active"
+        else:
+            recent_activity = "Inactive filing"
+    
+    # Return types
+    return_types = set()
+    for ret in returns:
+        ret_type = ret.get('rtype') or ret.get('rtntype', '')
+        if ret_type:
+            return_types.add(ret_type)
+    
+    synopsis['operational_insights'] = {
+        'filing_consistency': filing_consistency,
+        'recent_activity': recent_activity,
+        'return_types': sorted(list(return_types)),
+        'total_returns_due': len(returns),
+        'returns_filed': len([r for r in returns if r.get('dof')])
+    }
+    
+    # Compliance Summary
+    score = compliance.get('score', 0)
+    grade = compliance.get('grade', 'N/A')
+    
+    # Filing reliability
+    late_returns = sum(1 for r in returns if r.get('late'))
+    total_filed = sum(1 for r in returns if r.get('dof'))
+    
+    filing_reliability = "Unknown"
+    if total_filed > 0:
+        late_percentage = (late_returns / total_filed) * 100
+        if late_percentage == 0:
+            filing_reliability = "Always on time"
+        elif late_percentage <= 10:
+            filing_reliability = "Mostly on time"
+        elif late_percentage <= 25:
+            filing_reliability = "Occasionally late"
+        else:
+            filing_reliability = "Frequently late"
+    
+    synopsis['compliance_summary'] = {
+        'overall_rating': grade,
+        'compliance_score': score,
+        'filing_reliability': filing_reliability,
+        'late_filing_rate': f"{(late_returns/total_filed*100):.1f}%" if total_filed > 0 else "N/A"
+    }
+    
+    # Risk Assessment
+    compliance_risk = "Unknown"
+    if score >= 90:
+        compliance_risk = "Low Risk"
+    elif score >= 75:
+        compliance_risk = "Medium Risk"
+    elif score >= 60:
+        compliance_risk = "High Risk"
+    else:
+        compliance_risk = "Very High Risk"
+    
+    # Identify red flags
+    red_flags = []
+    if status and status.lower() == 'cancelled':
+        red_flags.append("GST registration cancelled")
+    if score < 60:
+        red_flags.append("Low compliance score")
+    if total_filed > 0 and (late_returns / total_filed) > 0.3:
+        red_flags.append("High rate of late filings")
+    if returns and not any(r.get('dof') for r in sorted(returns, key=lambda x: (x.get('fy', ''), x.get('taxp', '')), reverse=True)[:3]):
+        red_flags.append("No recent return filings")
+    
+    synopsis['risk_assessment'] = {
+        'compliance_risk': compliance_risk,
+        'red_flags': red_flags,
+        'risk_level': 'High' if len(red_flags) > 2 else 'Medium' if len(red_flags) > 0 else 'Low'
+    }
+    
+    # Key Metrics for quick overview
+    synopsis['key_metrics'] = {
+        'business_age_years': int(business_age.split()[0]) if business_age != "Unknown" and business_age.split()[0].isdigit() else 0,
+        'filing_percentage': f"{filing_rate*100:.1f}%" if returns else "0%",
+        'compliance_grade': grade,
+        'total_late_returns': late_returns,
+        'active_status': status == 'Active'
+    }
+    
+    # Generate narrative summary
+    narrative = f"{synopsis['business_profile']['display_name']} is a {synopsis['business_profile']['entity_type']} "
+    narrative += f"operating for {business_age} in {state_name}. "
+    narrative += f"The company is classified as a '{filing_consistency}' with an overall compliance grade of '{grade}'. "
+    
+    if recent_activity == 'Active and compliant':
+        narrative += "Recent filing activity shows good compliance discipline."
+    elif recent_activity == 'Inactive filing':
+        narrative += "Recent filing activity shows concerning gaps in compliance."
+    else:
+        narrative += "Shows mixed compliance patterns in recent filings."
+    
+    synopsis['narrative'] = narrative
+    
+    return synopsis
+
+# Update your main route functions to include synopsis:
+
+@app.post("/", response_class=HTMLResponse)
+async def post_index(request: Request, gstin: str = Form(...)):
+    is_valid, validation_message = validate_gstin(gstin)
+    if not is_valid:
+        return templates.TemplateResponse("index.html", {
+            "request": request,
+            "data": None,
+            "error": validation_message,
+            "error_type": "validation"
+        })
+    
+    gstin = gstin.strip().upper()
+    raw_data = await api_client.fetch_gstin_data(gstin)
+    returns = mark_late_returns(raw_data.get('returns', []))
+    raw_data['returns'] = returns
+    compliance = calculate_enhanced_compliance_score(raw_data)
+    returns_by_year = organize_returns_by_year(returns)
+    
+    # Generate synopsis
+    synopsis = generate_company_synopsis(raw_data)
+    
+    enhanced_data = {
+        **raw_data,
+        'compliance': compliance,
+        'returns_by_year': returns_by_year,
+        'returns': returns,
+        'synopsis': synopsis  # Add synopsis to data
+    }
+    
+    return templates.TemplateResponse("index.html", {
+        "request": request,
+        "data": enhanced_data,
+        "gstin": gstin
+    })
+
+@app.post("/download/pdf")
+async def download_pdf(request: Request, gstin: str = Form(...)):
+    is_valid, validation_message = validate_gstin(gstin)
+    if not is_valid:
+        raise HTTPException(status_code=400, detail=validation_message)
+    
+    raw_data = await api_client.fetch_gstin_data(gstin)
+    returns = mark_late_returns(raw_data.get('returns', []))
+    raw_data['returns'] = returns
+    compliance = calculate_enhanced_compliance_score(raw_data)
+    returns_by_year = organize_returns_by_year(returns)
+    
+    # Generate synopsis for PDF
+    synopsis = generate_company_synopsis(raw_data)
+    
+    enhanced_data = {
+        **raw_data,
+        'compliance': compliance,
+        'returns_by_year': returns_by_year,
+        'returns': returns,
+        'synopsis': synopsis  # Add synopsis to PDF data
+    }
+    
+    html_content = templates.get_template("pdf_template.html").render(
+        request=request,
+        data=enhanced_data,
+        gstin=gstin,
+        error=None
+    )
+    
+    pdf_file = BytesIO()
+    HTML(string=html_content, base_url=os.path.abspath(".")).write_pdf(pdf_file)
+    pdf_file.seek(0)
+    
+    return StreamingResponse(pdf_file, media_type="application/pdf", headers={
+        "Content-Disposition": f"attachment; filename={gstin}_gst_dashboard.pdf"
+    })
