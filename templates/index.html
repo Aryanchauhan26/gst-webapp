@@ -207,13 +207,17 @@
                         {% endfor %}
                     </div>
                 </div>
+                {% endfor %}
+                    </div>
+                </div>
             {% else %}
                 <div class="no-returns">
                     <i class="fas fa-inbox"></i>
                     <h3>No Filing History Found</h3>
                     <p>No GST return filing history is available for this GSTIN.</p>
                 </div>
-            {% endif %}           
+            {% endif %}
+        {% endif %}
     </div>
 </body>
 </html>
