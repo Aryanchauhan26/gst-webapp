@@ -635,6 +635,24 @@ th, td {
   box-sizing: border-box;
 }
 
+/* Fix for info-section flex/grid overlap in PDF/print */
+.info-item {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  align-items: flex-start !important;
+  min-width: 0 !important;
+  width: 100% !important;
+}
+
+.info-label, .info-value {
+  min-width: 0 !important;
+  max-width: 100% !important;
+  word-break: break-word !important;
+  white-space: normal !important;
+  overflow-wrap: break-word !important;
+  flex: 1 1 50% !important; /* Allows both to take up space and wrap if needed */
+}
+
 @media print {
   body, div, p, span, td, th {
     word-break: break-word !important;
