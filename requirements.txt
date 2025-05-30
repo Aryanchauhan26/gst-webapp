@@ -120,3 +120,6 @@ openai>=1.0.0
 
 # .env support (optional, recommended for local dev)
 python-dotenv==1.0.1
+
+# Google Gemini AI integration
+google-generativeai
