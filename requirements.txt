@@ -114,3 +114,9 @@ healthcheck==1.3.3         # Health check utilities
 # Performance profiling
 py-spy==0.3.14             # Python profiler
 line-profiler==4.1.1       # Line-by-line profiling
+
+# Gemini AI integration
+google-generativeai==0.5.4
+
+# .env support (optional, recommended for local dev)
+python-dotenv==1.0.1

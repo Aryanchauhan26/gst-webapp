@@ -11,8 +11,9 @@ import os
 import re
 from pathlib import Path
 
-# Import WeasyPrint for HTML-to-PDF
 from weasyprint import HTML
+from fastapi.concurrency import run_in_threadpool
+from gemini_ai import get_gemini_synopsis
 
 def validate_gstin(gstin: str) -> Tuple[bool, str]:
     try:
@@ -137,8 +138,6 @@ def organize_returns_by_year(returns: List[Dict]) -> Dict:
     sorted_years = dict(sorted(returns_by_year.items(), reverse=True))
     return sorted_years
 
-# --- Advanced Analytics Functions ---
-
 def generate_filing_trends(returns: List[Dict]) -> Dict:
     if not returns:
         return {'trend': 'No data', 'pattern': 'Unknown'}
@@ -177,29 +176,24 @@ def assess_business_health(data: Dict) -> Dict:
     compliance = data.get('compliance', {})
     health_score = 0
     factors = []
-    # Registration status (20 points)
     if data.get('sts', '').lower() == 'active':
         health_score += 20
         factors.append('Active registration status')
     else:
         factors.append('Non-active registration status (-20)')
-    # Compliance score (40 points)
     comp_score = compliance.get('score', 0)
     health_score += (comp_score / 100) * 40
     factors.append(f'Compliance score: {comp_score}%')
-    # Filing consistency (25 points)
     if returns:
         filed_rate = len([r for r in returns if r.get('dof')]) / len(returns)
         health_score += filed_rate * 25
         factors.append(f'Filing rate: {filed_rate*100:.1f}%')
-    # Recent activity (15 points)
     if returns:
         recent_returns = sorted(returns, key=lambda x: (x.get('fy', ''), x.get('taxp', '')), reverse=True)[:3]
         recent_filed = sum(1 for r in recent_returns if r.get('dof'))
         recent_rate = recent_filed / len(recent_returns) if recent_returns else 0
         health_score += recent_rate * 15
         factors.append(f'Recent activity rate: {recent_rate*100:.1f}%')
-    # Determine health grade
     if health_score >= 90:
         grade = 'Excellent'
         status = 'Very Healthy Business'
@@ -296,8 +290,6 @@ def calculate_penalty_risk_amount(returns: List[Dict], compliance: Dict) -> Dict
         'currency': 'INR'
     }
 
-# --- Enhanced Company Synopsis ---
-
 def generate_company_synopsis(data: Dict) -> Dict:
     synopsis = {
         'business_profile': {},
@@ -312,7 +304,6 @@ def generate_company_synopsis(data: Dict) -> Dict:
     company_type = data.get('ctb', '')
     status = data.get('sts', '')
     gstin = data.get('gstin', '')
-    # Calculate business age
     business_age = "Unknown"
     if registration_date:
         try:
@@ -328,7 +319,6 @@ def generate_company_synopsis(data: Dict) -> Dict:
                 business_age = f"{months} month{'s' if months > 1 else ''}"
         except:
             pass
-    # State mapping
     state_map = {
         '01': 'Jammu & Kashmir', '02': 'Himachal Pradesh', '03': 'Punjab', '04': 'Chandigarh',
         '05': 'Uttarakhand', '06': 'Haryana', '07': 'Delhi', '08': 'Rajasthan',
@@ -353,7 +343,6 @@ def generate_company_synopsis(data: Dict) -> Dict:
         'state_code': state_code,
         'jurisdiction': data.get('stj', 'Unknown')
     }
-    # Operational Insights from Returns Data
     returns = data.get('returns', [])
     compliance = data.get('compliance', {})
     filing_consistency = "No filing history"
@@ -392,7 +381,6 @@ def generate_company_synopsis(data: Dict) -> Dict:
         'total_returns_due': total_returns_due,
         'returns_filed': returns_filed
     }
-    # Compliance Summary
     score = compliance.get('score', 0)
     grade = compliance.get('grade', 'N/A')
     late_returns = sum(1 for r in returns if r.get('late'))
@@ -414,7 +402,6 @@ def generate_company_synopsis(data: Dict) -> Dict:
         'filing_reliability': filing_reliability,
         'late_filing_rate': f"{(late_returns/total_filed*100):.1f}%" if total_filed > 0 else "N/A"
     }
-    # Risk Assessment
     compliance_risk = "Unknown"
     if score >= 90:
         compliance_risk = "Low Risk"
@@ -439,7 +426,6 @@ def generate_company_synopsis(data: Dict) -> Dict:
         'red_flags': red_flags,
         'risk_level': risk_level
     }
-    # Key Metrics for quick overview
     synopsis['key_metrics'] = {
         'business_age_years': int(business_age.split()[0]) if business_age != "Unknown" and business_age.split()[0].isdigit() else 0,
         'filing_percentage': f"{returns_filed / total_returns_due * 100:.1f}%" if total_returns_due else "0%",
@@ -466,8 +452,6 @@ def generate_enhanced_synopsis(data: Dict) -> Dict:
     synopsis['recommendations'] = generate_recommendations(data, synopsis)
     synopsis['penalty_risk'] = calculate_penalty_risk_amount(data.get('returns', []), data.get('compliance', {}))
     return synopsis
-
-# --- FastAPI App Setup ---
 
 app = FastAPI(title="GST Compliance Platform")
 static_dir = Path("static")
@@ -501,14 +485,16 @@ async def post_index(request: Request, gstin: str = Form(...)):
     raw_data['returns'] = returns
     compliance = calculate_enhanced_compliance_score(raw_data)
     returns_by_year = organize_returns_by_year(returns)
-    # Generate enhanced synopsis
+    # Fetch Gemini synopsis
+    ai_narrative = await run_in_threadpool(get_gemini_synopsis, {**raw_data, "compliance": compliance})
     synopsis = generate_enhanced_synopsis({**raw_data, 'compliance': compliance})
+    synopsis['narrative'] = ai_narrative
     enhanced_data = {
         **raw_data,
         'compliance': compliance,
         'returns_by_year': returns_by_year,
         'returns': returns,
-        'synopsis': synopsis  # Add enhanced synopsis to data
+        'synopsis': synopsis
     }
     return templates.TemplateResponse("index.html", {
         "request": request,
@@ -526,14 +512,16 @@ async def download_pdf(request: Request, gstin: str = Form(...)):
     raw_data['returns'] = returns
     compliance = calculate_enhanced_compliance_score(raw_data)
     returns_by_year = organize_returns_by_year(returns)
-    # Generate enhanced synopsis for PDF
+    # Fetch Gemini synopsis
+    ai_narrative = await run_in_threadpool(get_gemini_synopsis, {**raw_data, "compliance": compliance})
     synopsis = generate_enhanced_synopsis({**raw_data, 'compliance': compliance})
+    synopsis['narrative'] = ai_narrative
     enhanced_data = {
         **raw_data,
         'compliance': compliance,
         'returns_by_year': returns_by_year,
         'returns': returns,
-        'synopsis': synopsis  # Add enhanced synopsis to PDF data
+        'synopsis': synopsis
     }
     html_content = templates.get_template("pdf_template.html").render(
         request=request,
