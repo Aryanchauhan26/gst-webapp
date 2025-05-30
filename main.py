@@ -13,7 +13,7 @@ from pathlib import Path
 
 from weasyprint import HTML
 from fastapi.concurrency import run_in_threadpool
-from gemini_ai import get_gemini_synopsis
+from openai_ai import get_openai_synopsis
 
 def validate_gstin(gstin: str) -> Tuple[bool, str]:
     try:
@@ -485,8 +485,8 @@ async def post_index(request: Request, gstin: str = Form(...)):
     raw_data['returns'] = returns
     compliance = calculate_enhanced_compliance_score(raw_data)
     returns_by_year = organize_returns_by_year(returns)
-    # Fetch Gemini synopsis
-    ai_narrative = await run_in_threadpool(get_gemini_synopsis, {**raw_data, "compliance": compliance})
+    # Fetch Openai synopsis
+    ai_narrative = await run_in_threadpool(get_openai_synopsis, {**raw_data, "compliance": compliance})
     synopsis = generate_enhanced_synopsis({**raw_data, 'compliance': compliance})
     synopsis['narrative'] = ai_narrative
     enhanced_data = {
@@ -512,8 +512,8 @@ async def download_pdf(request: Request, gstin: str = Form(...)):
     raw_data['returns'] = returns
     compliance = calculate_enhanced_compliance_score(raw_data)
     returns_by_year = organize_returns_by_year(returns)
-    # Fetch Gemini synopsis
-    ai_narrative = await run_in_threadpool(get_gemini_synopsis, {**raw_data, "compliance": compliance})
+    # Fetch Openai synopsis
+    ai_narrative = await run_in_threadpool(get_openai_synopsis, {**raw_data, "compliance": compliance})
     synopsis = generate_enhanced_synopsis({**raw_data, 'compliance': compliance})
     synopsis['narrative'] = ai_narrative
     enhanced_data = {
