@@ -535,3 +535,37 @@ async def download_pdf(request: Request, gstin: str = Form(...)):
     return StreamingResponse(pdf_file, media_type="application/pdf", headers={
         "Content-Disposition": f"attachment; filename={gstin}_gst_dashboard.pdf"
     })
+
+@app.get("/download/pdf")
+async def download_pdf_get(request: Request, gstin: str):
+    # The logic is almost identical, except gstin comes from the query string
+    is_valid, validation_message = validate_gstin(gstin)
+    if not is_valid:
+        raise HTTPException(status_code=400, detail=validation_message)
+    raw_data = await api_client.fetch_gstin_data(gstin)
+    returns = mark_late_returns(raw_data.get('returns', []))
+    raw_data['returns'] = returns
+    compliance = calculate_enhanced_compliance_score(raw_data)
+    returns_by_year = organize_returns_by_year(returns)
+    ai_narrative = await run_in_threadpool(get_gemini_synopsis, {**raw_data, "compliance": compliance})
+    synopsis = generate_enhanced_synopsis({**raw_data, 'compliance': compliance})
+    synopsis['narrative'] = ai_narrative
+    enhanced_data = {
+        **raw_data,
+        'compliance': compliance,
+        'returns_by_year': returns_by_year,
+        'returns': returns,
+        'synopsis': synopsis
+    }
+    html_content = templates.get_template("pdf_template.html").render(
+        request=request,
+        data=enhanced_data,
+        gstin=gstin,
+        error=None
+    )
+    pdf_file = BytesIO()
+    HTML(string=html_content, base_url=os.path.abspath(".")).write_pdf(pdf_file)
+    pdf_file.seek(0)
+    return StreamingResponse(pdf_file, media_type="application/pdf", headers={
+        "Content-Disposition": f"attachment; filename={gstin}_gst_dashboard.pdf"
+    })
