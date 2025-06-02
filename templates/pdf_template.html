@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>GST Dashboard PDF</title>
+    <title>GST Intelligence Report - {{ data.lgnm if data else 'Company' }}</title>
     <link rel="stylesheet" href="static/style.css">
     <style>
         @page { margin: 2cm; }
@@ -11,20 +11,39 @@
             .container { box-shadow: none !important; }
         }
         body { background: white !important; }
+
+        /* Dark theme compatibility for PDF */
+.fade-in { opacity: 1 !important; }
+.glow-hover { border-color: #e2e8f0 !important; }
+
+/* Ensure good contrast in PDF */
+.synopsis-section {
+    background: #f8f9fa !important;
+    color: #000 !important;
+}
+
+.narrative-summary {
+    background: #6366f1 !important;
+    color: white !important;
+}
+
+.narrative-summary h4 {
+    color: white !important;
+}
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <h1><i class="fas fa-search"></i> GST Return Status Lookup</h1>
-            <p class="subtitle">Get comprehensive GST compliance information for any business</p>
+            <h1><i class="fas fa-chart-line"></i> GST Intelligence Report</h1>
+<p class="subtitle">Comprehensive Business Analytics & Compliance Analysis</p>
         </div>
         {% if data %}
             {% if data.compliance %}
-            <div class="compliance-dashboard">
+            <div class="compliance-dashboard fade-in">
                 <h3><i class="fas fa-chart-line"></i> Compliance Dashboard</h3>
                 <div class="compliance-grid">
-                    <div class="compliance-card">
+                    <div class="compliance-card glow-hover">
                         <div class="compliance-score compliance-{{ data.compliance.grade.lower().replace('+', 'plus') }}">
                             {{ data.compliance.score }}%
                         </div>
@@ -32,19 +51,19 @@
                         <div class="compliance-status">{{ data.compliance.status }}</div>
                     </div>
                     <div class="compliance-stats">
-                        <div class="stat-item">
+                        <div class="stat-item glow-hover">
                             <span class="stat-label">Total Returns:</span>
                             <span class="stat-value">{{ data.compliance.total_returns }}</span>
                         </div>
-                        <div class="stat-item">
+                        <div class="stat-item glow-hover">
                             <span class="stat-label">Filed Returns:</span>
                             <span class="stat-value">{{ data.compliance.filed_returns }}</span>
                         </div>
-                        <div class="stat-item">
+                        <div class="stat-item glow-hover">
                             <span class="stat-label">Late Returns:</span>
                             <span class="stat-value">{{ data.compliance.late_returns }}</span>
                         </div>
-                        <div class="stat-item">
+                        <div class="stat-item glow-hover">
                             <span class="stat-label">Filing Rate:</span>
                             <span class="stat-value">{{ data.compliance.score }}%</span>
                         </div>
@@ -55,15 +74,15 @@
 
             <!-- Intelligent Business Synopsis Section -->
             {% if data.synopsis %}
-            <div class="synopsis-section">
+            <div class="synopsis-section fade-in">
                 <h3><i class="fas fa-brain"></i> Intelligent Business Synopsis</h3>
-                <div class="synopsis-card narrative-summary">
+                <div class="synopsis-card narrative-summary glow-hover">
                     <h4><i class="fas fa-file-text"></i> Executive Summary</h4>
                     <p class="narrative-text">{{ data.synopsis.narrative }}</p>
                 </div>
                 <div class="synopsis-grid">
                     <!-- Business Profile -->
-                    <div class="synopsis-card">
+                    <div class="synopsis-card glow-hover">
                         <h4><i class="fas fa-building"></i> Business Profile</h4>
                         <div class="synopsis-content">
                             <div class="synopsis-item">
@@ -91,7 +110,7 @@
                         </div>
                     </div>
                     <!-- Operational Insights -->
-                    <div class="synopsis-card">
+                    <div class="synopsis-card glow-hover">
                         <h4><i class="fas fa-chart-line"></i> Operational Insights</h4>
                         <div class="synopsis-content">
                             <div class="synopsis-item">
@@ -119,7 +138,7 @@
                         </div>
                     </div>
                     <!-- Compliance Summary -->
-                    <div class="synopsis-card">
+                    <div class="synopsis-card glow-hover">
                         <h4><i class="fas fa-shield-alt"></i> Compliance Analysis</h4>
                         <div class="synopsis-content">
                             <div class="synopsis-item">
@@ -184,19 +203,19 @@
                 <div class="key-metrics">
                     <h4><i class="fas fa-tachometer-alt"></i> Key Metrics Overview</h4>
                     <div class="metrics-grid">
-                        <div class="metric-item">
+                        <div class="metric-item glow-hover">
                             <span class="metric-number">{{ data.synopsis.key_metrics.business_age_years }}</span>
                             <span class="metric-label">Years in Business</span>
                         </div>
-                        <div class="metric-item">
+                        <div class="metric-item glow-hover">
                             <span class="metric-number">{{ data.synopsis.key_metrics.filing_percentage }}</span>
                             <span class="metric-label">Filing Rate</span>
                         </div>
-                        <div class="metric-item">
+                        <div class="metric-item glow-hover">
                             <span class="metric-number">{{ data.synopsis.key_metrics.compliance_grade }}</span>
                             <span class="metric-label">Compliance Grade</span>
                         </div>
-                        <div class="metric-item">
+                        <div class="metric-item glow-hover">
                             <span class="metric-number">{{ data.synopsis.key_metrics.total_late_returns }}</span>
                             <span class="metric-label">Late Returns</span>
                         </div>
@@ -307,10 +326,10 @@
             </div>
             {% endif %}
 
-            <div class="info-section">
+            <div class="info-section fade-in">
                 <h3><i class="fas fa-building"></i> Company Information</h3>
                 <div class="info-grid">
-                    <div class="info-card">
+                    <div class="info-card glow-hover">
                         <div class="info-item">
                             <span class="info-label"><i class="fas fa-certificate"></i> Legal Name:</span>
                             <span class="info-value">{{ data.lgnm or 'N/A' }}</span>
@@ -337,7 +356,7 @@
                             </span>
                         </div>
                     </div>
-                    <div class="info-card">
+                    <div class="info-card glow-hover">
                         <div class="info-item">
                             <span class="info-label"><i class="fas fa-calendar-plus"></i> Registration Date:</span>
                             <span class="info-value">{{ data.rgdt or 'N/A' }}</span>
@@ -376,7 +395,7 @@
                 </div>
             </div>
             {% if data.returns_by_year %}
-                <div class="returns-section">
+                <div class="returns-section fade-in">
                     <h3><i class="fas fa-file-alt"></i> GST Return Filing History</h3>
                     <div class="returns-summary">
                         <div class="summary-stats">

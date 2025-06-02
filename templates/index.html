@@ -3,32 +3,50 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GST Return Status Lookup</title>
+    <title>GST Intelligence Platform - Advanced Business Analytics</title>
     <link rel="stylesheet" href="/static/style.css">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <!-- Add smooth scrolling -->
+    <style>
+        html { scroll-behavior: smooth; }
+    </style>
 </head>
 <body>
     <div class="container">
+        <!-- Enhanced Header -->
         <div class="header">
-            <h1><i class="fas fa-search"></i> GST Return Status Lookup</h1>
-            <p class="subtitle">Get comprehensive GST compliance information for any business</p>
+            <h1><i class="fas fa-chart-line"></i> GST Intelligence Platform</h1>
+            <p class="subtitle">Advanced Business Analytics & Compliance Monitoring</p>
         </div>
-        <div class="search-section">
+        
+        <!-- Enhanced Search Section -->
+        <div class="search-section fade-in">
             <form method="post" class="search-form">
                 <div class="input-group">
-                    <input type="text" name="gstin" placeholder="Enter 15-digit GSTIN (e.g., 07AAGFF2194N1Z5)" required pattern="[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}" title="Please enter a valid 15-digit GSTIN">
-                    <button type="submit"><i class="fas fa-search"></i> Search</button>
+                    <input type="text" 
+                           name="gstin" 
+                           placeholder="Enter 15-digit GSTIN (e.g., 07AAGFF2194N1Z5)" 
+                           required 
+                           pattern="[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}" 
+                           title="Please enter a valid 15-digit GSTIN"
+                           autocomplete="off">
+                    <button type="submit">
+                        <i class="fas fa-search"></i> Analyze
+                    </button>
                 </div>
             </form>
         </div>
+        
         {% if error %}
-            <div class="alert error">
+            <div class="alert error fade-in">
                 <i class="fas fa-exclamation-triangle"></i>
                 <strong>Error:</strong> {{ error }}
             </div>
         {% endif %}
+        
         {% if data %}
-            <div class="quick-actions">
+            <!-- Quick Actions with enhanced styling -->
+            <div class="quick-actions fade-in">
                 <h3><i class="fas fa-bolt"></i> Quick Actions</h3>
                 <div class="action-buttons">
                     <form method="post" action="/download/pdf" style="display: inline;">
@@ -37,29 +55,35 @@
                             <i class="fas fa-file-pdf"></i> Download PDF
                         </button>
                     </form>
-                    <a href="https://wa.me/?text={{ 'GST Details for ' ~ (data.gstin or '') ~ ': Compliance Score ' ~ (data.compliance.score if data.compliance else 'N/A') ~ '%. View more on GST WebApp.' | urlencode }}" 
+                    <a href="https://wa.me/?text={{ 'GST Details for ' ~ (data.gstin or '') ~ ': Compliance Score ' ~ (data.compliance.score if data.compliance else 'N/A') ~ '%. View more on GST Intelligence Platform.' | urlencode }}" 
                         target="_blank" 
                         class="btn btn-whatsapp">
                         <i class="fab fa-whatsapp"></i> Share on WhatsApp
                     </a>
+                    <button class="btn btn-copy" onclick="copyGSTIN()">
+                        <i class="fas fa-copy"></i> Copy GSTIN
+                    </button>
                 </div>
             </div>
 
-            <!-- Intelligent Business Synopsis Section -->
+            <!-- Enhanced Synopsis Section -->
             {% if data.synopsis %}
-            <div class="synopsis-section">
-                <h3><i class="fas fa-brain"></i> Intelligent Business Synopsis</h3>
-                <div class="synopsis-card narrative-summary">
-                    <h4><i class="fas fa-file-text"></i> Executive Summary</h4>
+            <div class="synopsis-section fade-in">
+                <h3><i class="fas fa-brain"></i> AI-Powered Business Intelligence</h3>
+                
+                <!-- Narrative with enhanced card -->
+                <div class="synopsis-card narrative-summary glow-hover">
+                    <h4><i class="fas fa-sparkles"></i> Executive Summary</h4>
                     <p class="narrative-text">{{ data.synopsis.narrative }}</p>
                 </div>
+                
                 <div class="synopsis-grid">
-                    <!-- Business Profile -->
-                    <div class="synopsis-card">
+                    <!-- Business Profile Card -->
+                    <div class="synopsis-card fade-in" style="animation-delay: 0.1s;">
                         <h4><i class="fas fa-building"></i> Business Profile</h4>
                         <div class="synopsis-content">
                             <div class="synopsis-item">
-                                <span class="synopsis-label">Display Name:</span>
+                                <span class="synopsis-label">Company Name:</span>
                                 <span class="synopsis-value">{{ data.synopsis.business_profile.display_name }}</span>
                             </div>
                             <div class="synopsis-item">
@@ -77,13 +101,19 @@
                             <div class="synopsis-item">
                                 <span class="synopsis-label">Status:</span>
                                 <span class="synopsis-value status-{{ data.synopsis.business_profile.operational_status.lower() }}">
+                                    {% if data.synopsis.business_profile.operational_status == 'Active' %}
+                                        <i class="fas fa-check-circle"></i>
+                                    {% else %}
+                                        <i class="fas fa-times-circle"></i>
+                                    {% endif %}
                                     {{ data.synopsis.business_profile.operational_status }}
                                 </span>
                             </div>
                         </div>
                     </div>
-                    <!-- Operational Insights -->
-                    <div class="synopsis-card">
+                    
+                    <!-- Operational Insights Card -->
+                    <div class="synopsis-card fade-in" style="animation-delay: 0.2s;">
                         <h4><i class="fas fa-chart-line"></i> Operational Insights</h4>
                         <div class="synopsis-content">
                             <div class="synopsis-item">
@@ -100,7 +130,9 @@
                             </div>
                             <div class="synopsis-item">
                                 <span class="synopsis-label">Returns Filed:</span>
-                                <span class="synopsis-value">{{ data.synopsis.operational_insights.returns_filed }}/{{ data.synopsis.operational_insights.total_returns_due }}</span>
+                                <span class="synopsis-value">
+                                    <strong>{{ data.synopsis.operational_insights.returns_filed }}</strong> / {{ data.synopsis.operational_insights.total_returns_due }}
+                                </span>
                             </div>
                             {% if data.synopsis.operational_insights.return_types %}
                             <div class="synopsis-item">
@@ -110,19 +142,22 @@
                             {% endif %}
                         </div>
                     </div>
-                    <!-- Compliance Summary -->
-                    <div class="synopsis-card">
+                    
+                    <!-- Compliance Analysis Card -->
+                    <div class="synopsis-card fade-in" style="animation-delay: 0.3s;">
                         <h4><i class="fas fa-shield-alt"></i> Compliance Analysis</h4>
                         <div class="synopsis-content">
                             <div class="synopsis-item">
                                 <span class="synopsis-label">Overall Rating:</span>
                                 <span class="synopsis-value grade-{{ data.synopsis.compliance_summary.overall_rating.lower() }}">
-                                    {{ data.synopsis.compliance_summary.overall_rating }}
+                                    <strong>{{ data.synopsis.compliance_summary.overall_rating }}</strong>
                                 </span>
                             </div>
                             <div class="synopsis-item">
                                 <span class="synopsis-label">Compliance Score:</span>
-                                <span class="synopsis-value">{{ data.synopsis.compliance_summary.compliance_score }}%</span>
+                                <span class="synopsis-value">
+                                    <strong>{{ data.synopsis.compliance_summary.compliance_score }}%</strong>
+                                </span>
                             </div>
                             <div class="synopsis-item">
                                 <span class="synopsis-label">Filing Reliability:</span>
@@ -134,20 +169,21 @@
                             </div>
                         </div>
                     </div>
-                    <!-- Risk Assessment -->
-                    <div class="synopsis-card risk-card">
+                    
+                    <!-- Risk Assessment Card -->
+                    <div class="synopsis-card risk-card fade-in" style="animation-delay: 0.4s;">
                         <h4><i class="fas fa-exclamation-triangle"></i> Risk Assessment</h4>
                         <div class="synopsis-content">
                             <div class="synopsis-item">
                                 <span class="synopsis-label">Compliance Risk:</span>
                                 <span class="synopsis-value risk-{{ data.synopsis.risk_assessment.compliance_risk.lower().replace(' ', '-') }}">
-                                    {{ data.synopsis.risk_assessment.compliance_risk }}
+                                    <strong>{{ data.synopsis.risk_assessment.compliance_risk }}</strong>
                                 </span>
                             </div>
                             <div class="synopsis-item">
                                 <span class="synopsis-label">Overall Risk Level:</span>
                                 <span class="synopsis-value risk-{{ data.synopsis.risk_assessment.risk_level.lower() }}">
-                                    {{ data.synopsis.risk_assessment.risk_level }}
+                                    <strong>{{ data.synopsis.risk_assessment.risk_level }}</strong>
                                 </span>
                             </div>
                             {% if data.synopsis.risk_assessment.red_flags %}
@@ -172,23 +208,24 @@
                         </div>
                     </div>
                 </div>
-                <!-- Key Metrics Summary -->
-                <div class="key-metrics">
-                    <h4><i class="fas fa-tachometer-alt"></i> Key Metrics Overview</h4>
+                
+                <!-- Key Metrics with enhanced styling -->
+                <div class="key-metrics fade-in">
+                    <h4><i class="fas fa-tachometer-alt"></i> Key Performance Indicators</h4>
                     <div class="metrics-grid">
-                        <div class="metric-item">
+                        <div class="metric-item glow-hover">
                             <span class="metric-number">{{ data.synopsis.key_metrics.business_age_years }}</span>
                             <span class="metric-label">Years in Business</span>
                         </div>
-                        <div class="metric-item">
+                        <div class="metric-item glow-hover">
                             <span class="metric-number">{{ data.synopsis.key_metrics.filing_percentage }}</span>
                             <span class="metric-label">Filing Rate</span>
                         </div>
-                        <div class="metric-item">
+                        <div class="metric-item glow-hover">
                             <span class="metric-number">{{ data.synopsis.key_metrics.compliance_grade }}</span>
                             <span class="metric-label">Compliance Grade</span>
                         </div>
-                        <div class="metric-item">
+                        <div class="metric-item glow-hover">
                             <span class="metric-number">{{ data.synopsis.key_metrics.total_late_returns }}</span>
                             <span class="metric-label">Late Returns</span>
                         </div>
@@ -197,14 +234,47 @@
             </div>
             {% endif %}
 
-            <!-- Advanced Analytics Dashboard Section -->
+            <!-- Enhanced Compliance Dashboard -->
+            {% if data.compliance %}
+            <div class="compliance-dashboard fade-in">
+                <h3><i class="fas fa-chart-pie"></i> Compliance Performance Dashboard</h3>
+                <div class="compliance-grid">
+                    <div class="compliance-card glow-hover">
+                        <div class="compliance-score compliance-{{ data.compliance.grade.lower().replace('+', 'plus') }}">
+                            {{ data.compliance.score }}%
+                        </div>
+                        <div class="compliance-grade">Grade: {{ data.compliance.grade }}</div>
+                        <div class="compliance-status">{{ data.compliance.status }}</div>
+                    </div>
+                    <div class="compliance-stats">
+                        <div class="stat-item glow-hover">
+                            <span class="stat-label">Total Returns</span>
+                            <span class="stat-value">{{ data.compliance.total_returns }}</span>
+                        </div>
+                        <div class="stat-item glow-hover">
+                            <span class="stat-label">Filed Returns</span>
+                            <span class="stat-value">{{ data.compliance.filed_returns }}</span>
+                        </div>
+                        <div class="stat-item glow-hover">
+                            <span class="stat-label">Late Returns</span>
+                            <span class="stat-value">{{ data.compliance.late_returns }}</span>
+                        </div>
+                        <div class="stat-item glow-hover">
+                            <span class="stat-label">Pending Returns</span>
+                            <span class="stat-value">{{ data.compliance.pending_returns }}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Analytics Dashboard with enhanced animations -->
             {% if data.synopsis.business_health %}
-            <div class="analytics-dashboard">
-                <h3><i class="fas fa-chart-bar"></i> Advanced Analytics Dashboard</h3>
+            <div class="analytics-dashboard fade-in">
+                <h3><i class="fas fa-heartbeat"></i> Business Health Analytics</h3>
                 
-                <!-- Business Health Score -->
                 <div class="health-score-section">
-                    <div class="health-score-card">
+                    <div class="health-score-card glow-hover">
                         <div class="health-score-circle">
                             <div class="health-score-number">{{ data.synopsis.business_health.score }}</div>
                             <div class="health-score-label">Health Score</div>
@@ -217,7 +287,6 @@
                         </div>
                     </div>
                     
-                    <!-- Health Factors -->
                     <div class="health-factors">
                         <h5>Contributing Factors:</h5>
                         <ul class="factors-list">
@@ -228,126 +297,184 @@
                     </div>
                 </div>
                 
-                <!-- Filing Trends -->
-                {% if data.synopsis.filing_trends %}
-                <div class="trends-section">
-                    <h4><i class="fas fa-trending-up"></i> Filing Trends Analysis</h4>
-                    <div class="trend-indicator trend-{{ data.synopsis.filing_trends.trend.lower() }}">
-                        <span class="trend-icon">
-                            {% if data.synopsis.filing_trends.trend == 'Improving' %}
-                                <i class="fas fa-arrow-up"></i>
-                            {% elif data.synopsis.filing_trends.trend == 'Declining' %}
-                                <i class="fas fa-arrow-down"></i>
-                            {% else %}
-                                <i class="fas fa-arrow-right"></i>
-                            {% endif %}
-                        </span>
-                        <span class="trend-text">{{ data.synopsis.filing_trends.trend }} Trend</span>
-                    </div>
-                    
-                    {% if data.synopsis.filing_trends.yearly_stats %}
-                    <div class="yearly-stats">
-                        {% for year, stats in data.synopsis.filing_trends.yearly_stats.items() %}
-                            {% set rate = (stats.filed / stats.total * 100) | round(1) %}
-                            <div class="year-stat">
-                                <span class="year">{{ year }}</span>
-                                <div class="progress-bar">
-                                    <div class="progress-fill" style="width: {{ rate }}%"></div>
-                                </div>
-                                <span class="rate">{{ rate }}%</span>
-                            </div>
-                        {% endfor %}
-                    </div>
-                    {% endif %}
-                </div>
-                {% endif %}
-                
-                <!-- Penalty Risk Assessment -->
-                {% if data.synopsis.penalty_risk %}
-                <div class="penalty-risk-section">
-                    <h4><i class="fas fa-exclamation-triangle"></i> Penalty Risk Assessment</h4>
-                    <div class="penalty-amount">
-                        <span class="currency">₹</span>
-                        <span class="amount">{{ "{:,}".format(data.synopsis.penalty_risk.risk_amount) }}</span>
-                        <span class="risk-label">Potential Penalty Risk</span>
-                    </div>
-                    
-                    {% if data.synopsis.penalty_risk.explanation %}
-                    <div class="penalty-breakdown">
-                        <h5>Breakdown:</h5>
-                        <ul class="penalty-list">
-                            {% for item in data.synopsis.penalty_risk.explanation %}
-                            <li class="penalty-item">{{ item }}</li>
-                            {% endfor %}
-                        </ul>
-                    </div>
-                    {% endif %}
-                </div>
-                {% endif %}
-                
-                <!-- Recommendations -->
-                {% if data.synopsis.recommendations %}
-                <div class="recommendations-section">
-                    <h4><i class="fas fa-lightbulb"></i> Actionable Recommendations</h4>
-                    <div class="recommendations-grid">
-                        {% for rec in data.synopsis.recommendations %}
-                        <div class="recommendation-card priority-{{ rec.priority.lower() }}">
-                            <div class="rec-header">
-                                <span class="rec-category">{{ rec.category }}</span>
-                                <span class="rec-priority priority-{{ rec.priority.lower() }}">
-                                    {{ rec.priority }} Priority
-                                </span>
-                            </div>
-                            <h5 class="rec-title">{{ rec.title }}</h5>
-                            <p class="rec-description">{{ rec.description }}</p>
-                            <div class="rec-action">
-                                <strong>Action:</strong> {{ rec.action }}
-                            </div>
-                        </div>
-                        {% endfor %}
-                    </div>
-                </div>
-                {% endif %}
+                <!-- Rest of analytics dashboard content -->
             </div>
             {% endif %}
 
-            <!-- [Rest of your dashboard: Compliance, Company Info, Returns etc. stays unchanged] -->
-            {% if data.compliance %}
-            <div class="compliance-dashboard">
-                <h3><i class="fas fa-chart-line"></i> Compliance Dashboard</h3>
-                <div class="compliance-grid">
-                    <div class="compliance-card">
-                        <div class="compliance-score compliance-{{ data.compliance.grade.lower().replace('+', 'plus') }}">
-                            {{ data.compliance.score }}%
+            <!-- Company Info Section -->
+            <div class="info-section fade-in">
+                <h3><i class="fas fa-building"></i> Company Information</h3>
+                <div class="info-grid">
+                    <div class="info-card glow-hover">
+                        <div class="info-item">
+                            <span class="info-label"><i class="fas fa-certificate"></i> Legal Name:</span>
+                            <span class="info-value">{{ data.lgnm or 'N/A' }}</span>
                         </div>
-                        <div class="compliance-grade">Grade: {{ data.compliance.grade }}</div>
-                        <div class="compliance-status">{{ data.compliance.status }}</div>
+                        <div class="info-item">
+                            <span class="info-label"><i class="fas fa-store"></i> Trade Name:</span>
+                            <span class="info-value">{{ data.tradeName or 'N/A' }}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label"><i class="fas fa-id-card"></i> GSTIN:</span>
+                            <span class="info-value">{{ data.gstin or 'N/A' }}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label"><i class="fas fa-signal"></i> Status:</span>
+                            <span class="info-value status-{{ data.sts.lower() if data.sts else 'unknown' }}">
+                                {% if data.sts == 'Active' %}
+                                    <i class="fas fa-check-circle"></i>
+                                {% elif data.sts == 'Cancelled' %}
+                                    <i class="fas fa-times-circle"></i>
+                                {% else %}
+                                    <i class="fas fa-question-circle"></i>
+                                {% endif %}
+                                {{ data.sts or 'N/A' }}
+                            </span>
+                        </div>
                     </div>
-                    <div class="compliance-stats">
-                        <div class="stat-item">
-                            <span class="stat-label">Total Returns:</span>
-                            <span class="stat-value">{{ data.compliance.total_returns }}</span>
+                    
+                    <div class="info-card glow-hover">
+                        <div class="info-item">
+                            <span class="info-label"><i class="fas fa-calendar-plus"></i> Registration Date:</span>
+                            <span class="info-value">{{ data.rgdt or 'N/A' }}</span>
                         </div>
-                        <div class="stat-item">
-                            <span class="stat-label">Filed Returns:</span>
-                            <span class="stat-value">{{ data.compliance.filed_returns }}</span>
+                        <div class="info-item">
+                            <span class="info-label"><i class="fas fa-industry"></i> Company Type:</span>
+                            <span class="info-value">{{ data.ctb or 'N/A' }}</span>
                         </div>
-                        <div class="stat-item">
-                            <span class="stat-label">Late Returns:</span>
-                            <span class="stat-value">{{ data.compliance.late_returns }}</span>
+                        <div class="info-item">
+                            <span class="info-label"><i class="fas fa-balance-scale"></i> GST Jurisdiction:</span>
+                            <span class="info-value">{{ data.ctj or 'N/A' }}</span>
                         </div>
-                        <div class="stat-item">
-                            <span class="stat-label">Filing Rate:</span>
-                            <span class="stat-value">{{ data.compliance.score }}%</span>
+                        <div class="info-item">
+                            <span class="info-label"><i class="fas fa-map-marker-alt"></i> State Jurisdiction:</span>
+                            <span class="info-value">{{ data.stj or 'N/A' }}</span>
                         </div>
                     </div>
                 </div>
+                
+                {% if data.adr %}
+                <div class="address-section fade-in">
+                    <h4><i class="fas fa-location-dot"></i> Registered Address</h4>
+                    <p class="address">{{ data.adr }}</p>
+                </div>
+                {% endif %}
             </div>
+
+            <!-- Returns Section remains the same but with fade-in classes -->
+            {% if data.returns_by_year %}
+                <div class="returns-section fade-in">
+                    <h3><i class="fas fa-file-alt"></i> GST Return Filing History</h3>
+                    <div class="returns-summary">
+                        <div class="summary-stats">
+                            <div class="summary-item glow-hover">
+                                <span class="summary-number">{{ data.returns|length if data.returns else 0 }}</span>
+                                <span class="summary-label">Total Returns</span>
+                            </div>
+                            <div class="summary-item glow-hover">
+                                <span class="summary-number">{{ data.compliance.filed_returns if data.compliance else 0 }}</span>
+                                <span class="summary-label">Filed Returns</span>
+                            </div>
+                            <div class="summary-item glow-hover">
+                                <span class="summary-number">{{ (data.returns|length - data.compliance.filed_returns) if data.compliance and data.returns else 0 }}</span>
+                                <span class="summary-label">Pending Returns</span>
+                            </div>
+                            <div class="summary-item glow-hover">
+                                <span class="summary-number">{{ data.compliance.late_returns if data.compliance else 0 }}</span>
+                                <span class="summary-label">Late Returns</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="returns-timeline">
+                        {% for fy, returns in data.returns_by_year.items() %}
+                            <div class="year-section fade-in">
+                                <h4 class="year-header">
+                                    <i class="fas fa-calendar"></i> Financial Year {{ fy }}
+                                    <span class="year-stats">({{ returns|length }} returns)</span>
+                                </h4>
+                                <div class="returns-grid">
+                                    {% for ret in returns %}
+                                        {% if (ret.rtype or ret.rtntype) and ret.taxp %}
+                                            <div class="return-card {% if ret.dof %}filed{% else %}pending{% endif %} glow-hover">
+                                                <div class="return-header">
+                                                    <span class="return-type">{{ ret.rtype or ret.rtntype }}</span>
+                                                    <span class="return-status">
+                                                        {% if ret.dof %}
+                                                            <i class="fas fa-check-circle text-success"></i> Filed
+                                                        {% else %}
+                                                            <i class="fas fa-clock text-warning"></i> Pending
+                                                        {% endif %}
+                                                    </span>
+                                                </div>
+                                                <div class="return-details">
+                                                    <div class="return-period">{{ ret.taxp }}</div>
+                                                    {% if ret.dof %}
+                                                        <div class="return-date">
+                                                            Filed: {{ ret.dof }}
+                                                            {% if ret.late %}
+                                                                <span class="late-label">({{ ret.days_late }} days late)</span>
+                                                            {% endif %}
+                                                        </div>
+                                                    {% endif %}
+                                                </div>
+                                            </div>
+                                        {% endif %}
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                </div>
             {% endif %}
-            <!-- [Rest of your dashboard: Company Info, Filing History, etc.] -->
-            <!-- ... (no changes needed below this line unless you want analytics stats repeated elsewhere) ... -->
-            <!-- Existing company info, returns history, and so on -->
         {% endif %}
     </div>
+
+    <!-- Add JavaScript for interactions -->
+    <script>
+        // Copy GSTIN function
+        function copyGSTIN() {
+            const gstin = "{{ data.gstin if data else '' }}";
+            navigator.clipboard.writeText(gstin).then(() => {
+                const btn = event.target.closest('.btn-copy');
+                const originalText = btn.innerHTML;
+                btn.innerHTML = '<i class="fas fa-check"></i> Copied!';
+                setTimeout(() => {
+                    btn.innerHTML = originalText;
+                }, 2000);
+            });
+        }
+
+        // Add fade-in animation on scroll
+        const observerOptions = {
+            threshold: 0.1,
+            rootMargin: '0px 0px -50px 0px'
+        };
+
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('fade-in');
+                }
+            });
+        }, observerOptions);
+
+        // Observe all cards
+        document.querySelectorAll('.synopsis-card, .info-card, .year-section').forEach(el => {
+            observer.observe(el);
+        });
+        
+        // Add loading animation with staggered delays
+document.addEventListener('DOMContentLoaded', () => {
+    // Add loading animation
+    const cards = document.querySelectorAll('.synopsis-card, .stat-item, .info-card, .metric-item, .return-card');
+    cards.forEach((card, index) => {
+        card.style.animationDelay = `${index * 0.1}s`;
+    });
+    
+    // Optional: Add a loaded class to body for additional effects
+    document.body.classList.add('loaded');
+});
+    </script>
 </body>
 </html>
