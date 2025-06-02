@@ -54,34 +54,81 @@ class GSAPIClient:
             raise HTTPException(status_code=400, detail=f"API Error: {data.get('message', 'Unknown error')}")
         return data.get("data", {})
 
+# Fixed late returns calculation in main.py
 def mark_late_returns(returns: List[Dict]) -> List[Dict]:
-    """Mark returns as late based on due dates"""
+    """Mark returns as late based on due dates - FIXED VERSION"""
     for ret in returns:
         ret['late'] = False
         dof = ret.get("dof")
         fy = ret.get("fy")
         month_str = ret.get("taxp")
-        rtntype = ret.get("rtntype", "")
+        rtntype = ret.get("rtntype", "") or ret.get("rtype", "")
         
         if fy and month_str and dof:
             try:
-                year = int(fy.split("-")[0]) if "-" in fy else int(fy)
-                month_map = {m: i for i, m in enumerate([
-                    "April", "May", "June", "July", "August", "September",
-                    "October", "November", "December", "January", "February", "March"
-                ], start=4)}
+                # Parse financial year correctly
+                if "-" in fy:
+                    start_year = int(fy.split("-")[0])
+                else:
+                    start_year = int(fy[:4]) if len(fy) >= 4 else int(fy)
                 
-                month = month_map.get(month_str)
-                if month is not None:
-                    if month < 4:
-                        year += 1
-                    due_day = 11 if rtntype.upper() == "GSTR1" else 20
-                    due_date = datetime(year, month, due_day)
+                # Month mapping for Indian financial year (April to March)
+                month_map = {
+                    "April": (4, start_year),
+                    "May": (5, start_year),
+                    "June": (6, start_year),
+                    "July": (7, start_year),
+                    "August": (8, start_year),
+                    "September": (9, start_year),
+                    "October": (10, start_year),
+                    "November": (11, start_year),
+                    "December": (12, start_year),
+                    "January": (1, start_year + 1),
+                    "February": (2, start_year + 1),
+                    "March": (3, start_year + 1)
+                }
+                
+                month_info = month_map.get(month_str)
+                if month_info:
+                    month, year = month_info
+                    
+                    # Due dates based on return type
+                    if rtntype.upper() in ['GSTR1', 'GSTR-1']:
+                        # GSTR-1 due on 11th of next month
+                        if month == 12:
+                            due_date = datetime(year + 1, 1, 11)
+                        else:
+                            due_date = datetime(year, month + 1, 11)
+                    elif rtntype.upper() in ['GSTR3B', 'GSTR-3B']:
+                        # GSTR-3B due on 20th of next month
+                        if month == 12:
+                            due_date = datetime(year + 1, 1, 20)
+                        else:
+                            due_date = datetime(year, month + 1, 20)
+                    else:
+                        # Default to 20th for other returns
+                        if month == 12:
+                            due_date = datetime(year + 1, 1, 20)
+                        else:
+                            due_date = datetime(year, month + 1, 20)
+                    
+                    # Parse filed date
                     filed_date = datetime.strptime(dof, "%d/%m/%Y")
+                    
+                    # Check if late
                     if filed_date > due_date:
                         ret['late'] = True
-            except Exception:
-                pass
+                        # Add days late for reference
+                        ret['days_late'] = (filed_date - due_date).days
+                    else:
+                        ret['days_late'] = 0
+                        
+            except Exception as e:
+                # Log error but don't crash
+                print(f"Error processing return: {e}")
+                ret['late'] = False
+                ret['days_late'] = 0
+                
     return returns
 
 def calculate_compliance_score(data: Dict) -> Dict:
