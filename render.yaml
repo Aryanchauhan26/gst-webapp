@@ -1,6 +1,29 @@
 services:
   - type: web
-    name: gst-webapp
+    name: gst-intelligence-platform
     runtime: python
-    buildCommand: pip install -r requirements.txt
-    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    plan: free
+    
+    buildCommand: |
+      pip install --upgrade pip
+      pip install -r requirements.txt
+      python quick_db_fix.py
+    
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT --workers 1
+    
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11
+      - key: RAPIDAPI_KEY
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: RAPIDAPI_HOST
+        value: gst-return-status.p.rapidapi.com
+    
+    healthCheckPath: /health
+    
+    disk:
+      name: gst-data
+      mountPath: /opt/render/project/src/database
+      sizeGB: 1

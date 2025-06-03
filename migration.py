@@ -18,7 +18,15 @@ def generate_salt():
 
 def hash_password_pbkdf2(password: str, salt: str) -> str:
     """Hash password with salt using PBKDF2"""
-    return hashlib.pbkdf2_hex(password.encode(), salt.encode(), 100000, 64)
+    # FIXED: Use the correct function pbkdf2_hmac
+    password_bytes = password.encode('utf-8')
+    salt_bytes = salt.encode('utf-8')
+    
+    # PBKDF2 with SHA256, 100000 iterations, 64 bytes output
+    hash_bytes = hashlib.pbkdf2_hmac('sha256', password_bytes, salt_bytes, 100000, dklen=64)
+    
+    # Convert to hex string
+    return hash_bytes.hex()
 
 def migrate_data():
     """Migrate data from JSON files to SQLite database"""
