@@ -16,9 +16,10 @@ import hashlib
 import json
 from pydantic import BaseModel
 import asyncio
-from contextlib import asynccontextmanager
+import sqlite3
+import threading
 
-from weasyprint import HTML
+from weasyprint import HTML, CSS
 from fastapi.concurrency import run_in_threadpool
 from anthro_ai import get_anthropic_synopsis
 
@@ -36,127 +37,276 @@ class SearchHistory(BaseModel):
     searched_at: datetime
     compliance_score: Optional[float] = None
 
-# Simple file-based database (in production, use a proper database)
-class SimpleDB:
+# SQLite Database with proper security
+class SQLiteDB:
     def __init__(self):
         self.db_dir = Path("database")
         self.db_dir.mkdir(exist_ok=True)
-        self.users_file = self.db_dir / "users.json"
-        self.history_file = self.db_dir / "history.json"
-        self.sessions_file = self.db_dir / "sessions.json"
-        self._init_files()
+        self.db_path = self.db_dir / "gst_platform.db"
+        self._lock = threading.Lock()
+        self._init_database()
     
-    def _init_files(self):
-        for file in [self.users_file, self.history_file, self.sessions_file]:
-            if not file.exists():
-                with open(file, 'w') as f:
-                    json.dump({}, f)
+    def _init_database(self):
+        """Initialize database tables with proper indexes"""
+        with sqlite3.connect(self.db_path) as conn:
+            conn.execute('''
+                CREATE TABLE IF NOT EXISTS users (
+                    mobile TEXT PRIMARY KEY,
+                    password_hash TEXT NOT NULL,
+                    salt TEXT NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    last_login TIMESTAMP
+                )
+            ''')
+            
+            conn.execute('''
+                CREATE TABLE IF NOT EXISTS sessions (
+                    session_token TEXT PRIMARY KEY,
+                    mobile TEXT NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    expires_at TIMESTAMP NOT NULL,
+                    FOREIGN KEY (mobile) REFERENCES users (mobile) ON DELETE CASCADE
+                )
+            ''')
+            
+            conn.execute('''
+                CREATE TABLE IF NOT EXISTS search_history (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    mobile TEXT NOT NULL,
+                    gstin TEXT NOT NULL,
+                    company_name TEXT NOT NULL,
+                    searched_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    compliance_score REAL,
+                    FOREIGN KEY (mobile) REFERENCES users (mobile) ON DELETE CASCADE,
+                    UNIQUE(mobile, gstin)
+                )
+            ''')
+            
+            # Create indexes for better performance
+            conn.execute('CREATE INDEX IF NOT EXISTS idx_sessions_mobile ON sessions(mobile)')
+            conn.execute('CREATE INDEX IF NOT EXISTS idx_sessions_expires ON sessions(expires_at)')
+            conn.execute('CREATE INDEX IF NOT EXISTS idx_history_mobile ON search_history(mobile)')
+            conn.execute('CREATE INDEX IF NOT EXISTS idx_history_searched_at ON search_history(searched_at DESC)')
+            
+            conn.commit()
     
-    def _read_file(self, file_path):
-        with open(file_path, 'r') as f:
-            return json.load(f)
+    def _generate_salt(self) -> str:
+        """Generate a random salt for password hashing"""
+        return secrets.token_hex(16)
     
-    def _write_file(self, file_path, data):
-        with open(file_path, 'w') as f:
-            json.dump(data, f, default=str)
+    def _hash_password(self, password: str, salt: str) -> str:
+        """Hash password with salt using PBKDF2"""
+        import hashlib
+        return hashlib.pbkdf2_hex(password.encode(), salt.encode(), 100000, 64)
     
     def create_user(self, mobile: str, password: str) -> bool:
-        users = self._read_file(self.users_file)
-        if mobile in users:
-            return False
-        
-        password_hash = hashlib.sha256(password.encode()).hexdigest()
-        users[mobile] = {
-            "mobile": mobile,
-            "password_hash": password_hash,
-            "created_at": datetime.now().isoformat(),
-            "last_login": None
-        }
-        self._write_file(self.users_file, users)
-        return True
+        """Create a new user with secure password hashing"""
+        with self._lock:
+            try:
+                with sqlite3.connect(self.db_path) as conn:
+                    # Check if user already exists
+                    cursor = conn.execute('SELECT mobile FROM users WHERE mobile = ?', (mobile,))
+                    if cursor.fetchone():
+                        return False
+                    
+                    # Create user with salted hash
+                    salt = self._generate_salt()
+                    password_hash = self._hash_password(password, salt)
+                    
+                    conn.execute('''
+                        INSERT INTO users (mobile, password_hash, salt, created_at)
+                        VALUES (?, ?, ?, ?)
+                    ''', (mobile, password_hash, salt, datetime.now().isoformat()))
+                    
+                    conn.commit()
+                    return True
+            except sqlite3.Error as e:
+                print(f"Database error creating user: {e}")
+                return False
     
     def verify_user(self, mobile: str, password: str) -> bool:
-        users = self._read_file(self.users_file)
-        if mobile not in users:
-            return False
-        
-        password_hash = hashlib.sha256(password.encode()).hexdigest()
-        return users[mobile]["password_hash"] == password_hash
+        """Verify user credentials with secure comparison"""
+        with self._lock:
+            try:
+                with sqlite3.connect(self.db_path) as conn:
+                    cursor = conn.execute(
+                        'SELECT password_hash, salt FROM users WHERE mobile = ?', 
+                        (mobile,)
+                    )
+                    result = cursor.fetchone()
+                    
+                    if not result:
+                        return False
+                    
+                    stored_hash, salt = result
+                    password_hash = self._hash_password(password, salt)
+                    
+                    # Use secrets.compare_digest for secure comparison
+                    return secrets.compare_digest(stored_hash, password_hash)
+            except sqlite3.Error as e:
+                print(f"Database error verifying user: {e}")
+                return False
+    
+    def update_password(self, mobile: str, new_password: str) -> bool:
+        """Update user password with new salt and hash"""
+        with self._lock:
+            try:
+                with sqlite3.connect(self.db_path) as conn:
+                    # Generate new salt and hash
+                    salt = self._generate_salt()
+                    password_hash = self._hash_password(new_password, salt)
+                    
+                    conn.execute('''
+                        UPDATE users 
+                        SET password_hash = ?, salt = ? 
+                        WHERE mobile = ?
+                    ''', (password_hash, salt, mobile))
+                    
+                    conn.commit()
+                    return conn.total_changes > 0
+            except sqlite3.Error as e:
+                print(f"Database error updating password: {e}")
+                return False
     
     def update_last_login(self, mobile: str):
-        users = self._read_file(self.users_file)
-        if mobile in users:
-            users[mobile]["last_login"] = datetime.now().isoformat()
-            self._write_file(self.users_file, users)
+        """Update user's last login timestamp"""
+        with self._lock:
+            try:
+                with sqlite3.connect(self.db_path) as conn:
+                    conn.execute(
+                        'UPDATE users SET last_login = ? WHERE mobile = ?',
+                        (datetime.now().isoformat(), mobile)
+                    )
+                    conn.commit()
+            except sqlite3.Error as e:
+                print(f"Database error updating last login: {e}")
     
     def create_session(self, mobile: str) -> str:
-        session_token = secrets.token_urlsafe(32)
-        sessions = self._read_file(self.sessions_file)
-        sessions[session_token] = {
-            "mobile": mobile,
-            "created_at": datetime.now().isoformat(),
-            "expires_at": (datetime.now() + timedelta(days=7)).isoformat()
-        }
-        self._write_file(self.sessions_file, sessions)
-        return session_token
+        """Create a new session token"""
+        with self._lock:
+            try:
+                session_token = secrets.token_urlsafe(32)
+                expires_at = datetime.now() + timedelta(days=7)
+                
+                with sqlite3.connect(self.db_path) as conn:
+                    conn.execute('''
+                        INSERT INTO sessions (session_token, mobile, expires_at)
+                        VALUES (?, ?, ?)
+                    ''', (session_token, mobile, expires_at.isoformat()))
+                    conn.commit()
+                    
+                return session_token
+            except sqlite3.Error as e:
+                print(f"Database error creating session: {e}")
+                return None
     
     def get_user_from_session(self, session_token: str) -> Optional[str]:
+        """Get user from session token"""
         if not session_token:
             return None
-        sessions = self._read_file(self.sessions_file)
-        if session_token not in sessions:
-            return None
-        
-        session = sessions[session_token]
-        if datetime.fromisoformat(session["expires_at"]) < datetime.now():
-            del sessions[session_token]
-            self._write_file(self.sessions_file, sessions)
-            return None
-        
-        return session["mobile"]
+            
+        with self._lock:
+            try:
+                with sqlite3.connect(self.db_path) as conn:
+                    cursor = conn.execute('''
+                        SELECT mobile, expires_at FROM sessions 
+                        WHERE session_token = ?
+                    ''', (session_token,))
+                    
+                    result = cursor.fetchone()
+                    if not result:
+                        return None
+                    
+                    mobile, expires_at_str = result
+                    expires_at = datetime.fromisoformat(expires_at_str)
+                    
+                    if expires_at < datetime.now():
+                        # Clean up expired session
+                        conn.execute('DELETE FROM sessions WHERE session_token = ?', (session_token,))
+                        conn.commit()
+                        return None
+                    
+                    return mobile
+            except sqlite3.Error as e:
+                print(f"Database error getting user from session: {e}")
+                return None
     
     def delete_session(self, session_token: str):
-        sessions = self._read_file(self.sessions_file)
-        if session_token in sessions:
-            del sessions[session_token]
-            self._write_file(self.sessions_file, sessions)
+        """Delete a session"""
+        with self._lock:
+            try:
+                with sqlite3.connect(self.db_path) as conn:
+                    conn.execute('DELETE FROM sessions WHERE session_token = ?', (session_token,))
+                    conn.commit()
+            except sqlite3.Error as e:
+                print(f"Database error deleting session: {e}")
+    
+    def cleanup_expired_sessions(self):
+        """Clean up expired sessions"""
+        with self._lock:
+            try:
+                with sqlite3.connect(self.db_path) as conn:
+                    conn.execute('DELETE FROM sessions WHERE expires_at < ?', (datetime.now().isoformat(),))
+                    conn.commit()
+            except sqlite3.Error as e:
+                print(f"Database error cleaning up sessions: {e}")
     
     def add_search_history(self, mobile: str, gstin: str, company_name: str, compliance_score: float = None):
-        history = self._read_file(self.history_file)
-        if mobile not in history:
-            history[mobile] = []
-        
-        # Check if this GSTIN already exists in history
-        existing_index = None
-        for i, item in enumerate(history[mobile]):
-            if item["gstin"] == gstin:
-                existing_index = i
-                break
-        
-        new_entry = {
-            "gstin": gstin,
-            "company_name": company_name,
-            "searched_at": datetime.now().isoformat(),
-            "compliance_score": compliance_score
-        }
-        
-        if existing_index is not None:
-            # Update existing entry
-            history[mobile][existing_index] = new_entry
-        else:
-            # Add new entry at the beginning
-            history[mobile].insert(0, new_entry)
-            # Keep only last 20 searches
-            history[mobile] = history[mobile][:20]
-        
-        self._write_file(self.history_file, history)
+        """Add or update search history"""
+        with self._lock:
+            try:
+                with sqlite3.connect(self.db_path) as conn:
+                    # Use REPLACE to update if exists, insert if not
+                    conn.execute('''
+                        INSERT OR REPLACE INTO search_history 
+                        (mobile, gstin, company_name, searched_at, compliance_score)
+                        VALUES (?, ?, ?, ?, ?)
+                    ''', (mobile, gstin, company_name, datetime.now().isoformat(), compliance_score))
+                    
+                    # Keep only last 50 searches per user
+                    conn.execute('''
+                        DELETE FROM search_history 
+                        WHERE mobile = ? AND id NOT IN (
+                            SELECT id FROM search_history 
+                            WHERE mobile = ? 
+                            ORDER BY searched_at DESC 
+                            LIMIT 50
+                        )
+                    ''', (mobile, mobile))
+                    
+                    conn.commit()
+            except sqlite3.Error as e:
+                print(f"Database error adding search history: {e}")
     
     def get_search_history(self, mobile: str) -> List[Dict]:
-        history = self._read_file(self.history_file)
-        return history.get(mobile, [])
+        """Get user's search history"""
+        with self._lock:
+            try:
+                with sqlite3.connect(self.db_path) as conn:
+                    cursor = conn.execute('''
+                        SELECT gstin, company_name, searched_at, compliance_score 
+                        FROM search_history 
+                        WHERE mobile = ? 
+                        ORDER BY searched_at DESC 
+                        LIMIT 50
+                    ''', (mobile,))
+                    
+                    results = cursor.fetchall()
+                    return [
+                        {
+                            'gstin': row[0],
+                            'company_name': row[1],
+                            'searched_at': row[2],
+                            'compliance_score': row[3]
+                        }
+                        for row in results
+                    ]
+            except sqlite3.Error as e:
+                print(f"Database error getting search history: {e}")
+                return []
 
 # Initialize database
-db = SimpleDB()
+db = SQLiteDB()
 
 # Session management
 async def get_current_user(request: Request) -> Optional[str]:
@@ -747,6 +897,11 @@ RAPIDAPI_KEY = os.getenv("RAPIDAPI_KEY")
 RAPIDAPI_HOST = os.getenv("RAPIDAPI_HOST", "gst-return-status.p.rapidapi.com")
 api_client = GSAPIClient(RAPIDAPI_KEY, RAPIDAPI_HOST)
 
+# Cleanup expired sessions on startup
+@app.on_event("startup")
+async def startup_event():
+    db.cleanup_expired_sessions()
+
 # Routes
 @app.get("/", response_class=HTMLResponse)
 async def get_index(request: Request):
@@ -786,6 +941,12 @@ async def post_login(request: Request, mobile: str = Form(...), password: str = 
     
     # Create session
     session_token = db.create_session(mobile)
+    if not session_token:
+        return templates.TemplateResponse("login.html", {
+            "request": request,
+            "error": "Failed to create session. Please try again."
+        })
+    
     db.update_last_login(mobile)
     
     response = RedirectResponse(url="/", status_code=302)
@@ -794,7 +955,8 @@ async def post_login(request: Request, mobile: str = Form(...), password: str = 
         value=session_token,
         max_age=7 * 24 * 60 * 60,  # 7 days
         httponly=True,
-        samesite="lax"
+        samesite="lax",
+        secure=False  # Set to True in production with HTTPS
     )
     return response
 
@@ -840,13 +1002,20 @@ async def post_signup(request: Request, mobile: str = Form(...), password: str =
     
     # Auto-login after signup
     session_token = db.create_session(mobile)
+    if not session_token:
+        return templates.TemplateResponse("signup.html", {
+            "request": request,
+            "error": "Account created but failed to login. Please try logging in manually."
+        })
+    
     response = RedirectResponse(url="/", status_code=302)
     response.set_cookie(
         key="session_token",
         value=session_token,
         max_age=7 * 24 * 60 * 60,  # 7 days
         httponly=True,
-        samesite="lax"
+        samesite="lax",
+        secure=False  # Set to True in production with HTTPS
     )
     return response
 
@@ -873,6 +1042,72 @@ async def get_history(request: Request):
         "request": request,
         "current_user": current_user,
         "history": history
+    })
+
+@app.get("/change-password", response_class=HTMLResponse)
+async def get_change_password(request: Request):
+    """Change password page"""
+    current_user = await get_current_user(request)
+    if not current_user:
+        return RedirectResponse(url="/login", status_code=302)
+    return templates.TemplateResponse("change_password.html", {"request": request, "current_user": current_user})
+
+@app.post("/change-password")
+async def post_change_password(
+    request: Request,
+    old_password: str = Form(...),
+    new_password: str = Form(...),
+    confirm_new_password: str = Form(...)
+):
+    """Process password change"""
+    current_user = await get_current_user(request)
+    if not current_user:
+        return RedirectResponse(url="/login", status_code=302)
+    
+    # Validate old password
+    if not db.verify_user(current_user, old_password):
+        return templates.TemplateResponse("change_password.html", {
+            "request": request,
+            "current_user": current_user,
+            "error": "Old password is incorrect."
+        })
+    
+    # Check new password match
+    if new_password != confirm_new_password:
+        return templates.TemplateResponse("change_password.html", {
+            "request": request,
+            "current_user": current_user,
+            "error": "New passwords do not match."
+        })
+    
+    # Check new password strength
+    if len(new_password) < 6:
+        return templates.TemplateResponse("change_password.html", {
+            "request": request,
+            "current_user": current_user,
+            "error": "New password must be at least 6 characters long."
+        })
+    
+    # Check if new password is different from old
+    if old_password == new_password:
+        return templates.TemplateResponse("change_password.html", {
+            "request": request,
+            "current_user": current_user,
+            "error": "New password must be different from the old password."
+        })
+    
+    # Update password
+    if not db.update_password(current_user, new_password):
+        return templates.TemplateResponse("change_password.html", {
+            "request": request,
+            "current_user": current_user,
+            "error": "Failed to update password. Please try again."
+        })
+    
+    return templates.TemplateResponse("change_password.html", {
+        "request": request,
+        "current_user": current_user,
+        "success": "Password changed successfully."
     })
 
 @app.post("/", response_class=HTMLResponse)
@@ -1021,215 +1256,34 @@ async def get_company_report(request: Request, gstin: str):
             "current_user": current_user
         })
 
-# ... [rest of the code above remains unchanged] ...
-
-import random
-
-# --- OTP MANAGEMENT (simple in-memory, replace with Redis/db in prod) ---
-otp_store = {}  # {mobile: {"otp": ..., "expires_at": ...}}
-
-def send_sms_otp(mobile: str, otp: str) -> bool:
-    """
-    Mock function to send OTP via SMS.
-    Replace this with an integration to real SMS service (like Twilio, MSG91, etc.).
-    """
-    print(f"[SMS OTP] Sending OTP {otp} to {mobile}")
-    # Integrate SMS API here.
-    return True
-
-def generate_otp() -> str:
-    return str(random.randint(100000, 999999))
-
-def store_otp(mobile: str, otp: str):
-    otp_store[mobile] = {
-        "otp": otp,
-        "expires_at": datetime.now() + timedelta(minutes=5)
-    }
-
-def verify_otp(mobile: str, otp: str) -> bool:
-    entry = otp_store.get(mobile)
-    if not entry:
-        return False
-    if datetime.now() > entry["expires_at"]:
-        del otp_store[mobile]
-        return False
-    if entry["otp"] != otp:
-        return False
-    del otp_store[mobile]
-    return True
-
-# --- SIGNUP WITH OTP ---
-
-@app.get("/signup", response_class=HTMLResponse)
-async def get_signup(request: Request):
-    current_user = await get_current_user(request)
-    if current_user:
-        return RedirectResponse(url="/", status_code=302)
-    return templates.TemplateResponse("signup.html", {"request": request})
-
-@app.post("/signup")
-async def post_signup(request: Request, mobile: str = Form(...), password: str = Form(...), confirm_password: str = Form(...)):
-    # ... [validation as before] ...
-    otp = generate_otp()
-    store_otp(mobile, otp)
-    send_sms_otp(mobile, otp)
-    response = templates.TemplateResponse("verify_otp.html", {
-        "request": request,
-        "mobile": mobile,
-        "password": password,
-        "otp_visible": True,   # <--- Always show OTP onscreen for dev
-        "otp": otp             # <--- Pass the OTP to the template
-    })
-    response.set_cookie("signup_mobile", mobile, max_age=600, httponly=True)
-    response.set_cookie("signup_password", password, max_age=600, httponly=True)
-    return response
-
-@app.get("/verify-otp", response_class=HTMLResponse)
-async def get_verify_otp(request: Request):
-    mobile = request.cookies.get("signup_mobile")
-    password = request.cookies.get("signup_password")
-    if not mobile or not password:
-        return RedirectResponse(url="/signup", status_code=302)
-    otp_entry = otp_store.get(mobile, {})
-    otp = otp_entry.get("otp")
-    return templates.TemplateResponse("verify_otp.html", {
-        "request": request,
-        "mobile": mobile,
-        "password": password,
-        "otp_visible": True,
-        "otp": otp
-    })
-
-@app.post("/verify-otp")
-async def post_verify_otp(request: Request, otp: str = Form(...)):
-    mobile = request.cookies.get("signup_mobile")
-    password = request.cookies.get("signup_password")
-    if not mobile or not password:
-        return RedirectResponse(url="/signup", status_code=302)
-    otp_entry = otp_store.get(mobile, {})
-    otp_value = otp_entry.get("otp")
-    if not verify_otp(mobile, otp):
-        return templates.TemplateResponse("verify_otp.html", {
-            "request": request,
-            "mobile": mobile,
-            "password": password,
-            "error": "Invalid or expired OTP. Please try again.",
-            "otp_visible": True,
-            "otp": otp_value
-        })
-    # ... [rest of the flow as before] ...
-    # Create user and login
-    db.create_user(mobile, password)
-    session_token = db.create_session(mobile)
-    response = RedirectResponse(url="/", status_code=302)
-    response.set_cookie("session_token", session_token, max_age=7*24*60*60, httponly=True, samesite="lax")
-    # Clear signup cookies
-    response.delete_cookie("signup_mobile")
-    response.delete_cookie("signup_password")
-    return response
-
-# --- CHANGE PASSWORD FEATURE ---
-
-@app.get("/change-password", response_class=HTMLResponse)
-async def get_change_password(request: Request):
-    current_user = await get_current_user(request)
-    if not current_user:
-        return RedirectResponse(url="/login", status_code=302)
-    return templates.TemplateResponse("change_password.html", {"request": request, "current_user": current_user})
-
-@app.post("/change-password")
-async def post_change_password(
-    request: Request,
-    old_password: str = Form(...),
-    new_password: str = Form(...),
-    confirm_new_password: str = Form(...)
-):
-    current_user = await get_current_user(request)
-    if not current_user:
-        return RedirectResponse(url="/login", status_code=302)
-    # Validate old password
-    if not db.verify_user(current_user, old_password):
-        return templates.TemplateResponse("change_password.html", {
-            "request": request,
-            "current_user": current_user,
-            "error": "Old password is incorrect."
-        })
-    if new_password != confirm_new_password:
-        return templates.TemplateResponse("change_password.html", {
-            "request": request,
-            "current_user": current_user,
-            "error": "New passwords do not match."
-        })
-    if len(new_password) < 6:
-        return templates.TemplateResponse("change_password.html", {
-            "request": request,
-            "current_user": current_user,
-            "error": "New password must be at least 6 characters long."
-        })
-    # Update password in db
-    users = db._read_file(db.users_file)
-    password_hash = hashlib.sha256(new_password.encode()).hexdigest()
-    users[current_user]["password_hash"] = password_hash
-    db._write_file(db.users_file, users)
-    return templates.TemplateResponse("change_password.html", {
-        "request": request,
-        "current_user": current_user,
-        "success": "Password changed successfully."
-    })
-
-# --- PDF DOWNLOAD FIX ---
+# Fixed PDF Generation Routes
 @app.post("/download/pdf")
-async def download_pdf(request: Request, gstin: str = Form(...)):
+async def download_pdf_post(request: Request, gstin: str = Form(...)):
+    """Download PDF report - POST method"""
     current_user = await get_current_user(request)
     if not current_user:
         return RedirectResponse(url="/login", status_code=302)
-    is_valid, validation_message = validate_gstin(gstin)
-    if not is_valid:
-        raise HTTPException(status_code=400, detail=validation_message)
-    try:
-        raw_data = await api_client.fetch_gstin_data(gstin)
-        returns = mark_late_returns(raw_data.get('returns', []))
-        raw_data['returns'] = returns
-        compliance = calculate_compliance_score(raw_data)
-        returns_by_year = organize_returns_by_year(returns)
-        synopsis = generate_enhanced_synopsis({**raw_data, 'compliance': compliance})
-        ai_narrative = await get_anthropic_synopsis({**raw_data, "compliance": compliance})
-        synopsis['narrative'] = ai_narrative
-        enhanced_data = {
-            **raw_data,
-            'compliance': compliance,
-            'returns_by_year': returns_by_year,
-            'returns': returns,
-            'synopsis': synopsis
-        }
-        html_content = templates.get_template("pdf_template.html").render({
-            "request": request,
-            "data": enhanced_data,
-            "gstin": gstin,
-            "error": None
-        })
-        pdf_file = BytesIO()
-        HTML(string=html_content, base_url=os.path.abspath(".")).write_pdf(pdf_file)
-        pdf_file.seek(0)
-        return StreamingResponse(
-            pdf_file,
-            media_type="application/pdf",
-            headers={
-                "Content-Disposition": f"attachment; filename={gstin}_gst_dashboard.pdf"
-            }
-        )
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    
+    return await generate_pdf_response(request, gstin, current_user)
 
 @app.get("/download/pdf")
 async def download_pdf_get(request: Request, gstin: str):
+    """Download PDF report - GET method"""
     current_user = await get_current_user(request)
     if not current_user:
         return RedirectResponse(url="/login", status_code=302)
+    
+    return await generate_pdf_response(request, gstin, current_user)
+
+async def generate_pdf_response(request: Request, gstin: str, current_user: str):
+    """Generate PDF response - helper function"""
+    # Validate GSTIN
     is_valid, validation_message = validate_gstin(gstin)
     if not is_valid:
         raise HTTPException(status_code=400, detail=validation_message)
+    
     try:
+        # Fetch and process data
         raw_data = await api_client.fetch_gstin_data(gstin)
         returns = mark_late_returns(raw_data.get('returns', []))
         raw_data['returns'] = returns
@@ -1238,6 +1292,7 @@ async def download_pdf_get(request: Request, gstin: str):
         synopsis = generate_enhanced_synopsis({**raw_data, 'compliance': compliance})
         ai_narrative = await get_anthropic_synopsis({**raw_data, "compliance": compliance})
         synopsis['narrative'] = ai_narrative
+        
         enhanced_data = {
             **raw_data,
             'compliance': compliance,
@@ -1245,26 +1300,41 @@ async def download_pdf_get(request: Request, gstin: str):
             'returns': returns,
             'synopsis': synopsis
         }
+        
+        # Render HTML template
         html_content = templates.get_template("pdf_template.html").render({
             "request": request,
             "data": enhanced_data,
             "gstin": gstin,
             "error": None
         })
-        pdf_file = BytesIO()
-        HTML(string=html_content, base_url=os.path.abspath(".")).write_pdf(pdf_file)
-        pdf_file.seek(0)
+        
+        # Generate PDF using WeasyPrint - FIXED
+        def create_pdf():
+            pdf_file = BytesIO()
+            # Fixed: Remove extra arguments - HTML() only takes string and base_url
+            HTML(string=html_content).write_pdf(pdf_file)
+            pdf_file.seek(0)
+            return pdf_file
+        
+        # Run PDF generation in thread pool to avoid blocking
+        pdf_file = await run_in_threadpool(create_pdf)
+        
+        # Create filename
+        company_name = enhanced_data.get('lgnm', 'Company').replace(' ', '_')
+        filename = f"{gstin}_{company_name}_GST_Report.pdf"
+        
         return StreamingResponse(
             pdf_file,
             media_type="application/pdf",
             headers={
-                "Content-Disposition": f"attachment; filename={gstin}_gst_dashboard.pdf"
+                "Content-Disposition": f"attachment; filename={filename}"
             }
         )
+        
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-# ... [rest of your routes remain unchanged] ...
+        print(f"PDF generation error: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to generate PDF: {str(e)}")
 
 if __name__ == "__main__":
     import uvicorn

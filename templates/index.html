@@ -119,102 +119,6 @@
             visibility: hidden;
             transform: translateY(-10px);
             transition: all 0.3s ease;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
-        }
-        
-        .dropdown-menu.show {
-            opacity: 1;
-            visibility: visible;
-            transform: translateY(0);
-        }
-        
-        .dropdown-item {
-            display: block;
-            padding: 0.8rem 1rem;
-            color: var(--text-secondary);
-            text-decoration: none;
-            border-radius: 8px;
-            transition: all 0.3s ease;
-            display: flex;
-            align-items: center;
-            gap: 0.8rem;
-        }
-        
-        .dropdown-item:hover {
-            background: var(--bg-hover);
-            color: var(--text-primary);
-        }
-        
-        .dropdown-divider {
-            height: 1px;
-            background: var(--border-color);
-            margin: 0.5rem 0;
-        }
-        
-        /* Adjust main content for fixed navbar */
-        .container {
-            padding-top: 80px;
-        }
-        
-        /* Quick Access Shortcuts */
-        .shortcuts-panel {
-            background: var(--bg-card);
-            border: 2px solid var(--border-color);
-            border-radius: 16px;
-            padding: 1.5rem;
-            margin: 2rem 0;
-            display: none;
-        }
-        
-        .shortcuts-panel.show {
-            display: block;
-            animation: slideIn 0.3s ease;
-        }
-        
-        .shortcuts-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 1rem;
-        }
-        
-        .shortcut-item {
-            background: var(--bg-secondary);
-            border: 1px solid var(--border-color);
-            border-radius: 12px;
-            padding: 1.2rem;
-            text-align: center;
-            cursor: pointer;
-            transition: all 0.3s ease;
-        }
-        
-        .shortcut-item:hover {
-            border-color: var(--accent-primary);
-            transform: translateY(-3px);
-            box-shadow: 0 5px 20px rgba(124, 58, 237, 0.2);
-        }
-        
-        .shortcut-icon {
-            font-size: 2rem;
-            color: var(--accent-secondary);
-            margin-bottom: 0.5rem;
-        }
-        
-        .shortcut-text {
-            color: var(--text-primary);
-            font-weight: 600;
-            font-size: 0.9rem;
-        }
-        
-        /* Recent Searches Widget */
-        .recent-searches {
-            position: fixed;
-            right: 2rem;
-            top: 100px;
-            width: 300px;
-            background: var(--bg-card);
-            border: 2px solid var(--border-color);
-            border-radius: 16px;
-            padding: 1.5rem;
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
             transform: translateX(350px);
             transition: transform 0.3s ease;
@@ -346,6 +250,9 @@
                     <div class="dropdown-menu" id="userDropdown">
                         <a href="/history" class="dropdown-item">
                             <i class="fas fa-clock"></i> Search History
+                        </a>
+                        <a href="/change-password" class="dropdown-item">
+                            <i class="fas fa-key"></i> Change Password
                         </a>
                         <a href="#" class="dropdown-item" onclick="toggleRecentSearches()">
                             <i class="fas fa-list"></i> Recent Searches
@@ -897,6 +804,9 @@
                 setTimeout(() => {
                     btn.innerHTML = originalText;
                 }, 2000);
+            }).catch(err => {
+                console.error('Failed to copy: ', err);
+                alert('Failed to copy GSTIN');
             });
         }
         
@@ -912,20 +822,83 @@
         
         // Export to Excel (placeholder)
         function exportToExcel() {
-            alert('Excel export feature coming soon!');
+            const gstin = "{{ data.gstin if data else '' }}";
+            if (!gstin) {
+                alert('No data to export');
+                return;
+            }
+            
+            // Create Excel export URL (you can implement this later)
+            alert('Excel export feature coming soon!\n\nData for: ' + gstin);
         }
         
         // Load recent searches
         function loadRecentSearches() {
-            // This would be populated from the server
             const container = document.getElementById('recentSearchesList');
             container.innerHTML = '<p style="color: var(--text-secondary); text-align: center;">Loading recent searches...</p>';
+            
+            // Fetch recent searches from localStorage or API
+            try {
+                const recentSearches = JSON.parse(localStorage.getItem('recentSearches') || '[]');
+                if (recentSearches.length === 0) {
+                    container.innerHTML = '<p style="color: var(--text-secondary); text-align: center;">No recent searches found</p>';
+                    return;
+                }
+                
+                let html = '';
+                recentSearches.slice(0, 5).forEach(search => {
+                    html += `
+                        <a href="/company/${search.gstin}" class="recent-item">
+                            <div class="recent-company">${search.company_name}</div>
+                            <div class="recent-gstin">${search.gstin}</div>
+                        </a>
+                    `;
+                });
+                container.innerHTML = html;
+            } catch (e) {
+                container.innerHTML = '<p style="color: var(--text-secondary); text-align: center;">Error loading searches</p>';
+            }
         }
+        
+        // Save search to localStorage for recent searches
+        {% if data and gstin %}
+        function saveRecentSearch() {
+            try {
+                const search = {
+                    gstin: "{{ gstin }}",
+                    company_name: "{{ data.lgnm if data.lgnm else 'Unknown Company' }}",
+                    searched_at: new Date().toISOString()
+                };
+                
+                let recentSearches = JSON.parse(localStorage.getItem('recentSearches') || '[]');
+                
+                // Remove if already exists
+                recentSearches = recentSearches.filter(s => s.gstin !== search.gstin);
+                
+                // Add to beginning
+                recentSearches.unshift(search);
+                
+                // Keep only last 10
+                recentSearches = recentSearches.slice(0, 10);
+                
+                localStorage.setItem('recentSearches', JSON.stringify(recentSearches));
+            } catch (e) {
+                console.error('Failed to save recent search:', e);
+            }
+        }
+        
+        // Save current search
+        saveRecentSearch();
+        {% endif %}
         
         // Close dropdowns when clicking outside
         document.addEventListener('click', function(e) {
             if (!e.target.closest('.user-menu')) {
                 document.getElementById('userDropdown')?.classList.remove('show');
+            }
+            
+            if (!e.target.closest('.recent-searches')) {
+                document.getElementById('recentSearches')?.classList.remove('show');
             }
         });
         
@@ -943,8 +916,8 @@
             });
         }, observerOptions);
 
-        // Observe all cards
-        document.querySelectorAll('.synopsis-card, .info-card, .year-section').forEach(el => {
+        // Observe all cards for animation
+        document.querySelectorAll('.synopsis-card, .info-card, .year-section, .compliance-card, .stat-item').forEach(el => {
             observer.observe(el);
         });
         
@@ -956,12 +929,262 @@
             });
             
             document.body.classList.add('loaded');
+            
+            // Initialize tooltips or other UI enhancements
+            initializeUI();
         });
+        
+        // Initialize UI enhancements
+        function initializeUI() {
+            // Add hover effects to cards
+            document.querySelectorAll('.glow-hover').forEach(card => {
+                card.addEventListener('mouseenter', function() {
+                    this.style.transform = 'translateY(-2px)';
+                });
+                
+                card.addEventListener('mouseleave', function() {
+                    this.style.transform = 'translateY(0)';
+                });
+            });
+            
+            // Add click animation to buttons
+            document.querySelectorAll('.btn').forEach(btn => {
+                btn.addEventListener('click', function(e) {
+                    // Create ripple effect
+                    const ripple = document.createElement('span');
+                    const rect = this.getBoundingClientRect();
+                    const size = Math.max(rect.width, rect.height);
+                    const x = e.clientX - rect.left - size / 2;
+                    const y = e.clientY - rect.top - size / 2;
+                    
+                    ripple.style.cssText = `
+                        position: absolute;
+                        width: ${size}px;
+                        height: ${size}px;
+                        left: ${x}px;
+                        top: ${y}px;
+                        background: rgba(255, 255, 255, 0.3);
+                        border-radius: 50%;
+                        transform: scale(0);
+                        animation: ripple 0.6s ease-out;
+                        pointer-events: none;
+                    `;
+                    
+                    this.style.position = 'relative';
+                    this.style.overflow = 'hidden';
+                    this.appendChild(ripple);
+                    
+                    setTimeout(() => {
+                        ripple.remove();
+                    }, 600);
+                });
+            });
+        }
+        
+        // Add ripple animation CSS
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes ripple {
+                to {
+                    transform: scale(2);
+                    opacity: 0;
+                }
+            }
+            
+            .loading-shimmer {
+                background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+                background-size: 200% 100%;
+                animation: shimmer 1.5s infinite;
+            }
+            
+            @keyframes shimmer {
+                0% { background-position: -200% 0; }
+                100% { background-position: 200% 0; }
+            }
+            
+            .pulse {
+                animation: pulse 2s infinite;
+            }
+            
+            @keyframes pulse {
+                0%, 100% { opacity: 1; }
+                50% { opacity: 0.7; }
+            }
+        `;
+        document.head.appendChild(style);
         
         // Auto-capitalize GSTIN input
         document.getElementById('gstinInput').addEventListener('input', function(e) {
             e.target.value = e.target.value.toUpperCase();
+            
+            // Add real-time validation
+            const gstin = e.target.value;
+            const isValid = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}[Z]{1}[0-9A-Z]{1}$/.test(gstin);
+            
+            if (gstin.length === 15) {
+                if (isValid) {
+                    e.target.style.borderColor = 'var(--success)';
+                    e.target.style.boxShadow = '0 0 0 2px rgba(16, 185, 129, 0.2)';
+                } else {
+                    e.target.style.borderColor = 'var(--danger)';
+                    e.target.style.boxShadow = '0 0 0 2px rgba(239, 68, 68, 0.2)';
+                }
+            } else {
+                e.target.style.borderColor = 'var(--border-color)';
+                e.target.style.boxShadow = 'none';
+            }
         });
+        
+        // Add keyboard shortcuts
+        document.addEventListener('keydown', function(e) {
+            // Ctrl+K to focus search
+            if (e.ctrlKey && e.key === 'k') {
+                e.preventDefault();
+                document.getElementById('gstinInput').focus();
+            }
+            
+            // Escape to close dropdowns
+            if (e.key === 'Escape') {
+                document.getElementById('userDropdown')?.classList.remove('show');
+                document.getElementById('recentSearches')?.classList.remove('show');
+                document.getElementById('shortcutsPanel')?.classList.remove('show');
+            }
+        });
+        
+        // Performance monitoring
+        window.addEventListener('load', function() {
+            if ('performance' in window) {
+                const loadTime = performance.timing.loadEventEnd - performance.timing.navigationStart;
+                console.log(`Page loaded in ${loadTime}ms`);
+            }
+        });
+        
+        // Error handling for images and resources
+        document.addEventListener('error', function(e) {
+            if (e.target.tagName === 'IMG') {
+                e.target.style.display = 'none';
+            }
+        }, true);
+        
+        // Add print styles dynamically
+        function addPrintStyles() {
+            const printStyle = document.createElement('style');
+            printStyle.media = 'print';
+            printStyle.textContent = `
+                @media print {
+                    .navbar, .quick-actions, .shortcuts-panel, .recent-searches { display: none !important; }
+                    .container { padding-top: 0 !important; }
+                    body { background: white !important; color: black !important; }
+                    .synopsis-section, .compliance-dashboard, .info-section { break-inside: avoid; }
+                }
+            `;
+            document.head.appendChild(printStyle);
+        }
+        
+        addPrintStyles();
+        
+        // Service worker registration (for future PWA features)
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', function() {
+                // navigator.serviceWorker.register('/sw.js') - uncomment when SW is ready
+            });
+        }
     </script>
 </body>
-</html>
+</html>0.5);
+        }
+        
+        .dropdown-menu.show {
+            opacity: 1;
+            visibility: visible;
+            transform: translateY(0);
+        }
+        
+        .dropdown-item {
+            display: block;
+            padding: 0.8rem 1rem;
+            color: var(--text-secondary);
+            text-decoration: none;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 0.8rem;
+        }
+        
+        .dropdown-item:hover {
+            background: var(--bg-hover);
+            color: var(--text-primary);
+        }
+        
+        .dropdown-divider {
+            height: 1px;
+            background: var(--border-color);
+            margin: 0.5rem 0;
+        }
+        
+        /* Adjust main content for fixed navbar */
+        .container {
+            padding-top: 80px;
+        }
+        
+        /* Quick Access Shortcuts */
+        .shortcuts-panel {
+            background: var(--bg-card);
+            border: 2px solid var(--border-color);
+            border-radius: 16px;
+            padding: 1.5rem;
+            margin: 2rem 0;
+            display: none;
+        }
+        
+        .shortcuts-panel.show {
+            display: block;
+            animation: slideIn 0.3s ease;
+        }
+        
+        .shortcuts-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+        }
+        
+        .shortcut-item {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 1.2rem;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .shortcut-item:hover {
+            border-color: var(--accent-primary);
+            transform: translateY(-3px);
+            box-shadow: 0 5px 20px rgba(124, 58, 237, 0.2);
+        }
+        
+        .shortcut-icon {
+            font-size: 2rem;
+            color: var(--accent-secondary);
+            margin-bottom: 0.5rem;
+        }
+        
+        .shortcut-text {
+            color: var(--text-primary);
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+        
+        /* Recent Searches Widget */
+        .recent-searches {
+            position: fixed;
+            right: 2rem;
+            top: 100px;
+            width: 300px;
+            background: var(--bg-card);
+            border: 2px solid var(--border-color);
+            border-radius: 16px;
+            padding: 1.5rem;
+            box-shadow: 0 10px 30px rgba(0, 0, 0,
