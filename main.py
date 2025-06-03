@@ -1021,31 +1021,180 @@ async def get_company_report(request: Request, gstin: str):
             "current_user": current_user
         })
 
-@app.post("/download/pdf")
-async def download_pdf(request: Request, gstin: str = Form(...)):
-    """Generate PDF report"""
+# ... [rest of the code above remains unchanged] ...
+
+import random
+
+# --- OTP MANAGEMENT (simple in-memory, replace with Redis/db in prod) ---
+otp_store = {}  # {mobile: {"otp": ..., "expires_at": ...}}
+
+def send_sms_otp(mobile: str, otp: str) -> bool:
+    """
+    Mock function to send OTP via SMS.
+    Replace this with an integration to real SMS service (like Twilio, MSG91, etc.).
+    """
+    print(f"[SMS OTP] Sending OTP {otp} to {mobile}")
+    # Integrate SMS API here.
+    return True
+
+def generate_otp() -> str:
+    return str(random.randint(100000, 999999))
+
+def store_otp(mobile: str, otp: str):
+    otp_store[mobile] = {
+        "otp": otp,
+        "expires_at": datetime.now() + timedelta(minutes=5)
+    }
+
+def verify_otp(mobile: str, otp: str) -> bool:
+    entry = otp_store.get(mobile)
+    if not entry:
+        return False
+    if datetime.now() > entry["expires_at"]:
+        del otp_store[mobile]
+        return False
+    if entry["otp"] != otp:
+        return False
+    del otp_store[mobile]
+    return True
+
+# --- SIGNUP WITH OTP ---
+
+@app.get("/signup", response_class=HTMLResponse)
+async def get_signup(request: Request):
+    current_user = await get_current_user(request)
+    if current_user:
+        return RedirectResponse(url="/", status_code=302)
+    return templates.TemplateResponse("signup.html", {"request": request})
+
+@app.post("/signup")
+async def post_signup(request: Request, mobile: str = Form(...), password: str = Form(...), confirm_password: str = Form(...)):
+    # ... [validation as before] ...
+    otp = generate_otp()
+    store_otp(mobile, otp)
+    send_sms_otp(mobile, otp)
+    response = templates.TemplateResponse("verify_otp.html", {
+        "request": request,
+        "mobile": mobile,
+        "password": password,
+        "otp_visible": True,   # <--- Always show OTP onscreen for dev
+        "otp": otp             # <--- Pass the OTP to the template
+    })
+    response.set_cookie("signup_mobile", mobile, max_age=600, httponly=True)
+    response.set_cookie("signup_password", password, max_age=600, httponly=True)
+    return response
+
+@app.get("/verify-otp", response_class=HTMLResponse)
+async def get_verify_otp(request: Request):
+    mobile = request.cookies.get("signup_mobile")
+    password = request.cookies.get("signup_password")
+    if not mobile or not password:
+        return RedirectResponse(url="/signup", status_code=302)
+    otp_entry = otp_store.get(mobile, {})
+    otp = otp_entry.get("otp")
+    return templates.TemplateResponse("verify_otp.html", {
+        "request": request,
+        "mobile": mobile,
+        "password": password,
+        "otp_visible": True,
+        "otp": otp
+    })
+
+@app.post("/verify-otp")
+async def post_verify_otp(request: Request, otp: str = Form(...)):
+    mobile = request.cookies.get("signup_mobile")
+    password = request.cookies.get("signup_password")
+    if not mobile or not password:
+        return RedirectResponse(url="/signup", status_code=302)
+    otp_entry = otp_store.get(mobile, {})
+    otp_value = otp_entry.get("otp")
+    if not verify_otp(mobile, otp):
+        return templates.TemplateResponse("verify_otp.html", {
+            "request": request,
+            "mobile": mobile,
+            "password": password,
+            "error": "Invalid or expired OTP. Please try again.",
+            "otp_visible": True,
+            "otp": otp_value
+        })
+    # ... [rest of the flow as before] ...
+    # Create user and login
+    db.create_user(mobile, password)
+    session_token = db.create_session(mobile)
+    response = RedirectResponse(url="/", status_code=302)
+    response.set_cookie("session_token", session_token, max_age=7*24*60*60, httponly=True, samesite="lax")
+    # Clear signup cookies
+    response.delete_cookie("signup_mobile")
+    response.delete_cookie("signup_password")
+    return response
+
+# --- CHANGE PASSWORD FEATURE ---
+
+@app.get("/change-password", response_class=HTMLResponse)
+async def get_change_password(request: Request):
     current_user = await get_current_user(request)
     if not current_user:
         return RedirectResponse(url="/login", status_code=302)
-    
-    # Validate GSTIN
+    return templates.TemplateResponse("change_password.html", {"request": request, "current_user": current_user})
+
+@app.post("/change-password")
+async def post_change_password(
+    request: Request,
+    old_password: str = Form(...),
+    new_password: str = Form(...),
+    confirm_new_password: str = Form(...)
+):
+    current_user = await get_current_user(request)
+    if not current_user:
+        return RedirectResponse(url="/login", status_code=302)
+    # Validate old password
+    if not db.verify_user(current_user, old_password):
+        return templates.TemplateResponse("change_password.html", {
+            "request": request,
+            "current_user": current_user,
+            "error": "Old password is incorrect."
+        })
+    if new_password != confirm_new_password:
+        return templates.TemplateResponse("change_password.html", {
+            "request": request,
+            "current_user": current_user,
+            "error": "New passwords do not match."
+        })
+    if len(new_password) < 6:
+        return templates.TemplateResponse("change_password.html", {
+            "request": request,
+            "current_user": current_user,
+            "error": "New password must be at least 6 characters long."
+        })
+    # Update password in db
+    users = db._read_file(db.users_file)
+    password_hash = hashlib.sha256(new_password.encode()).hexdigest()
+    users[current_user]["password_hash"] = password_hash
+    db._write_file(db.users_file, users)
+    return templates.TemplateResponse("change_password.html", {
+        "request": request,
+        "current_user": current_user,
+        "success": "Password changed successfully."
+    })
+
+# --- PDF DOWNLOAD FIX ---
+@app.post("/download/pdf")
+async def download_pdf(request: Request, gstin: str = Form(...)):
+    current_user = await get_current_user(request)
+    if not current_user:
+        return RedirectResponse(url="/login", status_code=302)
     is_valid, validation_message = validate_gstin(gstin)
     if not is_valid:
         raise HTTPException(status_code=400, detail=validation_message)
-    
     try:
-        # Fetch and process data (same as above)
         raw_data = await api_client.fetch_gstin_data(gstin)
         returns = mark_late_returns(raw_data.get('returns', []))
         raw_data['returns'] = returns
         compliance = calculate_compliance_score(raw_data)
         returns_by_year = organize_returns_by_year(returns)
-        
-        # Generate synopsis with AI narrative
         synopsis = generate_enhanced_synopsis({**raw_data, 'compliance': compliance})
         ai_narrative = await get_anthropic_synopsis({**raw_data, "compliance": compliance})
         synopsis['narrative'] = ai_narrative
-        
         enhanced_data = {
             **raw_data,
             'compliance': compliance,
@@ -1053,19 +1202,15 @@ async def download_pdf(request: Request, gstin: str = Form(...)):
             'returns': returns,
             'synopsis': synopsis
         }
-        
-        # Generate PDF
-        html_content = templates.get_template("pdf_template.html").render(
-            request=request,
-            data=enhanced_data,
-            gstin=gstin,
-            error=None
-        )
-        
+        html_content = templates.get_template("pdf_template.html").render({
+            "request": request,
+            "data": enhanced_data,
+            "gstin": gstin,
+            "error": None
+        })
         pdf_file = BytesIO()
         HTML(string=html_content, base_url=os.path.abspath(".")).write_pdf(pdf_file)
         pdf_file.seek(0)
-        
         return StreamingResponse(
             pdf_file,
             media_type="application/pdf",
@@ -1073,34 +1218,26 @@ async def download_pdf(request: Request, gstin: str = Form(...)):
                 "Content-Disposition": f"attachment; filename={gstin}_gst_dashboard.pdf"
             }
         )
-        
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/download/pdf")
 async def download_pdf_get(request: Request, gstin: str):
-    """Generate PDF report via GET request"""
     current_user = await get_current_user(request)
     if not current_user:
         return RedirectResponse(url="/login", status_code=302)
-    
-    # Validate GSTIN
     is_valid, validation_message = validate_gstin(gstin)
     if not is_valid:
         raise HTTPException(status_code=400, detail=validation_message)
-    
     try:
-        # Reuse the POST logic
         raw_data = await api_client.fetch_gstin_data(gstin)
         returns = mark_late_returns(raw_data.get('returns', []))
         raw_data['returns'] = returns
         compliance = calculate_compliance_score(raw_data)
         returns_by_year = organize_returns_by_year(returns)
-        
         synopsis = generate_enhanced_synopsis({**raw_data, 'compliance': compliance})
         ai_narrative = await get_anthropic_synopsis({**raw_data, "compliance": compliance})
         synopsis['narrative'] = ai_narrative
-        
         enhanced_data = {
             **raw_data,
             'compliance': compliance,
@@ -1108,18 +1245,15 @@ async def download_pdf_get(request: Request, gstin: str):
             'returns': returns,
             'synopsis': synopsis
         }
-        
-        html_content = templates.get_template("pdf_template.html").render(
-            request=request,
-            data=enhanced_data,
-            gstin=gstin,
-            error=None
-        )
-        
+        html_content = templates.get_template("pdf_template.html").render({
+            "request": request,
+            "data": enhanced_data,
+            "gstin": gstin,
+            "error": None
+        })
         pdf_file = BytesIO()
         HTML(string=html_content, base_url=os.path.abspath(".")).write_pdf(pdf_file)
         pdf_file.seek(0)
-        
         return StreamingResponse(
             pdf_file,
             media_type="application/pdf",
@@ -1127,9 +1261,10 @@ async def download_pdf_get(request: Request, gstin: str):
                 "Content-Disposition": f"attachment; filename={gstin}_gst_dashboard.pdf"
             }
         )
-        
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+# ... [rest of your routes remain unchanged] ...
 
 if __name__ == "__main__":
     import uvicorn
