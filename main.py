@@ -1,19 +1,167 @@
-from fastapi import FastAPI, Request, Form, HTTPException
-from fastapi.responses import HTMLResponse, StreamingResponse
+from fastapi import FastAPI, Request, Form, HTTPException, Depends, status
+from fastapi.responses import HTMLResponse, StreamingResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
-from datetime import datetime
+from fastapi.security import HTTPBasic, HTTPBasicCredentials
+from datetime import datetime, timedelta
 from io import BytesIO
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, Optional
 from collections import defaultdict
 import httpx
 import os
 import re
 from pathlib import Path
+import secrets
+import hashlib
+import json
+from pydantic import BaseModel
+import asyncio
+from contextlib import asynccontextmanager
 
 from weasyprint import HTML
 from fastapi.concurrency import run_in_threadpool
 from anthro_ai import get_anthropic_synopsis
+
+# Database models
+class User(BaseModel):
+    mobile: str
+    password_hash: str
+    created_at: datetime
+    last_login: Optional[datetime] = None
+
+class SearchHistory(BaseModel):
+    user_mobile: str
+    gstin: str
+    company_name: str
+    searched_at: datetime
+    compliance_score: Optional[float] = None
+
+# Simple file-based database (in production, use a proper database)
+class SimpleDB:
+    def __init__(self):
+        self.db_dir = Path("database")
+        self.db_dir.mkdir(exist_ok=True)
+        self.users_file = self.db_dir / "users.json"
+        self.history_file = self.db_dir / "history.json"
+        self.sessions_file = self.db_dir / "sessions.json"
+        self._init_files()
+    
+    def _init_files(self):
+        for file in [self.users_file, self.history_file, self.sessions_file]:
+            if not file.exists():
+                with open(file, 'w') as f:
+                    json.dump({}, f)
+    
+    def _read_file(self, file_path):
+        with open(file_path, 'r') as f:
+            return json.load(f)
+    
+    def _write_file(self, file_path, data):
+        with open(file_path, 'w') as f:
+            json.dump(data, f, default=str)
+    
+    def create_user(self, mobile: str, password: str) -> bool:
+        users = self._read_file(self.users_file)
+        if mobile in users:
+            return False
+        
+        password_hash = hashlib.sha256(password.encode()).hexdigest()
+        users[mobile] = {
+            "mobile": mobile,
+            "password_hash": password_hash,
+            "created_at": datetime.now().isoformat(),
+            "last_login": None
+        }
+        self._write_file(self.users_file, users)
+        return True
+    
+    def verify_user(self, mobile: str, password: str) -> bool:
+        users = self._read_file(self.users_file)
+        if mobile not in users:
+            return False
+        
+        password_hash = hashlib.sha256(password.encode()).hexdigest()
+        return users[mobile]["password_hash"] == password_hash
+    
+    def update_last_login(self, mobile: str):
+        users = self._read_file(self.users_file)
+        if mobile in users:
+            users[mobile]["last_login"] = datetime.now().isoformat()
+            self._write_file(self.users_file, users)
+    
+    def create_session(self, mobile: str) -> str:
+        session_token = secrets.token_urlsafe(32)
+        sessions = self._read_file(self.sessions_file)
+        sessions[session_token] = {
+            "mobile": mobile,
+            "created_at": datetime.now().isoformat(),
+            "expires_at": (datetime.now() + timedelta(days=7)).isoformat()
+        }
+        self._write_file(self.sessions_file, sessions)
+        return session_token
+    
+    def get_user_from_session(self, session_token: str) -> Optional[str]:
+        if not session_token:
+            return None
+        sessions = self._read_file(self.sessions_file)
+        if session_token not in sessions:
+            return None
+        
+        session = sessions[session_token]
+        if datetime.fromisoformat(session["expires_at"]) < datetime.now():
+            del sessions[session_token]
+            self._write_file(self.sessions_file, sessions)
+            return None
+        
+        return session["mobile"]
+    
+    def delete_session(self, session_token: str):
+        sessions = self._read_file(self.sessions_file)
+        if session_token in sessions:
+            del sessions[session_token]
+            self._write_file(self.sessions_file, sessions)
+    
+    def add_search_history(self, mobile: str, gstin: str, company_name: str, compliance_score: float = None):
+        history = self._read_file(self.history_file)
+        if mobile not in history:
+            history[mobile] = []
+        
+        # Check if this GSTIN already exists in history
+        existing_index = None
+        for i, item in enumerate(history[mobile]):
+            if item["gstin"] == gstin:
+                existing_index = i
+                break
+        
+        new_entry = {
+            "gstin": gstin,
+            "company_name": company_name,
+            "searched_at": datetime.now().isoformat(),
+            "compliance_score": compliance_score
+        }
+        
+        if existing_index is not None:
+            # Update existing entry
+            history[mobile][existing_index] = new_entry
+        else:
+            # Add new entry at the beginning
+            history[mobile].insert(0, new_entry)
+            # Keep only last 20 searches
+            history[mobile] = history[mobile][:20]
+        
+        self._write_file(self.history_file, history)
+    
+    def get_search_history(self, mobile: str) -> List[Dict]:
+        history = self._read_file(self.history_file)
+        return history.get(mobile, [])
+
+# Initialize database
+db = SimpleDB()
+
+# Session management
+async def get_current_user(request: Request) -> Optional[str]:
+    session_token = request.cookies.get("session_token")
+    return db.get_user_from_session(session_token)
 
 def validate_gstin(gstin: str) -> Tuple[bool, str]:
     """Validate GSTIN format"""
@@ -31,6 +179,13 @@ def validate_gstin(gstin: str) -> Tuple[bool, str]:
         return True, "Valid GSTIN"
     except Exception as e:
         return False, f"GSTIN validation error: {str(e)}"
+
+def validate_mobile(mobile: str) -> Tuple[bool, str]:
+    """Validate Indian mobile number"""
+    mobile = mobile.strip()
+    if not re.match(r'^[6-9]\d{9}$', mobile):
+        return False, "Invalid mobile number. Please enter a 10-digit Indian mobile number."
+    return True, "Valid mobile number"
 
 class GSAPIClient:
     """Client for GST API"""
@@ -54,7 +209,7 @@ class GSAPIClient:
             raise HTTPException(status_code=400, detail=f"API Error: {data.get('message', 'Unknown error')}")
         return data.get("data", {})
 
-# Fixed late returns calculation in main.py
+# Fixed late returns calculation
 def mark_late_returns(returns: List[Dict]) -> List[Dict]:
     """Mark returns as late based on due dates - FIXED VERSION"""
     for ret in returns:
@@ -596,11 +751,137 @@ api_client = GSAPIClient(RAPIDAPI_KEY, RAPIDAPI_HOST)
 @app.get("/", response_class=HTMLResponse)
 async def get_index(request: Request):
     """Home page"""
-    return templates.TemplateResponse("index.html", {"request": request, "data": None})
+    current_user = await get_current_user(request)
+    return templates.TemplateResponse("index.html", {
+        "request": request, 
+        "data": None,
+        "current_user": current_user
+    })
+
+@app.get("/login", response_class=HTMLResponse)
+async def get_login(request: Request):
+    """Login page"""
+    current_user = await get_current_user(request)
+    if current_user:
+        return RedirectResponse(url="/", status_code=302)
+    return templates.TemplateResponse("login.html", {"request": request})
+
+@app.post("/login")
+async def post_login(request: Request, mobile: str = Form(...), password: str = Form(...)):
+    """Process login"""
+    # Validate mobile
+    is_valid, message = validate_mobile(mobile)
+    if not is_valid:
+        return templates.TemplateResponse("login.html", {
+            "request": request,
+            "error": message
+        })
+    
+    # Verify credentials
+    if not db.verify_user(mobile, password):
+        return templates.TemplateResponse("login.html", {
+            "request": request,
+            "error": "Invalid mobile number or password"
+        })
+    
+    # Create session
+    session_token = db.create_session(mobile)
+    db.update_last_login(mobile)
+    
+    response = RedirectResponse(url="/", status_code=302)
+    response.set_cookie(
+        key="session_token",
+        value=session_token,
+        max_age=7 * 24 * 60 * 60,  # 7 days
+        httponly=True,
+        samesite="lax"
+    )
+    return response
+
+@app.get("/signup", response_class=HTMLResponse)
+async def get_signup(request: Request):
+    """Signup page"""
+    current_user = await get_current_user(request)
+    if current_user:
+        return RedirectResponse(url="/", status_code=302)
+    return templates.TemplateResponse("signup.html", {"request": request})
+
+@app.post("/signup")
+async def post_signup(request: Request, mobile: str = Form(...), password: str = Form(...), confirm_password: str = Form(...)):
+    """Process signup"""
+    # Validate mobile
+    is_valid, message = validate_mobile(mobile)
+    if not is_valid:
+        return templates.TemplateResponse("signup.html", {
+            "request": request,
+            "error": message
+        })
+    
+    # Check password match
+    if password != confirm_password:
+        return templates.TemplateResponse("signup.html", {
+            "request": request,
+            "error": "Passwords do not match"
+        })
+    
+    # Check password strength
+    if len(password) < 6:
+        return templates.TemplateResponse("signup.html", {
+            "request": request,
+            "error": "Password must be at least 6 characters long"
+        })
+    
+    # Create user
+    if not db.create_user(mobile, password):
+        return templates.TemplateResponse("signup.html", {
+            "request": request,
+            "error": "Mobile number already registered"
+        })
+    
+    # Auto-login after signup
+    session_token = db.create_session(mobile)
+    response = RedirectResponse(url="/", status_code=302)
+    response.set_cookie(
+        key="session_token",
+        value=session_token,
+        max_age=7 * 24 * 60 * 60,  # 7 days
+        httponly=True,
+        samesite="lax"
+    )
+    return response
+
+@app.get("/logout")
+async def logout(request: Request):
+    """Logout user"""
+    session_token = request.cookies.get("session_token")
+    if session_token:
+        db.delete_session(session_token)
+    
+    response = RedirectResponse(url="/login", status_code=302)
+    response.delete_cookie("session_token")
+    return response
+
+@app.get("/history", response_class=HTMLResponse)
+async def get_history(request: Request):
+    """Search history page"""
+    current_user = await get_current_user(request)
+    if not current_user:
+        return RedirectResponse(url="/login", status_code=302)
+    
+    history = db.get_search_history(current_user)
+    return templates.TemplateResponse("history.html", {
+        "request": request,
+        "current_user": current_user,
+        "history": history
+    })
 
 @app.post("/", response_class=HTMLResponse)
 async def post_index(request: Request, gstin: str = Form(...)):
     """Process GSTIN search"""
+    current_user = await get_current_user(request)
+    if not current_user:
+        return RedirectResponse(url="/login", status_code=302)
+    
     # Validate GSTIN
     is_valid, validation_message = validate_gstin(gstin)
     if not is_valid:
@@ -608,7 +889,8 @@ async def post_index(request: Request, gstin: str = Form(...)):
             "request": request,
             "data": None,
             "error": validation_message,
-            "error_type": "validation"
+            "error_type": "validation",
+            "current_user": current_user
         })
     
     gstin = gstin.strip().upper()
@@ -643,10 +925,15 @@ async def post_index(request: Request, gstin: str = Form(...)):
             'synopsis': synopsis
         }
         
+        # Save to history
+        company_name = raw_data.get('lgnm', 'Unknown Company')
+        db.add_search_history(current_user, gstin, company_name, compliance.get('score'))
+        
         return templates.TemplateResponse("index.html", {
             "request": request,
             "data": enhanced_data,
-            "gstin": gstin
+            "gstin": gstin,
+            "current_user": current_user
         })
         
     except HTTPException as e:
@@ -654,19 +941,93 @@ async def post_index(request: Request, gstin: str = Form(...)):
             "request": request,
             "data": None,
             "error": e.detail,
-            "error_type": "api"
+            "error_type": "api",
+            "current_user": current_user
         })
     except Exception as e:
         return templates.TemplateResponse("index.html", {
             "request": request,
             "data": None,
             "error": f"An error occurred: {str(e)}",
-            "error_type": "system"
+            "error_type": "system",
+            "current_user": current_user
+        })
+
+@app.get("/company/{gstin}", response_class=HTMLResponse)
+async def get_company_report(request: Request, gstin: str):
+    """View company report by GSTIN"""
+    current_user = await get_current_user(request)
+    if not current_user:
+        return RedirectResponse(url="/login", status_code=302)
+    
+    # Validate GSTIN
+    is_valid, validation_message = validate_gstin(gstin)
+    if not is_valid:
+        return templates.TemplateResponse("index.html", {
+            "request": request,
+            "data": None,
+            "error": validation_message,
+            "error_type": "validation",
+            "current_user": current_user
+        })
+    
+    try:
+        # Fetch data from API
+        raw_data = await api_client.fetch_gstin_data(gstin)
+        
+        # Process returns
+        returns = mark_late_returns(raw_data.get('returns', []))
+        raw_data['returns'] = returns
+        
+        # Calculate compliance
+        compliance = calculate_compliance_score(raw_data)
+        
+        # Organize returns by year
+        returns_by_year = organize_returns_by_year(returns)
+        
+        # Generate enhanced synopsis
+        synopsis = generate_enhanced_synopsis({**raw_data, 'compliance': compliance})
+        
+        # Get AI-powered narrative
+        ai_narrative = await get_anthropic_synopsis({**raw_data, "compliance": compliance})
+        synopsis['narrative'] = ai_narrative
+        
+        # Prepare enhanced data
+        enhanced_data = {
+            **raw_data,
+            'compliance': compliance,
+            'returns_by_year': returns_by_year,
+            'returns': returns,
+            'synopsis': synopsis
+        }
+        
+        # Update history (in case data changed)
+        company_name = raw_data.get('lgnm', 'Unknown Company')
+        db.add_search_history(current_user, gstin, company_name, compliance.get('score'))
+        
+        return templates.TemplateResponse("index.html", {
+            "request": request,
+            "data": enhanced_data,
+            "gstin": gstin,
+            "current_user": current_user
+        })
+        
+    except Exception as e:
+        return templates.TemplateResponse("index.html", {
+            "request": request,
+            "data": None,
+            "error": f"An error occurred: {str(e)}",
+            "error_type": "system",
+            "current_user": current_user
         })
 
 @app.post("/download/pdf")
 async def download_pdf(request: Request, gstin: str = Form(...)):
     """Generate PDF report"""
+    current_user = await get_current_user(request)
+    if not current_user:
+        return RedirectResponse(url="/login", status_code=302)
+    
     # Validate GSTIN
     is_valid, validation_message = validate_gstin(gstin)
     if not is_valid:
@@ -719,6 +1080,10 @@ async def download_pdf(request: Request, gstin: str = Form(...)):
 @app.get("/download/pdf")
 async def download_pdf_get(request: Request, gstin: str):
     """Generate PDF report via GET request"""
+    current_user = await get_current_user(request)
+    if not current_user:
+        return RedirectResponse(url="/login", status_code=302)
+    
     # Validate GSTIN
     is_valid, validation_message = validate_gstin(gstin)
     if not is_valid:

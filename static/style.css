@@ -1,4 +1,4 @@
-/* Dark Aesthetic GST Intelligence Platform */
+/* Dark Aesthetic GST Intelligence Platform - Enhanced Version */
 * {
     margin: 0;
     padding: 0;
@@ -68,8 +68,8 @@ body::before {
     border-bottom: 1px solid var(--border-color);
     padding: 2rem 3rem;
     position: sticky;
-    top: 0;
-    z-index: 1000;
+    top: 70px;
+    z-index: 900;
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
 }
 
@@ -384,6 +384,15 @@ body::before {
     color: var(--text-primary);
 }
 
+/* Enhanced Hover Effects */
+.glow-hover {
+    transition: all 0.3s ease;
+}
+
+.glow-hover:hover {
+    box-shadow: 0 0 30px rgba(124, 58, 237, 0.4);
+}
+
 /* Synopsis Section */
 .synopsis-section {
     background: linear-gradient(135deg, rgba(124, 58, 237, 0.1) 0%, rgba(37, 99, 235, 0.1) 100%);
@@ -487,6 +496,8 @@ body::before {
     color: rgba(255, 255, 255, 0.95);
     margin: 0;
 }
+
+/* Additional styles continue... */
 
 /* Key Metrics */
 .key-metrics {
