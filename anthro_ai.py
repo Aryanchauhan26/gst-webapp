@@ -1,22 +1,31 @@
 # Fixed anthro_ai.py - Focus on company business overview
 import os
 import anthropic
-from googlesearch import search
+from googlesearch import search  # Correct import
 import httpx
 from bs4 import BeautifulSoup
 import asyncio
 from typing import Dict, List
 import re
+import time
+import logging
+
+# Set up logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 class EnhancedAnthropicSynopsis:
     def __init__(self):
-        self.client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
+        api_key = os.getenv("ANTHROPIC_API_KEY")
+        if not api_key:
+            raise ValueError("ANTHROPIC_API_KEY environment variable not set")
+        self.client = anthropic.Anthropic(api_key=api_key)
         self.headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
         }
     
     async def search_company_info(self, company_name: str, gstin: str) -> Dict:
-        """Search web for company business information"""
+        """Search web for company business information with rate limiting"""
         search_results = {}
         
         # Clean company name for search
@@ -38,7 +47,15 @@ class EnhancedAnthropicSynopsis:
         async with httpx.AsyncClient(timeout=10.0) as client:
             for query in search_queries[:4]:  # Limit searches
                 try:
-                    urls = list(search(query, num=3, stop=3, pause=1))
+                    # Rate limiting
+                    await asyncio.sleep(1)
+                    
+                    # Use google search with error handling
+                    try:
+                        urls = list(search(query, num=3, stop=3, pause=2))
+                    except Exception as e:
+                        logger.warning(f"Search failed for query '{query}': {e}")
+                        continue
                     
                     for url in urls[:2]:
                         try:
@@ -59,7 +76,7 @@ class EnhancedAnthropicSynopsis:
                                 relevant_text = []
                                 for p in soup.find_all(['p', 'div', 'section']):
                                     text = p.get_text().strip()
-                                    if text and any(keyword in text.lower() for keyword in business_keywords):
+                                    if text and len(text) > 50 and any(keyword in text.lower() for keyword in business_keywords):
                                         if clean_name.lower() in text.lower():
                                             relevant_text.append(text[:500])  # Limit each paragraph
                                 
@@ -68,23 +85,32 @@ class EnhancedAnthropicSynopsis:
                                     content += '\n'.join(relevant_text[:3])  # Top 3 relevant paragraphs
                                     all_content.append(content)
                                 
-                        except Exception:
+                        except httpx.TimeoutException:
+                            logger.warning(f"Timeout fetching {url}")
+                            continue
+                        except Exception as e:
+                            logger.warning(f"Error fetching {url}: {e}")
                             continue
                             
-                except Exception:
+                except Exception as e:
+                    logger.error(f"Search error for query '{query}': {e}")
                     continue
         
-        search_results['web_content'] = '\n\n'.join(all_content)
+        search_results['web_content'] = '\n\n'.join(all_content) if all_content else 'No additional information found online'
         return search_results
 
     async def get_enhanced_synopsis(self, company_data: dict) -> str:
         """Generate company business overview"""
         
         # Search for company business information
-        web_data = await self.search_company_info(
-            company_data.get("lgnm", ""),
-            company_data.get("gstin", "")
-        )
+        try:
+            web_data = await self.search_company_info(
+                company_data.get("lgnm", ""),
+                company_data.get("gstin", "")
+            )
+        except Exception as e:
+            logger.error(f"Web search failed: {e}")
+            web_data = {'web_content': 'Web search unavailable'}
         
         # Prepare prompt focused on business overview
         enhanced_prompt = f"""
@@ -122,8 +148,13 @@ class EnhancedAnthropicSynopsis:
                 temperature=0.7,
                 messages=[{"role": "user", "content": enhanced_prompt}]
             )
-            return message.content[0].text.strip()
+            # Handle the response properly
+            if hasattr(message, 'content') and len(message.content) > 0:
+                return message.content[0].text.strip()
+            else:
+                raise ValueError("Invalid response from Anthropic API")
         except Exception as e:
+            logger.error(f"Anthropic API error: {e}")
             # Fallback synopsis focused on business
             return self.generate_fallback_business_synopsis(company_data)
     
@@ -132,30 +163,59 @@ class EnhancedAnthropicSynopsis:
         company_name = company_data.get("lgnm", "Unknown Company")
         company_type = company_data.get("ctb", "")
         location = company_data.get("adr", "")
+        reg_date = company_data.get("rgdt", "")
         
         # Try to infer business from name
         name_lower = company_name.lower()
         
-        if any(word in name_lower for word in ['tech', 'software', 'infotech', 'solutions']):
+        if any(word in name_lower for word in ['tech', 'software', 'infotech', 'solutions', 'digital']):
             business_type = "technology and software solutions"
-        elif any(word in name_lower for word in ['trading', 'exports', 'imports']):
+        elif any(word in name_lower for word in ['trading', 'exports', 'imports', 'international']):
             business_type = "trading and import/export"
-        elif any(word in name_lower for word in ['manufacturing', 'industries', 'products']):
+        elif any(word in name_lower for word in ['manufacturing', 'industries', 'products', 'engineering']):
             business_type = "manufacturing"
-        elif any(word in name_lower for word in ['services', 'consultancy', 'consulting']):
+        elif any(word in name_lower for word in ['services', 'consultancy', 'consulting', 'advisory']):
             business_type = "professional services"
+        elif any(word in name_lower for word in ['pharma', 'medical', 'healthcare']):
+            business_type = "healthcare and pharmaceutical"
+        elif any(word in name_lower for word in ['retail', 'mart', 'store', 'bazaar']):
+            business_type = "retail and distribution"
         else:
             business_type = "business operations"
         
+        # Extract location details
+        location_parts = location.split(',') if location else []
+        city = location_parts[0].strip() if location_parts else 'India'
+        
+        # Build comprehensive synopsis
         synopsis = f"{company_name} is a {company_type} engaged in {business_type}. "
-        synopsis += f"The company operates from {location.split(',')[0] if location else 'India'}. "
-        synopsis += "Specific details about the company's products, services, and market position "
-        synopsis += "require further research. The company maintains its GST registration and "
-        synopsis += "compliance obligations as per Indian tax regulations."
+        
+        if reg_date:
+            try:
+                year = reg_date.split('/')[-1]
+                synopsis += f"Established in {year}, the company has been operational for several years. "
+            except:
+                pass
+        
+        synopsis += f"The company operates from {city}, serving clients across the region. "
+        synopsis += "While specific details about the company's products, services, and market position "
+        synopsis += "require further research, the company maintains its GST registration and "
+        synopsis += "compliance obligations as per Indian tax regulations. "
+        synopsis += f"As a {company_type}, the company likely focuses on {business_type} "
+        synopsis += "activities in line with industry standards and regulatory requirements."
         
         return synopsis
 
-# Export the main function
+# Export the main function with proper error handling
 async def get_anthropic_synopsis(company_data: dict) -> str:
-    synopsis_generator = EnhancedAnthropicSynopsis()
-    return await synopsis_generator.get_enhanced_synopsis(company_data)
+    """Get AI-powered synopsis with error handling"""
+    try:
+        synopsis_generator = EnhancedAnthropicSynopsis()
+        return await synopsis_generator.get_enhanced_synopsis(company_data)
+    except ValueError as e:
+        logger.error(f"Configuration error: {e}")
+        # Return a basic synopsis if API key is missing
+        return EnhancedAnthropicSynopsis().generate_fallback_business_synopsis(company_data)
+    except Exception as e:
+        logger.error(f"Unexpected error in synopsis generation: {e}")
+        return "Unable to generate AI synopsis at this time. Please check your configuration."
