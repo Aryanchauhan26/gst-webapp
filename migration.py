@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 """
-Migration script to move data from JSON files to SQLite database
-Run this script once to migrate existing data before switching to the new main.py
+Migration script for GST Intelligence Platform.
+Use this to migrate old user/search data to the new SQLite database.
 """
 
-import json
+import os
 import sqlite3
+import json
 import hashlib
 import secrets
 from pathlib import Path
@@ -211,8 +212,28 @@ def set_test_passwords():
         conn.commit()
         print(f"Updated {updated} user passwords to 'test123'")
 
+def migrate():
+    db_path = "database/gst_platform.db"
+    if not os.path.exists(db_path):
+        print("❌ Database not found. Run quick_db_fix.py first.")
+        return
+
+    # Example: Migrate from old JSON/CSV (customize as needed)
+    # old_data = load_old_data("old_data.json")  # Implement this if needed
+
+    # Example migration logic (replace with your actual migration)
+    # for user in old_data["users"]:
+    #     with sqlite3.connect(db_path) as conn:
+    #         conn.execute(
+    #             "INSERT OR IGNORE INTO users (mobile, password_hash, salt) VALUES (?, ?, ?)",
+    #             (user["mobile"], user["password_hash"], user["salt"])
+    #         )
+    #         conn.commit()
+    print("✅ Migration script ran (customize this for your actual data).")
+
 if __name__ == "__main__":
     if len(sys.argv) > 1 and sys.argv[1] == "--set-test-passwords":
         set_test_passwords()
     else:
         migrate_data()
+        migrate()

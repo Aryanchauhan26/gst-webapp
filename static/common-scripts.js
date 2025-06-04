@@ -1,5 +1,5 @@
 // GST Intelligence Platform - Common Scripts
-// Handles UI interactions and prevents common issues
+// Add shared JavaScript here if needed.
 
 document.addEventListener('DOMContentLoaded', function() {
     

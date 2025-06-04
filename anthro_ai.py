@@ -1,18 +1,50 @@
 # Fixed anthro_ai.py - Focus on company business overview
 import os
-import anthropic
-from googlesearch import search  # Correct import
 import httpx
 from bs4 import BeautifulSoup
 import asyncio
-from typing import Dict, List
+from typing import Dict, List, Optional
 import re
 import time
 import logging
 
+try:
+    from anthropic import AsyncAnthropic
+except ImportError:
+    AsyncAnthropic = None
+
 # Set up logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+async def get_anthropic_synopsis(company_data: Dict) -> Optional[str]:
+    """
+    Generate a business overview using Anthropic Claude AI.
+    Returns a string synopsis or None if not available.
+    """
+    api_key = os.getenv("ANTHROPIC_API_KEY")
+    if not api_key or not AsyncAnthropic:
+        logger.warning("Anthropic API not configured or anthropic package not installed.")
+        return None
+
+    prompt = (
+        f"Company Name: {company_data.get('lgnm', 'N/A')}\n"
+        f"Business Type: {company_data.get('ctb', 'N/A')}\n"
+        f"Trade Name: {company_data.get('tradeName', 'N/A')}\n"
+        f"Describe in 2-3 lines what this company does, based on the above."
+    )
+    try:
+        client = AsyncAnthropic(api_key=api_key)
+        response = await client.completions.create(
+            model="claude-3-haiku-20240307",
+            prompt=prompt,
+            max_tokens=100,
+            temperature=0.5,
+        )
+        return response.completion.strip()
+    except Exception as e:
+        logger.error(f"Anthropic AI error: {e}")
+        return None
 
 class EnhancedAnthropicSynopsis:
     def __init__(self):
@@ -205,17 +237,3 @@ class EnhancedAnthropicSynopsis:
         synopsis += "activities in line with industry standards and regulatory requirements."
         
         return synopsis
-
-# Export the main function with proper error handling
-async def get_anthropic_synopsis(company_data: dict) -> str:
-    """Get AI-powered synopsis with error handling"""
-    try:
-        synopsis_generator = EnhancedAnthropicSynopsis()
-        return await synopsis_generator.get_enhanced_synopsis(company_data)
-    except ValueError as e:
-        logger.error(f"Configuration error: {e}")
-        # Return a basic synopsis if API key is missing
-        return EnhancedAnthropicSynopsis().generate_fallback_business_synopsis(company_data)
-    except Exception as e:
-        logger.error(f"Unexpected error in synopsis generation: {e}")
-        return "Unable to generate AI synopsis at this time. Please check your configuration."

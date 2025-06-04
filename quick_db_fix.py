@@ -5,7 +5,6 @@ Quick database fix - Run this to create the database immediately
 
 import os
 import sqlite3
-from pathlib import Path
 
 def quick_database_setup():
     """Quickly create the database structure"""
@@ -13,22 +12,17 @@ def quick_database_setup():
     print("🔧 Quick Database Setup for GST Intelligence Platform")
     print("=" * 50)
     
-    # Create database directory
-    db_dir = Path("database")
-    if not db_dir.exists():
-        db_dir.mkdir()
-        print(f"📁 Created directory: {db_dir}")
-    else:
-        print(f"📁 Directory exists: {db_dir}")
-    
     # Database file path
-    db_path = db_dir / "gst_platform.db"
+    db_path = "database/gst_platform.db"
     
     # Create database and tables
     try:
         print(f"🔧 Creating database: {db_path}")
         
-        with sqlite3.connect(str(db_path)) as conn:
+        # Ensure the directory exists
+        os.makedirs(os.path.dirname(db_path), exist_ok=True)
+        
+        with sqlite3.connect(db_path) as conn:
             # Users table
             conn.execute('''
                 CREATE TABLE IF NOT EXISTS users (
@@ -62,18 +56,14 @@ def quick_database_setup():
                 )
             ''')
             
-            # Create indexes
-            conn.execute('CREATE INDEX IF NOT EXISTS idx_sessions_mobile ON sessions(mobile)')
-            conn.execute('CREATE INDEX IF NOT EXISTS idx_history_mobile ON search_history(mobile)')
-            
             conn.commit()
             
         print("✅ Database created successfully!")
-        print(f"📍 Full path: {db_path.absolute()}")
+        print(f"📍 Full path: {db_path}")
         
         # Verify file was created
-        if db_path.exists():
-            size = db_path.stat().st_size
+        if os.path.exists(db_path):
+            size = os.path.getsize(db_path)
             print(f"📊 File size: {size} bytes")
             print("✅ Database file verified!")
             return True
@@ -87,14 +77,14 @@ def quick_database_setup():
 
 def test_database():
     """Test database connection"""
-    db_path = Path("database/gst_platform.db")
+    db_path = "database/gst_platform.db"
     
-    if not db_path.exists():
+    if not os.path.exists(db_path):
         print("❌ Database not found")
         return False
     
     try:
-        with sqlite3.connect(str(db_path)) as conn:
+        with sqlite3.connect(db_path) as conn:
             cursor = conn.execute("SELECT name FROM sqlite_master WHERE type='table'")
             tables = [row[0] for row in cursor.fetchall()]
             
@@ -116,9 +106,6 @@ def test_database():
         return False
 
 if __name__ == "__main__":
-    print("Current directory:", os.getcwd())
-    print("Files in current directory:", os.listdir("."))
-    
     success = quick_database_setup()
     
     if success:
