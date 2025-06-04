@@ -27,22 +27,34 @@ async def get_anthropic_synopsis(company_data: Dict) -> Optional[str]:
         logger.warning("Anthropic API not configured or anthropic package not installed.")
         return None
 
-    prompt = (
-        "Company Name: {lgnm}\n"
-        "Business Type: {ctb}\n"
-        "Trade Name: {tradeName}\n"
-        "Describe in 2-3 lines what this company does, based on the above."
-    ).format(
-        lgnm=company_data.get('lgnm', 'N/A'),
-        ctb=company_data.get('ctb', 'N/A'),
-        tradeName=company_data.get('tradeName', 'N/A')
-    )
+    # Extract nature of business
+    nba = company_data.get('nba', [])
+    nba_str = ', '.join(nba) if nba else 'N/A'
+    
+    # Extract state from jurisdiction
+    stj = company_data.get('stj', '')
+    state = 'N/A'
+    if stj and 'State - ' in stj:
+        state = stj.split('State - ')[1].split(',')[0]
+
+    prompt = f"""
+    Company Name: {company_data.get('lgnm', 'N/A')}
+    Trade Name: {company_data.get('tradeName', 'N/A')}
+    Business Type: {company_data.get('ctb', 'N/A')}
+    Nature of Business: {nba_str}
+    Registration Date: {company_data.get('rgdt', 'N/A')}
+    Status: {company_data.get('sts', 'N/A')}
+    State: {state}
+    Company Category: {company_data.get('compCategory', 'N/A')}
+    
+    Based on the above information, provide a 2-3 line business overview describing what this company likely does and its business focus.
+    """
 
     try:
         client = AsyncAnthropic(api_key=api_key)
         response = await client.messages.create(
             model="claude-3-haiku-20240307",
-            max_tokens=100,
+            max_tokens=150,
             temperature=0.5,
             messages=[
                 {"role": "user", "content": prompt}
@@ -155,6 +167,15 @@ class EnhancedAnthropicSynopsis:
             logger.error(f"Web search failed: {e}")
             web_data = {'web_content': 'Web search unavailable'}
         
+        # Extract nature of business and state
+        nba = company_data.get('nba', [])
+        nba_str = ', '.join(nba) if nba else 'Not specified'
+        
+        stj = company_data.get('stj', '')
+        state = 'N/A'
+        if stj and 'State - ' in stj:
+            state = stj.split('State - ')[1].split(',')[0]
+        
         # Prepare prompt focused on business overview
         enhanced_prompt = f"""
         You are a business analyst. Write a comprehensive business overview for this Indian company.
@@ -166,6 +187,9 @@ class EnhancedAnthropicSynopsis:
         - Type: {company_data.get("ctb", "")}
         - Registration: {company_data.get("rgdt", "")}
         - Location: {company_data.get("adr", "")}
+        - State: {state}
+        - Nature of Business Activities: {nba_str}
+        - Company Category: {company_data.get("compCategory", "")}
         
         ADDITIONAL INFORMATION FROM WEB:
         {web_data.get('web_content', 'No additional information found')}
@@ -179,7 +203,7 @@ class EnhancedAnthropicSynopsis:
         5. Brief mention of compliance status (just 1 line at the end)
         
         Focus on the BUSINESS, not the GST data. If no specific business information is found,
-        make intelligent inferences based on the company name and type.
+        make intelligent inferences based on the company name, type, and nature of business activities.
         
         DO NOT just summarize GST filing data - describe what the actual company does.
         """
@@ -207,24 +231,37 @@ class EnhancedAnthropicSynopsis:
         company_type = company_data.get("ctb", "")
         location = company_data.get("adr", "")
         reg_date = company_data.get("rgdt", "")
+        nba = company_data.get('nba', [])
+        category = company_data.get("compCategory", "")
         
-        # Try to infer business from name
+        # Try to infer business from name and nature of business
         name_lower = company_name.lower()
+        nba_str = ', '.join(nba).lower() if nba else ''
         
-        if any(word in name_lower for word in ['tech', 'software', 'infotech', 'solutions', 'digital']):
-            business_type = "technology and software solutions"
-        elif any(word in name_lower for word in ['trading', 'exports', 'imports', 'international']):
-            business_type = "trading and import/export"
-        elif any(word in name_lower for word in ['manufacturing', 'industries', 'products', 'engineering']):
-            business_type = "manufacturing"
-        elif any(word in name_lower for word in ['services', 'consultancy', 'consulting', 'advisory']):
-            business_type = "professional services"
-        elif any(word in name_lower for word in ['pharma', 'medical', 'healthcare']):
-            business_type = "healthcare and pharmaceutical"
-        elif any(word in name_lower for word in ['retail', 'mart', 'store', 'bazaar']):
-            business_type = "retail and distribution"
+        # Determine business type based on nature of business activities
+        if nba:
+            if 'supplier of services' in nba_str:
+                business_type = "service provider"
+            elif 'manufacturer' in nba_str:
+                business_type = "manufacturing"
+            elif 'trader' in nba_str or 'wholesale' in nba_str:
+                business_type = "trading and distribution"
+            elif 'retail' in nba_str:
+                business_type = "retail operations"
+            else:
+                business_type = "business services"
         else:
-            business_type = "business operations"
+            # Fallback to name-based inference
+            if any(word in name_lower for word in ['tech', 'software', 'infotech', 'solutions', 'digital']):
+                business_type = "technology and software solutions"
+            elif any(word in name_lower for word in ['trading', 'exports', 'imports', 'international']):
+                business_type = "trading and import/export"
+            elif any(word in name_lower for word in ['manufacturing', 'industries', 'products', 'engineering']):
+                business_type = "manufacturing"
+            elif any(word in name_lower for word in ['services', 'consultancy', 'consulting', 'advisory']):
+                business_type = "professional services"
+            else:
+                business_type = "business operations"
         
         # Extract location details
         location_parts = location.split(',') if location else []
@@ -232,6 +269,10 @@ class EnhancedAnthropicSynopsis:
         
         # Build comprehensive synopsis
         synopsis = f"{company_name} is a {company_type} engaged in {business_type}. "
+        
+        if nba:
+            synopsis += f"The company is registered as a {', '.join(nba).lower()}, "
+            synopsis += f"indicating its primary focus on {business_type} activities. "
         
         if reg_date:
             try:
@@ -241,10 +282,12 @@ class EnhancedAnthropicSynopsis:
                 pass
         
         synopsis += f"The company operates from {city}, serving clients across the region. "
-        synopsis += "While specific details about the company's products, services, and market position "
-        synopsis += "require further research, the company maintains its GST registration and "
-        synopsis += "compliance obligations as per Indian tax regulations. "
-        synopsis += f"As a {company_type}, the company likely focuses on {business_type} "
-        synopsis += "activities in line with industry standards and regulatory requirements."
+        
+        if category:
+            synopsis += f"Classified as a '{category}' category business for GST purposes, "
+        
+        synopsis += "the company maintains active GST registration and compliance status. "
+        synopsis += f"As a {company_type}, the company likely focuses on delivering quality "
+        synopsis += f"{business_type} solutions to its customers while adhering to regulatory requirements."
         
         return synopsis

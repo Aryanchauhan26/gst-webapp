@@ -385,6 +385,14 @@
                         {% endif %}
                     </span>
                 </div>
+                <div class="info-item">
+                    <span class="info-label">PAN</span>
+                    <span class="info-value">{{ company_data.pan or 'N/A' }}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Company Category</span>
+                    <span class="info-value">{{ company_data.compCategory or 'N/A' }}</span>
+                </div>
             </div>
 
             <!-- Compliance Score -->
@@ -409,12 +417,57 @@
                     <span class="info-value">{{ company_data.adr or 'N/A' }}</span>
                 </div>
                 <div class="info-item">
-                    <span class="info-label">State</span>
-                    <span class="info-value">{{ company_data.state or 'N/A' }}</span>
+                    <span class="info-label">Pincode</span>
+                    <span class="info-value">{{ company_data.pincode or 'N/A' }}</span>
                 </div>
                 <div class="info-item">
-                    <span class="info-label">Jurisdiction</span>
-                    <span class="info-value">{{ company_data.jurisdiction or 'N/A' }}</span>
+                    <span class="info-label">State</span>
+                    <span class="info-value">{% if company_data.stj %}{{ company_data.stj.split('State - ')[1].split(',')[0] if 'State - ' in company_data.stj else 'Maharashtra' }}{% else %}Maharashtra{% endif %}</span>
+                </div>
+            </div>
+
+            <!-- Jurisdiction Information -->
+            <div class="info-card">
+                <h3 class="info-card-title">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M3 21h18"></path>
+                        <path d="M19 21V4a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v17"></path>
+                        <path d="M9 21V9h10v12"></path>
+                        <path d="M12 9v-2"></path>
+                        <path d="M16 9v-2"></path>
+                    </svg>
+                    Jurisdiction Details
+                </h3>
+                <div class="info-item">
+                    <span class="info-label">State Jurisdiction</span>
+                    <span class="info-value" style="font-size: 0.9rem;">{{ company_data.stj or 'N/A' }}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Central Jurisdiction</span>
+                    <span class="info-value" style="font-size: 0.9rem;">{{ company_data.ctj or 'N/A' }}</span>
+                </div>
+            </div>
+
+            <!-- Additional Information -->
+            <div class="info-card">
+                <h3 class="info-card-title">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <path d="M12 6v6l4 2"></path>
+                    </svg>
+                    Additional Details
+                </h3>
+                <div class="info-item">
+                    <span class="info-label">Nature of Business</span>
+                    <span class="info-value">{% if company_data.nba %}{{ ', '.join(company_data.nba) }}{% else %}N/A{% endif %}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">E-Invoice Status</span>
+                    <span class="info-value">{{ company_data.einvoiceStatus or 'N/A' }}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Duty Type</span>
+                    <span class="info-value">{{ company_data.dty or 'N/A' }}</span>
                 </div>
             </div>
         </div>

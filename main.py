@@ -264,13 +264,22 @@ class GSAPIClient:
             "x-rapidapi-host": host,
             "User-Agent": "GST-Compliance-Platform/2.0"
         }
+    
     async def fetch_gstin_data(self, gstin: str) -> Dict:
         import httpx
         url = f"https://{self.host}/free/gstin/{gstin}"
         async with httpx.AsyncClient(timeout=30) as client:
             resp = await client.get(url, headers=self.headers)
             if resp.status_code == 200:
-                return resp.json()
+                json_data = resp.json()
+                # Handle new API response structure
+                if json_data.get("success") and "data" in json_data:
+                    return json_data["data"]
+                elif "data" in json_data:
+                    return json_data["data"]
+                else:
+                    # Fallback for old API structure
+                    return json_data
             raise HTTPException(status_code=404, detail="GSTIN not found or API error")
 
 api_client = GSAPIClient(RAPIDAPI_KEY, RAPIDAPI_HOST) if RAPIDAPI_KEY else None
@@ -308,12 +317,43 @@ def validate_gstin(gstin: str) -> bool:
     return bool(re.match(pattern, gstin.upper()))
 
 def calculate_compliance_score(company_data: dict) -> float:
-    """Calculate compliance score with enhanced logic"""
+    """Calculate compliance score with enhanced logic for new API structure"""
     score = 100.0
     
     # Check registration status
     if company_data.get("sts") != "Active":
         score -= 50
+    
+    # Check if returns are filed
+    returns = company_data.get("returns", [])
+    if len(returns) == 0:
+        score -= 30
+    else:
+        # Check recent filing compliance
+        latest_return_date = None
+        for return_item in returns:
+            if return_item.get("dof"):
+                try:
+                    dof = datetime.strptime(return_item["dof"], "%d/%m/%Y")
+                    if not latest_return_date or dof > latest_return_date:
+                        latest_return_date = dof
+                except:
+                    pass
+        
+        if latest_return_date:
+            days_since_filing = (datetime.now() - latest_return_date).days
+            if days_since_filing > 90:
+                score -= 20
+            elif days_since_filing > 60:
+                score -= 10
+    
+    # Check filing frequency consistency
+    filing_freq = company_data.get("fillingFreq", {})
+    if filing_freq:
+        # Check if all quarters have monthly filing (M)
+        for quarter, freq in filing_freq.items():
+            if freq != "M":
+                score -= 5
     
     return max(0, min(100, score))
 
@@ -608,6 +648,23 @@ async def generate_pdf(request: Request, gstin: str = Form(...), current_user: s
 
 def generate_pdf_report(company_data: dict, compliance_score: float, synopsis: str = None) -> BytesIO:
     """Generate PDF report with company data - FIXED VERSION"""
+    # Extract address parts if available
+    address = company_data.get('adr', 'N/A')
+    state = "Maharashtra"  # Default based on GSTIN prefix 27
+    if address != 'N/A':
+        # Try to extract state from address
+        address_parts = address.split(',')
+        if len(address_parts) > 3:
+            for part in address_parts:
+                if any(state_name in part for state_name in ['Maharashtra', 'Gujarat', 'Delhi', 'Karnataka', 'Tamil Nadu']):
+                    state = part.strip()
+                    break
+    
+    # Extract jurisdiction info
+    ctj = company_data.get('ctj', '')
+    stj = company_data.get('stj', '')
+    jurisdiction = f"{stj}" if stj else "N/A"
+    
     html_content = f"""
     <!DOCTYPE html>
     <html>
@@ -745,15 +802,15 @@ def generate_pdf_report(company_data: dict, compliance_score: float, synopsis: s
             <div class="info-grid">
                 <div class="info-item" style="grid-column: 1 / -1;">
                     <div class="info-label">Principal Place of Business</div>
-                    <div class="info-value">{company_data.get('adr', 'N/A')}</div>
+                    <div class="info-value">{address}</div>
                 </div>
                 <div class="info-item">
                     <div class="info-label">State</div>
-                    <div class="info-value">{company_data.get('state', 'N/A')}</div>
+                    <div class="info-value">{state}</div>
                 </div>
                 <div class="info-item">
                     <div class="info-label">Jurisdiction</div>
-                    <div class="info-value">{company_data.get('jurisdiction', 'N/A')}</div>
+                    <div class="info-value">{jurisdiction}</div>
                 </div>
             </div>
         </div>
