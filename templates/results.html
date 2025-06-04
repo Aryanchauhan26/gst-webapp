@@ -152,7 +152,7 @@
             word-wrap: break-word;
         }
         
-        /* Compliance Score */
+        /* Compliance Score Card - Enhanced */
         .compliance-card {
             background: linear-gradient(135deg, #2a5298 0%, #1e3c72 100%);
             color: white;
@@ -163,10 +163,16 @@
         }
         
         .score-circle {
-            width: 120px;
-            height: 120px;
+            width: 140px;
+            height: 140px;
             margin: 0 auto 1rem;
             position: relative;
+            background: rgba(255,255,255,0.1);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 3px solid rgba(255,255,255,0.3);
         }
         
         .score-value {
@@ -177,6 +183,141 @@
         .score-label {
             font-size: 1.2rem;
             opacity: 0.9;
+            margin-bottom: 1rem;
+        }
+        
+        .score-grade {
+            font-size: 1rem;
+            padding: 0.25rem 1rem;
+            background: rgba(255,255,255,0.2);
+            border-radius: 20px;
+            display: inline-block;
+        }
+        
+        /* GST Returns Section */
+        .returns-section {
+            background: white;
+            border-radius: 10px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        
+        .returns-title {
+            font-size: 1.5rem;
+            color: #1e3c72;
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .returns-summary {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+            padding: 1.5rem;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+        
+        .summary-item {
+            text-align: center;
+        }
+        
+        .summary-value {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #2a5298;
+        }
+        
+        .summary-label {
+            font-size: 0.9rem;
+            color: #666;
+        }
+        
+        .returns-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 1rem;
+        }
+        
+        .returns-table th {
+            background: #f8f9fa;
+            padding: 0.75rem;
+            text-align: left;
+            font-weight: 600;
+            color: #555;
+            border-bottom: 2px solid #e0e0e0;
+        }
+        
+        .returns-table td {
+            padding: 0.75rem;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        
+        .returns-table tr:hover {
+            background: #f8f9fa;
+        }
+        
+        .return-type {
+            font-weight: 600;
+            color: #1e3c72;
+        }
+        
+        .filed-badge {
+            background: #d4edda;
+            color: #155724;
+            padding: 0.25rem 0.75rem;
+            border-radius: 15px;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+        
+        .pending-badge {
+            background: #fff3cd;
+            color: #856404;
+            padding: 0.25rem 0.75rem;
+            border-radius: 15px;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+        
+        /* Filing Frequency Grid */
+        .filing-freq-section {
+            background: white;
+            border-radius: 10px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        
+        .freq-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+        
+        .freq-item {
+            text-align: center;
+            padding: 1rem;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border: 2px solid #e0e0e0;
+        }
+        
+        .freq-quarter {
+            font-weight: 600;
+            color: #1e3c72;
+            margin-bottom: 0.5rem;
+        }
+        
+        .freq-value {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #28a745;
         }
         
         /* Synopsis Section */
@@ -298,18 +439,14 @@
                 width: 100%;
                 justify-content: center;
             }
-        }
-        
-        /* Loading States */
-        .skeleton {
-            background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
-            background-size: 200% 100%;
-            animation: loading 1.5s infinite;
-        }
-        
-        @keyframes loading {
-            0% { background-position: 200% 0; }
-            100% { background-position: -200% 0; }
+            
+            .returns-table {
+                font-size: 0.9rem;
+            }
+            
+            .hide-mobile {
+                display: none;
+            }
         }
     </style>
 </head>
@@ -395,12 +532,25 @@
                 </div>
             </div>
 
-            <!-- Compliance Score -->
+            <!-- Enhanced Compliance Score -->
             <div class="compliance-card">
                 <div class="score-circle">
                     <div class="score-value">{{ compliance_score }}%</div>
                 </div>
                 <div class="score-label">Compliance Score</div>
+                <div class="score-grade">
+                    {% if compliance_score >= 90 %}
+                        Grade A+ (Excellent)
+                    {% elif compliance_score >= 80 %}
+                        Grade A (Very Good)
+                    {% elif compliance_score >= 70 %}
+                        Grade B (Good)
+                    {% elif compliance_score >= 60 %}
+                        Grade C (Average)
+                    {% else %}
+                        Grade D (Needs Improvement)
+                    {% endif %}
+                </div>
             </div>
 
             <!-- Address Information -->
@@ -433,8 +583,6 @@
                         <path d="M3 21h18"></path>
                         <path d="M19 21V4a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v17"></path>
                         <path d="M9 21V9h10v12"></path>
-                        <path d="M12 9v-2"></path>
-                        <path d="M16 9v-2"></path>
                     </svg>
                     Jurisdiction Details
                 </h3>
@@ -469,8 +617,115 @@
                     <span class="info-label">Duty Type</span>
                     <span class="info-value">{{ company_data.dty or 'N/A' }}</span>
                 </div>
+                <div class="info-item">
+                    <span class="info-label">Latest GSTR-1</span>
+                    <span class="info-value">{{ company_data.meta.latestgtsr1 if company_data.meta else 'N/A' }}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Latest GSTR-3B</span>
+                    <span class="info-value">{{ company_data.meta.latestgtsr3b if company_data.meta else 'N/A' }}</span>
+                </div>
             </div>
         </div>
+
+        <!-- GST Returns Section -->
+        {% if company_data.returns %}
+        <div class="returns-section">
+            <h2 class="returns-title">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                    <polyline points="14 2 14 8 20 8"></polyline>
+                    <line x1="16" y1="13" x2="8" y2="13"></line>
+                    <line x1="16" y1="17" x2="8" y2="17"></line>
+                </svg>
+                GST Returns Filing History
+            </h2>
+            
+            <!-- Returns Summary -->
+            {% set gstr1_count = company_data.returns | selectattr("rtntype", "eq", "GSTR1") | list | length %}
+            {% set gstr3b_count = company_data.returns | selectattr("rtntype", "eq", "GSTR3B") | list | length %}
+            {% set gstr9_count = company_data.returns | selectattr("rtntype", "eq", "GSTR9") | list | length %}
+            
+            <div class="returns-summary">
+                <div class="summary-item">
+                    <div class="summary-value">{{ company_data.returns | length }}</div>
+                    <div class="summary-label">Total Returns Filed</div>
+                </div>
+                <div class="summary-item">
+                    <div class="summary-value">{{ gstr1_count }}</div>
+                    <div class="summary-label">GSTR-1 Filed</div>
+                </div>
+                <div class="summary-item">
+                    <div class="summary-value">{{ gstr3b_count }}</div>
+                    <div class="summary-label">GSTR-3B Filed</div>
+                </div>
+                <div class="summary-item">
+                    <div class="summary-value">{{ gstr9_count }}</div>
+                    <div class="summary-label">Annual Returns</div>
+                </div>
+            </div>
+            
+            <!-- Returns Table -->
+            <div style="overflow-x: auto;">
+                <table class="returns-table">
+                    <thead>
+                        <tr>
+                            <th>Return Type</th>
+                            <th>Tax Period</th>
+                            <th>Financial Year</th>
+                            <th>Date of Filing</th>
+                            <th class="hide-mobile">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for return in company_data.returns[:20] %}
+                        <tr>
+                            <td class="return-type">{{ return.rtntype }}</td>
+                            <td>{{ return.taxp }}</td>
+                            <td>{{ return.fy }}</td>
+                            <td>{{ return.dof }}</td>
+                            <td class="hide-mobile">
+                                <span class="filed-badge">Filed</span>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                {% if company_data.returns | length > 20 %}
+                <p style="text-align: center; margin-top: 1rem; color: #666;">
+                    Showing latest 20 returns out of {{ company_data.returns | length }} total
+                </p>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Filing Frequency Section -->
+        {% if company_data.fillingFreq %}
+        <div class="filing-freq-section">
+            <h2 class="returns-title">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                    <line x1="16" y1="2" x2="16" y2="6"></line>
+                    <line x1="8" y1="2" x2="8" y2="6"></line>
+                    <line x1="3" y1="10" x2="21" y2="10"></line>
+                </svg>
+                Filing Frequency
+            </h2>
+            
+            <div class="freq-grid">
+                {% for quarter, freq in company_data.fillingFreq.items() %}
+                <div class="freq-item">
+                    <div class="freq-quarter">{{ quarter.replace('_', ' ') }}</div>
+                    <div class="freq-value">{{ freq }}</div>
+                </div>
+                {% endfor %}
+            </div>
+            <p style="text-align: center; margin-top: 1rem; color: #666; font-size: 0.9rem;">
+                M = Monthly, Q = Quarterly, A = Annual
+            </p>
+        </div>
+        {% endif %}
 
         <!-- AI Synopsis Section -->
         {% if synopsis %}
@@ -482,7 +737,7 @@
                     <path d="M2 12l10 5 10-5"></path>
                 </svg>
                 Company Overview
-                <span class="ai-badge">AI Generated</span>
+                <span class="ai-badge">AI Generated from Web Research</span>
             </h2>
             <div class="synopsis-content">
                 {{ synopsis }}

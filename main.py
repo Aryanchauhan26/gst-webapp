@@ -317,19 +317,45 @@ def validate_gstin(gstin: str) -> bool:
     return bool(re.match(pattern, gstin.upper()))
 
 def calculate_compliance_score(company_data: dict) -> float:
-    """Calculate compliance score with enhanced logic for new API structure"""
+    """Calculate comprehensive compliance score based on multiple factors"""
     score = 100.0
+    factors = []
     
-    # Check registration status
-    if company_data.get("sts") != "Active":
-        score -= 50
-    
-    # Check if returns are filed
-    returns = company_data.get("returns", [])
-    if len(returns) == 0:
-        score -= 30
+    # 1. Registration Status (30 points)
+    if company_data.get("sts") == "Active":
+        factors.append(("Registration Status", 30, 30, "Active"))
     else:
-        # Check recent filing compliance
+        factors.append(("Registration Status", 0, 30, company_data.get("sts", "Inactive")))
+        score -= 30
+    
+    # 2. Filing Compliance (25 points)
+    returns = company_data.get("returns", [])
+    if returns:
+        # Calculate filing regularity
+        current_date = datetime.now()
+        gstr1_returns = [r for r in returns if r.get("rtntype") == "GSTR1"]
+        gstr3b_returns = [r for r in returns if r.get("rtntype") == "GSTR3B"]
+        
+        # Check if filing regularly (expected ~12 per year for monthly filers)
+        months_since_reg = 12  # Default to 1 year
+        if company_data.get("rgdt"):
+            try:
+                reg_date = datetime.strptime(company_data["rgdt"], "%d/%m/%Y")
+                months_since_reg = max(1, (current_date - reg_date).days // 30)
+            except:
+                pass
+        
+        expected_returns = min(months_since_reg, 12)
+        filing_ratio = min(len(gstr1_returns) / expected_returns, 1.0) if expected_returns > 0 else 0
+        filing_points = int(filing_ratio * 25)
+        factors.append(("Return Filing Compliance", filing_points, 25, f"{len(returns)} returns filed"))
+        score = score - 25 + filing_points
+    else:
+        factors.append(("Return Filing Compliance", 0, 25, "No returns filed"))
+        score -= 25
+    
+    # 3. Filing Timeliness (20 points)
+    if returns:
         latest_return_date = None
         for return_item in returns:
             if return_item.get("dof"):
@@ -341,19 +367,74 @@ def calculate_compliance_score(company_data: dict) -> float:
                     pass
         
         if latest_return_date:
-            days_since_filing = (datetime.now() - latest_return_date).days
-            if days_since_filing > 90:
-                score -= 20
-            elif days_since_filing > 60:
-                score -= 10
+            days_since_filing = (current_date - latest_return_date).days
+            if days_since_filing <= 30:
+                timeliness_points = 20
+                timeliness_desc = "Filed within last 30 days"
+            elif days_since_filing <= 60:
+                timeliness_points = 15
+                timeliness_desc = "Filed within last 60 days"
+            elif days_since_filing <= 90:
+                timeliness_points = 10
+                timeliness_desc = "Filed within last 90 days"
+            else:
+                timeliness_points = 5
+                timeliness_desc = f"Last filed {days_since_filing} days ago"
+            
+            factors.append(("Filing Timeliness", timeliness_points, 20, timeliness_desc))
+            score = score - 20 + timeliness_points
+    else:
+        factors.append(("Filing Timeliness", 0, 20, "No filing history"))
+        score -= 20
     
-    # Check filing frequency consistency
+    # 4. Filing Frequency Consistency (10 points)
     filing_freq = company_data.get("fillingFreq", {})
     if filing_freq:
-        # Check if all quarters have monthly filing (M)
-        for quarter, freq in filing_freq.items():
-            if freq != "M":
-                score -= 5
+        monthly_count = sum(1 for freq in filing_freq.values() if freq == "M")
+        quarterly_count = sum(1 for freq in filing_freq.values() if freq == "Q")
+        
+        if monthly_count >= 6:  # Mostly monthly filer
+            freq_points = 10
+            freq_desc = "Consistent monthly filer"
+        elif quarterly_count >= 6:  # Mostly quarterly filer
+            freq_points = 8
+            freq_desc = "Consistent quarterly filer"
+        else:
+            freq_points = 5
+            freq_desc = "Mixed filing frequency"
+        
+        factors.append(("Filing Frequency", freq_points, 10, freq_desc))
+        score = score - 10 + freq_points
+    else:
+        factors.append(("Filing Frequency", 5, 10, "No frequency data"))
+        score -= 5
+    
+    # 5. E-Invoice Compliance (5 points)
+    einvoice = company_data.get("einvoiceStatus", "No")
+    if einvoice == "Yes":
+        factors.append(("E-Invoice Adoption", 5, 5, "E-Invoice enabled"))
+    else:
+        factors.append(("E-Invoice Adoption", 2, 5, "E-Invoice not enabled"))
+        score -= 3
+    
+    # 6. Business Type and Category (5 points)
+    category = company_data.get("compCategory", "")
+    if category in ["Green", "Yellow"]:
+        factors.append(("Business Category", 5, 5, f"{category} category"))
+    else:
+        factors.append(("Business Category", 3, 5, f"{category or 'Unknown'} category"))
+        score -= 2
+    
+    # 7. Annual Return Filing (5 points)
+    annual_returns = [r for r in returns if r.get("rtntype") == "GSTR9"]
+    if annual_returns:
+        factors.append(("Annual Return Filing", 5, 5, f"{len(annual_returns)} annual returns filed"))
+    else:
+        factors.append(("Annual Return Filing", 0, 5, "No annual returns filed"))
+        score -= 5
+    
+    # Store detailed factors for potential use
+    company_data['_compliance_factors'] = factors
     
     return max(0, min(100, score))
 
