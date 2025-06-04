@@ -38,7 +38,7 @@ async def get_anthropic_synopsis(company_data: Dict) -> Optional[str]:
         response = await client.completions.create(
             model="claude-3-haiku-20240307",
             prompt=prompt,
-            max_tokens=100,
+            max_tokens_to_sample=100,  # ✅ Correct argument name
             temperature=0.5,
         )
         return response.completion.strip()
