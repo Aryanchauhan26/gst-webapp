@@ -28,22 +28,31 @@ async def get_anthropic_synopsis(company_data: Dict) -> Optional[str]:
         return None
 
     prompt = (
-        "\n\nHuman: "
-        f"Company Name: {company_data.get('lgnm', 'N/A')}\n"
-        f"Business Type: {company_data.get('ctb', 'N/A')}\n"
-        f"Trade Name: {company_data.get('tradeName', 'N/A')}\n"
-        f"Describe in 2-3 lines what this company does, based on the above."
-        "\n\nAssistant:"
+        "Company Name: {lgnm}\n"
+        "Business Type: {ctb}\n"
+        "Trade Name: {tradeName}\n"
+        "Describe in 2-3 lines what this company does, based on the above."
+    ).format(
+        lgnm=company_data.get('lgnm', 'N/A'),
+        ctb=company_data.get('ctb', 'N/A'),
+        tradeName=company_data.get('tradeName', 'N/A')
     )
+
     try:
         client = AsyncAnthropic(api_key=api_key)
-        response = await client.completions.create(
+        response = await client.messages.create(
             model="claude-3-haiku-20240307",
-            prompt=prompt,
-            max_tokens_to_sample=100,  # ✅ Correct argument name
+            max_tokens=100,
             temperature=0.5,
+            messages=[
+                {"role": "user", "content": prompt}
+            ]
         )
-        return response.completion.strip()
+        # The response content is a list of message parts
+        if hasattr(response, "content") and len(response.content) > 0:
+            return response.content[0].text.strip()
+        else:
+            return None
     except Exception as e:
         logger.error(f"Anthropic AI error: {e}")
         return None
