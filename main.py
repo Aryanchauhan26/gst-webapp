@@ -260,8 +260,8 @@ class GSAPIClient:
         self.api_key = api_key
         self.host = host
         self.headers = {
-            "X-RapidAPI-Key": api_key,
-            "X-RapidAPI-Host": host,
+            "x-rapidapi-key": api_key,
+            "x-rapidapi-host": host,
             "User-Agent": "GST-Compliance-Platform/2.0"
         }
     async def fetch_gstin_data(self, gstin: str) -> Dict:
