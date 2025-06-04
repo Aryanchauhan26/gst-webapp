@@ -28,10 +28,12 @@ async def get_anthropic_synopsis(company_data: Dict) -> Optional[str]:
         return None
 
     prompt = (
+        "\n\nHuman: "
         f"Company Name: {company_data.get('lgnm', 'N/A')}\n"
         f"Business Type: {company_data.get('ctb', 'N/A')}\n"
         f"Trade Name: {company_data.get('tradeName', 'N/A')}\n"
         f"Describe in 2-3 lines what this company does, based on the above."
+        "\n\nAssistant:"
     )
     try:
         client = AsyncAnthropic(api_key=api_key)
