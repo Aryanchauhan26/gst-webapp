@@ -820,13 +820,6 @@ async def shutdown_event():
     """Run shutdown tasks"""
     logger.info("GST Intelligence Platform shutting down...")
 
-@app.get("/search", response_class=HTMLResponse)
-async def search_get_redirect(request: Request):
-    # Option 1: Redirect to dashboard
-    return RedirectResponse(url="/")
-    # Option 2: Show a message
-    # return templates.TemplateResponse("index.html", {"request": request, "error": "Please use the search form."})
-
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
