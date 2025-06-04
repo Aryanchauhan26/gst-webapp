@@ -787,14 +787,10 @@ async def refresh_session(current_user: str = Depends(require_auth)):
 # Error handlers
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request: Request, exc: HTTPException):
-    """Handle HTTP exceptions"""
-    if exc.status_code == 303:  # Redirect to login
-        return exc
-    
-    return JSONResponse(
-        status_code=exc.status_code,
-        content={"error": exc.detail}
-    )
+    if exc.status_code == 303 and exc.headers and "Location" in exc.headers:
+        # Properly handle redirect
+        return RedirectResponse(url=exc.headers["Location"], status_code=303)
+    return JSONResponse(status_code=exc.status_code, content={"error": exc.detail})
 
 @app.exception_handler(Exception)
 async def general_exception_handler(request: Request, exc: Exception):
