@@ -3,1092 +3,608 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GST Intelligence Platform - Advanced Business Analytics</title>
-    <link rel="stylesheet" href="/static/style.css">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <!-- Add smooth scrolling and navigation styles -->
+    <title>GST Intelligence Platform - Dashboard</title>
     <style>
-        html { scroll-behavior: smooth; }
-        
-        /* Enhanced Navigation Bar */
-        .navbar {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            background: rgba(20, 20, 20, 0.95);
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
-            border-bottom: 1px solid var(--border-color);
-            z-index: 1100;
-            transition: all 0.3s ease;
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
         }
         
-        .navbar-content {
-            max-width: 1400px;
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background-color: #f5f7fa;
+            color: #333;
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+        
+        /* Header Styles */
+        .header {
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            color: white;
+            padding: 1rem 0;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            position: relative;
+            z-index: 100;
+        }
+        
+        .header-content {
+            max-width: 1200px;
             margin: 0 auto;
-            padding: 1rem 2rem;
+            padding: 0 2rem;
             display: flex;
             justify-content: space-between;
             align-items: center;
+            flex-wrap: wrap;
+            gap: 1rem;
         }
         
-        .navbar-brand {
-            display: flex;
-            align-items: center;
-            gap: 0.8rem;
-            text-decoration: none;
-            color: var(--text-primary);
-            font-size: 1.4rem;
-            font-weight: 700;
-        }
-        
-        .navbar-brand i {
-            background: var(--accent-gradient);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-        }
-        
-        .navbar-menu {
-            display: flex;
-            align-items: center;
-            gap: 2rem;
-        }
-        
-        .nav-link {
-            color: var(--text-secondary);
-            text-decoration: none;
-            font-weight: 500;
-            transition: all 0.3s ease;
+        .logo {
+            font-size: 1.5rem;
+            font-weight: bold;
             display: flex;
             align-items: center;
             gap: 0.5rem;
         }
         
-        .nav-link:hover {
-            color: var(--accent-secondary);
+        .logo svg {
+            width: 32px;
+            height: 32px;
         }
         
-        .nav-link.active {
-            color: var(--accent-primary);
-        }
-        
-        .user-menu {
-            position: relative;
-        }
-        
-        .user-dropdown {
+        .nav-items {
             display: flex;
+            gap: 2rem;
             align-items: center;
-            gap: 0.8rem;
-            padding: 0.6rem 1.2rem;
-            background: var(--bg-card);
-            border: 2px solid var(--border-color);
-            border-radius: 12px;
-            cursor: pointer;
-            transition: all 0.3s ease;
+            flex-wrap: wrap;
         }
         
-        .user-dropdown:hover {
-            border-color: var(--accent-primary);
-        }
-        
-        .user-avatar {
-            width: 35px;
-            height: 35px;
-            background: var(--accent-gradient);
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+        .nav-link {
             color: white;
-            font-weight: 700;
-        }
-        
-        .dropdown-menu {
-            position: absolute;
-            top: 100%;
-            right: 0;
-            margin-top: 0.5rem;
-            background: var(--bg-card);
-            border: 2px solid var(--border-color);
-            border-radius: 12px;
-            padding: 0.5rem;
-            min-width: 200px;
-            opacity: 0;
-            visibility: hidden;
-            transform: translateY(-10px);
-            transition: all 0.3s ease;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
-            transform: translateX(350px);
-            transition: transform 0.3s ease;
-        }
-        
-        .recent-searches.show {
-            transform: translateX(0);
-        }
-        
-        .recent-searches-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 1rem;
-        }
-        
-        .recent-searches-title {
-            font-weight: 700;
-            color: var(--text-primary);
-        }
-        
-        .close-btn {
-            background: none;
-            border: none;
-            color: var(--text-secondary);
-            cursor: pointer;
-            font-size: 1.2rem;
-        }
-        
-        .recent-item {
-            display: block;
-            padding: 0.8rem;
-            background: var(--bg-secondary);
-            border-radius: 8px;
-            margin-bottom: 0.5rem;
             text-decoration: none;
-            transition: all 0.3s ease;
+            transition: opacity 0.3s;
+            font-weight: 500;
         }
         
-        .recent-item:hover {
-            background: var(--bg-hover);
-            transform: translateX(5px);
+        .nav-link:hover {
+            opacity: 0.8;
         }
         
-        .recent-company {
-            color: var(--text-primary);
-            font-weight: 600;
-            font-size: 0.9rem;
-            margin-bottom: 0.2rem;
+        .logout-btn {
+            background-color: rgba(255,255,255,0.2);
+            color: white;
+            border: 1px solid rgba(255,255,255,0.3);
+            padding: 0.5rem 1.5rem;
+            border-radius: 5px;
+            text-decoration: none;
+            transition: all 0.3s;
+            font-weight: 500;
         }
         
-        .recent-gstin {
-            color: var(--text-secondary);
-            font-size: 0.8rem;
-            font-family: monospace;
+        .logout-btn:hover {
+            background-color: rgba(255,255,255,0.3);
+            transform: translateY(-1px);
         }
         
-        /* Mobile Menu */
-        .mobile-menu-toggle {
-            display: none;
-            background: none;
-            border: none;
-            color: var(--text-primary);
+        /* Main Container */
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+        
+        /* Welcome Section */
+        .welcome-section {
+            background: white;
+            border-radius: 10px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        
+        .welcome-title {
+            font-size: 1.8rem;
+            color: #1e3c72;
+            margin-bottom: 0.5rem;
+        }
+        
+        .welcome-subtitle {
+            color: #666;
+            font-size: 1.1rem;
+        }
+        
+        /* Search Section */
+        .search-section {
+            background: white;
+            border-radius: 10px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        
+        .search-title {
             font-size: 1.5rem;
-            cursor: pointer;
+            color: #1e3c72;
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
         }
         
+        .search-form {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+            align-items: flex-end;
+        }
+        
+        .form-group {
+            flex: 1;
+            min-width: 250px;
+        }
+        
+        .form-label {
+            display: block;
+            margin-bottom: 0.5rem;
+            color: #555;
+            font-weight: 500;
+        }
+        
+        .form-input {
+            width: 100%;
+            padding: 0.75rem;
+            border: 2px solid #e0e0e0;
+            border-radius: 5px;
+            font-size: 1rem;
+            transition: border-color 0.3s;
+        }
+        
+        .form-input:focus {
+            outline: none;
+            border-color: #2a5298;
+        }
+        
+        .search-btn {
+            background: linear-gradient(135deg, #2a5298 0%, #1e3c72 100%);
+            color: white;
+            border: none;
+            padding: 0.75rem 2rem;
+            border-radius: 5px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            white-space: nowrap;
+        }
+        
+        .search-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(42, 82, 152, 0.3);
+        }
+        
+        /* Loading Spinner */
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 2rem;
+        }
+        
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #2a5298;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        /* Results Section */
+        .results-section {
+            display: none;
+            background: white;
+            border-radius: 10px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        
+        /* History Section */
+        .history-section {
+            background: white;
+            border-radius: 10px;
+            padding: 2rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        
+        .history-title {
+            font-size: 1.5rem;
+            color: #1e3c72;
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+        
+        .history-header {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .export-btn {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 5px;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .export-btn:hover {
+            background-color: #45a049;
+            transform: translateY(-1px);
+        }
+        
+        .history-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 1rem;
+        }
+        
+        .history-table th,
+        .history-table td {
+            padding: 0.75rem;
+            text-align: left;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        
+        .history-table th {
+            background-color: #f8f9fa;
+            font-weight: 600;
+            color: #555;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        
+        .history-table tr:hover {
+            background-color: #f8f9fa;
+        }
+        
+        .view-btn {
+            background-color: #2196F3;
+            color: white;
+            border: none;
+            padding: 0.4rem 0.8rem;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .view-btn:hover {
+            background-color: #1976D2;
+            transform: translateY(-1px);
+        }
+        
+        /* Score Badge */
+        .score-badge {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 15px;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+        
+        .score-high {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        
+        .score-medium {
+            background-color: #fff3cd;
+            color: #856404;
+        }
+        
+        .score-low {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+        
+        /* Empty State */
+        .empty-state {
+            text-align: center;
+            padding: 3rem;
+            color: #666;
+        }
+        
+        .empty-state svg {
+            width: 64px;
+            height: 64px;
+            margin-bottom: 1rem;
+            opacity: 0.3;
+        }
+        
+        /* Responsive Design */
         @media (max-width: 768px) {
-            .navbar-menu {
-                position: fixed;
-                top: 60px;
-                left: 0;
-                right: 0;
-                background: var(--bg-card);
-                border-bottom: 1px solid var(--border-color);
+            .header-content {
                 flex-direction: column;
+                align-items: flex-start;
+            }
+            
+            .nav-items {
+                width: 100%;
+                justify-content: space-between;
+            }
+            
+            .container {
                 padding: 1rem;
-                transform: translateY(-100%);
-                transition: transform 0.3s ease;
             }
             
-            .navbar-menu.show {
-                transform: translateY(0);
+            .search-form {
+                flex-direction: column;
             }
             
-            .mobile-menu-toggle {
-                display: block;
+            .form-group {
+                min-width: 100%;
             }
             
-            .recent-searches {
-                width: calc(100% - 4rem);
-                right: 2rem;
-                left: 2rem;
+            .history-table {
+                font-size: 0.9rem;
             }
+            
+            .history-table th,
+            .history-table td {
+                padding: 0.5rem;
+            }
+            
+            /* Hide less important columns on mobile */
+            .hide-mobile {
+                display: none;
+            }
+        }
+        
+        /* Error Message */
+        .error-message {
+            background-color: #f8d7da;
+            color: #721c24;
+            padding: 1rem;
+            border-radius: 5px;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        /* Success Message */
+        .success-message {
+            background-color: #d4edda;
+            color: #155724;
+            padding: 1rem;
+            border-radius: 5px;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
         }
     </style>
 </head>
 <body>
-    {% if not current_user and not error %}
-        <script>window.location.href = '/login';</script>
-    {% endif %}
-    
-    <!-- Navigation Bar -->
-    <nav class="navbar">
-        <div class="navbar-content">
-            <a href="/" class="navbar-brand">
-                <i class="fas fa-chart-line"></i>
-                GST Intelligence
-            </a>
-            
-            <div class="navbar-menu" id="navMenu">
-                <a href="/" class="nav-link {% if not data %}active{% endif %}">
-                    <i class="fas fa-home"></i> Home
-                </a>
-                <a href="/history" class="nav-link">
-                    <i class="fas fa-history"></i> History
-                </a>
-                <a href="#" class="nav-link" onclick="toggleShortcuts()">
-                    <i class="fas fa-rocket"></i> Shortcuts
-                </a>
-                
-                {% if current_user %}
-                <div class="user-menu">
-                    <div class="user-dropdown" onclick="toggleDropdown()">
-                        <div class="user-avatar">{{ current_user[0].upper() }}</div>
-                        <span>{{ current_user }}</span>
-                        <i class="fas fa-chevron-down"></i>
-                    </div>
-                    <div class="dropdown-menu" id="userDropdown">
-                        <a href="/history" class="dropdown-item">
-                            <i class="fas fa-clock"></i> Search History
-                        </a>
-                        <a href="/change-password" class="dropdown-item">
-                            <i class="fas fa-key"></i> Change Password
-                        </a>
-                        <a href="#" class="dropdown-item" onclick="toggleRecentSearches()">
-                            <i class="fas fa-list"></i> Recent Searches
-                        </a>
-                        <div class="dropdown-divider"></div>
-                        <a href="/logout" class="dropdown-item">
-                            <i class="fas fa-sign-out-alt"></i> Logout
-                        </a>
-                    </div>
-                </div>
-                {% else %}
-                <a href="/login" class="nav-link">
-                    <i class="fas fa-sign-in-alt"></i> Login
-                </a>
-                {% endif %}
+    <!-- Header -->
+    <header class="header">
+        <div class="header-content">
+            <div class="logo">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                    <line x1="9" y1="9" x2="15" y2="9"></line>
+                    <line x1="9" y1="15" x2="15" y2="15"></line>
+                </svg>
+                <span>GST Intelligence</span>
             </div>
+            <nav class="nav-items">
+                <a href="/" class="nav-link">Dashboard</a>
+                <a href="/history" class="nav-link">History</a>
+                <span class="nav-link">{{ mobile }}</span>
+                <a href="/logout" class="logout-btn">Logout</a>
+            </nav>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="container">
+        <!-- Welcome Section -->
+        <section class="welcome-section">
+            <h1 class="welcome-title">Welcome to GST Intelligence Platform</h1>
+            <p class="welcome-subtitle">Search and analyze GST compliance data with AI-powered insights</p>
+        </section>
+
+        <!-- Search Section -->
+        <section class="search-section">
+            <h2 class="search-title">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="11" cy="11" r="8"></circle>
+                    <path d="m21 21-4.35-4.35"></path>
+                </svg>
+                Search Company by GSTIN
+            </h2>
             
-            <button class="mobile-menu-toggle" onclick="toggleMobileMenu()">
-                <i class="fas fa-bars"></i>
-            </button>
-        </div>
-    </nav>
-    
-    <div class="container">
-        <!-- Enhanced Header -->
-        <div class="header">
-            <h1><i class="fas fa-chart-line"></i> GST Intelligence Platform</h1>
-            <p class="subtitle">Advanced Business Analytics & Compliance Monitoring</p>
-        </div>
-        
-        <!-- Shortcuts Panel -->
-        <div class="shortcuts-panel" id="shortcutsPanel">
-            <h3><i class="fas fa-rocket"></i> Quick Access</h3>
-            <div class="shortcuts-grid">
-                <div class="shortcut-item" onclick="fillGSTIN('07AAGFF2194N1Z5')">
-                    <i class="fas fa-building shortcut-icon"></i>
-                    <div class="shortcut-text">Sample Company 1</div>
-                </div>
-                <div class="shortcut-item" onclick="fillGSTIN('27AAGCR1983P1Z9')">
-                    <i class="fas fa-industry shortcut-icon"></i>
-                    <div class="shortcut-text">Sample Company 2</div>
-                </div>
-                <div class="shortcut-item" onclick="window.location.href='/history'">
-                    <i class="fas fa-history shortcut-icon"></i>
-                    <div class="shortcut-text">View History</div>
-                </div>
-                <div class="shortcut-item" onclick="downloadLastPDF()">
-                    <i class="fas fa-file-pdf shortcut-icon"></i>
-                    <div class="shortcut-text">Last Report</div>
-                </div>
-            </div>
-        </div>
-        
-        <!-- Enhanced Search Section -->
-        <div class="search-section fade-in">
-            <form method="post" class="search-form">
-                <div class="input-group">
+            <form class="search-form" id="searchForm" action="/search" method="POST">
+                <div class="form-group">
+                    <label for="gstin" class="form-label">Enter GSTIN Number</label>
                     <input type="text" 
+                           id="gstin" 
                            name="gstin" 
-                           id="gstinInput"
-                           placeholder="Enter 15-digit GSTIN (e.g., 07AAGFF2194N1Z5)" 
-                           required 
-                           pattern="[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}" 
-                           title="Please enter a valid 15-digit GSTIN"
-                           autocomplete="off"
-                           value="{{ gstin if gstin else '' }}">
-                    <button type="submit">
-                        <i class="fas fa-search"></i> Analyze
-                    </button>
+                           class="form-input" 
+                           placeholder="e.g., 27AADCB2230M1Z8"
+                           pattern="[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}"
+                           maxlength="15"
+                           required>
                 </div>
+                <button type="submit" class="search-btn">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="11" cy="11" r="8"></circle>
+                        <path d="m21 21-4.35-4.35"></path>
+                    </svg>
+                    Search
+                </button>
             </form>
-        </div>
-        
-        {% if error %}
-            <div class="alert error fade-in">
-                <i class="fas fa-exclamation-triangle"></i>
-                <strong>Error:</strong> {{ error }}
+            
+            <!-- Loading Indicator -->
+            <div class="loading" id="loading">
+                <div class="spinner"></div>
+                <p style="margin-top: 1rem; color: #666;">Fetching GST data...</p>
             </div>
-        {% endif %}
-        
-        {% if data %}
-            <!-- Quick Actions with enhanced styling -->
-            <div class="quick-actions fade-in">
-                <h3><i class="fas fa-bolt"></i> Quick Actions</h3>
-                <div class="action-buttons">
-                    <form method="post" action="/download/pdf" style="display: inline;">
-                        <input type="hidden" name="gstin" value="{{ gstin }}">
-                        <button type="submit" class="btn btn-pdf">
-                            <i class="fas fa-file-pdf"></i> Download PDF
-                        </button>
-                    </form>
-                    <a href="https://wa.me/?text={{ 'GST Details for ' ~ (data.gstin or '') ~ ': Compliance Score ' ~ (data.compliance.score if data.compliance else 'N/A') ~ '%. View more on GST Intelligence Platform.' | urlencode }}" 
-                        target="_blank" 
-                        class="btn btn-whatsapp">
-                        <i class="fab fa-whatsapp"></i> Share on WhatsApp
-                    </a>
-                    <button class="btn btn-copy" onclick="copyGSTIN()">
-                        <i class="fas fa-copy"></i> Copy GSTIN
-                    </button>
-                    <button class="btn btn-excel" onclick="exportToExcel()">
-                        <i class="fas fa-file-excel"></i> Export Excel
-                    </button>
-                </div>
+            
+            <!-- Error/Success Messages -->
+            {% if error %}
+            <div class="error-message">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <line x1="12" y1="8" x2="12" y2="12"></line>
+                    <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                </svg>
+                {{ error }}
             </div>
+            {% endif %}
+        </section>
 
-            <!-- Enhanced Synopsis Section -->
-            {% if data.synopsis %}
-            <div class="synopsis-section fade-in">
-                <h3><i class="fas fa-brain"></i> AI-Powered Business Intelligence</h3>
-                
-                <!-- Narrative with enhanced card -->
-                <div class="synopsis-card narrative-summary glow-hover">
-                    <h4><i class="fas fa-sparkles"></i> Executive Summary</h4>
-                    <p class="narrative-text">{{ data.synopsis.narrative }}</p>
+        <!-- Results Section (Hidden by default) -->
+        <section class="results-section" id="results">
+            <!-- Results will be dynamically inserted here -->
+        </section>
+
+        <!-- Recent Searches History -->
+        <section class="history-section">
+            <div class="history-title">
+                <div class="history-header">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <polyline points="12 6 12 12 16 14"></polyline>
+                    </svg>
+                    <span>Recent Searches</span>
                 </div>
-                
-                <div class="synopsis-grid">
-                    <!-- Business Profile Card -->
-                    <div class="synopsis-card fade-in" style="animation-delay: 0.1s;">
-                        <h4><i class="fas fa-building"></i> Business Profile</h4>
-                        <div class="synopsis-content">
-                            <div class="synopsis-item">
-                                <span class="synopsis-label">Company Name:</span>
-                                <span class="synopsis-value">{{ data.synopsis.business_profile.display_name }}</span>
-                            </div>
-                            <div class="synopsis-item">
-                                <span class="synopsis-label">Business Age:</span>
-                                <span class="synopsis-value">{{ data.synopsis.business_profile.business_age }}</span>
-                            </div>
-                            <div class="synopsis-item">
-                                <span class="synopsis-label">Entity Type:</span>
-                                <span class="synopsis-value">{{ data.synopsis.business_profile.entity_type }}</span>
-                            </div>
-                            <div class="synopsis-item">
-                                <span class="synopsis-label">State:</span>
-                                <span class="synopsis-value">{{ data.synopsis.business_profile.state }}</span>
-                            </div>
-                            <div class="synopsis-item">
-                                <span class="synopsis-label">Status:</span>
-                                <span class="synopsis-value status-{{ data.synopsis.business_profile.operational_status.lower() }}">
-                                    {% if data.synopsis.business_profile.operational_status == 'Active' %}
-                                        <i class="fas fa-check-circle"></i>
+                {% if history %}
+                <button class="export-btn" onclick="exportToExcel()">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                        <polyline points="7 10 12 15 17 10"></polyline>
+                        <line x1="12" y1="15" x2="12" y2="3"></line>
+                    </svg>
+                    Export to Excel
+                </button>
+                {% endif %}
+            </div>
+            
+            {% if history %}
+            <div style="overflow-x: auto;">
+                <table class="history-table">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>GSTIN</th>
+                            <th>Company Name</th>
+                            <th class="hide-mobile">Compliance Score</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in history %}
+                        <tr>
+                            <td>{{ item.searched_at }}</td>
+                            <td><code>{{ item.gstin }}</code></td>
+                            <td>{{ item.company_name }}</td>
+                            <td class="hide-mobile">
+                                {% if item.compliance_score %}
+                                    {% if item.compliance_score >= 80 %}
+                                        <span class="score-badge score-high">{{ item.compliance_score }}%</span>
+                                    {% elif item.compliance_score >= 60 %}
+                                        <span class="score-badge score-medium">{{ item.compliance_score }}%</span>
                                     {% else %}
-                                        <i class="fas fa-times-circle"></i>
+                                        <span class="score-badge score-low">{{ item.compliance_score }}%</span>
                                     {% endif %}
-                                    {{ data.synopsis.business_profile.operational_status }}
-                                </span>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <!-- Operational Insights Card -->
-                    <div class="synopsis-card fade-in" style="animation-delay: 0.2s;">
-                        <h4><i class="fas fa-chart-line"></i> Operational Insights</h4>
-                        <div class="synopsis-content">
-                            <div class="synopsis-item">
-                                <span class="synopsis-label">Filing Pattern:</span>
-                                <span class="synopsis-value filing-{{ data.synopsis.operational_insights.filing_consistency.lower().replace(' ', '-') }}">
-                                    {{ data.synopsis.operational_insights.filing_consistency }}
-                                </span>
-                            </div>
-                            <div class="synopsis-item">
-                                <span class="synopsis-label">Recent Activity:</span>
-                                <span class="synopsis-value activity-{{ data.synopsis.operational_insights.recent_activity.lower().replace(' ', '-') }}">
-                                    {{ data.synopsis.operational_insights.recent_activity }}
-                                </span>
-                            </div>
-                            <div class="synopsis-item">
-                                <span class="synopsis-label">Returns Filed:</span>
-                                <span class="synopsis-value">
-                                    <strong>{{ data.synopsis.operational_insights.returns_filed }}</strong> / {{ data.synopsis.operational_insights.total_returns_due }}
-                                </span>
-                            </div>
-                            {% if data.synopsis.operational_insights.return_types %}
-                            <div class="synopsis-item">
-                                <span class="synopsis-label">Return Types:</span>
-                                <span class="synopsis-value">{{ data.synopsis.operational_insights.return_types | join(', ') }}</span>
-                            </div>
-                            {% endif %}
-                        </div>
-                    </div>
-                    
-                    <!-- Compliance Analysis Card -->
-                    <div class="synopsis-card fade-in" style="animation-delay: 0.3s;">
-                        <h4><i class="fas fa-shield-alt"></i> Compliance Analysis</h4>
-                        <div class="synopsis-content">
-                            <div class="synopsis-item">
-                                <span class="synopsis-label">Overall Rating:</span>
-                                <span class="synopsis-value grade-{{ data.synopsis.compliance_summary.overall_rating.lower() }}">
-                                    <strong>{{ data.synopsis.compliance_summary.overall_rating }}</strong>
-                                </span>
-                            </div>
-                            <div class="synopsis-item">
-                                <span class="synopsis-label">Compliance Score:</span>
-                                <span class="synopsis-value">
-                                    <strong>{{ data.synopsis.compliance_summary.compliance_score }}%</strong>
-                                </span>
-                            </div>
-                            <div class="synopsis-item">
-                                <span class="synopsis-label">Filing Reliability:</span>
-                                <span class="synopsis-value">{{ data.synopsis.compliance_summary.filing_reliability }}</span>
-                            </div>
-                            <div class="synopsis-item">
-                                <span class="synopsis-label">Late Filing Rate:</span>
-                                <span class="synopsis-value">{{ data.synopsis.compliance_summary.late_filing_rate }}</span>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <!-- Risk Assessment Card -->
-                    <div class="synopsis-card risk-card fade-in" style="animation-delay: 0.4s;">
-                        <h4><i class="fas fa-exclamation-triangle"></i> Risk Assessment</h4>
-                        <div class="synopsis-content">
-                            <div class="synopsis-item">
-                                <span class="synopsis-label">Compliance Risk:</span>
-                                <span class="synopsis-value risk-{{ data.synopsis.risk_assessment.compliance_risk.lower().replace(' ', '-') }}">
-                                    <strong>{{ data.synopsis.risk_assessment.compliance_risk }}</strong>
-                                </span>
-                            </div>
-                            <div class="synopsis-item">
-                                <span class="synopsis-label">Overall Risk Level:</span>
-                                <span class="synopsis-value risk-{{ data.synopsis.risk_assessment.risk_level.lower() }}">
-                                    <strong>{{ data.synopsis.risk_assessment.risk_level }}</strong>
-                                </span>
-                            </div>
-                            {% if data.synopsis.risk_assessment.red_flags %}
-                            <div class="synopsis-item red-flags">
-                                <span class="synopsis-label">Red Flags:</span>
-                                <div class="red-flags-list">
-                                    {% for flag in data.synopsis.risk_assessment.red_flags %}
-                                    <span class="red-flag-item">
-                                        <i class="fas fa-flag"></i> {{ flag }}
-                                    </span>
-                                    {% endfor %}
-                                </div>
-                            </div>
-                            {% else %}
-                            <div class="synopsis-item">
-                                <span class="synopsis-label">Red Flags:</span>
-                                <span class="synopsis-value text-success">
-                                    <i class="fas fa-check-circle"></i> None detected
-                                </span>
-                            </div>
-                            {% endif %}
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- Key Metrics with enhanced styling -->
-                <div class="key-metrics fade-in">
-                    <h4><i class="fas fa-tachometer-alt"></i> Key Performance Indicators</h4>
-                    <div class="metrics-grid">
-                        <div class="metric-item glow-hover">
-                            <span class="metric-number">{{ data.synopsis.key_metrics.business_age_years }}</span>
-                            <span class="metric-label">Years in Business</span>
-                        </div>
-                        <div class="metric-item glow-hover">
-                            <span class="metric-number">{{ data.synopsis.key_metrics.filing_percentage }}</span>
-                            <span class="metric-label">Filing Rate</span>
-                        </div>
-                        <div class="metric-item glow-hover">
-                            <span class="metric-number">{{ data.synopsis.key_metrics.compliance_grade }}</span>
-                            <span class="metric-label">Compliance Grade</span>
-                        </div>
-                        <div class="metric-item glow-hover">
-                            <span class="metric-number">{{ data.synopsis.key_metrics.total_late_returns }}</span>
-                            <span class="metric-label">Late Returns</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            {% endif %}
-
-            <!-- Enhanced Compliance Dashboard -->
-            {% if data.compliance %}
-            <div class="compliance-dashboard fade-in">
-                <h3><i class="fas fa-chart-pie"></i> Compliance Performance Dashboard</h3>
-                <div class="compliance-grid">
-                    <div class="compliance-card glow-hover">
-                        <div class="compliance-score compliance-{{ data.compliance.grade.lower().replace('+', 'plus') }}">
-                            {{ data.compliance.score }}%
-                        </div>
-                        <div class="compliance-grade">Grade: {{ data.compliance.grade }}</div>
-                        <div class="compliance-status">{{ data.compliance.status }}</div>
-                    </div>
-                    <div class="compliance-stats">
-                        <div class="stat-item glow-hover">
-                            <span class="stat-label">Total Returns</span>
-                            <span class="stat-value">{{ data.compliance.total_returns }}</span>
-                        </div>
-                        <div class="stat-item glow-hover">
-                            <span class="stat-label">Filed Returns</span>
-                            <span class="stat-value">{{ data.compliance.filed_returns }}</span>
-                        </div>
-                        <div class="stat-item glow-hover">
-                            <span class="stat-label">Late Returns</span>
-                            <span class="stat-value">{{ data.compliance.late_returns }}</span>
-                        </div>
-                        <div class="stat-item glow-hover">
-                            <span class="stat-label">Pending Returns</span>
-                            <span class="stat-value">{{ data.compliance.pending_returns }}</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            {% endif %}
-
-            <!-- Analytics Dashboard with enhanced animations -->
-            {% if data.synopsis.business_health %}
-            <div class="analytics-dashboard fade-in">
-                <h3><i class="fas fa-heartbeat"></i> Business Health Analytics</h3>
-                
-                <div class="health-score-section">
-                    <div class="health-score-card glow-hover">
-                        <div class="health-score-circle">
-                            <div class="health-score-number">{{ data.synopsis.business_health.score }}</div>
-                            <div class="health-score-label">Health Score</div>
-                        </div>
-                        <div class="health-details">
-                            <h4>{{ data.synopsis.business_health.status }}</h4>
-                            <p class="health-grade grade-{{ data.synopsis.business_health.grade.lower() }}">
-                                Grade: {{ data.synopsis.business_health.grade }}
-                            </p>
-                        </div>
-                    </div>
-                    
-                    <div class="health-factors">
-                        <h5>Contributing Factors:</h5>
-                        <ul class="factors-list">
-                            {% for factor in data.synopsis.business_health.factors %}
-                            <li class="factor-item">{{ factor }}</li>
-                            {% endfor %}
-                        </ul>
-                    </div>
-                </div>
-                
-                <!-- Recommendations -->
-                {% if data.synopsis.recommendations %}
-                <div class="recommendations-section">
-                    <h4><i class="fas fa-lightbulb"></i> Actionable Recommendations</h4>
-                    <div class="recommendations-grid">
-                        {% for rec in data.synopsis.recommendations %}
-                        <div class="recommendation-card priority-{{ rec.priority.lower() }}">
-                            <div class="rec-header">
-                                <span class="rec-category">{{ rec.category }}</span>
-                                <span class="rec-priority priority-{{ rec.priority.lower() }}">
-                                    {{ rec.priority }} Priority
-                                </span>
-                            </div>
-                            <h5 class="rec-title">{{ rec.title }}</h5>
-                            <p class="rec-description">{{ rec.description }}</p>
-                            <div class="rec-action">
-                                <strong>Action:</strong> {{ rec.action }}
-                            </div>
-                        </div>
-                        {% endfor %}
-                    </div>
-                </div>
-                {% endif %}
-            </div>
-            {% endif %}
-
-            <!-- Company Info Section -->
-            <div class="info-section fade-in">
-                <h3><i class="fas fa-building"></i> Company Information</h3>
-                <div class="info-grid">
-                    <div class="info-card glow-hover">
-                        <div class="info-item">
-                            <span class="info-label"><i class="fas fa-certificate"></i> Legal Name:</span>
-                            <span class="info-value">{{ data.lgnm or 'N/A' }}</span>
-                        </div>
-                        <div class="info-item">
-                            <span class="info-label"><i class="fas fa-store"></i> Trade Name:</span>
-                            <span class="info-value">{{ data.tradeName or 'N/A' }}</span>
-                        </div>
-                        <div class="info-item">
-                            <span class="info-label"><i class="fas fa-id-card"></i> GSTIN:</span>
-                            <span class="info-value">{{ data.gstin or 'N/A' }}</span>
-                        </div>
-                        <div class="info-item">
-                            <span class="info-label"><i class="fas fa-signal"></i> Status:</span>
-                            <span class="info-value status-{{ data.sts.lower() if data.sts else 'unknown' }}">
-                                {% if data.sts == 'Active' %}
-                                    <i class="fas fa-check-circle"></i>
-                                {% elif data.sts == 'Cancelled' %}
-                                    <i class="fas fa-times-circle"></i>
                                 {% else %}
-                                    <i class="fas fa-question-circle"></i>
+                                    <span class="score-badge">N/A</span>
                                 {% endif %}
-                                {{ data.sts or 'N/A' }}
-                            </span>
-                        </div>
-                    </div>
-                    
-                    <div class="info-card glow-hover">
-                        <div class="info-item">
-                            <span class="info-label"><i class="fas fa-calendar-plus"></i> Registration Date:</span>
-                            <span class="info-value">{{ data.rgdt or 'N/A' }}</span>
-                        </div>
-                        <div class="info-item">
-                            <span class="info-label"><i class="fas fa-industry"></i> Company Type:</span>
-                            <span class="info-value">{{ data.ctb or 'N/A' }}</span>
-                        </div>
-                        <div class="info-item">
-                            <span class="info-label"><i class="fas fa-balance-scale"></i> GST Jurisdiction:</span>
-                            <span class="info-value">{{ data.ctj or 'N/A' }}</span>
-                        </div>
-                        <div class="info-item">
-                            <span class="info-label"><i class="fas fa-map-marker-alt"></i> State Jurisdiction:</span>
-                            <span class="info-value">{{ data.stj or 'N/A' }}</span>
-                        </div>
-                    </div>
-                </div>
-                
-                {% if data.adr %}
-                <div class="address-section fade-in">
-                    <h4><i class="fas fa-location-dot"></i> Registered Address</h4>
-                    <p class="address">{{ data.adr }}</p>
-                </div>
-                {% endif %}
-            </div>
-
-            <!-- Returns Section -->
-            {% if data.returns_by_year %}
-                <div class="returns-section fade-in">
-                    <h3><i class="fas fa-file-alt"></i> GST Return Filing History</h3>
-                    <div class="returns-summary">
-                        <div class="summary-stats">
-                            <div class="summary-item glow-hover">
-                                <span class="summary-number">{{ data.returns|length if data.returns else 0 }}</span>
-                                <span class="summary-label">Total Returns</span>
-                            </div>
-                            <div class="summary-item glow-hover">
-                                <span class="summary-number">{{ data.compliance.filed_returns if data.compliance else 0 }}</span>
-                                <span class="summary-label">Filed Returns</span>
-                            </div>
-                            <div class="summary-item glow-hover">
-                                <span class="summary-number">{{ (data.returns|length - data.compliance.filed_returns) if data.compliance and data.returns else 0 }}</span>
-                                <span class="summary-label">Pending Returns</span>
-                            </div>
-                            <div class="summary-item glow-hover">
-                                <span class="summary-number">{{ data.compliance.late_returns if data.compliance else 0 }}</span>
-                                <span class="summary-label">Late Returns</span>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="returns-timeline">
-                        {% for fy, returns in data.returns_by_year.items() %}
-                            <div class="year-section fade-in">
-                                <h4 class="year-header">
-                                    <i class="fas fa-calendar"></i> Financial Year {{ fy }}
-                                    <span class="year-stats">({{ returns|length }} returns)</span>
-                                </h4>
-                                <div class="returns-grid">
-                                    {% for ret in returns %}
-                                        {% if (ret.rtype or ret.rtntype) and ret.taxp %}
-                                            <div class="return-card {% if ret.dof %}filed{% else %}pending{% endif %} glow-hover">
-                                                <div class="return-header">
-                                                    <span class="return-type">{{ ret.rtype or ret.rtntype }}</span>
-                                                    <span class="return-status">
-                                                        {% if ret.dof %}
-                                                            <i class="fas fa-check-circle text-success"></i> Filed
-                                                        {% else %}
-                                                            <i class="fas fa-clock text-warning"></i> Pending
-                                                        {% endif %}
-                                                    </span>
-                                                </div>
-                                                <div class="return-details">
-                                                    <div class="return-period">{{ ret.taxp }}</div>
-                                                    {% if ret.dof %}
-                                                        <div class="return-date">
-                                                            Filed: {{ ret.dof }}
-                                                            {% if ret.late %}
-                                                                <span class="late-label">({{ ret.days_late }} days late)</span>
-                                                            {% endif %}
-                                                        </div>
-                                                    {% endif %}
-                                                </div>
-                                            </div>
-                                        {% endif %}
-                                    {% endfor %}
-                                </div>
-                            </div>
+                            </td>
+                            <td>
+                                <button class="view-btn" onclick="viewDetails('{{ item.gstin }}')">View</button>
+                            </td>
+                        </tr>
                         {% endfor %}
-                    </div>
-                </div>
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="empty-state">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                    <polyline points="14 2 14 8 20 8"></polyline>
+                    <line x1="16" y1="13" x2="8" y2="13"></line>
+                    <line x1="16" y1="17" x2="8" y2="17"></line>
+                    <polyline points="10 9 9 9 8 9"></polyline>
+                </svg>
+                <p>No search history yet</p>
+                <p style="color: #999; font-size: 0.9rem;">Your recent searches will appear here</p>
+            </div>
             {% endif %}
-        {% endif %}
-    </div>
-    
-    <!-- Recent Searches Widget -->
-    <div class="recent-searches" id="recentSearches">
-        <div class="recent-searches-header">
-            <span class="recent-searches-title">Recent Searches</span>
-            <button class="close-btn" onclick="toggleRecentSearches()">
-                <i class="fas fa-times"></i>
-            </button>
-        </div>
-        <div id="recentSearchesList">
-            <!-- Populated by JavaScript -->
-        </div>
-    </div>
+        </section>
+    </main>
 
-    <!-- Add JavaScript for interactions -->
+    <!-- JavaScript -->
     <script>
-        // Store last GSTIN for quick actions
-        {% if gstin %}
-        localStorage.setItem('lastGSTIN', '{{ gstin }}');
-        {% endif %}
-        
-        // Navigation functions
-        function toggleDropdown() {
-            const dropdown = document.getElementById('userDropdown');
-            dropdown.classList.toggle('show');
-        }
-        
-        function toggleMobileMenu() {
-            const menu = document.getElementById('navMenu');
-            menu.classList.toggle('show');
-        }
-        
-        function toggleShortcuts() {
-            const panel = document.getElementById('shortcutsPanel');
-            panel.classList.toggle('show');
-        }
-        
-        function toggleRecentSearches() {
-            const widget = document.getElementById('recentSearches');
-            widget.classList.toggle('show');
-            if (widget.classList.contains('show')) {
-                loadRecentSearches();
-            }
-        }
-        
-        // Fill GSTIN input
-        function fillGSTIN(gstin) {
-            document.getElementById('gstinInput').value = gstin;
-            document.querySelector('.search-form').submit();
-        }
-        
-        // Copy GSTIN function
-        function copyGSTIN() {
-            const gstin = "{{ data.gstin if data else '' }}";
-            navigator.clipboard.writeText(gstin).then(() => {
-                const btn = event.target.closest('.btn-copy');
-                const originalText = btn.innerHTML;
-                btn.innerHTML = '<i class="fas fa-check"></i> Copied!';
-                setTimeout(() => {
-                    btn.innerHTML = originalText;
-                }, 2000);
-            }).catch(err => {
-                console.error('Failed to copy: ', err);
-                alert('Failed to copy GSTIN');
-            });
-        }
-        
-        // Download last PDF
-        function downloadLastPDF() {
-            const lastGSTIN = localStorage.getItem('lastGSTIN');
-            if (lastGSTIN) {
-                window.location.href = `/download/pdf?gstin=${lastGSTIN}`;
-            } else {
-                alert('No recent report found');
-            }
-        }
-        
-        // Export to Excel (placeholder)
-        function exportToExcel() {
-            const gstin = "{{ data.gstin if data else '' }}";
-            if (!gstin) {
-                alert('No data to export');
-                return;
-            }
+        // Form submission handler
+        document.getElementById('searchForm').addEventListener('submit', function(e) {
+            // Show loading indicator
+            document.getElementById('loading').style.display = 'block';
             
-            // Create Excel export URL (you can implement this later)
-            alert('Excel export feature coming soon!\n\nData for: ' + gstin);
-        }
-        
-        // Load recent searches
-        function loadRecentSearches() {
-            const container = document.getElementById('recentSearchesList');
-            container.innerHTML = '<p style="color: var(--text-secondary); text-align: center;">Loading recent searches...</p>';
-            
-            // Fetch recent searches from localStorage or API
-            try {
-                const recentSearches = JSON.parse(localStorage.getItem('recentSearches') || '[]');
-                if (recentSearches.length === 0) {
-                    container.innerHTML = '<p style="color: var(--text-secondary); text-align: center;">No recent searches found</p>';
-                    return;
-                }
-                
-                let html = '';
-                recentSearches.slice(0, 5).forEach(search => {
-                    html += `
-                        <a href="/company/${search.gstin}" class="recent-item">
-                            <div class="recent-company">${search.company_name}</div>
-                            <div class="recent-gstin">${search.gstin}</div>
-                        </a>
-                    `;
-                });
-                container.innerHTML = html;
-            } catch (e) {
-                container.innerHTML = '<p style="color: var(--text-secondary); text-align: center;">Error loading searches</p>';
-            }
-        }
-        
-        // Save search to localStorage for recent searches
-        {% if data and gstin %}
-        function saveRecentSearch() {
-            try {
-                const search = {
-                    gstin: "{{ gstin }}",
-                    company_name: "{{ data.lgnm if data.lgnm else 'Unknown Company' }}",
-                    searched_at: new Date().toISOString()
-                };
-                
-                let recentSearches = JSON.parse(localStorage.getItem('recentSearches') || '[]');
-                
-                // Remove if already exists
-                recentSearches = recentSearches.filter(s => s.gstin !== search.gstin);
-                
-                // Add to beginning
-                recentSearches.unshift(search);
-                
-                // Keep only last 10
-                recentSearches = recentSearches.slice(0, 10);
-                
-                localStorage.setItem('recentSearches', JSON.stringify(recentSearches));
-            } catch (e) {
-                console.error('Failed to save recent search:', e);
-            }
-        }
-        
-        // Save current search
-        saveRecentSearch();
-        {% endif %}
-        
-        // Close dropdowns when clicking outside
-        document.addEventListener('click', function(e) {
-            if (!e.target.closest('.user-menu')) {
-                document.getElementById('userDropdown')?.classList.remove('show');
-            }
-            
-            if (!e.target.closest('.recent-searches')) {
-                document.getElementById('recentSearches')?.classList.remove('show');
-            }
+            // Format GSTIN to uppercase
+            const gstinInput = document.getElementById('gstin');
+            gstinInput.value = gstinInput.value.toUpperCase();
         });
         
-        // Add fade-in animation on scroll
-        const observerOptions = {
-            threshold: 0.1,
-            rootMargin: '0px 0px -50px 0px'
-        };
-
-        const observer = new IntersectionObserver((entries) => {
-            entries.forEach(entry => {
-                if (entry.isIntersecting) {
-                    entry.target.classList.add('fade-in');
-                }
-            });
-        }, observerOptions);
-
-        // Observe all cards for animation
-        document.querySelectorAll('.synopsis-card, .info-card, .year-section, .compliance-card, .stat-item').forEach(el => {
-            observer.observe(el);
-        });
-        
-        // Add loading animation with staggered delays
-        document.addEventListener('DOMContentLoaded', () => {
-            const cards = document.querySelectorAll('.synopsis-card, .stat-item, .info-card, .metric-item, .return-card');
-            cards.forEach((card, index) => {
-                card.style.animationDelay = `${index * 0.1}s`;
-            });
-            
-            document.body.classList.add('loaded');
-            
-            // Initialize tooltips or other UI enhancements
-            initializeUI();
-        });
-        
-        // Initialize UI enhancements
-        function initializeUI() {
-            // Add hover effects to cards
-            document.querySelectorAll('.glow-hover').forEach(card => {
-                card.addEventListener('mouseenter', function() {
-                    this.style.transform = 'translateY(-2px)';
-                });
-                
-                card.addEventListener('mouseleave', function() {
-                    this.style.transform = 'translateY(0)';
-                });
-            });
-            
-            // Add click animation to buttons
-            document.querySelectorAll('.btn').forEach(btn => {
-                btn.addEventListener('click', function(e) {
-                    // Create ripple effect
-                    const ripple = document.createElement('span');
-                    const rect = this.getBoundingClientRect();
-                    const size = Math.max(rect.width, rect.height);
-                    const x = e.clientX - rect.left - size / 2;
-                    const y = e.clientY - rect.top - size / 2;
-                    
-                    ripple.style.cssText = `
-                        position: absolute;
-                        width: ${size}px;
-                        height: ${size}px;
-                        left: ${x}px;
-                        top: ${y}px;
-                        background: rgba(255, 255, 255, 0.3);
-                        border-radius: 50%;
-                        transform: scale(0);
-                        animation: ripple 0.6s ease-out;
-                        pointer-events: none;
-                    `;
-                    
-                    this.style.position = 'relative';
-                    this.style.overflow = 'hidden';
-                    this.appendChild(ripple);
-                    
-                    setTimeout(() => {
-                        ripple.remove();
-                    }, 600);
-                });
-            });
-        }
-        
-        // Add ripple animation CSS
-        const style = document.createElement('style');
-        style.textContent = `
-            @keyframes ripple {
-                to {
-                    transform: scale(2);
-                    opacity: 0;
-                }
-            }
-            
-            .loading-shimmer {
-                background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
-                background-size: 200% 100%;
-                animation: shimmer 1.5s infinite;
-            }
-            
-            @keyframes shimmer {
-                0% { background-position: -200% 0; }
-                100% { background-position: 200% 0; }
-            }
-            
-            .pulse {
-                animation: pulse 2s infinite;
-            }
-            
-            @keyframes pulse {
-                0%, 100% { opacity: 1; }
-                50% { opacity: 0.7; }
-            }
-        `;
-        document.head.appendChild(style);
-        
-        // Auto-capitalize GSTIN input
-        document.getElementById('gstinInput').addEventListener('input', function(e) {
+        // GSTIN input formatter
+        document.getElementById('gstin').addEventListener('input', function(e) {
             e.target.value = e.target.value.toUpperCase();
-            
-            // Add real-time validation
-            const gstin = e.target.value;
-            const isValid = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}[Z]{1}[0-9A-Z]{1}$/.test(gstin);
-            
-            if (gstin.length === 15) {
-                if (isValid) {
-                    e.target.style.borderColor = 'var(--success)';
-                    e.target.style.boxShadow = '0 0 0 2px rgba(16, 185, 129, 0.2)';
-                } else {
-                    e.target.style.borderColor = 'var(--danger)';
-                    e.target.style.boxShadow = '0 0 0 2px rgba(239, 68, 68, 0.2)';
-                }
-            } else {
-                e.target.style.borderColor = 'var(--border-color)';
-                e.target.style.boxShadow = 'none';
-            }
         });
         
-        // Add keyboard shortcuts
-        document.addEventListener('keydown', function(e) {
-            // Ctrl+K to focus search
-            if (e.ctrlKey && e.key === 'k') {
-                e.preventDefault();
-                document.getElementById('gstinInput').focus();
-            }
-            
-            // Escape to close dropdowns
-            if (e.key === 'Escape') {
-                document.getElementById('userDropdown')?.classList.remove('show');
-                document.getElementById('recentSearches')?.classList.remove('show');
-                document.getElementById('shortcutsPanel')?.classList.remove('show');
-            }
-        });
-        
-        // Performance monitoring
-        window.addEventListener('load', function() {
-            if ('performance' in window) {
-                const loadTime = performance.timing.loadEventEnd - performance.timing.navigationStart;
-                console.log(`Page loaded in ${loadTime}ms`);
-            }
-        });
-        
-        // Error handling for images and resources
-        document.addEventListener('error', function(e) {
-            if (e.target.tagName === 'IMG') {
-                e.target.style.display = 'none';
-            }
-        }, true);
-        
-        // Add print styles dynamically
-        function addPrintStyles() {
-            const printStyle = document.createElement('style');
-            printStyle.media = 'print';
-            printStyle.textContent = `
-                @media print {
-                    .navbar, .quick-actions, .shortcuts-panel, .recent-searches { display: none !important; }
-                    .container { padding-top: 0 !important; }
-                    body { background: white !important; color: black !important; }
-                    .synopsis-section, .compliance-dashboard, .info-section { break-inside: avoid; }
-                }
-            `;
-            document.head.appendChild(printStyle);
+        // View details function
+        function viewDetails(gstin) {
+            window.location.href = `/search?gstin=${gstin}`;
         }
         
-        addPrintStyles();
+        // Export to Excel function
+        function exportToExcel() {
+            window.location.href = '/export/history';
+        }
         
-        // Service worker registration (for future PWA features)
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', function() {
-                // navigator.serviceWorker.register('/sw.js') - uncomment when SW is ready
+        // Auto-hide messages after 5 seconds
+        setTimeout(function() {
+            const messages = document.querySelectorAll('.error-message, .success-message');
+            messages.forEach(function(msg) {
+                msg.style.transition = 'opacity 0.5s';
+                msg.style.opacity = '0';
+                setTimeout(function() {
+                    msg.style.display = 'none';
+                }, 500);
             });
-        }
+        }, 5000);
     </script>
 </body>
-</html>0.5;
+</html>
