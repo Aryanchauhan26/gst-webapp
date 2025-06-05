@@ -1198,7 +1198,7 @@ async def startup_event():
     # Clean up old sessions in Postgres
     await db.connect()
     async with db.pool.acquire() as conn:
-        await conn.execute('DELETE FROM sessions WHERE expires_at < $1', datetime.now().isoformat())
+        await conn.execute('DELETE FROM sessions WHERE expires_at < $1', datetime.now())
     logger.info("Startup complete")
 
 @app.on_event("shutdown")
