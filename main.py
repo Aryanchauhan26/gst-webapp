@@ -6,7 +6,8 @@ Enhanced with SQLite database, security improvements, and better error handling
 
 import os
 import re
-import sqlite3
+import asyncio
+import asyncpg
 import hashlib
 import secrets
 import logging
@@ -112,147 +113,103 @@ class RateLimiter:
 login_limiter = RateLimiter()
 api_limiter = RateLimiter(max_attempts=60, window_minutes=1)  # API rate limiting
 
-# SQLite Database Manager
-class SQLiteDB:
-    def __init__(self, db_path: str = "database/gst_platform.db"):
-        self.db_path = db_path
-        self._init_database()
-    
-    def _init_database(self):
-        """Initialize database with all required tables"""
-        os.makedirs(os.path.dirname(self.db_path), exist_ok=True)
-        
-        with sqlite3.connect(self.db_path) as conn:
-            # Users table
-            conn.execute('''
-                CREATE TABLE IF NOT EXISTS users (
-                    mobile TEXT PRIMARY KEY,
-                    password_hash TEXT NOT NULL,
-                    salt TEXT NOT NULL,
-                    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-                    last_login TEXT
-                )
-            ''')
-            
-            # Sessions table
-            conn.execute('''
-                CREATE TABLE IF NOT EXISTS sessions (
-                    session_token TEXT PRIMARY KEY,
-                    mobile TEXT NOT NULL,
-                    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-                    expires_at TEXT NOT NULL
-                )
-            ''')
-            
-            # Search history table
-            conn.execute('''
-                CREATE TABLE IF NOT EXISTS search_history (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    mobile TEXT NOT NULL,
-                    gstin TEXT NOT NULL,
-                    company_name TEXT NOT NULL,
-                    searched_at TEXT DEFAULT CURRENT_TIMESTAMP,
-                    compliance_score REAL
-                )
-            ''')
-            
-            conn.commit()
-    
-    def _hash_password(self, password: str, salt: str) -> str:
-        """Hash password with salt using PBKDF2 - FIXED VERSION"""
-        password_bytes = password.encode('utf-8')
-        salt_bytes = salt.encode('utf-8')
-        
-        # PBKDF2 with SHA256, 100000 iterations, 64 bytes output
-        hash_bytes = hashlib.pbkdf2_hmac('sha256', password_bytes, salt_bytes, 100000, dklen=64)
-        
-        # Convert to hex string
-        return hash_bytes.hex()
-    
-    def create_user(self, mobile: str, password: str) -> bool:
-        """Create a new user with secure password hashing"""
-        salt = secrets.token_hex(16)
-        password_hash = self._hash_password(password, salt)
-        
-        try:
-            with sqlite3.connect(self.db_path) as conn:
-                conn.execute('''
-                    INSERT INTO users (mobile, password_hash, salt)
-                    VALUES (?, ?, ?)
-                ''', (mobile, password_hash, salt))
-                conn.commit()
-            return True
-        except sqlite3.IntegrityError:
-            return False
-    
-    def verify_user(self, mobile: str, password: str) -> bool:
-        """Verify user credentials"""
-        with sqlite3.connect(self.db_path) as conn:
-            row = conn.execute('SELECT password_hash, salt FROM users WHERE mobile=?', (mobile,)).fetchone()
+# PostgreSQL Database Manager
+POSTGRES_DSN = "postgresql://neondb_owner:npg_i3m7wqMeHXaW@ep-fragrant-cell-a10j16o4-pooler.ap-southeast-1.aws.neon.tech/neondb?sslmode=require"
+
+class PostgresDB:
+    def __init__(self, dsn=POSTGRES_DSN):
+        self.dsn = dsn
+        self.pool = None
+
+    async def connect(self):
+        if not self.pool:
+            self.pool = await asyncpg.create_pool(dsn=self.dsn)
+
+    async def create_user(self, mobile: str, password_hash: str, salt: str):
+        await self.connect()
+        async with self.pool.acquire() as conn:
+            await conn.execute(
+                "INSERT INTO users (mobile, password_hash, salt) VALUES ($1, $2, $3) ON CONFLICT (mobile) DO NOTHING",
+                mobile, password_hash, salt
+            )
+
+    async def verify_user(self, mobile: str, password: str) -> bool:
+        await self.connect()
+        async with self.pool.acquire() as conn:
+            row = await conn.fetchrow("SELECT password_hash, salt FROM users WHERE mobile=$1", mobile)
             if not row:
                 return False
-            password_hash, salt = row
-            return self._hash_password(password, salt) == password_hash
-    
-    def create_session(self, mobile: str) -> Optional[str]:
-        """Create a new session with enhanced security"""
+            return check_password(password, row['password_hash'], row['salt'])
+
+    async def create_session(self, mobile: str) -> Optional[str]:
         session_token = secrets.token_urlsafe(32)
         expires_at = (datetime.now() + timedelta(days=7)).isoformat()
-        
+        await self.connect()
         try:
-            with sqlite3.connect(self.db_path) as conn:
-                conn.execute('''
-                    INSERT INTO sessions (session_token, mobile, expires_at)
-                    VALUES (?, ?, ?)
-                ''', (session_token, mobile, expires_at))
-                conn.commit()
+            async with self.pool.acquire() as conn:
+                await conn.execute(
+                    "INSERT INTO sessions (session_token, mobile, expires_at) VALUES ($1, $2, $3)",
+                    session_token, mobile, expires_at
+                )
             return session_token
         except Exception:
             return None
-    
-    def get_session(self, session_token: str) -> Optional[str]:
-        """Get mobile number from valid session"""
-        with sqlite3.connect(self.db_path) as conn:
-            row = conn.execute('SELECT mobile, expires_at FROM sessions WHERE session_token=?', (session_token,)).fetchone()
-            if row and datetime.fromisoformat(row[1]) > datetime.now():
-                return row[0]
+
+    async def get_session(self, session_token: str) -> Optional[str]:
+        await self.connect()
+        async with self.pool.acquire() as conn:
+            row = await conn.fetchrow(
+                "SELECT mobile, expires_at FROM sessions WHERE session_token=$1",
+                session_token
+            )
+            if row and datetime.fromisoformat(row['expires_at']) > datetime.now():
+                return row['mobile']
         return None
-    
-    def delete_session(self, session_token: str) -> bool:
-        """Delete a session (logout)"""
-        with sqlite3.connect(self.db_path) as conn:
-            conn.execute('DELETE FROM sessions WHERE session_token=?', (session_token,))
-            conn.commit()
+
+    async def delete_session(self, session_token: str) -> bool:
+        await self.connect()
+        async with self.pool.acquire() as conn:
+            await conn.execute(
+                "DELETE FROM sessions WHERE session_token=$1",
+                session_token
+            )
         return True
-    
-    def update_last_login(self, mobile: str):
-        """Update user's last login timestamp"""
-        with sqlite3.connect(self.db_path) as conn:
-            conn.execute('UPDATE users SET last_login=? WHERE mobile=?', (datetime.now().isoformat(), mobile))
-            conn.commit()
-    
-    def add_search_history(self, mobile: str, gstin: str, company_name: str, compliance_score: float = None):
-        """Add search to history with upsert logic"""
-        with sqlite3.connect(self.db_path) as conn:
-            conn.execute('INSERT INTO search_history (mobile, gstin, company_name, compliance_score) VALUES (?, ?, ?, ?)', (mobile, gstin, company_name, compliance_score))
-            conn.commit()
-    
-    def get_search_history(self, mobile: str, limit: int = 10) -> List[Dict]:
-        """Get user's search history"""
-        with sqlite3.connect(self.db_path) as conn:
-            conn.row_factory = sqlite3.Row
-            rows = conn.execute('SELECT gstin, company_name, searched_at, compliance_score FROM search_history WHERE mobile=? ORDER BY searched_at DESC LIMIT ?', (mobile, limit)).fetchall()
-            return [dict(row) for row in rows]
-    
-    def get_all_searches(self, mobile: str) -> List[Dict]:
-        """Get all searches for export"""
-        with sqlite3.connect(self.db_path) as conn:
-            conn.row_factory = sqlite3.Row
-            rows = conn.execute('SELECT gstin, company_name, searched_at, compliance_score FROM search_history WHERE mobile=? ORDER BY searched_at DESC', (mobile,)).fetchall()
+
+    async def update_last_login(self, mobile: str):
+        await self.connect()
+        async with self.pool.acquire() as conn:
+            await conn.execute(
+                "UPDATE users SET last_login=$1 WHERE mobile=$2",
+                datetime.now().isoformat(), mobile
+            )
+
+    async def add_search_history(self, mobile: str, gstin: str, company_name: str, compliance_score: float = None):
+        await self.connect()
+        async with self.pool.acquire() as conn:
+            await conn.execute(
+                "INSERT INTO search_history (mobile, gstin, company_name, compliance_score) VALUES ($1, $2, $3, $4)",
+                mobile, gstin, company_name, compliance_score
+            )
+
+    async def get_search_history(self, mobile: str, limit: int = 10) -> List[Dict]:
+        await self.connect()
+        async with self.pool.acquire() as conn:
+            rows = await conn.fetch(
+                "SELECT gstin, company_name, searched_at, compliance_score FROM search_history WHERE mobile=$1 ORDER BY searched_at DESC LIMIT $2",
+                mobile, limit
+            )
             return [dict(row) for row in rows]
 
-# Initialize database
-db = SQLiteDB()
+    async def get_all_searches(self, mobile: str) -> List[Dict]:
+        await self.connect()
+        async with self.pool.acquire() as conn:
+            rows = await conn.fetch(
+                "SELECT gstin, company_name, searched_at, compliance_score FROM search_history WHERE mobile=$1 ORDER BY searched_at DESC",
+                mobile
+            )
+            return [dict(row) for row in rows]
+
+db = PostgresDB()
 
 # GST API Client with Error Handling
 class GSAPIClient:
@@ -290,7 +247,7 @@ async def get_current_user(request: Request) -> Optional[str]:
     session_token = request.cookies.get("session_token")
     if not session_token:
         return None
-    return db.get_session(session_token)
+    return await db.get_session(session_token)
 
 # Dependency to require authentication
 async def require_auth(request: Request) -> str:
@@ -556,8 +513,9 @@ async def health_check():
         # Check database
         db_status = "healthy"
         try:
-            with sqlite3.connect(db.db_path) as conn:
-                conn.execute("SELECT 1")
+            await db.connect()
+            async with db.pool.acquire() as conn:
+                await conn.execute("SELECT 1")
         except Exception as e:
             db_status = f"unhealthy: {str(e)}"
         
@@ -588,7 +546,7 @@ async def health_check():
 @app.get("/", response_class=HTMLResponse)
 async def home(request: Request, current_user: str = Depends(require_auth)):
     """Home page with search functionality"""
-    history = db.get_search_history(current_user)
+    history = await db.get_search_history(current_user)
     return templates.TemplateResponse("index.html", {
         "request": request,
         "mobile": current_user,
@@ -620,14 +578,14 @@ async def post_login(request: Request, mobile: str = Form(...), password: str = 
             "error": message
         })
     
-    if not db.verify_user(mobile, password):
+    if not await db.verify_user(mobile, password):
         return templates.TemplateResponse("login.html", {
             "request": request,
             "error": "Invalid credentials"
         })
     
     # Create session
-    session_token = db.create_session(mobile)
+    session_token = await db.create_session(mobile)
     
     if not session_token:
         return templates.TemplateResponse("login.html", {
@@ -635,7 +593,7 @@ async def post_login(request: Request, mobile: str = Form(...), password: str = 
             "error": "Failed to create session. Please try again."
         })
     
-    db.update_last_login(mobile)
+    await db.update_last_login(mobile)
     
     response = RedirectResponse(url="/", status_code=302)
     response.set_cookie(
@@ -676,20 +634,20 @@ async def post_signup(request: Request, mobile: str = Form(...), password: str =
             "error": "Passwords do not match"
         })
     
-    if db.create_user(mobile, password):
-        return RedirectResponse(url="/login?registered=true", status_code=302)
-    else:
-        return templates.TemplateResponse("signup.html", {
-            "request": request,
-            "error": "Mobile already registered"
-        })
+    # Hash password with salt
+    salt = secrets.token_hex(16)
+    password_hash = hashlib.pbkdf2_hmac('sha256', password.encode('utf-8'), salt.encode('utf-8'), 100000, dklen=64).hex()
+    
+    await db.create_user(mobile, password_hash, salt)
+    
+    return RedirectResponse(url="/login?registered=true", status_code=302)
 
 @app.get("/logout")
 async def logout(request: Request):
     """Logout user"""
     session_token = request.cookies.get("session_token")
     if session_token:
-        db.delete_session(session_token)
+        await db.delete_session(session_token)
     
     response = RedirectResponse(url="/login", status_code=302)
     response.delete_cookie("session_token")
@@ -705,7 +663,7 @@ async def search_gstin(request: Request, gstin: str = Form(...), current_user: s
             "request": request,
             "mobile": current_user,
             "error": "Invalid GSTIN format",
-            "history": db.get_search_history(current_user)
+            "history": await db.get_search_history(current_user)
         })
     
     # Check API rate limit
@@ -715,7 +673,7 @@ async def search_gstin(request: Request, gstin: str = Form(...), current_user: s
             "request": request,
             "mobile": current_user,
             "error": f"API rate limit exceeded. Please try again in {retry_after} seconds.",
-            "history": db.get_search_history(current_user)
+            "history": await db.get_search_history(current_user)
         })
     
     try:
@@ -738,7 +696,7 @@ async def search_gstin(request: Request, gstin: str = Form(...), current_user: s
                 synopsis = None
         
         # Add to search history
-        db.add_search_history(
+        await db.add_search_history(
             current_user,
             gstin,
             company_data.get("lgnm", "Unknown"),
@@ -762,7 +720,7 @@ async def search_gstin(request: Request, gstin: str = Form(...), current_user: s
             "request": request,
             "mobile": current_user,
             "error": e.detail,
-            "history": db.get_search_history(current_user)
+            "history": await db.get_search_history(current_user)
         })
     except Exception as e:
         logger.error(f"Search error: {e}")
@@ -770,13 +728,13 @@ async def search_gstin(request: Request, gstin: str = Form(...), current_user: s
             "request": request,
             "mobile": current_user,
             "error": "An error occurred while searching. Please try again.",
-            "history": db.get_search_history(current_user)
+            "history": await db.get_search_history(current_user)
         })
 
 @app.get("/history", response_class=HTMLResponse)
 async def view_history(request: Request, current_user: str = Depends(require_auth)):
     """View complete search history"""
-    history = db.get_all_searches(current_user)
+    history = await db.get_all_searches(current_user)
     return templates.TemplateResponse("history.html", {
         "request": request,
         "mobile": current_user,
@@ -788,7 +746,7 @@ async def export_history(current_user: str = Depends(require_auth)):
     """Export search history to CSV"""
     from io import StringIO
     import csv
-    history = db.get_all_searches(current_user)
+    history = await db.get_all_searches(current_user)
     output = StringIO()
     writer = csv.DictWriter(output, fieldnames=['searched_at', 'gstin', 'company_name', 'compliance_score'])
     writer.writeheader()
@@ -1237,12 +1195,10 @@ async def general_exception_handler(request: Request, exc: Exception):
 async def startup_event():
     """Run startup tasks"""
     logger.info("GST Intelligence Platform starting up...")
-    
-    # Clean up old sessions
-    with sqlite3.connect(db.db_path) as conn:
-        conn.execute('DELETE FROM sessions WHERE expires_at < ?', (datetime.now().isoformat(),))
-        conn.commit()
-    
+    # Clean up old sessions in Postgres
+    await db.connect()
+    async with db.pool.acquire() as conn:
+        await conn.execute('DELETE FROM sessions WHERE expires_at < $1', datetime.now().isoformat())
     logger.info("Startup complete")
 
 @app.on_event("shutdown")
@@ -1253,3 +1209,7 @@ async def shutdown_event():
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
+
+def check_password(password: str, stored_hash: str, salt: str) -> bool:
+    hash_attempt = hashlib.pbkdf2_hmac('sha256', password.encode('utf-8'), salt.encode('utf-8'), 100000, dklen=64).hex()
+    return hash_attempt == stored_hash
