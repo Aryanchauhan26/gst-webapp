@@ -417,8 +417,55 @@
             color: #721c24;
         }
         
-        /* Responsive */
-        @media (max-width: 768px) {
+        /* Late Filing Alert */
+        .late-filing-alert {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+        
+        .late-filing-alert.critical {
+            background: #f8d7da;
+            border-color: #f5c6cb;
+        }
+        
+        .late-filing-icon {
+            font-size: 2rem;
+        }
+        
+        .late-filing-stats {
+            flex: 1;
+        }
+        
+        .late-filing-title {
+            font-weight: 600;
+            color: #856404;
+            margin-bottom: 0.25rem;
+        }
+        
+        .late-filing-alert.critical .late-filing-title {
+            color: #721c24;
+        }
+        
+        .late-badge {
+            background: #dc3545;
+            color: white;
+            padding: 0.25rem 0.5rem;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            margin-left: 0.5rem;
+        }
+        
+        .delay-days {
+            color: #dc3545;
+            font-weight: 600;
+        }
             .container {
                 padding: 1rem;
             }
@@ -551,6 +598,21 @@
                         Grade D (Needs Improvement)
                     {% endif %}
                 </div>
+                
+                <!-- Score Breakdown -->
+                {% if company_data._compliance_factors %}
+                <details style="margin-top: 1.5rem; text-align: left;">
+                    <summary style="cursor: pointer; font-weight: 600; opacity: 0.9;">Score Breakdown</summary>
+                    <div style="margin-top: 1rem; font-size: 0.9rem;">
+                        {% for factor in company_data._compliance_factors %}
+                        <div style="display: flex; justify-content: space-between; padding: 0.5rem 0; border-bottom: 1px solid rgba(255,255,255,0.2);">
+                            <span>{{ factor[0] }}</span>
+                            <span>{{ factor[1] }}/{{ factor[2] }}</span>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </details>
+                {% endif %}
             </div>
 
             <!-- Address Information -->
@@ -641,6 +703,18 @@
                 GST Returns Filing History
             </h2>
             
+            <!-- Late Filing Alert -->
+            {% if late_filing_analysis and late_filing_analysis.late_count > 0 %}
+            <div class="late-filing-alert {% if late_filing_analysis.late_count > 5 %}critical{% endif %}">
+                <div class="late-filing-icon">⚠️</div>
+                <div class="late-filing-stats">
+                    <div class="late-filing-title">Late Filing Alert</div>
+                    <div>{{ late_filing_analysis.late_count }} returns filed late out of {{ late_filing_analysis.late_count + late_filing_analysis.on_time_count }} total returns</div>
+                    <div style="font-size: 0.9rem; color: #666;">Average delay: {{ "%.1f"|format(late_filing_analysis.average_delay) }} days</div>
+                </div>
+            </div>
+            {% endif %}
+            
             <!-- Returns Summary -->
             {% set gstr1_count = company_data.returns | selectattr("rtntype", "eq", "GSTR1") | list | length %}
             {% set gstr3b_count = company_data.returns | selectattr("rtntype", "eq", "GSTR3B") | list | length %}
@@ -683,7 +757,16 @@
                             <td class="return-type">{{ return.rtntype }}</td>
                             <td>{{ return.taxp }}</td>
                             <td>{{ return.fy }}</td>
-                            <td>{{ return.dof }}</td>
+                            <td>
+                                {{ return.dof }}
+                                {% if late_filing_analysis %}
+                                    {% for late_return in late_filing_analysis.late_returns %}
+                                        {% if late_return.return.dof == return.dof and late_return.return.rtntype == return.rtntype %}
+                                            <span class="late-badge">Late by {{ late_return.delay_days }} days</span>
+                                        {% endif %}
+                                    {% endfor %}
+                                {% endif %}
+                            </td>
                             <td class="hide-mobile">
                                 <span class="filed-badge">Filed</span>
                             </td>

@@ -316,19 +316,108 @@ def validate_gstin(gstin: str) -> bool:
     pattern = r'^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$'
     return bool(re.match(pattern, gstin.upper()))
 
+def calculate_return_due_date(return_type: str, tax_period: str, fy: str) -> datetime:
+    """Calculate the due date for a GST return"""
+    try:
+        # Parse tax period
+        months = {
+            'January': 1, 'February': 2, 'March': 3, 'April': 4,
+            'May': 5, 'June': 6, 'July': 7, 'August': 8,
+            'September': 9, 'October': 10, 'November': 11, 'December': 12
+        }
+        
+        if tax_period in months:
+            month = months[tax_period]
+            # Extract year from FY (e.g., "2024-2025" -> 2024 or 2025)
+            fy_parts = fy.split('-')
+            if month >= 4:  # April to December
+                year = int(fy_parts[0])
+            else:  # January to March
+                year = int(fy_parts[1])
+            
+            # Due dates
+            if return_type == "GSTR1":
+                # GSTR-1 due on 11th of next month
+                if month == 12:
+                    due_date = datetime(year + 1, 1, 11)
+                else:
+                    due_date = datetime(year, month + 1, 11)
+            elif return_type == "GSTR3B":
+                # GSTR-3B due on 20th of next month
+                if month == 12:
+                    due_date = datetime(year + 1, 1, 20)
+                else:
+                    due_date = datetime(year, month + 1, 20)
+            elif return_type == "GSTR9":
+                # Annual return due on December 31st of next year
+                year = int(fy_parts[1])
+                due_date = datetime(year, 12, 31)
+            else:
+                return None
+                
+            return due_date
+    except:
+        return None
+    
+    return None
+
+def analyze_late_filings(returns: List[Dict]) -> Dict:
+    """Analyze returns for late filing"""
+    late_returns = []
+    on_time_returns = []
+    total_delay_days = 0
+    
+    for return_item in returns:
+        return_type = return_item.get("rtntype")
+        tax_period = return_item.get("taxp")
+        fy = return_item.get("fy")
+        dof = return_item.get("dof")
+        
+        if all([return_type, tax_period, fy, dof]):
+            # Calculate due date
+            due_date = calculate_return_due_date(return_type, tax_period, fy)
+            
+            if due_date:
+                # Parse filing date
+                try:
+                    filing_date = datetime.strptime(dof, "%d/%m/%Y")
+                    
+                    # Check if late
+                    if filing_date > due_date:
+                        delay_days = (filing_date - due_date).days
+                        late_returns.append({
+                            'return': return_item,
+                            'due_date': due_date,
+                            'filing_date': filing_date,
+                            'delay_days': delay_days
+                        })
+                        total_delay_days += delay_days
+                    else:
+                        on_time_returns.append(return_item)
+                except:
+                    pass
+    
+    return {
+        'late_count': len(late_returns),
+        'on_time_count': len(on_time_returns),
+        'late_returns': late_returns,
+        'total_delay_days': total_delay_days,
+        'average_delay': total_delay_days / len(late_returns) if late_returns else 0
+    }
+
 def calculate_compliance_score(company_data: dict) -> float:
-    """Calculate comprehensive compliance score based on multiple factors"""
+    """Calculate comprehensive compliance score based on multiple factors including late filings"""
     score = 100.0
     factors = []
     
-    # 1. Registration Status (30 points)
+    # 1. Registration Status (25 points)
     if company_data.get("sts") == "Active":
-        factors.append(("Registration Status", 30, 30, "Active"))
+        factors.append(("Registration Status", 25, 25, "Active"))
     else:
-        factors.append(("Registration Status", 0, 30, company_data.get("sts", "Inactive")))
-        score -= 30
+        factors.append(("Registration Status", 0, 25, company_data.get("sts", "Inactive")))
+        score -= 25
     
-    # 2. Filing Compliance (25 points)
+    # 2. Filing Compliance (20 points)
     returns = company_data.get("returns", [])
     if returns:
         # Calculate filing regularity
@@ -347,14 +436,42 @@ def calculate_compliance_score(company_data: dict) -> float:
         
         expected_returns = min(months_since_reg, 12)
         filing_ratio = min(len(gstr1_returns) / expected_returns, 1.0) if expected_returns > 0 else 0
-        filing_points = int(filing_ratio * 25)
-        factors.append(("Return Filing Compliance", filing_points, 25, f"{len(returns)} returns filed"))
-        score = score - 25 + filing_points
+        filing_points = int(filing_ratio * 20)
+        factors.append(("Return Filing Compliance", filing_points, 20, f"{len(returns)} returns filed"))
+        score = score - 20 + filing_points
     else:
-        factors.append(("Return Filing Compliance", 0, 25, "No returns filed"))
+        factors.append(("Return Filing Compliance", 0, 20, "No returns filed"))
+        score -= 20
+    
+    # 3. Late Filing Penalty (25 points) - NEW!
+    if returns:
+        late_filing_analysis = analyze_late_filings(returns)
+        late_count = late_filing_analysis['late_count']
+        total_returns = late_count + late_filing_analysis['on_time_count']
+        
+        if total_returns > 0:
+            on_time_ratio = late_filing_analysis['on_time_count'] / total_returns
+            late_filing_points = int(on_time_ratio * 25)
+            
+            # Additional penalty for chronic late filing
+            avg_delay = late_filing_analysis['average_delay']
+            if avg_delay > 30:
+                late_filing_points = max(0, late_filing_points - 5)
+            
+            factors.append(("On-Time Filing", late_filing_points, 25, 
+                          f"{late_filing_analysis['on_time_count']} on-time, {late_count} late"))
+            score = score - 25 + late_filing_points
+        else:
+            factors.append(("On-Time Filing", 12, 25, "No filing data"))
+            score -= 13
+        
+        # Store late filing analysis for display
+        company_data['_late_filing_analysis'] = late_filing_analysis
+    else:
+        factors.append(("On-Time Filing", 0, 25, "No returns to analyze"))
         score -= 25
     
-    # 3. Filing Timeliness (20 points)
+    # 4. Filing Recency (15 points)
     if returns:
         latest_return_date = None
         for return_item in returns:
@@ -369,61 +486,53 @@ def calculate_compliance_score(company_data: dict) -> float:
         if latest_return_date:
             days_since_filing = (current_date - latest_return_date).days
             if days_since_filing <= 30:
-                timeliness_points = 20
-                timeliness_desc = "Filed within last 30 days"
+                recency_points = 15
+                recency_desc = "Filed within last 30 days"
             elif days_since_filing <= 60:
-                timeliness_points = 15
-                timeliness_desc = "Filed within last 60 days"
+                recency_points = 10
+                recency_desc = "Filed within last 60 days"
             elif days_since_filing <= 90:
-                timeliness_points = 10
-                timeliness_desc = "Filed within last 90 days"
+                recency_points = 5
+                recency_desc = "Filed within last 90 days"
             else:
-                timeliness_points = 5
-                timeliness_desc = f"Last filed {days_since_filing} days ago"
+                recency_points = 0
+                recency_desc = f"Last filed {days_since_filing} days ago"
             
-            factors.append(("Filing Timeliness", timeliness_points, 20, timeliness_desc))
-            score = score - 20 + timeliness_points
+            factors.append(("Filing Recency", recency_points, 15, recency_desc))
+            score = score - 15 + recency_points
     else:
-        factors.append(("Filing Timeliness", 0, 20, "No filing history"))
-        score -= 20
+        factors.append(("Filing Recency", 0, 15, "No filing history"))
+        score -= 15
     
-    # 4. Filing Frequency Consistency (10 points)
+    # 5. Filing Frequency Consistency (5 points)
     filing_freq = company_data.get("fillingFreq", {})
     if filing_freq:
         monthly_count = sum(1 for freq in filing_freq.values() if freq == "M")
         quarterly_count = sum(1 for freq in filing_freq.values() if freq == "Q")
         
         if monthly_count >= 6:  # Mostly monthly filer
-            freq_points = 10
+            freq_points = 5
             freq_desc = "Consistent monthly filer"
         elif quarterly_count >= 6:  # Mostly quarterly filer
-            freq_points = 8
+            freq_points = 4
             freq_desc = "Consistent quarterly filer"
         else:
-            freq_points = 5
+            freq_points = 2
             freq_desc = "Mixed filing frequency"
         
-        factors.append(("Filing Frequency", freq_points, 10, freq_desc))
-        score = score - 10 + freq_points
+        factors.append(("Filing Frequency", freq_points, 5, freq_desc))
+        score = score - 5 + freq_points
     else:
-        factors.append(("Filing Frequency", 5, 10, "No frequency data"))
-        score -= 5
+        factors.append(("Filing Frequency", 2, 5, "No frequency data"))
+        score -= 3
     
-    # 5. E-Invoice Compliance (5 points)
+    # 6. E-Invoice Compliance (5 points)
     einvoice = company_data.get("einvoiceStatus", "No")
     if einvoice == "Yes":
         factors.append(("E-Invoice Adoption", 5, 5, "E-Invoice enabled"))
     else:
         factors.append(("E-Invoice Adoption", 2, 5, "E-Invoice not enabled"))
         score -= 3
-    
-    # 6. Business Type and Category (5 points)
-    category = company_data.get("compCategory", "")
-    if category in ["Green", "Yellow"]:
-        factors.append(("Business Category", 5, 5, f"{category} category"))
-    else:
-        factors.append(("Business Category", 3, 5, f"{category or 'Unknown'} category"))
-        score -= 2
     
     # 7. Annual Return Filing (5 points)
     annual_returns = [r for r in returns if r.get("rtntype") == "GSTR9"]
@@ -636,12 +745,16 @@ async def search_gstin(request: Request, gstin: str = Form(...), current_user: s
             compliance_score
         )
         
+        # Get late filing analysis
+        late_filing_analysis = company_data.get('_late_filing_analysis', {})
+        
         return templates.TemplateResponse("results.html", {
             "request": request,
             "mobile": current_user,
             "company_data": company_data,
             "compliance_score": int(compliance_score),
-            "synopsis": synopsis
+            "synopsis": synopsis,
+            "late_filing_analysis": late_filing_analysis
         })
         
     except HTTPException as e:
@@ -712,8 +825,11 @@ async def generate_pdf(request: Request, gstin: str = Form(...), current_user: s
             except:
                 synopsis = "AI synopsis not available"
         
+        # Get late filing analysis
+        late_filing_analysis = company_data.get('_late_filing_analysis', None)
+        
         # Generate PDF
-        pdf_content = generate_pdf_report(company_data, compliance_score, synopsis)
+        pdf_content = generate_pdf_report(company_data, compliance_score, synopsis, late_filing_analysis)
         
         return StreamingResponse(
             pdf_content,
@@ -727,8 +843,8 @@ async def generate_pdf(request: Request, gstin: str = Form(...), current_user: s
         logger.error(f"PDF generation error: {e}")
         raise HTTPException(status_code=500, detail="Failed to generate PDF")
 
-def generate_pdf_report(company_data: dict, compliance_score: float, synopsis: str = None) -> BytesIO:
-    """Generate PDF report with company data - FIXED VERSION"""
+def generate_pdf_report(company_data: dict, compliance_score: float, synopsis: str = None, late_filing_analysis: dict = None) -> BytesIO:
+    """Generate comprehensive PDF report with company data and late filing analysis"""
     # Extract address parts if available
     address = company_data.get('adr', 'N/A')
     state = "Maharashtra"  # Default based on GSTIN prefix 27
@@ -746,6 +862,29 @@ def generate_pdf_report(company_data: dict, compliance_score: float, synopsis: s
     stj = company_data.get('stj', '')
     jurisdiction = f"{stj}" if stj else "N/A"
     
+    # Get returns summary
+    returns = company_data.get('returns', [])
+    gstr1_count = len([r for r in returns if r.get('rtntype') == 'GSTR1'])
+    gstr3b_count = len([r for r in returns if r.get('rtntype') == 'GSTR3B'])
+    gstr9_count = len([r for r in returns if r.get('rtntype') == 'GSTR9'])
+    
+    # Get compliance grade
+    if compliance_score >= 90:
+        grade = "A+ (Excellent)"
+        grade_color = "#10b981"
+    elif compliance_score >= 80:
+        grade = "A (Very Good)"
+        grade_color = "#34d399"
+    elif compliance_score >= 70:
+        grade = "B (Good)"
+        grade_color = "#f59e0b"
+    elif compliance_score >= 60:
+        grade = "C (Average)"
+        grade_color = "#f97316"
+    else:
+        grade = "D (Needs Improvement)"
+        grade_color = "#ef4444"
+    
     html_content = f"""
     <!DOCTYPE html>
     <html>
@@ -756,28 +895,36 @@ def generate_pdf_report(company_data: dict, compliance_score: float, synopsis: s
                 font-family: Arial, sans-serif; 
                 margin: 40px;
                 color: #333;
+                line-height: 1.6;
             }}
             .header {{
                 background-color: #1e3c72;
                 color: white;
-                padding: 20px;
+                padding: 30px;
                 margin: -40px -40px 30px -40px;
                 text-align: center;
             }}
             .header h1 {{
                 margin: 0;
-                font-size: 28px;
+                font-size: 32px;
+                font-weight: bold;
+            }}
+            .header p {{
+                margin: 10px 0 0 0;
+                font-size: 16px;
+                opacity: 0.9;
             }}
             .section {{
                 margin-bottom: 30px;
                 padding: 20px;
                 background-color: #f8f9fa;
                 border-radius: 8px;
+                page-break-inside: avoid;
             }}
             .section h2 {{
                 color: #1e3c72;
                 margin-top: 0;
-                font-size: 20px;
+                font-size: 22px;
                 border-bottom: 2px solid #1e3c72;
                 padding-bottom: 10px;
             }}
@@ -788,7 +935,7 @@ def generate_pdf_report(company_data: dict, compliance_score: float, synopsis: s
                 margin-top: 15px;
             }}
             .info-item {{
-                padding: 10px;
+                padding: 12px;
                 background-color: white;
                 border-radius: 5px;
                 border: 1px solid #e0e0e0;
@@ -797,31 +944,67 @@ def generate_pdf_report(company_data: dict, compliance_score: float, synopsis: s
                 font-weight: bold;
                 color: #666;
                 font-size: 14px;
+                display: block;
+                margin-bottom: 5px;
             }}
             .info-value {{
-                margin-top: 5px;
                 font-size: 16px;
                 color: #333;
             }}
             .compliance-score {{
                 text-align: center;
-                padding: 20px;
+                padding: 30px;
                 background-color: #2a5298;
                 color: white;
                 border-radius: 8px;
                 margin: 20px 0;
             }}
             .score-value {{
-                font-size: 48px;
+                font-size: 60px;
                 font-weight: bold;
                 margin: 10px 0;
+            }}
+            .score-grade {{
+                font-size: 24px;
+                margin: 10px 0;
+                padding: 5px 20px;
+                background-color: {grade_color};
+                border-radius: 20px;
+                display: inline-block;
+            }}
+            .returns-summary {{
+                display: grid;
+                grid-template-columns: repeat(4, 1fr);
+                gap: 15px;
+                margin: 20px 0;
+            }}
+            .return-stat {{
+                background-color: white;
+                padding: 15px;
+                border-radius: 5px;
+                text-align: center;
+                border: 1px solid #e0e0e0;
+            }}
+            .return-stat-value {{
+                font-size: 28px;
+                font-weight: bold;
+                color: #1e3c72;
+            }}
+            .return-stat-label {{
+                font-size: 12px;
+                color: #666;
+                margin-top: 5px;
             }}
             .synopsis {{
                 background-color: #e3f2fd;
                 padding: 20px;
                 border-radius: 8px;
                 margin-top: 20px;
-                line-height: 1.6;
+                line-height: 1.8;
+            }}
+            .synopsis h2 {{
+                color: #1e3c72;
+                border-color: #2196F3;
             }}
             .footer {{
                 text-align: center;
@@ -830,6 +1013,30 @@ def generate_pdf_report(company_data: dict, compliance_score: float, synopsis: s
                 border-top: 1px solid #ddd;
                 color: #666;
                 font-size: 12px;
+            }}
+            .status-active {{
+                color: #10b981;
+                font-weight: bold;
+            }}
+            .status-inactive {{
+                color: #ef4444;
+                font-weight: bold;
+            }}
+            table {{
+                width: 100%;
+                border-collapse: collapse;
+                margin-top: 15px;
+            }}
+            th {{
+                background-color: #f0f0f0;
+                padding: 10px;
+                text-align: left;
+                font-weight: bold;
+                border-bottom: 2px solid #ddd;
+            }}
+            td {{
+                padding: 8px;
+                border-bottom: 1px solid #e0e0e0;
             }}
             @page {{
                 margin: 0;
@@ -846,71 +1053,136 @@ def generate_pdf_report(company_data: dict, compliance_score: float, synopsis: s
             <h2>Company Information</h2>
             <div class="info-grid">
                 <div class="info-item">
-                    <div class="info-label">Legal Name</div>
-                    <div class="info-value">{company_data.get('lgnm', 'N/A')}</div>
+                    <span class="info-label">Legal Name</span>
+                    <span class="info-value">{company_data.get('lgnm', 'N/A')}</span>
                 </div>
                 <div class="info-item">
-                    <div class="info-label">GSTIN</div>
-                    <div class="info-value">{company_data.get('gstin', 'N/A')}</div>
+                    <span class="info-label">GSTIN</span>
+                    <span class="info-value">{company_data.get('gstin', 'N/A')}</span>
                 </div>
                 <div class="info-item">
-                    <div class="info-label">Trade Name</div>
-                    <div class="info-value">{company_data.get('tradeName', 'N/A')}</div>
+                    <span class="info-label">Trade Name</span>
+                    <span class="info-value">{company_data.get('tradeName', 'N/A')}</span>
                 </div>
                 <div class="info-item">
-                    <div class="info-label">Business Type</div>
-                    <div class="info-value">{company_data.get('ctb', 'N/A')}</div>
+                    <span class="info-label">Business Type</span>
+                    <span class="info-value">{company_data.get('ctb', 'N/A')}</span>
                 </div>
                 <div class="info-item">
-                    <div class="info-label">Registration Date</div>
-                    <div class="info-value">{company_data.get('rgdt', 'N/A')}</div>
+                    <span class="info-label">Registration Date</span>
+                    <span class="info-value">{company_data.get('rgdt', 'N/A')}</span>
                 </div>
                 <div class="info-item">
-                    <div class="info-label">Status</div>
-                    <div class="info-value">{company_data.get('sts', 'N/A')}</div>
+                    <span class="info-label">Status</span>
+                    <span class="info-value {'status-active' if company_data.get('sts') == 'Active' else 'status-inactive'}">
+                        {company_data.get('sts', 'N/A')}
+                    </span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">PAN</span>
+                    <span class="info-value">{company_data.get('pan', 'N/A')}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Company Category</span>
+                    <span class="info-value">{company_data.get('compCategory', 'N/A')}</span>
                 </div>
             </div>
         </div>
         
         <div class="compliance-score">
-            <h2 style="color: white; border: none;">Compliance Score</h2>
+            <h2 style="color: white; border: none; margin-bottom: 20px;">Compliance Score</h2>
             <div class="score-value">{int(compliance_score)}%</div>
-            <p>Based on registration status and filing history</p>
+            <div class="score-grade">{grade}</div>
+            <p style="margin-top: 20px;">Based on registration status, filing history, and compliance factors</p>
+            
+            {f'''<div style="margin-top: 25px; background-color: rgba(255,255,255,0.1); padding: 15px; border-radius: 5px;">
+                <h3 style="color: white; margin-bottom: 10px; font-size: 16px;">Score Breakdown</h3>
+                {''.join(f'<div style="display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px solid rgba(255,255,255,0.2);"><span>{factor[0]}</span><span>{factor[1]}/{factor[2]} pts</span></div>' for factor in company_data.get('_compliance_factors', []))}
+            </div>''' if company_data.get('_compliance_factors') else ''}
         </div>
         
         <div class="section">
-            <h2>Address Details</h2>
+            <h2>GST Returns Summary</h2>
+            {f'''<div style="background-color: #fff3cd; border: 1px solid #ffeaa7; border-radius: 5px; padding: 15px; margin-bottom: 20px;">
+                <strong style="color: #856404;">⚠️ Late Filing Alert:</strong> {late_filing_analysis['late_count']} returns filed late out of {late_filing_analysis['late_count'] + late_filing_analysis['on_time_count']} total returns.
+                Average delay: {late_filing_analysis['average_delay']:.1f} days.
+            </div>''' if late_filing_analysis and late_filing_analysis['late_count'] > 0 else ''}
+            <div class="returns-summary">
+                <div class="return-stat">
+                    <div class="return-stat-value">{len(returns)}</div>
+                    <div class="return-stat-label">Total Returns</div>
+                </div>
+                <div class="return-stat">
+                    <div class="return-stat-value">{gstr1_count}</div>
+                    <div class="return-stat-label">GSTR-1 Filed</div>
+                </div>
+                <div class="return-stat">
+                    <div class="return-stat-value">{gstr3b_count}</div>
+                    <div class="return-stat-label">GSTR-3B Filed</div>
+                </div>
+                <div class="return-stat">
+                    <div class="return-stat-value">{gstr9_count}</div>
+                    <div class="return-stat-label">Annual Returns</div>
+                </div>
+            </div>
+            
+            {f'''<h3 style="margin-top: 25px;">Latest Returns Filed</h3>
+            <table>
+                <tr>
+                    <th>Return Type</th>
+                    <th>Tax Period</th>
+                    <th>Financial Year</th>
+                    <th>Filing Date</th>
+                    <th>Status</th>
+                </tr>
+                {''.join(f"<tr><td>{r.get('rtntype')}</td><td>{r.get('taxp')}</td><td>{r.get('fy')}</td><td>{r.get('dof')}</td><td>{'On Time' if not any(lr['return']['dof'] == r.get('dof') and lr['return']['rtntype'] == r.get('rtntype') for lr in (late_filing_analysis.get('late_returns', []) if late_filing_analysis else [])) else f'Late by {next(lr["delay_days"] for lr in late_filing_analysis["late_returns"] if lr["return"]["dof"] == r.get("dof") and lr["return"]["rtntype"] == r.get("rtntype"))} days'}</td></tr>" for r in returns[:5])}
+            </table>''' if returns else '<p>No return filing history available.</p>'}
+        </div>
+        
+        <div class="section">
+            <h2>Business Details</h2>
             <div class="info-grid">
                 <div class="info-item" style="grid-column: 1 / -1;">
-                    <div class="info-label">Principal Place of Business</div>
-                    <div class="info-value">{address}</div>
+                    <span class="info-label">Principal Place of Business</span>
+                    <span class="info-value">{address}</span>
                 </div>
                 <div class="info-item">
-                    <div class="info-label">State</div>
-                    <div class="info-value">{state}</div>
+                    <span class="info-label">State</span>
+                    <span class="info-value">{state}</span>
                 </div>
                 <div class="info-item">
-                    <div class="info-label">Jurisdiction</div>
-                    <div class="info-value">{jurisdiction}</div>
+                    <span class="info-label">Nature of Business</span>
+                    <span class="info-value">{', '.join(company_data.get('nba', [])) if company_data.get('nba') else 'N/A'}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">State Jurisdiction</span>
+                    <span class="info-value" style="font-size: 14px;">{company_data.get('stj', 'N/A')}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Central Jurisdiction</span>
+                    <span class="info-value" style="font-size: 14px;">{company_data.get('ctj', 'N/A')}</span>
                 </div>
             </div>
         </div>
         
         {f'''<div class="synopsis">
-            <h2 style="color: #1e3c72;">AI-Generated Business Overview</h2>
+            <h2 style="color: #1e3c72;">Company Overview</h2>
             <p>{synopsis}</p>
+            <p style="font-size: 12px; color: #666; margin-top: 15px;">
+                <em>This overview is generated using AI analysis and web research.</em>
+            </p>
         </div>''' if synopsis else ''}
         
         <div class="footer">
-            <p>This report is generated by GST Intelligence Platform</p>
-            <p>For the most current information, please verify with official GST portal</p>
+            <p><strong>Disclaimer:</strong> This report is generated by GST Intelligence Platform based on available GST data.</p>
+            <p>For the most current information, please verify with the official GST portal.</p>
             <p>&copy; {datetime.now().year} GST Intelligence Platform. All rights reserved.</p>
         </div>
     </body>
     </html>
     """
     
-    # Generate PDF - FIXED: Use correct parameter name
+    # Generate PDF
     pdf_file = BytesIO()
     HTML(string=html_content).write_pdf(target=pdf_file)
     pdf_file.seek(0)
