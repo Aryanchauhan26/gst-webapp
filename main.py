@@ -163,7 +163,7 @@ class PostgresDB:
                 "SELECT mobile, expires_at FROM sessions WHERE session_token=$1",
                 session_token
             )
-            if row and datetime.fromisoformat(row['expires_at']) > datetime.now():
+            if row and row['expires_at'] > datetime.now():
                 return row['mobile']
         return None
 
