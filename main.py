@@ -143,7 +143,7 @@ class PostgresDB:
 
     async def create_session(self, mobile: str) -> Optional[str]:
         session_token = secrets.token_urlsafe(32)
-        expires_at = (datetime.now() + timedelta(days=7)).isoformat()
+        expires_at = datetime.now() + timedelta(days=7)
         await self.connect()
         try:
             async with self.pool.acquire() as conn:
@@ -152,7 +152,8 @@ class PostgresDB:
                     session_token, mobile, expires_at
                 )
             return session_token
-        except Exception:
+        except Exception as e:
+            print(f"Session creation failed: {e}")  # Add this line for debugging
             return None
 
     async def get_session(self, session_token: str) -> Optional[str]:
