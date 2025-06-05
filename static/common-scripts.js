@@ -278,3 +278,39 @@ style.textContent = `
     }
 `;
 document.head.appendChild(style);
+
+// Add this to the end of your static/common-scripts.js file
+
+// Theme Toggle Functionality
+function toggleTheme() {
+    const body = document.body;
+    const themeIcon = document.getElementById('theme-indicator-icon');
+    
+    if (body.classList.contains('light-theme')) {
+        body.classList.remove('light-theme');
+        if (themeIcon) themeIcon.className = 'fas fa-moon';
+        localStorage.setItem('theme', 'dark');
+    } else {
+        body.classList.add('light-theme');
+        if (themeIcon) themeIcon.className = 'fas fa-sun';
+        localStorage.setItem('theme', 'light');
+    }
+}
+
+// Initialize theme on page load
+document.addEventListener('DOMContentLoaded', function() {
+    // Check for saved theme preference
+    const savedTheme = localStorage.getItem('theme');
+    const themeIcon = document.getElementById('theme-indicator-icon');
+    
+    if (savedTheme === 'light') {
+        document.body.classList.add('light-theme');
+        if (themeIcon) themeIcon.className = 'fas fa-sun';
+    }
+    
+    // Add theme toggle to existing DOMContentLoaded or create new one
+    const themeToggleBtn = document.querySelector('.theme-toggle');
+    if (themeToggleBtn) {
+        themeToggleBtn.addEventListener('click', toggleTheme);
+    }
+});

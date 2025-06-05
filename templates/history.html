@@ -4,24 +4,113 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Search History - GST Intelligence Platform</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <link rel="stylesheet" href="/static/style.css">
+    <link rel="stylesheet" href="/static/common-styles.css">
 </head>
 <body>
+    <!-- Enhanced Header with Theme Toggle -->
+    <header class="header">
+        <div class="header-content">
+            <div class="logo">
+                <div class="logo-icon">
+                    <i class="fas fa-chart-line"></i>
+                </div>
+                <div class="logo-text">
+                    <h1 style="font-size: 1.75rem; font-weight: 700; background: var(--accent-gradient); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 0.2rem;">GST Intelligence</h1>
+                    <p style="font-size: 0.875rem; color: var(--text-secondary); font-weight: 400; margin: 0;">Advanced Business Analytics Platform</p>
+                </div>
+            </div>
+            <nav class="nav-items">
+                <a href="/" class="nav-link">Dashboard</a>
+                <a href="/history" class="nav-link">History</a>
+                <!-- Theme Toggle -->
+                <div class="theme-toggle" onclick="toggleTheme()">
+                    <div class="theme-icon">
+                        <i class="fas fa-moon"></i>
+                    </div>
+                    <div class="theme-icon">
+                        <i class="fas fa-sun"></i>
+                    </div>
+                    <div class="theme-toggle-indicator">
+                        <i class="fas fa-moon" id="theme-indicator-icon"></i>
+                    </div>
+                </div>
+                <a href="/logout" class="logout-btn">Logout</a>
+            </nav>
+        </div>
+    </header>
+
     <main class="container">
         <section class="history-section">
-            <h1>Search History</h1>
-            <ul>
-                {% for item in history %}
-                    <li>
-                        <strong>{{ item.gstin }}</strong> - {{ item.company_name }} ({{ item.compliance_score }}%)
-                        <span style="color: #888;">[{{ item.searched_at }}]</span>
-                    </li>
-                {% else %}
-                    <li>No search history found.</li>
-                {% endfor %}
-            </ul>
-            <a href="/">Back to Dashboard</a>
+            <div class="history-title">
+                <div style="display: flex; align-items: center; gap: 0.5rem;">
+                    <i class="fas fa-history"></i>
+                    <h1>Search History</h1>
+                </div>
+                <a href="/" class="btn btn-secondary">
+                    <i class="fas fa-arrow-left"></i>
+                    Back to Dashboard
+                </a>
+            </div>
+            
+            {% if history %}
+            <div class="table-container">
+                <table class="history-table">
+                    <thead>
+                        <tr>
+                            <th>Date & Time</th>
+                            <th>GSTIN</th>
+                            <th>Company Name</th>
+                            <th>Compliance Score</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in history %}
+                        <tr>
+                            <td>{{ item.searched_at }}</td>
+                            <td><code style="background: var(--bg-hover); padding: 0.25rem 0.5rem; border-radius: 4px;">{{ item.gstin }}</code></td>
+                            <td><strong>{{ item.company_name }}</strong></td>
+                            <td>
+                                {% if item.compliance_score %}
+                                    {% if item.compliance_score >= 80 %}
+                                        <span class="score-badge score-high">{{ item.compliance_score }}%</span>
+                                    {% elif item.compliance_score >= 60 %}
+                                        <span class="score-badge score-medium">{{ item.compliance_score }}%</span>
+                                    {% else %}
+                                        <span class="score-badge score-low">{{ item.compliance_score }}%</span>
+                                    {% endif %}
+                                {% else %}
+                                    <span class="score-badge">N/A</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <form action="/search" method="POST" style="display: inline;">
+                                    <input type="hidden" name="gstin" value="{{ item.gstin }}">
+                                    <button type="submit" class="btn btn-primary" style="padding: 0.5rem 1rem; font-size: 0.875rem;">
+                                        <i class="fas fa-eye"></i> View
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="empty-state">
+                <i class="fas fa-search" style="font-size: 64px; color: var(--text-muted); margin-bottom: 1rem; display: block;"></i>
+                <h3>No search history found</h3>
+                <p>Start searching for companies to build your history</p>
+                <a href="/" class="btn btn-primary" style="margin-top: 1rem;">
+                    <i class="fas fa-search"></i> Start Searching
+                </a>
+            </div>
+            {% endif %}
         </section>
     </main>
+
+    <script src="/static/common-scripts.js"></script>
 </body>
 </html>
