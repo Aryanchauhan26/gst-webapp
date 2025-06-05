@@ -181,7 +181,7 @@ class PostgresDB:
         async with self.pool.acquire() as conn:
             await conn.execute(
                 "UPDATE users SET last_login=$1 WHERE mobile=$2",
-                datetime.now().isoformat(), mobile
+                datetime.now(), mobile
             )
 
     async def add_search_history(self, mobile: str, gstin: str, company_name: str, compliance_score: float = None):
@@ -526,7 +526,7 @@ async def health_check():
         
         return {
             "status": "healthy" if db_status == "healthy" else "degraded",
-            "timestamp": datetime.now().isoformat(),
+            "timestamp": datetime.now(),
             "version": "2.0.0",
             "checks": {
                 "database": db_status,
@@ -540,7 +540,7 @@ async def health_check():
             content={
                 "status": "unhealthy",
                 "error": str(e),
-                "timestamp": datetime.now().isoformat()
+                "timestamp": datetime.now()
             }
         )
 
