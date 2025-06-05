@@ -558,19 +558,10 @@ async def get_login(request: Request):
     """Login page"""
     return templates.TemplateResponse("login.html", {"request": request})
 
+# Remove RateLimiter usage from login
 @app.post("/login")
 async def post_login(request: Request, mobile: str = Form(...), password: str = Form(...)):
-    """Process login with rate limiting"""
-    # Get client IP for rate limiting
-    client_ip = request.client.host
-    
-    # Check rate limit
-    if not login_limiter.is_allowed(client_ip):
-        return templates.TemplateResponse("login.html", {
-            "request": request,
-            "error": "Too many attempts. Try again later."
-        })
-    
+    """Process login without rate limiting"""
     is_valid, message = validate_mobile(mobile)
     if not is_valid:
         return templates.TemplateResponse("login.html", {
