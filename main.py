@@ -1047,6 +1047,7 @@ def generate_pdf_report(company_data: dict, compliance_score: float, synopsis: s
         <div class="header">
             <h1>GST Compliance Report</h1>
             <p>Generated on {datetime.now().strftime("%d %B %Y at %I:%M %p")}</p>
+            {returns_table}
         </div>
         
         <div class="section">
@@ -1074,7 +1075,7 @@ def generate_pdf_report(company_data: dict, compliance_score: float, synopsis: s
                 </div>
                 <div class="info-item">
                     <span class="info-label">Status</span>
-                    <span class="info-value {'status-active' if company_data.get('sts') == 'Active' else 'status-inactive'}">
+                    <span class="info-value{' status-active' if company_data.get('sts') == 'Active' else ' status-inactive'}">
                         {company_data.get('sts', 'N/A')}
                     </span>
                 </div>
@@ -1126,7 +1127,26 @@ def generate_pdf_report(company_data: dict, compliance_score: float, synopsis: s
                 </div>
             </div>
             
-            {f'''<h3 style="margin-top: 25px;">Latest Returns Filed</h3>
+            # Prepare returns data for table
+            table_rows = []
+            for r in returns[:5]:
+                return_type = r.get('rtntype')
+                tax_period = r.get('taxp')
+                fy = r.get('fy')
+                dof = r.get('dof')
+                
+                # Check if this return was filed late
+                status = 'On Time'
+                if late_filing_analysis and late_filing_analysis.get('late_returns'):
+                    for lr in late_filing_analysis['late_returns']:
+                        if (lr['return']['dof'] == dof and 
+                            lr['return']['rtntype'] == return_type):
+                            status = f"Late by {lr['delay_days']} days"
+                            break
+                
+                table_rows.append(f"<tr><td>{return_type}</td><td>{tax_period}</td><td>{fy}</td><td>{dof}</td><td>{status}</td></tr>")
+            
+            returns_table = f'''<h3 style="margin-top: 25px;">Latest Returns Filed</h3>
             <table>
                 <tr>
                     <th>Return Type</th>
@@ -1135,8 +1155,8 @@ def generate_pdf_report(company_data: dict, compliance_score: float, synopsis: s
                     <th>Filing Date</th>
                     <th>Status</th>
                 </tr>
-                {''.join(f"<tr><td>{r.get('rtntype')}</td><td>{r.get('taxp')}</td><td>{r.get('fy')}</td><td>{r.get('dof')}</td><td>{'On Time' if not any(lr['return']['dof'] == r.get('dof') and lr['return']['rtntype'] == r.get('rtntype') for lr in (late_filing_analysis.get('late_returns', []) if late_filing_analysis else [])) else f'Late by {next(lr["delay_days"] for lr in late_filing_analysis["late_returns"] if lr["return"]["dof"] == r.get("dof") and lr["return"]["rtntype"] == r.get("rtntype"))} days'}</td></tr>" for r in returns[:5])}
-            </table>''' if returns else '<p>No return filing history available.</p>'}
+                {''.join(table_rows)}
+            </table>''' if returns else '<p>No return filing history available.</p>'
         </div>
         
         <div class="section">
