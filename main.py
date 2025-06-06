@@ -22,6 +22,7 @@ from io import BytesIO
 from weasyprint import HTML
 from dotenv import load_dotenv
 from anthro_ai import get_anthropic_synopsis
+from fastapi import Response
 
 # Load environment variables
 load_dotenv()
@@ -793,6 +794,8 @@ async def generate_pdf(request: Request, gstin: str = Form(...), current_user: s
         logger.error(f"PDF generation error: {e}")
         raise HTTPException(status_code=500, detail="Failed to generate PDF")
 
+# Replace the generate_pdf_report function in main.py with this fixed version
+
 def generate_pdf_report(company_data: dict, compliance_score: float, synopsis: str = None, late_filing_analysis: dict = None) -> BytesIO:
     """Generate comprehensive PDF report with company data and late filing analysis"""
     # Extract address parts if available
@@ -834,6 +837,41 @@ def generate_pdf_report(company_data: dict, compliance_score: float, synopsis: s
     else:
         grade = "D (Needs Improvement)"
         grade_color = "#ef4444"
+    
+    # Prepare returns table HTML
+    returns_table_html = ""
+    if returns:
+        table_rows = []
+        for r in returns[:5]:
+            return_type = r.get('rtntype', 'N/A')
+            tax_period = r.get('taxp', 'N/A')
+            fy = r.get('fy', 'N/A')
+            dof = r.get('dof', 'N/A')
+            
+            # Check if this return was filed late
+            status = 'On Time'
+            if late_filing_analysis and late_filing_analysis.get('late_returns'):
+                for lr in late_filing_analysis['late_returns']:
+                    if (lr['return'].get('dof') == dof and 
+                        lr['return'].get('rtntype') == return_type):
+                        status = f"Late by {lr['delay_days']} days"
+                        break
+            
+            table_rows.append(f"<tr><td>{return_type}</td><td>{tax_period}</td><td>{fy}</td><td>{dof}</td><td>{status}</td></tr>")
+        
+        returns_table_html = f'''<h3 style="margin-top: 25px;">Latest Returns Filed</h3>
+        <table>
+            <tr>
+                <th>Return Type</th>
+                <th>Tax Period</th>
+                <th>Financial Year</th>
+                <th>Filing Date</th>
+                <th>Status</th>
+            </tr>
+            {''.join(table_rows)}
+        </table>'''
+    else:
+        returns_table_html = '<p>No return filing history available.</p>'
     
     html_content = f"""
     <!DOCTYPE html>
@@ -997,7 +1035,6 @@ def generate_pdf_report(company_data: dict, compliance_score: float, synopsis: s
         <div class="header">
             <h1>GST Compliance Report</h1>
             <p>Generated on {datetime.now().strftime("%d %B %Y at %I:%M %p")}</p>
-            {returns_table}
         </div>
         
         <div class="section">
@@ -1057,7 +1094,7 @@ def generate_pdf_report(company_data: dict, compliance_score: float, synopsis: s
             {f'''<div style="background-color: #fff3cd; border: 1px solid #ffeaa7; border-radius: 5px; padding: 15px; margin-bottom: 20px;">
                 <strong style="color: #856404;">⚠️ Late Filing Alert:</strong> {late_filing_analysis['late_count']} returns filed late out of {late_filing_analysis['late_count'] + late_filing_analysis['on_time_count']} total returns.
                 Average delay: {late_filing_analysis['average_delay']:.1f} days.
-            </div>''' if late_filing_analysis and late_filing_analysis['late_count'] > 0 else ''}
+            </div>''' if late_filing_analysis and late_filing_analysis.get('late_count', 0) > 0 else ''}
             <div class="returns-summary">
                 <div class="return-stat">
                     <div class="return-stat-value">{len(returns)}</div>
@@ -1076,37 +1113,7 @@ def generate_pdf_report(company_data: dict, compliance_score: float, synopsis: s
                     <div class="return-stat-label">Annual Returns</div>
                 </div>
             </div>
-            
-            # Prepare returns data for table
-            table_rows = []
-            for r in returns[:5]:
-                return_type = r.get('rtntype')
-                tax_period = r.get('taxp')
-                fy = r.get('fy')
-                dof = r.get('dof')
-                
-                # Check if this return was filed late
-                status = 'On Time'
-                if late_filing_analysis and late_filing_analysis.get('late_returns'):
-                    for lr in late_filing_analysis['late_returns']:
-                        if (lr['return']['dof'] == dof and 
-                            lr['return']['rtntype'] == return_type):
-                            status = f"Late by {lr['delay_days']} days"
-                            break
-                
-                table_rows.append(f"<tr><td>{return_type}</td><td>{tax_period}</td><td>{fy}</td><td>{dof}</td><td>{status}</td></tr>")
-            
-            returns_table = f'''<h3 style="margin-top: 25px;">Latest Returns Filed</h3>
-            <table>
-                <tr>
-                    <th>Return Type</th>
-                    <th>Tax Period</th>
-                    <th>Financial Year</th>
-                    <th>Filing Date</th>
-                    <th>Status</th>
-                </tr>
-                {''.join(table_rows)}
-            </table>''' if returns else '<p>No return filing history available.</p>'
+            {returns_table_html}
         </div>
         
         <div class="section">
@@ -1163,6 +1170,13 @@ def generate_pdf_report(company_data: dict, compliance_score: float, synopsis: s
 async def refresh_session(current_user: str = Depends(require_auth)):
     """Refresh session to prevent timeout"""
     return {"status": "success", "message": "Session refreshed"}
+
+@app.get("/favicon.ico")
+async def favicon():
+    """Return a simple favicon to prevent 404 errors"""
+    # Return a 1x1 transparent PNG
+    favicon_bytes = b'\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\rIDATx\x9cc\xf8\x0f\x00\x00\x01\x01\x00\x05\x00\x01\x8d\xc8\x02\x00\x00\x00\x00IEND\xaeB`\x82'
+    return Response(content=favicon_bytes, media_type="image/png")
 
 # Error handlers
 @app.exception_handler(HTTPException)
