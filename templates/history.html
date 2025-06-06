@@ -8,7 +8,7 @@
     <link rel="stylesheet" href="/static/style.css">
     <link rel="stylesheet" href="/static/common-styles.css">
 </head>
-<body>
+<body style="background: var(--bg-primary); color: var(--text-primary);">
     <!-- Enhanced Header with Theme Toggle -->
     <header class="header">
         <div class="header-content">
@@ -25,15 +25,13 @@
                 <a href="/" class="nav-link">Dashboard</a>
                 <a href="/history" class="nav-link">History</a>
                 <!-- Theme Toggle -->
-                <div class="theme-toggle" onclick="toggleTheme()">
-                    <div class="theme-icon">
-                        <i class="fas fa-moon"></i>
-                    </div>
-                    <div class="theme-icon">
-                        <i class="fas fa-sun"></i>
-                    </div>
-                    <div class="theme-toggle-indicator">
-                        <i class="fas fa-moon" id="theme-indicator-icon"></i>
+                <div style="display: flex; justify-content: flex-end; padding: 1rem;">
+                    <div class="theme-toggle" onclick="toggleTheme()" style="width: 72px;">
+                        <div class="theme-icon"><i class="fas fa-moon"></i></div>
+                        <div class="theme-icon"><i class="fas fa-sun"></i></div>
+                        <div class="theme-toggle-indicator">
+                            <i class="fas fa-moon" id="theme-indicator-icon"></i>
+                        </div>
                     </div>
                 </div>
                 <a href="/logout" class="logout-btn">Logout</a>
@@ -111,6 +109,6 @@
         </section>
     </main>
 
-    <script src="/static/common-scripts.js"></script>
+    <script src="{{ url_for('static', path='common-scripts.js') }}"></script>
 </body>
 </html>

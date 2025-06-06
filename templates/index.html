@@ -691,15 +691,13 @@
                 <a href="/history" class="nav-link">History</a>
                 <span class="nav-link">{{ mobile }}</span>
                 <!-- Theme Toggle -->
-                <div class="theme-toggle" onclick="toggleTheme()">
-                    <div class="theme-icon">
-                        <i class="fas fa-moon"></i>
-                    </div>
-                    <div class="theme-icon">
-                        <i class="fas fa-sun"></i>
-                    </div>
-                    <div class="theme-toggle-indicator">
-                        <i class="fas fa-moon" id="theme-indicator-icon"></i>
+                <div style="display: flex; justify-content: flex-end; padding: 1rem;">
+                    <div class="theme-toggle" onclick="toggleTheme()" style="width: 72px;">
+                        <div class="theme-icon"><i class="fas fa-moon"></i></div>
+                        <div class="theme-icon"><i class="fas fa-sun"></i></div>
+                        <div class="theme-toggle-indicator">
+                            <i class="fas fa-moon" id="theme-indicator-icon"></i>
+                        </div>
                     </div>
                 </div>
                 <a href="/logout" class="logout-btn">
