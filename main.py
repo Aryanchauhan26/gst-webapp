@@ -646,6 +646,93 @@ async def logout(request: Request):
     response.delete_cookie("session_token")
     return response
 
+# Add this route to your main.py file, or replace the existing @app.post("/search") with both routes:
+
+@app.get("/search")
+async def search_gstin_get(request: Request, gstin: str = None, current_user: str = Depends(require_auth)):
+    """Handle GET requests for search (from View button)"""
+    if not gstin:
+        return RedirectResponse(url="/", status_code=302)
+    
+    # Validate GSTIN format
+    gstin = gstin.strip().upper()
+    if not validate_gstin(gstin):
+        history = await db.get_search_history(current_user)
+        return templates.TemplateResponse("index.html", {
+            "request": request,
+            "mobile": current_user,
+            "error": "Invalid GSTIN format",
+            "history": history
+        })
+    
+    # Check API rate limit
+    if not api_limiter.is_allowed(current_user):
+        retry_after = api_limiter.get_retry_after(current_user)
+        history = await db.get_search_history(current_user)
+        return templates.TemplateResponse("index.html", {
+            "request": request,
+            "mobile": current_user,
+            "error": f"API rate limit exceeded. Please try again in {retry_after} seconds.",
+            "history": history
+        })
+    
+    try:
+        # Fetch data from API
+        if not api_client:
+            raise HTTPException(status_code=503, detail="GST API service not configured")
+            
+        company_data = await api_client.fetch_gstin_data(gstin)
+        
+        # Calculate compliance score
+        compliance_score = calculate_compliance_score(company_data)
+        
+        # Get AI synopsis if available
+        synopsis = None
+        if ANTHROPIC_API_KEY:
+            try:
+                synopsis = await get_anthropic_synopsis(company_data)
+            except Exception as e:
+                logger.error(f"Failed to get AI synopsis: {e}")
+                synopsis = None
+        
+        # Add to search history
+        await db.add_search_history(
+            current_user,
+            gstin,
+            company_data.get("lgnm", "Unknown"),
+            compliance_score
+        )
+        
+        # Get late filing analysis
+        late_filing_analysis = company_data.get('_late_filing_analysis', {})
+        
+        return templates.TemplateResponse("results.html", {
+            "request": request,
+            "mobile": current_user,
+            "company_data": company_data,
+            "compliance_score": int(compliance_score),
+            "synopsis": synopsis,
+            "late_filing_analysis": late_filing_analysis
+        })
+        
+    except HTTPException as e:
+        history = await db.get_search_history(current_user)
+        return templates.TemplateResponse("index.html", {
+            "request": request,
+            "mobile": current_user,
+            "error": e.detail,
+            "history": history
+        })
+    except Exception as e:
+        logger.error(f"Search error: {e}")
+        history = await db.get_search_history(current_user)
+        return templates.TemplateResponse("index.html", {
+            "request": request,
+            "mobile": current_user,
+            "error": "An error occurred while searching. Please try again.",
+            "history": history
+        })
+
 @app.post("/search")
 async def search_gstin(request: Request, gstin: str = Form(...), current_user: str = Depends(require_auth)):
     """Search for GSTIN with enhanced features"""
@@ -797,25 +884,35 @@ async def generate_pdf(request: Request, gstin: str = Form(...), current_user: s
 # Replace the generate_pdf_report function in main.py with this fixed version
 
 def generate_pdf_report(company_data: dict, compliance_score: float, synopsis: str = None, late_filing_analysis: dict = None) -> BytesIO:
-    """Generate comprehensive PDF report with company data and late filing analysis"""
-    # Extract address parts if available
+    """Generate comprehensive PDF report with enhanced styling"""
+    # Extract data
+    company_name = company_data.get("lgnm", "Unknown Company")
+    gstin = company_data.get("gstin", "N/A")
+    status = company_data.get("sts", "N/A")
+    company_type = company_data.get("ctb", "N/A")
+    reg_date = company_data.get("rgdt", "N/A")
+    pan = company_data.get("pan", "N/A")
+    category = company_data.get("compCategory", "N/A")
+    trade_name = company_data.get("tradeName", "N/A")
+    
+    # Address details
     address = company_data.get('adr', 'N/A')
-    state = "Maharashtra"  # Default based on GSTIN prefix 27
-    if address != 'N/A':
-        # Try to extract state from address
-        address_parts = address.split(',')
-        if len(address_parts) > 3:
-            for part in address_parts:
-                if any(state_name in part for state_name in ['Maharashtra', 'Gujarat', 'Delhi', 'Karnataka', 'Tamil Nadu']):
-                    state = part.strip()
-                    break
+    pincode = company_data.get('pincode', 'N/A')
+    state = "N/A"
+    if company_data.get('stj') and 'State - ' in company_data.get('stj'):
+        state = company_data.get('stj').split('State - ')[1].split(',')[0]
     
-    # Extract jurisdiction info
-    ctj = company_data.get('ctj', '')
-    stj = company_data.get('stj', '')
-    jurisdiction = f"{stj}" if stj else "N/A"
+    # Jurisdiction
+    stj = company_data.get('stj', 'N/A')
+    ctj = company_data.get('ctj', 'N/A')
     
-    # Get returns summary
+    # Business details
+    nba = company_data.get('nba', [])
+    nba_str = ', '.join(nba) if nba else 'N/A'
+    einvoice = company_data.get('einvoiceStatus', 'N/A')
+    duty_type = company_data.get('dty', 'N/A')
+    
+    # Returns data
     returns = company_data.get('returns', [])
     gstr1_count = len([r for r in returns if r.get('rtntype') == 'GSTR1'])
     gstr3b_count = len([r for r in returns if r.get('rtntype') == 'GSTR3B'])
@@ -838,126 +935,172 @@ def generate_pdf_report(company_data: dict, compliance_score: float, synopsis: s
         grade = "D (Needs Improvement)"
         grade_color = "#ef4444"
     
-    # Prepare returns table HTML
-    returns_table_html = ""
+    # Prepare returns table
+    returns_rows = []
     if returns:
-        table_rows = []
-        for r in returns[:5]:
+        for r in returns[:10]:  # Show top 10 returns
             return_type = r.get('rtntype', 'N/A')
             tax_period = r.get('taxp', 'N/A')
             fy = r.get('fy', 'N/A')
             dof = r.get('dof', 'N/A')
             
-            # Check if this return was filed late
-            status = 'On Time'
+            # Check if late
+            status = '<span style="color: #10b981;">On Time</span>'
             if late_filing_analysis and late_filing_analysis.get('late_returns'):
                 for lr in late_filing_analysis['late_returns']:
                     if (lr['return'].get('dof') == dof and 
                         lr['return'].get('rtntype') == return_type):
-                        status = f"Late by {lr['delay_days']} days"
+                        status = f'<span style="color: #ef4444;">Late by {lr["delay_days"]} days</span>'
                         break
             
-            table_rows.append(f"<tr><td>{return_type}</td><td>{tax_period}</td><td>{fy}</td><td>{dof}</td><td>{status}</td></tr>")
-        
-        returns_table_html = f'''<h3 style="margin-top: 25px;">Latest Returns Filed</h3>
-        <table>
-            <tr>
-                <th>Return Type</th>
-                <th>Tax Period</th>
-                <th>Financial Year</th>
-                <th>Filing Date</th>
-                <th>Status</th>
-            </tr>
-            {''.join(table_rows)}
-        </table>'''
-    else:
-        returns_table_html = '<p>No return filing history available.</p>'
+            returns_rows.append(f"""
+                <tr>
+                    <td style="padding: 10px; border: 1px solid #e5e7eb;">{return_type}</td>
+                    <td style="padding: 10px; border: 1px solid #e5e7eb;">{tax_period}</td>
+                    <td style="padding: 10px; border: 1px solid #e5e7eb;">{fy}</td>
+                    <td style="padding: 10px; border: 1px solid #e5e7eb;">{dof}</td>
+                    <td style="padding: 10px; border: 1px solid #e5e7eb;">{status}</td>
+                </tr>
+            """)
     
+    # HTML content with enhanced styling
     html_content = f"""
     <!DOCTYPE html>
     <html>
     <head>
         <meta charset="UTF-8">
         <style>
-            body {{ 
-                font-family: Arial, sans-serif; 
-                margin: 40px;
-                color: #333;
+            @page {{
+                size: A4;
+                margin: 0;
+            }}
+            body {{
+                font-family: -apple-system, Arial, sans-serif;
+                margin: 0;
+                padding: 0;
+                color: #1f2937;
                 line-height: 1.6;
+                background: #ffffff;
+            }}
+            .container {{
+                padding: 40px;
             }}
             .header {{
-                background-color: #1e3c72;
+                background: linear-gradient(135deg, #7c3aed 0%, #2563eb 100%);
                 color: white;
-                padding: 30px;
+                padding: 40px;
                 margin: -40px -40px 30px -40px;
                 text-align: center;
+                position: relative;
             }}
             .header h1 {{
                 margin: 0;
-                font-size: 32px;
-                font-weight: bold;
+                font-size: 36px;
+                font-weight: 800;
+                letter-spacing: -0.5px;
             }}
             .header p {{
                 margin: 10px 0 0 0;
-                font-size: 16px;
+                font-size: 18px;
                 opacity: 0.9;
+            }}
+            .generated-date {{
+                position: absolute;
+                top: 20px;
+                right: 40px;
+                font-size: 12px;
+                opacity: 0.8;
+            }}
+            .company-header {{
+                background: #f8f9fa;
+                padding: 25px;
+                border-radius: 12px;
+                margin-bottom: 30px;
+                border-left: 5px solid #7c3aed;
+            }}
+            .company-name {{
+                font-size: 28px;
+                font-weight: 700;
+                color: #1f2937;
+                margin: 0 0 5px 0;
+            }}
+            .gstin-label {{
+                font-size: 16px;
+                color: #6b7280;
+                font-family: monospace;
             }}
             .section {{
                 margin-bottom: 30px;
-                padding: 20px;
-                background-color: #f8f9fa;
-                border-radius: 8px;
+                background: #ffffff;
+                border: 1px solid #e5e7eb;
+                border-radius: 12px;
+                padding: 25px;
                 page-break-inside: avoid;
             }}
-            .section h2 {{
-                color: #1e3c72;
-                margin-top: 0;
-                font-size: 22px;
-                border-bottom: 2px solid #1e3c72;
+            .section-title {{
+                font-size: 20px;
+                font-weight: 700;
+                color: #1f2937;
+                margin: 0 0 20px 0;
                 padding-bottom: 10px;
+                border-bottom: 2px solid #7c3aed;
+                display: flex;
+                align-items: center;
+                gap: 10px;
             }}
             .info-grid {{
                 display: grid;
                 grid-template-columns: 1fr 1fr;
-                gap: 15px;
-                margin-top: 15px;
+                gap: 20px;
             }}
             .info-item {{
-                padding: 12px;
-                background-color: white;
-                border-radius: 5px;
-                border: 1px solid #e0e0e0;
+                padding: 15px;
+                background: #f8f9fa;
+                border-radius: 8px;
+                border: 1px solid #e5e7eb;
             }}
             .info-label {{
-                font-weight: bold;
-                color: #666;
-                font-size: 14px;
+                font-size: 13px;
+                color: #6b7280;
+                font-weight: 600;
                 display: block;
                 margin-bottom: 5px;
             }}
             .info-value {{
                 font-size: 16px;
-                color: #333;
+                color: #1f2937;
+                font-weight: 500;
             }}
-            .compliance-score {{
-                text-align: center;
-                padding: 30px;
-                background-color: #2a5298;
+            .compliance-section {{
+                background: linear-gradient(135deg, #7c3aed 0%, #2563eb 100%);
                 color: white;
-                border-radius: 8px;
-                margin: 20px 0;
+                padding: 30px;
+                border-radius: 12px;
+                text-align: center;
+                margin-bottom: 30px;
+                page-break-inside: avoid;
+            }}
+            .score-circle {{
+                width: 120px;
+                height: 120px;
+                margin: 0 auto 20px;
+                background: rgba(255, 255, 255, 0.2);
+                border-radius: 50%;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                border: 3px solid rgba(255, 255, 255, 0.4);
             }}
             .score-value {{
-                font-size: 60px;
-                font-weight: bold;
-                margin: 10px 0;
+                font-size: 48px;
+                font-weight: 800;
             }}
             .score-grade {{
                 font-size: 24px;
                 margin: 10px 0;
-                padding: 5px 20px;
+                padding: 8px 24px;
                 background-color: {grade_color};
-                border-radius: 20px;
+                border-radius: 30px;
                 display: inline-block;
             }}
             .returns-summary {{
@@ -966,194 +1109,271 @@ def generate_pdf_report(company_data: dict, compliance_score: float, synopsis: s
                 gap: 15px;
                 margin: 20px 0;
             }}
-            .return-stat {{
-                background-color: white;
-                padding: 15px;
-                border-radius: 5px;
-                text-align: center;
-                border: 1px solid #e0e0e0;
-            }}
-            .return-stat-value {{
-                font-size: 28px;
-                font-weight: bold;
-                color: #1e3c72;
-            }}
-            .return-stat-label {{
-                font-size: 12px;
-                color: #666;
-                margin-top: 5px;
-            }}
-            .synopsis {{
-                background-color: #e3f2fd;
+            .summary-card {{
+                background: #f8f9fa;
                 padding: 20px;
                 border-radius: 8px;
-                margin-top: 20px;
-                line-height: 1.8;
-            }}
-            .synopsis h2 {{
-                color: #1e3c72;
-                border-color: #2196F3;
-            }}
-            .footer {{
                 text-align: center;
-                margin-top: 40px;
-                padding-top: 20px;
-                border-top: 1px solid #ddd;
-                color: #666;
+                border: 1px solid #e5e7eb;
+            }}
+            .summary-value {{
+                font-size: 32px;
+                font-weight: 700;
+                color: #7c3aed;
+                margin: 0;
+            }}
+            .summary-label {{
                 font-size: 12px;
-            }}
-            .status-active {{
-                color: #10b981;
-                font-weight: bold;
-            }}
-            .status-inactive {{
-                color: #ef4444;
-                font-weight: bold;
+                color: #6b7280;
+                margin-top: 5px;
             }}
             table {{
                 width: 100%;
                 border-collapse: collapse;
-                margin-top: 15px;
+                margin-top: 20px;
             }}
             th {{
-                background-color: #f0f0f0;
-                padding: 10px;
+                background: #f8f9fa;
+                padding: 12px;
                 text-align: left;
-                font-weight: bold;
-                border-bottom: 2px solid #ddd;
+                font-weight: 600;
+                font-size: 14px;
+                border: 1px solid #e5e7eb;
+                color: #1f2937;
             }}
             td {{
-                padding: 8px;
-                border-bottom: 1px solid #e0e0e0;
+                padding: 10px;
+                border: 1px solid #e5e7eb;
+                font-size: 14px;
             }}
-            @page {{
-                margin: 0;
+            .synopsis {{
+                background: #e0e7ff;
+                padding: 25px;
+                border-radius: 12px;
+                margin-bottom: 30px;
+                border-left: 5px solid #7c3aed;
             }}
+            .synopsis h2 {{
+                color: #1f2937;
+                margin: 0 0 15px 0;
+                font-size: 20px;
+            }}
+            .synopsis-content {{
+                color: #374151;
+                line-height: 1.8;
+                font-size: 15px;
+            }}
+            .alert {{
+                background: #fef3c7;
+                border: 1px solid #fbbf24;
+                border-radius: 8px;
+                padding: 15px;
+                margin-bottom: 20px;
+                display: flex;
+                align-items: center;
+                gap: 15px;
+            }}
+            .alert-icon {{
+                font-size: 24px;
+            }}
+            .alert-content {{
+                flex: 1;
+            }}
+            .alert-title {{
+                font-weight: 600;
+                color: #92400e;
+                margin-bottom: 5px;
+            }}
+            .alert-text {{
+                color: #78350f;
+                font-size: 14px;
+            }}
+            .footer {{
+                margin-top: 50px;
+                padding: 30px;
+                background: #f8f9fa;
+                text-align: center;
+                border-top: 2px solid #e5e7eb;
+                page-break-inside: avoid;
+            }}
+            .footer p {{
+                color: #6b7280;
+                font-size: 12px;
+                margin: 5px 0;
+            }}
+            .status-active {{
+                color: #10b981;
+                font-weight: 600;
+            }}
+            .status-inactive {{
+                color: #ef4444;
+                font-weight: 600;
+            }}
+            .text-center {{ text-align: center; }}
+            .text-muted {{ color: #6b7280; }}
+            .mt-20 {{ margin-top: 20px; }}
+            .mb-20 {{ margin-bottom: 20px; }}
         </style>
     </head>
     <body>
-        <div class="header">
-            <h1>GST Compliance Report</h1>
-            <p>Generated on {datetime.now().strftime("%d %B %Y at %I:%M %p")}</p>
-        </div>
-        
-        <div class="section">
-            <h2>Company Information</h2>
-            <div class="info-grid">
-                <div class="info-item">
-                    <span class="info-label">Legal Name</span>
-                    <span class="info-value">{company_data.get('lgnm', 'N/A')}</span>
-                </div>
-                <div class="info-item">
-                    <span class="info-label">GSTIN</span>
-                    <span class="info-value">{company_data.get('gstin', 'N/A')}</span>
-                </div>
-                <div class="info-item">
-                    <span class="info-label">Trade Name</span>
-                    <span class="info-value">{company_data.get('tradeName', 'N/A')}</span>
-                </div>
-                <div class="info-item">
-                    <span class="info-label">Business Type</span>
-                    <span class="info-value">{company_data.get('ctb', 'N/A')}</span>
-                </div>
-                <div class="info-item">
-                    <span class="info-label">Registration Date</span>
-                    <span class="info-value">{company_data.get('rgdt', 'N/A')}</span>
-                </div>
-                <div class="info-item">
-                    <span class="info-label">Status</span>
-                    <span class="info-value{' status-active' if company_data.get('sts') == 'Active' else ' status-inactive'}">
-                        {company_data.get('sts', 'N/A')}
-                    </span>
-                </div>
-                <div class="info-item">
-                    <span class="info-label">PAN</span>
-                    <span class="info-value">{company_data.get('pan', 'N/A')}</span>
-                </div>
-                <div class="info-item">
-                    <span class="info-label">Company Category</span>
-                    <span class="info-value">{company_data.get('compCategory', 'N/A')}</span>
-                </div>
+        <div class="container">
+            <!-- Header -->
+            <div class="header">
+                <div class="generated-date">Generated on {datetime.now().strftime("%d %B %Y")}</div>
+                <h1>GST Compliance Report</h1>
+                <p>Advanced Business Analytics Platform</p>
             </div>
-        </div>
-        
-        <div class="compliance-score">
-            <h2 style="color: white; border: none; margin-bottom: 20px;">Compliance Score</h2>
-            <div class="score-value">{int(compliance_score)}%</div>
-            <div class="score-grade">{grade}</div>
-            <p style="margin-top: 20px;">Based on registration status, filing history, and compliance factors</p>
             
-            {f'''<div style="margin-top: 25px; background-color: rgba(255,255,255,0.1); padding: 15px; border-radius: 5px;">
-                <h3 style="color: white; margin-bottom: 10px; font-size: 16px;">Score Breakdown</h3>
-                {''.join(f'<div style="display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px solid rgba(255,255,255,0.2);"><span>{factor[0]}</span><span>{factor[1]}/{factor[2]} pts</span></div>' for factor in company_data.get('_compliance_factors', []))}
-            </div>''' if company_data.get('_compliance_factors') else ''}
-        </div>
-        
-        <div class="section">
-            <h2>GST Returns Summary</h2>
-            {f'''<div style="background-color: #fff3cd; border: 1px solid #ffeaa7; border-radius: 5px; padding: 15px; margin-bottom: 20px;">
-                <strong style="color: #856404;">⚠️ Late Filing Alert:</strong> {late_filing_analysis['late_count']} returns filed late out of {late_filing_analysis['late_count'] + late_filing_analysis['on_time_count']} total returns.
-                Average delay: {late_filing_analysis['average_delay']:.1f} days.
-            </div>''' if late_filing_analysis and late_filing_analysis.get('late_count', 0) > 0 else ''}
-            <div class="returns-summary">
-                <div class="return-stat">
-                    <div class="return-stat-value">{len(returns)}</div>
-                    <div class="return-stat-label">Total Returns</div>
+            {f'''<!-- Company Overview -->
+            <div class="synopsis">
+                <h2>🔍 Company Overview</h2>
+                <div class="synopsis-content">{synopsis}</div>
+                <p style="font-size: 12px; color: #6b7280; margin-top: 15px;">
+                    <em>This overview is generated using AI analysis and web research.</em>
+                </p>
+            </div>''' if synopsis else ''}
+            
+            <!-- Company Header -->
+            <div class="company-header">
+                <h2 class="company-name">{company_name}</h2>
+                <p class="gstin-label">GSTIN: {gstin}</p>
+            </div>
+            
+            <!-- Compliance Score -->
+            <div class="compliance-section">
+                <h2 style="color: white; margin-bottom: 20px;">Overall Compliance Score</h2>
+                <div class="score-circle">
+                    <div class="score-value">{int(compliance_score)}%</div>
                 </div>
-                <div class="return-stat">
-                    <div class="return-stat-value">{gstr1_count}</div>
-                    <div class="return-stat-label">GSTR-1 Filed</div>
-                </div>
-                <div class="return-stat">
-                    <div class="return-stat-value">{gstr3b_count}</div>
-                    <div class="return-stat-label">GSTR-3B Filed</div>
-                </div>
-                <div class="return-stat">
-                    <div class="return-stat-value">{gstr9_count}</div>
-                    <div class="return-stat-label">Annual Returns</div>
+                <div class="score-grade">{grade}</div>
+                <p style="margin-top: 20px; opacity: 0.9;">Based on registration status, filing history, and compliance factors</p>
+            </div>
+            
+            <!-- Basic Information -->
+            <div class="section">
+                <h2 class="section-title">📋 Company Information</h2>
+                <div class="info-grid">
+                    <div class="info-item">
+                        <span class="info-label">Legal Name</span>
+                        <span class="info-value">{company_name}</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Trade Name</span>
+                        <span class="info-value">{trade_name}</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Business Type</span>
+                        <span class="info-value">{company_type}</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Registration Date</span>
+                        <span class="info-value">{reg_date}</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Status</span>
+                        <span class="info-value {'status-active' if status == 'Active' else 'status-inactive'}">{status}</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">PAN</span>
+                        <span class="info-value">{pan}</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Company Category</span>
+                        <span class="info-value">{category}</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">E-Invoice Status</span>
+                        <span class="info-value">{einvoice}</span>
+                    </div>
                 </div>
             </div>
-            {returns_table_html}
-        </div>
-        
-        <div class="section">
-            <h2>Business Details</h2>
-            <div class="info-grid">
-                <div class="info-item" style="grid-column: 1 / -1;">
-                    <span class="info-label">Principal Place of Business</span>
-                    <span class="info-value">{address}</span>
-                </div>
-                <div class="info-item">
-                    <span class="info-label">State</span>
-                    <span class="info-value">{state}</span>
-                </div>
-                <div class="info-item">
-                    <span class="info-label">Nature of Business</span>
-                    <span class="info-value">{', '.join(company_data.get('nba', [])) if company_data.get('nba') else 'N/A'}</span>
-                </div>
-                <div class="info-item">
-                    <span class="info-label">State Jurisdiction</span>
-                    <span class="info-value" style="font-size: 14px;">{company_data.get('stj', 'N/A')}</span>
-                </div>
-                <div class="info-item">
-                    <span class="info-label">Central Jurisdiction</span>
-                    <span class="info-value" style="font-size: 14px;">{company_data.get('ctj', 'N/A')}</span>
+            
+            <!-- Business Details -->
+            <div class="section">
+                <h2 class="section-title">🏢 Business Details</h2>
+                <div class="info-grid">
+                    <div class="info-item" style="grid-column: 1 / -1;">
+                        <span class="info-label">Principal Place of Business</span>
+                        <span class="info-value">{address}</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Pincode</span>
+                        <span class="info-value">{pincode}</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">State</span>
+                        <span class="info-value">{state}</span>
+                    </div>
+                    <div class="info-item" style="grid-column: 1 / -1;">
+                        <span class="info-label">Nature of Business</span>
+                        <span class="info-value">{nba_str}</span>
+                    </div>
+                    <div class="info-item" style="grid-column: 1 / -1;">
+                        <span class="info-label">State Jurisdiction</span>
+                        <span class="info-value" style="font-size: 14px;">{stj}</span>
+                    </div>
+                    <div class="info-item" style="grid-column: 1 / -1;">
+                        <span class="info-label">Central Jurisdiction</span>
+                        <span class="info-value" style="font-size: 14px;">{ctj}</span>
+                    </div>
                 </div>
             </div>
-        </div>
-        
-        {f'''<div class="synopsis">
-            <h2 style="color: #1e3c72;">Company Overview</h2>
-            <p>{synopsis}</p>
-            <p style="font-size: 12px; color: #666; margin-top: 15px;">
-                <em>This overview is generated using AI analysis and web research.</em>
-            </p>
-        </div>''' if synopsis else ''}
-        
-        <div class="footer">
-            <p><strong>Disclaimer:</strong> This report is generated by GST Intelligence Platform based on available GST data.</p>
-            <p>For the most current information, please verify with the official GST portal.</p>
-            <p>&copy; {datetime.now().year} GST Intelligence Platform. All rights reserved.</p>
+            
+            <!-- GST Returns Summary -->
+            <div class="section">
+                <h2 class="section-title">📊 GST Returns Summary</h2>
+                
+                {f'''<div class="alert">
+                    <div class="alert-icon">⚠️</div>
+                    <div class="alert-content">
+                        <div class="alert-title">Late Filing Alert</div>
+                        <div class="alert-text">{late_filing_analysis['late_count']} returns filed late out of {late_filing_analysis['late_count'] + late_filing_analysis['on_time_count']} total returns. Average delay: {late_filing_analysis['average_delay']:.1f} days.</div>
+                    </div>
+                </div>''' if late_filing_analysis and late_filing_analysis.get('late_count', 0) > 0 else ''}
+                
+                <div class="returns-summary">
+                    <div class="summary-card">
+                        <div class="summary-value">{len(returns)}</div>
+                        <div class="summary-label">Total Returns</div>
+                    </div>
+                    <div class="summary-card">
+                        <div class="summary-value">{gstr1_count}</div>
+                        <div class="summary-label">GSTR-1 Filed</div>
+                    </div>
+                    <div class="summary-card">
+                        <div class="summary-value">{gstr3b_count}</div>
+                        <div class="summary-label">GSTR-3B Filed</div>
+                    </div>
+                    <div class="summary-card">
+                        <div class="summary-value">{gstr9_count}</div>
+                        <div class="summary-label">Annual Returns</div>
+                    </div>
+                </div>
+                
+                {f'''<h3 style="margin-top: 30px; margin-bottom: 15px;">Recent Filing History</h3>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Return Type</th>
+                            <th>Tax Period</th>
+                            <th>Financial Year</th>
+                            <th>Filing Date</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {''.join(returns_rows)}
+                    </tbody>
+                </table>''' if returns_rows else '<p class="text-center text-muted">No return filing history available.</p>'}
+            </div>
+            
+            <!-- Footer -->
+            <div class="footer">
+                <p><strong>GST Intelligence Platform</strong></p>
+                <p>This report is generated based on available GST data and AI analysis.</p>
+                <p>For the most current information, please verify with the official GST portal.</p>
+                <p style="margin-top: 15px;">&copy; {datetime.now().year} GST Intelligence Platform. All rights reserved.</p>
+            </div>
         </div>
     </body>
     </html>

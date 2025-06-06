@@ -314,3 +314,218 @@ document.addEventListener('DOMContentLoaded', function() {
         themeToggleBtn.addEventListener('click', toggleTheme);
     }
 });
+
+// 1. Animated Number Counter
+function animateValue(element, start, end, duration) {
+    let startTimestamp = null;
+    const step = (timestamp) => {
+        if (!startTimestamp) startTimestamp = timestamp;
+        const progress = Math.min((timestamp - startTimestamp) / duration, 1);
+        const value = Math.floor(progress * (end - start) + start);
+        element.textContent = value + '%';
+        if (progress < 1) {
+            window.requestAnimationFrame(step);
+        }
+    };
+    window.requestAnimationFrame(step);
+}
+
+// 2. Particle Background Generator
+function createParticles() {
+    const particlesContainer = document.createElement('div');
+    particlesContainer.className = 'particles';
+    document.body.appendChild(particlesContainer);
+    
+    for (let i = 0; i < 50; i++) {
+        const particle = document.createElement('div');
+        particle.className = 'particle';
+        particle.style.left = Math.random() * 100 + '%';
+        particle.style.animationDelay = Math.random() * 15 + 's';
+        particle.style.animationDuration = 15 + Math.random() * 10 + 's';
+        particlesContainer.appendChild(particle);
+    }
+}
+
+// 3. Dynamic Greeting Based on Time
+function setDynamicGreeting() {
+    const hour = new Date().getHours();
+    let greeting = '';
+    
+    if (hour < 12) {
+        greeting = '🌅 Good Morning';
+    } else if (hour < 17) {
+        greeting = '☀️ Good Afternoon';
+    } else {
+        greeting = '🌙 Good Evening';
+    }
+    
+    const greetingElement = document.querySelector('.welcome-title');
+    if (greetingElement) {
+        greetingElement.textContent = `${greeting}, Welcome to GST Intelligence Platform`;
+    }
+}
+
+// 4. Interactive Score Display
+function enhanceScoreDisplay() {
+    const scoreElements = document.querySelectorAll('.score-badge');
+    scoreElements.forEach(element => {
+        element.addEventListener('mouseenter', function() {
+            this.style.transform = 'scale(1.1) rotate(5deg)';
+        });
+        element.addEventListener('mouseleave', function() {
+            this.style.transform = 'scale(1) rotate(0deg)';
+        });
+    });
+}
+
+// 5. Search Input Enhancement
+function enhanceSearchInput() {
+    const searchInput = document.getElementById('gstin');
+    if (searchInput) {
+        // Auto-format GSTIN as user types
+        searchInput.addEventListener('input', function(e) {
+            let value = e.target.value.toUpperCase();
+            
+            // Visual feedback for valid/invalid GSTIN
+            if (value.length === 15) {
+                const pattern = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/;
+                if (pattern.test(value)) {
+                    e.target.style.borderColor = '#10b981';
+                    e.target.style.boxShadow = '0 0 0 4px rgba(16, 185, 129, 0.1)';
+                    // Add success animation
+                    e.target.classList.add('success-pulse');
+                } else {
+                    e.target.style.borderColor = '#ef4444';
+                    e.target.style.boxShadow = '0 0 0 4px rgba(239, 68, 68, 0.1)';
+                    e.target.classList.remove('success-pulse');
+                }
+            } else {
+                e.target.style.borderColor = '';
+                e.target.style.boxShadow = '';
+                e.target.classList.remove('success-pulse');
+            }
+        });
+        
+        // Add placeholder animation
+        const placeholders = [
+            'e.g., 27AADCB2230M1Z8',
+            'Enter 15-digit GSTIN',
+            'Search company by GSTIN'
+        ];
+        let placeholderIndex = 0;
+        
+        setInterval(() => {
+            if (!searchInput.value) {
+                placeholderIndex = (placeholderIndex + 1) % placeholders.length;
+                searchInput.placeholder = placeholders[placeholderIndex];
+            }
+        }, 3000);
+    }
+}
+
+// 6. Table Row Animation
+function animateTableRows() {
+    const rows = document.querySelectorAll('.history-table tbody tr');
+    rows.forEach((row, index) => {
+        row.style.opacity = '0';
+        row.style.transform = 'translateX(-20px)';
+        setTimeout(() => {
+            row.style.transition = 'all 0.5s ease';
+            row.style.opacity = '1';
+            row.style.transform = 'translateX(0)';
+        }, index * 100);
+    });
+}
+
+// 7. Add Confetti Effect for High Scores
+function showConfetti() {
+    const confettiColors = ['#f093fb', '#f5576c', '#ffc837', '#4facfe', '#43e97b'];
+    const confettiCount = 100;
+    
+    for (let i = 0; i < confettiCount; i++) {
+        const confetti = document.createElement('div');
+        confetti.style.position = 'fixed';
+        confetti.style.width = '10px';
+        confetti.style.height = '10px';
+        confetti.style.backgroundColor = confettiColors[Math.floor(Math.random() * confettiColors.length)];
+        confetti.style.left = Math.random() * 100 + '%';
+        confetti.style.top = '-10px';
+        confetti.style.transform = `rotate(${Math.random() * 360}deg)`;
+        confetti.style.zIndex = '9999';
+        document.body.appendChild(confetti);
+        
+        confetti.animate([
+            { transform: `translateY(0) rotate(0deg)`, opacity: 1 },
+            { transform: `translateY(${window.innerHeight}px) rotate(${Math.random() * 720}deg)`, opacity: 0 }
+        ], {
+            duration: 3000 + Math.random() * 2000,
+            easing: 'cubic-bezier(0.25, 0.46, 0.45, 0.94)'
+        }).onfinish = () => confetti.remove();
+    }
+}
+
+// 8. Initialize all enhancements
+document.addEventListener('DOMContentLoaded', function() {
+    // Set dynamic greeting
+    setDynamicGreeting();
+    
+    // Create particle background
+    if (window.matchMedia('(prefers-reduced-motion: no-preference)').matches) {
+        createParticles();
+    }
+    
+    // Enhance score displays
+    enhanceScoreDisplay();
+    
+    // Enhance search input
+    enhanceSearchInput();
+    
+    // Animate table rows
+    animateTableRows();
+    
+    // Animate score values on results page
+    const scoreValues = document.querySelectorAll('.score-value');
+    scoreValues.forEach(element => {
+        const value = parseInt(element.textContent);
+        element.textContent = '0%';
+        setTimeout(() => {
+            animateValue(element, 0, value, 1500);
+        }, 500);
+        
+        // Show confetti for high scores
+        if (value >= 90) {
+            setTimeout(showConfetti, 1500);
+        }
+    });
+    
+    // Add hover sound effects (optional)
+    const buttons = document.querySelectorAll('button, .btn');
+    buttons.forEach(button => {
+        button.addEventListener('mouseenter', () => {
+            // You can add a subtle hover sound here if desired
+            button.style.transform = 'translateY(-2px)';
+        });
+    });
+});
+
+// 9. Keyboard Shortcuts
+document.addEventListener('keydown', function(e) {
+    // Ctrl/Cmd + K to focus search
+    if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+        e.preventDefault();
+        const searchInput = document.getElementById('gstin');
+        if (searchInput) {
+            searchInput.focus();
+            searchInput.select();
+        }
+    }
+    
+    // Escape to clear search
+    if (e.key === 'Escape') {
+        const searchInput = document.getElementById('gstin');
+        if (searchInput && searchInput === document.activeElement) {
+            searchInput.value = '';
+            searchInput.blur();
+        }
+    }
+});
