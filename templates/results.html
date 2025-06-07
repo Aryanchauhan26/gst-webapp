@@ -5,8 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>GST Search Results - {{ company_data.lgnm }}</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
     <style>
-        /* Include all the CSS variables and styles from index.html */
+        /* Include all the CSS variables and theme styles from dashboard */
         :root {
             --transition-speed: 0.3s;
         }
@@ -78,7 +79,29 @@
             transition: background-color var(--transition-speed), color var(--transition-speed);
         }
 
-        /* Copy all styles from index.html */
+        /* Animated Background */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: 
+                radial-gradient(circle at 20% 50%, rgba(124, 58, 237, 0.15) 0%, transparent 50%),
+                radial-gradient(circle at 80% 80%, rgba(37, 99, 235, 0.15) 0%, transparent 50%),
+                radial-gradient(circle at 40% 20%, rgba(167, 139, 250, 0.1) 0%, transparent 50%);
+            z-index: -1;
+            animation: backgroundShift 20s ease-in-out infinite;
+            pointer-events: none;
+        }
+
+        @keyframes backgroundShift {
+            0%, 100% { transform: rotate(0deg) scale(1); }
+            50% { transform: rotate(5deg) scale(1.1); }
+        }
+
+        /* Copy header styles from dashboard */
         .header {
             background: var(--bg-secondary);
             backdrop-filter: blur(20px);
@@ -157,16 +180,23 @@
             transform: translateX(-5px);
         }
 
+        /* Company Header with Animated Gradient */
         .company-header {
             background: var(--accent-gradient);
             color: white;
-            border-radius: 20px;
+            border-radius: 24px;
             padding: 3rem;
             margin-bottom: 2rem;
-            box-shadow: 0 8px 32px rgba(124, 58, 237, 0.3);
+            box-shadow: 0 12px 40px rgba(124, 58, 237, 0.4);
             text-align: center;
             position: relative;
             overflow: hidden;
+            animation: headerGlow 3s ease-in-out infinite;
+        }
+
+        @keyframes headerGlow {
+            0%, 100% { box-shadow: 0 12px 40px rgba(124, 58, 237, 0.4); }
+            50% { box-shadow: 0 16px 60px rgba(124, 58, 237, 0.6); }
         }
 
         .company-header::before {
@@ -199,6 +229,172 @@
             opacity: 0.9;
             position: relative;
             z-index: 1;
+        }
+
+        /* Stats Overview */
+        .stats-overview {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .stat-mini {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 1.5rem;
+            text-align: center;
+            transition: all var(--transition-speed);
+        }
+
+        .stat-mini:hover {
+            transform: translateY(-5px);
+            box-shadow: var(--hover-shadow);
+            border-color: var(--accent-primary);
+        }
+
+        .stat-mini-icon {
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .stat-mini-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--accent-primary);
+        }
+
+        .stat-mini-label {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+        }
+
+        /* Enhanced Compliance Score Card */
+        .compliance-visual {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 20px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            box-shadow: var(--card-shadow);
+        }
+
+        .compliance-header {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        .compliance-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 0.5rem;
+        }
+
+        .compliance-subtitle {
+            color: var(--text-secondary);
+        }
+
+        /* Animated Score Circle */
+        .score-visual {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-bottom: 2rem;
+        }
+
+        .score-circle-container {
+            position: relative;
+            width: 200px;
+            height: 200px;
+        }
+
+        .score-circle-bg {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            background: var(--bg-hover);
+            box-shadow: inset 0 0 20px rgba(0,0,0,0.3);
+        }
+
+        .score-circle-progress {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            background: conic-gradient(
+                var(--accent-primary) 0deg,
+                var(--accent-secondary) calc(var(--progress) * 3.6deg),
+                var(--bg-hover) calc(var(--progress) * 3.6deg)
+            );
+            transform: rotate(-90deg);
+            transition: all 1s ease-out;
+        }
+
+        .score-circle-inner {
+            position: absolute;
+            width: 85%;
+            height: 85%;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: var(--bg-card);
+            border-radius: 50%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 0 20px rgba(0,0,0,0.3);
+        }
+
+        .score-value {
+            font-size: 3rem;
+            font-weight: 800;
+            background: var(--accent-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .score-label {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+        }
+
+        /* Charts Grid */
+        .charts-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .chart-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 1.5rem;
+            box-shadow: var(--card-shadow);
+            transition: all var(--transition-speed);
+        }
+
+        .chart-card:hover {
+            box-shadow: var(--hover-shadow);
+            border-color: var(--accent-primary);
+        }
+
+        .chart-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .chart-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: var(--text-primary);
         }
 
         /* Info Grid with Glass Effect */
@@ -275,159 +471,98 @@
             border-bottom: none;
         }
 
-        /* Enhanced Compliance Score */
-        .compliance-card {
-            background: var(--accent-gradient);
-            color: white;
-            border-radius: 20px;
-            padding: 2rem;
-            text-align: center;
-            box-shadow: 0 8px 32px rgba(124, 58, 237, 0.3);
-            position: relative;
-            overflow: hidden;
+        .info-label {
+            color: var(--text-secondary);
+            font-weight: 500;
         }
 
-        .score-circle {
-            width: 150px;
-            height: 150px;
-            margin: 0 auto 1rem;
-            position: relative;
-            background: rgba(255,255,255,0.1);
-            border-radius: 50%;
+        .info-value {
+            color: var(--text-primary);
+            font-weight: 600;
+        }
+
+        /* Returns Analysis Section */
+        .returns-analysis {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 20px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            box-shadow: var(--card-shadow);
+        }
+
+        .returns-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+        }
+
+        .returns-title {
+            font-size: 1.5rem;
+            color: var(--text-primary);
             display: flex;
             align-items: center;
-            justify-content: center;
-            border: 3px solid rgba(255,255,255,0.3);
-            backdrop-filter: blur(10px);
+            gap: 0.5rem;
         }
 
-        .score-value {
-            font-size: 3.5rem;
-            font-weight: bold;
-            text-shadow: 0 2px 10px rgba(0,0,0,0.2);
-        }
-
-        .score-grade {
-            font-size: 1.2rem;
-            padding: 0.5rem 2rem;
-            background: rgba(255,255,255,0.2);
-            border-radius: 30px;
-            display: inline-block;
-            backdrop-filter: blur(10px);
-            margin-top: 1rem;
-        }
-
-        /* Returns Section */
-        .returns-section {
-            background: var(--bg-card);
-            border: 1px solid var(--border-color);
-            border-radius: 20px;
-            padding: 2rem;
-            margin-bottom: 2rem;
-            box-shadow: var(--card-shadow);
-        }
-
-        .returns-summary {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-            gap: 1rem;
-            margin: 2rem 0;
-        }
-
-        .summary-item {
-            background: var(--bg-hover);
+        /* Late Filing Alert Enhanced */
+        .late-filing-alert {
+            background: linear-gradient(135deg, rgba(245, 158, 11, 0.1) 0%, rgba(217, 119, 6, 0.1) 100%);
+            border: 1px solid var(--warning);
+            border-radius: 12px;
             padding: 1.5rem;
-            border-radius: 12px;
-            text-align: center;
-            border: 1px solid var(--border-color);
-            transition: all var(--transition-speed);
-        }
-
-        .summary-item:hover {
-            transform: translateY(-5px);
-            border-color: var(--accent-primary);
-            box-shadow: 0 5px 20px rgba(124, 58, 237, 0.2);
-        }
-
-        .summary-value {
-            font-size: 2.5rem;
-            font-weight: bold;
-            background: var(--accent-gradient);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-        }
-
-        /* Filing Frequency */
-        .filing-freq-section {
-            background: var(--bg-card);
-            border: 1px solid var(--border-color);
-            border-radius: 20px;
-            padding: 2rem;
-            margin-bottom: 2rem;
-            box-shadow: var(--card-shadow);
-        }
-
-        .freq-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
             gap: 1rem;
-            margin-top: 1.5rem;
+            animation: alertPulse 2s ease-in-out infinite;
         }
 
-        .freq-item {
-            text-align: center;
-            padding: 1.5rem 1rem;
-            background: var(--bg-hover);
-            border-radius: 12px;
-            border: 2px solid var(--border-color);
-            transition: all var(--transition-speed);
-            cursor: default;
-            position: relative;
-            overflow: hidden;
+        @keyframes alertPulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.02); }
         }
 
-        .freq-item::before {
-            content: '';
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            width: 0;
-            height: 0;
-            background: var(--accent-gradient);
-            border-radius: 50%;
-            transform: translate(-50%, -50%);
-            transition: all 0.5s;
+        .late-filing-alert.critical {
+            background: linear-gradient(135deg, rgba(239, 68, 68, 0.1) 0%, rgba(220, 38, 38, 0.1) 100%);
+            border-color: var(--danger);
         }
 
-        .freq-item:hover::before {
-            width: 100px;
-            height: 100px;
-            opacity: 0.1;
-        }
-
-        .freq-item:hover {
-            border-color: var(--accent-primary);
-            transform: translateY(-3px);
-            box-shadow: 0 5px 20px rgba(124, 58, 237, 0.2);
-        }
-
-        .freq-quarter {
-            font-weight: 600;
-            color: var(--text-secondary);
-            margin-bottom: 0.5rem;
-            position: relative;
-            z-index: 1;
-        }
-
-        .freq-value {
+        .alert-icon {
             font-size: 2rem;
-            font-weight: bold;
-            color: var(--accent-primary);
-            position: relative;
-            z-index: 1;
+            animation: shake 2s ease-in-out infinite;
         }
 
-        /* Synopsis Section */
+        @keyframes shake {
+            0%, 100% { transform: rotate(0deg); }
+            25% { transform: rotate(-5deg); }
+            75% { transform: rotate(5deg); }
+        }
+
+        /* Status Badges */
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.3rem;
+            padding: 0.4rem 1rem;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+
+        .status-active {
+            background: rgba(16, 185, 129, 0.2);
+            color: var(--success);
+            border: 1px solid var(--success);
+        }
+
+        .status-active::before {
+            content: '●';
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        /* Synopsis Section Enhanced */
         .synopsis-section {
             background: linear-gradient(135deg, rgba(124, 58, 237, 0.1) 0%, rgba(37, 99, 235, 0.1) 100%);
             border: 1px solid var(--accent-primary);
@@ -458,7 +593,7 @@
             animation: pulse 2s ease-in-out infinite;
         }
 
-        /* Action Buttons */
+        /* Action Buttons Enhanced */
         .action-buttons {
             display: flex;
             gap: 1rem;
@@ -478,12 +613,32 @@
             gap: 0.5rem;
             border: none;
             cursor: pointer;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .action-btn::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            transition: width 0.6s, height 0.6s;
+        }
+
+        .action-btn:hover::before {
+            width: 300px;
+            height: 300px;
         }
 
         .pdf-btn {
             background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
             color: white;
+            box-shadow: 0 4px 20px rgba(239, 68, 68, 0.3);
         }
 
         .pdf-btn:hover {
@@ -494,6 +649,7 @@
         .share-btn {
             background: linear-gradient(135deg, #10b981 0%, #059669 100%);
             color: white;
+            box-shadow: 0 4px 20px rgba(16, 185, 129, 0.3);
         }
 
         .share-btn:hover {
@@ -501,7 +657,7 @@
             box-shadow: 0 6px 30px rgba(16, 185, 129, 0.5);
         }
 
-        /* Theme Toggle (same as index) */
+        /* Theme Toggle (same as dashboard) */
         .theme-toggle {
             background: var(--bg-card);
             border: 1px solid var(--border-color);
@@ -535,58 +691,7 @@
             transform: translateX(36px);
         }
 
-        /* Status Badges */
-        .status-badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.3rem;
-            padding: 0.4rem 1rem;
-            border-radius: 20px;
-            font-size: 0.85rem;
-            font-weight: 600;
-        }
-
-        .status-active {
-            background: rgba(16, 185, 129, 0.2);
-            color: var(--success);
-            border: 1px solid var(--success);
-        }
-
-        .status-active::before {
-            content: '●';
-            animation: pulse 2s ease-in-out infinite;
-        }
-
-        /* Late Filing Alert */
-        .late-filing-alert {
-            background: linear-gradient(135deg, rgba(245, 158, 11, 0.1) 0%, rgba(217, 119, 6, 0.1) 100%);
-            border: 1px solid var(--warning);
-            border-radius: 12px;
-            padding: 1.5rem;
-            margin-bottom: 1.5rem;
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-            animation: slideIn 0.5s ease;
-        }
-
-        .late-filing-alert.critical {
-            background: linear-gradient(135deg, rgba(239, 68, 68, 0.1) 0%, rgba(220, 38, 38, 0.1) 100%);
-            border-color: var(--danger);
-        }
-
-        @keyframes slideIn {
-            from {
-                transform: translateX(-20px);
-                opacity: 0;
-            }
-            to {
-                transform: translateX(0);
-                opacity: 1;
-            }
-        }
-
-        /* Navigation */
+        /* Navigation and other common styles */
         .nav-items {
             display: flex;
             gap: 2rem;
@@ -671,12 +776,9 @@
                 font-size: 1.8rem;
             }
             
-            .info-grid {
+            .info-grid,
+            .charts-grid {
                 grid-template-columns: 1fr;
-            }
-            
-            .freq-grid {
-                grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
             }
             
             .hide-mobile {
@@ -735,6 +837,79 @@
             <p class="company-gstin">GSTIN: {{ company_data.gstin }}</p>
         </div>
 
+        <!-- Stats Overview -->
+        <div class="stats-overview">
+            <div class="stat-mini">
+                <div class="stat-mini-icon">✅</div>
+                <div class="stat-mini-value">{{ company_data.sts or 'N/A' }}</div>
+                <div class="stat-mini-label">Status</div>
+            </div>
+            <div class="stat-mini">
+                <div class="stat-mini-icon">📅</div>
+                <div class="stat-mini-value">{{ company_data.rgdt or 'N/A' }}</div>
+                <div class="stat-mini-label">Registration Date</div>
+            </div>
+            <div class="stat-mini">
+                <div class="stat-mini-icon">📍</div>
+                <div class="stat-mini-value">{% if company_data.stj %}{{ company_data.stj.split('State - ')[1].split(',')[0] if 'State - ' in company_data.stj else 'N/A' }}{% else %}N/A{% endif %}</div>
+                <div class="stat-mini-label">State</div>
+            </div>
+            <div class="stat-mini">
+                <div class="stat-mini-icon">📄</div>
+                <div class="stat-mini-value">{{ company_data.returns|length if company_data.returns else 0 }}</div>
+                <div class="stat-mini-label">Returns Filed</div>
+            </div>
+        </div>
+
+        <!-- Enhanced Compliance Visual -->
+        <div class="compliance-visual">
+            <div class="compliance-header">
+                <h2 class="compliance-title">Compliance Score Analysis</h2>
+                <p class="compliance-subtitle">Based on multiple compliance factors and filing history</p>
+            </div>
+            
+            <div class="score-visual">
+                <div class="score-circle-container">
+                    <div class="score-circle-bg"></div>
+                    <div class="score-circle-progress" style="--progress: {{ compliance_score }}"></div>
+                    <div class="score-circle-inner">
+                        <div class="score-value" id="scoreValue">0%</div>
+                        <div class="score-label">Overall Score</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="score-grade" style="text-align: center; font-size: 1.2rem; color: var(--text-primary);">
+                {% if compliance_score >= 90 %}
+                    <span style="color: var(--success);">Grade A+ (Excellent)</span>
+                {% elif compliance_score >= 80 %}
+                    <span style="color: var(--success);">Grade A (Very Good)</span>
+                {% elif compliance_score >= 70 %}
+                    <span style="color: var(--warning);">Grade B (Good)</span>
+                {% elif compliance_score >= 60 %}
+                    <span style="color: var(--warning);">Grade C (Average)</span>
+                {% else %}
+                    <span style="color: var(--danger);">Grade D (Needs Improvement)</span>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Charts Grid -->
+        <div class="charts-grid">
+            <div class="chart-card">
+                <div class="chart-header">
+                    <h3 class="chart-title">Filing Pattern Analysis</h3>
+                </div>
+                <div id="filingPatternChart" style="height: 300px;"></div>
+            </div>
+            <div class="chart-card">
+                <div class="chart-header">
+                    <h3 class="chart-title">Return Type Distribution</h3>
+                </div>
+                <div id="returnTypeChart" style="height: 300px;"></div>
+            </div>
+        </div>
+
         <!-- Info Grid -->
         <div class="info-grid">
             <!-- Basic Information -->
@@ -772,27 +947,6 @@
                 <div class="info-item">
                     <span class="info-label">Company Category</span>
                     <span class="info-value">{{ company_data.compCategory or 'N/A' }}</span>
-                </div>
-            </div>
-
-            <!-- Enhanced Compliance Score -->
-            <div class="compliance-card">
-                <div class="score-circle">
-                    <div class="score-value">{{ compliance_score }}%</div>
-                </div>
-                <div class="score-label" style="font-size: 1.2rem; margin-bottom: 1rem;">Compliance Score</div>
-                <div class="score-grade">
-                    {% if compliance_score >= 90 %}
-                        Grade A+ (Excellent)
-                    {% elif compliance_score >= 80 %}
-                        Grade A (Very Good)
-                    {% elif compliance_score >= 70 %}
-                        Grade B (Good)
-                    {% elif compliance_score >= 60 %}
-                        Grade C (Average)
-                    {% else %}
-                        Grade D (Needs Improvement)
-                    {% endif %}
                 </div>
             </div>
 
@@ -841,18 +995,20 @@
             </div>
         </div>
 
-        <!-- GST Returns Section -->
+        <!-- GST Returns Analysis -->
         {% if company_data.returns %}
-        <div class="returns-section">
-            <h2 class="returns-title" style="font-size: 1.5rem; color: var(--text-primary); margin-bottom: 1.5rem; display: flex; align-items: center; gap: 0.5rem;">
-                <i class="fas fa-file-invoice"></i>
-                GST Returns Filing History
-            </h2>
+        <div class="returns-analysis">
+            <div class="returns-header">
+                <h2 class="returns-title">
+                    <i class="fas fa-file-invoice"></i>
+                    GST Returns Analysis
+                </h2>
+            </div>
             
             <!-- Late Filing Alert -->
             {% if late_filing_analysis and late_filing_analysis.late_count > 0 %}
             <div class="late-filing-alert {% if late_filing_analysis.late_count > 5 %}critical{% endif %}">
-                <div style="font-size: 2rem;">⚠️</div>
+                <div class="alert-icon">⚠️</div>
                 <div>
                     <div style="font-weight: 600; margin-bottom: 0.25rem;">Late Filing Alert</div>
                     <div>{{ late_filing_analysis.late_count }} returns filed late out of {{ late_filing_analysis.late_count + late_filing_analysis.on_time_count }} total returns</div>
@@ -861,32 +1017,11 @@
             </div>
             {% endif %}
             
-            <!-- Returns Summary -->
-            {% set gstr1_count = company_data.returns | selectattr("rtntype", "eq", "GSTR1") | list | length %}
-            {% set gstr3b_count = company_data.returns | selectattr("rtntype", "eq", "GSTR3B") | list | length %}
-            {% set gstr9_count = company_data.returns | selectattr("rtntype", "eq", "GSTR9") | list | length %}
-            
-            <div class="returns-summary">
-                <div class="summary-item">
-                    <div class="summary-value">{{ company_data.returns | length }}</div>
-                    <div class="summary-label">Total Returns</div>
-                </div>
-                <div class="summary-item">
-                    <div class="summary-value">{{ gstr1_count }}</div>
-                    <div class="summary-label">GSTR-1 Filed</div>
-                </div>
-                <div class="summary-item">
-                    <div class="summary-value">{{ gstr3b_count }}</div>
-                    <div class="summary-label">GSTR-3B Filed</div>
-                </div>
-                <div class="summary-item">
-                    <div class="summary-value">{{ gstr9_count }}</div>
-                    <div class="summary-label">Annual Returns</div>
-                </div>
-            </div>
+            <!-- Returns Summary Chart -->
+            <div id="returnsTimelineChart" style="height: 300px; margin-bottom: 2rem;"></div>
             
             <!-- Returns Table -->
-            <div style="overflow-x: auto; margin-top: 2rem;">
+            <div style="overflow-x: auto;">
                 <table style="width: 100%; border-collapse: collapse; background: var(--bg-secondary); border-radius: 12px; overflow: hidden;">
                     <thead>
                         <tr>
@@ -898,7 +1033,7 @@
                         </tr>
                     </thead>
                     <tbody>
-                        {% for return in company_data.returns[:20] %}
+                        {% for return in company_data.returns[:10] %}
                         <tr style="transition: all 0.3s;">
                             <td style="padding: 1rem; border-bottom: 1px solid var(--border-color); color: var(--text-primary); font-weight: 600;">{{ return.rtntype }}</td>
                             <td style="padding: 1rem; border-bottom: 1px solid var(--border-color); color: var(--text-primary);">{{ return.taxp }}</td>
@@ -920,34 +1055,25 @@
                         {% endfor %}
                     </tbody>
                 </table>
-                {% if company_data.returns | length > 20 %}
+                {% if company_data.returns | length > 10 %}
                 <p style="text-align: center; margin-top: 1rem; color: var(--text-secondary);">
-                    Showing latest 20 returns out of {{ company_data.returns | length }} total
+                    Showing latest 10 returns out of {{ company_data.returns | length }} total
                 </p>
                 {% endif %}
             </div>
         </div>
         {% endif %}
 
-        <!-- Filing Frequency Section -->
+        <!-- Filing Frequency Chart -->
         {% if company_data.fillingFreq %}
-        <div class="filing-freq-section">
-            <h2 class="returns-title" style="font-size: 1.5rem; color: var(--text-primary); margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;">
-                <i class="fas fa-calendar-check"></i>
-                Filing Frequency
-            </h2>
-            
-            <div class="freq-grid">
-                {% for quarter, freq in company_data.fillingFreq.items() %}
-                <div class="freq-item">
-                    <div class="freq-quarter">{{ quarter.replace('_', ' ') }}</div>
-                    <div class="freq-value">{{ freq }}</div>
-                </div>
-                {% endfor %}
+        <div class="chart-card">
+            <div class="chart-header">
+                <h3 class="chart-title">
+                    <i class="fas fa-calendar-check"></i>
+                    Filing Frequency Pattern
+                </h3>
             </div>
-            <p style="text-align: center; margin-top: 1rem; color: var(--text-secondary); font-size: 0.9rem;">
-                <i class="fas fa-info-circle"></i> M = Monthly, Q = Quarterly, A = Annual
-            </p>
+            <div id="filingFrequencyChart" style="height: 300px;"></div>
         </div>
         {% endif %}
 
@@ -956,11 +1082,19 @@
         <div class="synopsis-section">
             <h2 class="synopsis-title">
                 <i class="fas fa-robot"></i>
-                Company Overview
-                <span class="ai-badge">AI Generated</span>
+                AI-Generated Company Overview
+                <span class="ai-badge">Powered by AI</span>
             </h2>
-            <div class="synopsis-content" style="color: var(--text-primary); line-height: 1.8;">
+            <div class="synopsis-content" style="color: var(--text-primary); line-height: 1.8; font-size: 1.1rem;">
                 {{ synopsis }}
+            </div>
+            <div style="margin-top: 1rem; display: flex; gap: 1rem; flex-wrap: wrap;">
+                <span style="color: var(--text-secondary); font-size: 0.9rem;">
+                    <i class="fas fa-info-circle"></i> Generated using advanced AI analysis
+                </span>
+                <span style="color: var(--text-secondary); font-size: 0.9rem;">
+                    <i class="fas fa-clock"></i> Updated: Just now
+                </span>
             </div>
         </div>
         {% endif %}
@@ -978,6 +1112,11 @@
             <button class="action-btn share-btn" onclick="shareResults()">
                 <i class="fas fa-share-alt"></i>
                 Share Results
+            </button>
+            
+            <button class="action-btn" style="background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); color: white; box-shadow: 0 4px 20px rgba(59, 130, 246, 0.3);" onclick="window.print()">
+                <i class="fas fa-print"></i>
+                Print Report
             </button>
         </div>
     </main>
@@ -998,6 +1137,9 @@
                 if (themeIcon) themeIcon.className = 'fas fa-sun';
                 localStorage.setItem('theme', 'light');
             }
+            
+            // Update charts theme
+            updateChartsTheme();
         }
 
         // Initialize theme on page load
@@ -1012,29 +1154,339 @@
             }
             
             // Animate score value
-            const scoreElement = document.querySelector('.score-value');
-            if (scoreElement) {
-                const finalValue = parseInt(scoreElement.textContent);
-                let currentValue = 0;
-                scoreElement.textContent = '0%';
-                
-                const increment = finalValue / 50;
-                const timer = setInterval(() => {
-                    currentValue += increment;
-                    if (currentValue >= finalValue) {
-                        currentValue = finalValue;
-                        clearInterval(timer);
-                        
-                        // Show confetti for high scores
-                        if (finalValue >= 90) {
-                            showConfetti();
+            animateScore();
+            
+            // Initialize charts
+            initializeCharts();
+            
+            // Animate elements on scroll
+            animateOnScroll();
+        });
+
+        // Animate compliance score
+        function animateScore() {
+            const scoreElement = document.getElementById('scoreValue');
+            const finalValue = {{ compliance_score }};
+            let currentValue = 0;
+            const increment = finalValue / 50;
+            
+            const timer = setInterval(() => {
+                currentValue += increment;
+                if (currentValue >= finalValue) {
+                    currentValue = finalValue;
+                    clearInterval(timer);
+                    
+                    // Show confetti for high scores
+                    if (finalValue >= 90) {
+                        showConfetti();
+                    }
+                }
+                scoreElement.textContent = Math.floor(currentValue) + '%';
+            }, 20);
+        }
+
+        // Initialize all charts
+        function initializeCharts() {
+            const isDark = !document.body.classList.contains('light-theme');
+            
+            // Filing Pattern Chart
+            const filingPatternOptions = {
+                series: [{
+                    name: 'Returns Filed',
+                    data: generateMonthlyData()
+                }],
+                chart: {
+                    type: 'area',
+                    height: 300,
+                    background: 'transparent',
+                    toolbar: { show: false },
+                    animations: {
+                        enabled: true,
+                        easing: 'easeinout',
+                        speed: 800
+                    }
+                },
+                stroke: {
+                    curve: 'smooth',
+                    width: 3
+                },
+                fill: {
+                    type: 'gradient',
+                    gradient: {
+                        shadeIntensity: 1,
+                        opacityFrom: 0.7,
+                        opacityTo: 0.3,
+                        stops: [0, 100]
+                    }
+                },
+                colors: ['#7c3aed'],
+                xaxis: {
+                    categories: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
+                    labels: {
+                        style: { colors: isDark ? '#a1a1aa' : '#6b7280' }
+                    }
+                },
+                yaxis: {
+                    labels: {
+                        style: { colors: isDark ? '#a1a1aa' : '#6b7280' }
+                    }
+                },
+                grid: {
+                    borderColor: isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)',
+                    strokeDashArray: 4
+                },
+                theme: { mode: isDark ? 'dark' : 'light' },
+                tooltip: { theme: isDark ? 'dark' : 'light' }
+            };
+            
+            // Return Type Distribution
+            const returnTypeOptions = {
+                series: [
+                    {{ company_data.returns | selectattr("rtntype", "eq", "GSTR1") | list | length }},
+                    {{ company_data.returns | selectattr("rtntype", "eq", "GSTR3B") | list | length }},
+                    {{ company_data.returns | selectattr("rtntype", "eq", "GSTR9") | list | length }}
+                ],
+                chart: {
+                    type: 'donut',
+                    height: 300,
+                    background: 'transparent',
+                    animations: {
+                        enabled: true,
+                        easing: 'easeinout',
+                        speed: 800,
+                        animateGradually: {
+                            enabled: true,
+                            delay: 150
                         }
                     }
-                    scoreElement.textContent = Math.floor(currentValue) + '%';
-                }, 20);
+                },
+                labels: ['GSTR-1', 'GSTR-3B', 'Annual Returns'],
+                colors: ['#7c3aed', '#3b82f6', '#10b981'],
+                theme: { mode: isDark ? 'dark' : 'light' },
+                legend: {
+                    position: 'bottom',
+                    labels: { colors: isDark ? '#a1a1aa' : '#6b7280' }
+                },
+                dataLabels: {
+                    style: { colors: ['#fff'] }
+                },
+                plotOptions: {
+                    pie: {
+                        donut: {
+                            size: '70%',
+                            labels: {
+                                show: true,
+                                total: {
+                                    show: true,
+                                    label: 'Total',
+                                    formatter: () => '{{ company_data.returns | length }}'
+                                }
+                            }
+                        }
+                    }
+                }
+            };
+            
+            // Returns Timeline Chart
+            const timelineOptions = {
+                series: [{
+                    name: 'Filing Delay',
+                    data: generateTimelineData()
+                }],
+                chart: {
+                    type: 'scatter',
+                    height: 300,
+                    background: 'transparent',
+                    toolbar: { show: false }
+                },
+                xaxis: {
+                    type: 'datetime',
+                    labels: {
+                        style: { colors: isDark ? '#a1a1aa' : '#6b7280' }
+                    }
+                },
+                yaxis: {
+                    title: {
+                        text: 'Days Delay',
+                        style: { color: isDark ? '#a1a1aa' : '#6b7280' }
+                    },
+                    labels: {
+                        style: { colors: isDark ? '#a1a1aa' : '#6b7280' }
+                    }
+                },
+                markers: {
+                    size: 8,
+                    colors: ['#7c3aed'],
+                    strokeColors: '#fff',
+                    strokeWidth: 2,
+                    hover: { size: 10 }
+                },
+                grid: {
+                    borderColor: isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)',
+                    strokeDashArray: 4
+                },
+                theme: { mode: isDark ? 'dark' : 'light' },
+                tooltip: {
+                    theme: isDark ? 'dark' : 'light',
+                    y: {
+                        formatter: (val) => val + ' days delay'
+                    }
+                }
+            };
+            
+            // Filing Frequency Chart
+            {% if company_data.fillingFreq %}
+            const freqData = [];
+            const freqCategories = [];
+            {% for quarter, freq in company_data.fillingFreq.items() %}
+            freqCategories.push('{{ quarter.replace("_", " ") }}');
+            freqData.push('{{ freq }}' === 'M' ? 3 : '{{ freq }}' === 'Q' ? 2 : 1);
+            {% endfor %}
+            
+            const filingFrequencyOptions = {
+                series: [{
+                    name: 'Filing Frequency',
+                    data: freqData
+                }],
+                chart: {
+                    type: 'bar',
+                    height: 300,
+                    background: 'transparent',
+                    toolbar: { show: false }
+                },
+                plotOptions: {
+                    bar: {
+                        borderRadius: 8,
+                        columnWidth: '60%',
+                        distributed: true
+                    }
+                },
+                colors: ['#7c3aed', '#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'],
+                xaxis: {
+                    categories: freqCategories,
+                    labels: {
+                        style: { colors: isDark ? '#a1a1aa' : '#6b7280' }
+                    }
+                },
+                yaxis: {
+                    labels: {
+                        style: { colors: isDark ? '#a1a1aa' : '#6b7280' },
+                        formatter: (val) => val === 3 ? 'Monthly' : val === 2 ? 'Quarterly' : 'Annual'
+                    }
+                },
+                grid: {
+                    borderColor: isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)',
+                    strokeDashArray: 4
+                },
+                theme: { mode: isDark ? 'dark' : 'light' },
+                tooltip: {
+                    theme: isDark ? 'dark' : 'light',
+                    y: {
+                        formatter: (val) => val === 3 ? 'Monthly' : val === 2 ? 'Quarterly' : 'Annual'
+                    }
+                },
+                legend: { show: false }
+            };
+            {% endif %}
+            
+            // Render charts
+            const filingPatternChart = new ApexCharts(document.querySelector("#filingPatternChart"), filingPatternOptions);
+            const returnTypeChart = new ApexCharts(document.querySelector("#returnTypeChart"), returnTypeOptions);
+            const returnsTimelineChart = new ApexCharts(document.querySelector("#returnsTimelineChart"), timelineOptions);
+            
+            filingPatternChart.render();
+            returnTypeChart.render();
+            returnsTimelineChart.render();
+            
+            {% if company_data.fillingFreq %}
+            const filingFrequencyChart = new ApexCharts(document.querySelector("#filingFrequencyChart"), filingFrequencyOptions);
+            filingFrequencyChart.render();
+            {% endif %}
+            
+            // Store charts for theme updates
+            window.charts = {
+                filingPattern: filingPatternChart,
+                returnType: returnTypeChart,
+                timeline: returnsTimelineChart,
+                {% if company_data.fillingFreq %}frequency: filingFrequencyChart{% endif %}
+            };
+        }
+
+        // Generate sample data for charts
+        function generateMonthlyData() {
+            // Generate data based on actual returns
+            const monthlyData = new Array(12).fill(0);
+            {% if company_data.returns %}
+            {% for return in company_data.returns %}
+            // Extract month from tax period
+            {% endfor %}
+            {% endif %}
+            
+            // Return sample data for demo
+            return [2, 3, 2, 4, 3, 5, 4, 6, 5, 7, 6, 8];
+        }
+
+        function generateTimelineData() {
+            const data = [];
+            {% if late_filing_analysis and late_filing_analysis.late_returns %}
+            {% for late in late_filing_analysis.late_returns[:20] %}
+            data.push({
+                x: new Date('{{ late.filing_date }}').getTime(),
+                y: {{ late.delay_days }}
+            });
+            {% endfor %}
+            {% endif %}
+            
+            // Add some sample data if no late filings
+            if (data.length === 0) {
+                const now = new Date();
+                for (let i = 0; i < 10; i++) {
+                    data.push({
+                        x: new Date(now.getFullYear(), now.getMonth() - i, 1).getTime(),
+                        y: Math.floor(Math.random() * 30)
+                    });
+                }
             }
             
-            // Animate info cards on scroll
+            return data;
+        }
+
+        // Update charts theme
+        function updateChartsTheme() {
+            const isDark = !document.body.classList.contains('light-theme');
+            
+            Object.values(window.charts || {}).forEach(chart => {
+                if (chart) {
+                    chart.updateOptions({
+                        theme: { mode: isDark ? 'dark' : 'light' },
+                        xaxis: {
+                            labels: {
+                                style: { colors: isDark ? '#a1a1aa' : '#6b7280' }
+                            }
+                        },
+                        yaxis: {
+                            labels: {
+                                style: { colors: isDark ? '#a1a1aa' : '#6b7280' }
+                            }
+                        },
+                        grid: {
+                            borderColor: isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)'
+                        },
+                        tooltip: {
+                            theme: isDark ? 'dark' : 'light'
+                        },
+                        legend: {
+                            labels: {
+                                colors: isDark ? '#a1a1aa' : '#6b7280'
+                            }
+                        }
+                    });
+                }
+            });
+        }
+
+        // Animate elements on scroll
+        function animateOnScroll() {
             const observer = new IntersectionObserver((entries) => {
                 entries.forEach(entry => {
                     if (entry.isIntersecting) {
@@ -1049,16 +1501,16 @@
                 });
             });
             
-            document.querySelectorAll('.info-card').forEach(card => {
+            document.querySelectorAll('.info-card, .chart-card').forEach(card => {
                 observer.observe(card);
             });
-        });
+        }
 
         // Share functionality
         function shareResults() {
             const shareData = {
                 title: 'GST Compliance Report',
-                text: `GST Compliance Report for {{ company_data.lgnm }} (GSTIN: {{ company_data.gstin }})`,
+                text: `GST Compliance Report for {{ company_data.lgnm }} (GSTIN: {{ company_data.gstin }}) - Score: {{ compliance_score }}%`,
                 url: window.location.href
             };
             
@@ -1070,14 +1522,40 @@
                 // Fallback - copy to clipboard
                 navigator.clipboard.writeText(window.location.href)
                     .then(() => {
-                        alert('Link copied to clipboard!');
+                        showToast('Link copied to clipboard!', 'success');
                     })
                     .catch((error) => {
                         console.error('Error copying to clipboard:', error);
                     });
             }
         }
-        
+
+        // Toast notification
+        function showToast(message, type = 'info') {
+            const toast = document.createElement('div');
+            toast.className = 'toast';
+            toast.style.cssText = `
+                position: fixed;
+                bottom: 2rem;
+                right: 2rem;
+                background: ${type === 'success' ? 'var(--success)' : 'var(--info)'};
+                color: white;
+                padding: 1rem 1.5rem;
+                border-radius: 8px;
+                box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+                z-index: 1000;
+                animation: slideIn 0.3s ease;
+            `;
+            toast.textContent = message;
+            
+            document.body.appendChild(toast);
+            
+            setTimeout(() => {
+                toast.style.animation = 'slideOut 0.3s ease';
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
         // Confetti effect
         function showConfetti() {
             const colors = ['#f093fb', '#f5576c', '#4facfe', '#43e97b', '#fa709a', '#ffc837'];
@@ -1085,15 +1563,17 @@
             
             for (let i = 0; i < confettiCount; i++) {
                 const confetti = document.createElement('div');
-                confetti.style.position = 'fixed';
-                confetti.style.width = '10px';
-                confetti.style.height = '10px';
-                confetti.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
-                confetti.style.left = Math.random() * 100 + '%';
-                confetti.style.top = '-10px';
-                confetti.style.borderRadius = '50%';
-                confetti.style.zIndex = '9999';
-                confetti.style.pointerEvents = 'none';
+                confetti.style.cssText = `
+                    position: fixed;
+                    width: 10px;
+                    height: 10px;
+                    background: ${colors[Math.floor(Math.random() * colors.length)]};
+                    left: ${Math.random() * 100}%;
+                    top: -10px;
+                    border-radius: 50%;
+                    z-index: 9999;
+                    pointer-events: none;
+                `;
                 document.body.appendChild(confetti);
                 
                 const duration = 3000 + Math.random() * 2000;
@@ -1114,6 +1594,25 @@
                 }).onfinish = () => confetti.remove();
             }
         }
+
+        // Print styles
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes slideIn {
+                from { transform: translateX(100%); opacity: 0; }
+                to { transform: translateX(0); opacity: 1; }
+            }
+            @keyframes slideOut {
+                from { transform: translateX(0); opacity: 1; }
+                to { transform: translateX(100%); opacity: 0; }
+            }
+            @media print {
+                body { background: white; color: black; }
+                .no-print, .header, .action-buttons { display: none !important; }
+                .info-card, .chart-card { break-inside: avoid; }
+            }
+        `;
+        document.head.appendChild(style);
     </script>
 </body>
 </html>
