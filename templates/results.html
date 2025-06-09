@@ -5,9 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>GST Search Results - {{ company_data.lgnm }}</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+    <link rel="manifest" href="/static/manifest.json">
+    <meta name="theme-color" content="#7c3aed">
     <style>
-        /* Include all the CSS variables and theme styles from dashboard */
+        /* Include enhanced CSS variables and theme system */
         :root {
             --transition-speed: 0.3s;
         }
@@ -101,7 +102,7 @@
             50% { transform: rotate(5deg) scale(1.1); }
         }
 
-        /* Copy header styles from dashboard */
+        /* Enhanced Header */
         .header {
             background: var(--bg-secondary);
             backdrop-filter: blur(20px);
@@ -141,6 +142,20 @@
             color: white;
             box-shadow: 0 0 30px rgba(124, 58, 237, 0.5);
             animation: pulse 2s ease-in-out infinite;
+            position: relative;
+        }
+
+        .logo-icon::after {
+            content: '';
+            position: absolute;
+            top: -3px;
+            right: -3px;
+            width: 12px;
+            height: 12px;
+            background: var(--success);
+            border: 2px solid var(--bg-secondary);
+            border-radius: 50%;
+            animation: livePulse 2s ease-in-out infinite;
         }
 
         @keyframes pulse {
@@ -154,13 +169,136 @@
             }
         }
 
+        @keyframes livePulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.7; transform: scale(1.2); }
+        }
+
+        .logo-text h1 {
+            font-size: 1.75rem;
+            font-weight: 700;
+            background: var(--accent-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 0.2rem;
+        }
+
+        .logo-text p {
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+            font-weight: 400;
+            margin: 0;
+        }
+
+        /* Navigation */
+        .nav-items {
+            display: flex;
+            gap: 1.5rem;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .nav-link {
+            color: var(--text-primary);
+            text-decoration: none;
+            transition: all 0.3s;
+            font-weight: 500;
+            position: relative;
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+        }
+
+        .nav-link:hover {
+            color: var(--accent-primary);
+            background: var(--bg-hover);
+        }
+
+        .live-dashboard-btn {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            box-shadow: 0 4px 20px rgba(16, 185, 129, 0.3);
+        }
+
+        .live-dashboard-btn::before {
+            content: '🔴';
+            animation: liveBlink 1.5s ease-in-out infinite;
+        }
+
+        @keyframes liveBlink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.6; }
+        }
+
+        /* Theme Toggle */
+        .theme-toggle {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 50px;
+            padding: 4px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            position: relative;
+            width: 72px;
+            height: 36px;
+            transition: all var(--transition-speed);
+        }
+
+        .theme-toggle-indicator {
+            position: absolute;
+            width: 28px;
+            height: 28px;
+            background: var(--accent-gradient);
+            border-radius: 50%;
+            transition: transform var(--transition-speed);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 14px;
+            left: 4px;
+        }
+
+        body.light-theme .theme-toggle-indicator {
+            transform: translateX(36px);
+        }
+
+        .theme-icon {
+            font-size: 14px;
+            color: var(--text-muted);
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1;
+        }
+
+        .logout-btn {
+            background: var(--accent-gradient);
+            color: white;
+            border: none;
+            padding: 0.5rem 1.5rem;
+            border-radius: 8px;
+            text-decoration: none;
+            transition: all 0.3s;
+            font-weight: 500;
+            box-shadow: 0 4px 20px rgba(124, 58, 237, 0.3);
+        }
+
         .container {
             max-width: 1400px;
             margin: 0 auto;
             padding: 2rem;
         }
 
-        /* Enhanced Results Specific Styles */
+        /* Back Navigation */
         .back-btn {
             display: inline-flex;
             align-items: center;
@@ -180,7 +318,7 @@
             transform: translateX(-5px);
         }
 
-        /* Company Header with Animated Gradient */
+        /* Company Header */
         .company-header {
             background: var(--accent-gradient);
             color: white;
@@ -199,22 +337,6 @@
             50% { box-shadow: 0 16px 60px rgba(124, 58, 237, 0.6); }
         }
 
-        .company-header::before {
-            content: '';
-            position: absolute;
-            top: -50%;
-            right: -50%;
-            width: 200%;
-            height: 200%;
-            background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
-            animation: rotate 20s linear infinite;
-        }
-
-        @keyframes rotate {
-            from { transform: rotate(0deg); }
-            to { transform: rotate(360deg); }
-        }
-
         .company-name {
             font-size: 2.5rem;
             font-weight: 800;
@@ -231,47 +353,46 @@
             z-index: 1;
         }
 
-        /* Stats Overview */
-        .stats-overview {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 1.5rem;
+        /* AI Synopsis Section - Moved to Top */
+        .synopsis-section {
+            background: linear-gradient(135deg, rgba(124, 58, 237, 0.1) 0%, rgba(37, 99, 235, 0.1) 100%);
+            border: 1px solid var(--accent-primary);
+            border-radius: 20px;
+            padding: 2rem;
             margin-bottom: 2rem;
+            position: relative;
+            overflow: hidden;
         }
 
-        .stat-mini {
-            background: var(--bg-card);
-            border: 1px solid var(--border-color);
-            border-radius: 16px;
-            padding: 1.5rem;
-            text-align: center;
-            transition: all var(--transition-speed);
-        }
-
-        .stat-mini:hover {
-            transform: translateY(-5px);
-            box-shadow: var(--hover-shadow);
-            border-color: var(--accent-primary);
-        }
-
-        .stat-mini-icon {
-            font-size: 2rem;
-            margin-bottom: 0.5rem;
-        }
-
-        .stat-mini-value {
+        .synopsis-title {
             font-size: 1.5rem;
-            font-weight: 700;
-            color: var(--accent-primary);
+            color: var(--text-primary);
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
         }
 
-        .stat-mini-label {
-            font-size: 0.9rem;
-            color: var(--text-secondary);
+        .ai-badge {
+            background: var(--accent-gradient);
+            color: white;
+            padding: 0.25rem 1rem;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            margin-left: auto;
+            animation: pulse 2s ease-in-out infinite;
         }
 
-        /* Enhanced Compliance Score Card */
-        .compliance-visual {
+        .synopsis-content {
+            color: var(--text-primary);
+            line-height: 1.8;
+            font-size: 1.1rem;
+            max-width: none;
+        }
+
+        /* Enhanced Compliance Score Section */
+        .compliance-section {
             background: var(--bg-card);
             border: 1px solid var(--border-color);
             border-radius: 20px;
@@ -362,42 +483,53 @@
             color: var(--text-secondary);
         }
 
-        /* Charts Grid */
-        .charts-grid {
+        .score-grade {
+            text-align: center;
+            font-size: 1.2rem;
+            color: var(--text-primary);
+            margin-top: 1rem;
+        }
+
+        /* Stats Overview */
+        .stats-overview {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
             gap: 1.5rem;
             margin-bottom: 2rem;
         }
 
-        .chart-card {
+        .stat-mini {
             background: var(--bg-card);
             border: 1px solid var(--border-color);
             border-radius: 16px;
             padding: 1.5rem;
-            box-shadow: var(--card-shadow);
+            text-align: center;
             transition: all var(--transition-speed);
         }
 
-        .chart-card:hover {
+        .stat-mini:hover {
+            transform: translateY(-5px);
             box-shadow: var(--hover-shadow);
             border-color: var(--accent-primary);
         }
 
-        .chart-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 1.5rem;
+        .stat-mini-icon {
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
         }
 
-        .chart-title {
-            font-size: 1.2rem;
-            font-weight: 600;
-            color: var(--text-primary);
+        .stat-mini-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--accent-primary);
         }
 
-        /* Info Grid with Glass Effect */
+        .stat-mini-label {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+        }
+
+        /* Info Grid with Enhanced Tooltips */
         .info-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
@@ -481,6 +613,67 @@
             font-weight: 600;
         }
 
+        /* Enhanced Tooltip System */
+        .tooltip {
+            position: relative;
+            cursor: help;
+        }
+
+        .tooltip::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%) translateY(-8px);
+            background: var(--bg-hover);
+            color: var(--text-primary);
+            padding: 0.75rem 1rem;
+            border-radius: 8px;
+            font-size: 0.875rem;
+            white-space: nowrap;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s, transform 0.3s;
+            z-index: 1000;
+            box-shadow: var(--card-shadow);
+            border: 1px solid var(--border-color);
+            max-width: 250px;
+            white-space: normal;
+        }
+
+        .tooltip:hover::after {
+            opacity: 1;
+            transform: translateX(-50%) translateY(-12px);
+        }
+
+        /* Status Badges */
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.3rem;
+            padding: 0.4rem 1rem;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+
+        .status-active {
+            background: rgba(16, 185, 129, 0.2);
+            color: var(--success);
+            border: 1px solid var(--success);
+        }
+
+        .status-active::before {
+            content: '●';
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        .status-inactive {
+            background: rgba(239, 68, 68, 0.2);
+            color: var(--danger);
+            border: 1px solid var(--danger);
+        }
+
         /* Returns Analysis Section */
         .returns-analysis {
             background: var(--bg-card);
@@ -506,7 +699,7 @@
             gap: 0.5rem;
         }
 
-        /* Late Filing Alert Enhanced */
+        /* Late Filing Alert */
         .late-filing-alert {
             background: linear-gradient(135deg, rgba(245, 158, 11, 0.1) 0%, rgba(217, 119, 6, 0.1) 100%);
             border: 1px solid var(--warning);
@@ -519,14 +712,14 @@
             animation: alertPulse 2s ease-in-out infinite;
         }
 
-        @keyframes alertPulse {
-            0%, 100% { transform: scale(1); }
-            50% { transform: scale(1.02); }
-        }
-
         .late-filing-alert.critical {
             background: linear-gradient(135deg, rgba(239, 68, 68, 0.1) 0%, rgba(220, 38, 38, 0.1) 100%);
             border-color: var(--danger);
+        }
+
+        @keyframes alertPulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.02); }
         }
 
         .alert-icon {
@@ -540,60 +733,7 @@
             75% { transform: rotate(5deg); }
         }
 
-        /* Status Badges */
-        .status-badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.3rem;
-            padding: 0.4rem 1rem;
-            border-radius: 20px;
-            font-size: 0.85rem;
-            font-weight: 600;
-        }
-
-        .status-active {
-            background: rgba(16, 185, 129, 0.2);
-            color: var(--success);
-            border: 1px solid var(--success);
-        }
-
-        .status-active::before {
-            content: '●';
-            animation: pulse 2s ease-in-out infinite;
-        }
-
-        /* Synopsis Section Enhanced */
-        .synopsis-section {
-            background: linear-gradient(135deg, rgba(124, 58, 237, 0.1) 0%, rgba(37, 99, 235, 0.1) 100%);
-            border: 1px solid var(--accent-primary);
-            border-radius: 20px;
-            padding: 2rem;
-            margin-bottom: 2rem;
-            position: relative;
-            overflow: hidden;
-        }
-
-        .synopsis-title {
-            font-size: 1.5rem;
-            color: var(--text-primary);
-            margin-bottom: 1rem;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-
-        .ai-badge {
-            background: var(--accent-gradient);
-            color: white;
-            padding: 0.25rem 1rem;
-            border-radius: 20px;
-            font-size: 0.75rem;
-            font-weight: 600;
-            margin-left: auto;
-            animation: pulse 2s ease-in-out infinite;
-        }
-
-        /* Action Buttons Enhanced */
+        /* Action Buttons */
         .action-buttons {
             display: flex;
             gap: 1rem;
@@ -641,129 +781,20 @@
             box-shadow: 0 4px 20px rgba(239, 68, 68, 0.3);
         }
 
-        .pdf-btn:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 6px 30px rgba(239, 68, 68, 0.5);
-        }
-
         .share-btn {
             background: linear-gradient(135deg, #10b981 0%, #059669 100%);
             color: white;
             box-shadow: 0 4px 20px rgba(16, 185, 129, 0.3);
         }
 
-        .share-btn:hover {
+        .print-btn {
+            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+            color: white;
+            box-shadow: 0 4px 20px rgba(59, 130, 246, 0.3);
+        }
+
+        .action-btn:hover {
             transform: translateY(-3px);
-            box-shadow: 0 6px 30px rgba(16, 185, 129, 0.5);
-        }
-
-        /* Theme Toggle (same as dashboard) */
-        .theme-toggle {
-            background: var(--bg-card);
-            border: 1px solid var(--border-color);
-            border-radius: 50px;
-            padding: 4px;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            position: relative;
-            width: 72px;
-            height: 36px;
-            transition: all var(--transition-speed);
-        }
-
-        .theme-toggle-indicator {
-            position: absolute;
-            width: 28px;
-            height: 28px;
-            background: var(--accent-gradient);
-            border-radius: 50%;
-            transition: transform var(--transition-speed);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-size: 14px;
-            left: 4px;
-        }
-
-        body.light-theme .theme-toggle-indicator {
-            transform: translateX(36px);
-        }
-
-        /* Navigation and other common styles */
-        .nav-items {
-            display: flex;
-            gap: 2rem;
-            align-items: center;
-            flex-wrap: wrap;
-        }
-
-        .nav-link {
-            color: var(--text-primary);
-            text-decoration: none;
-            transition: all 0.3s;
-            font-weight: 500;
-            position: relative;
-        }
-
-        .nav-link::after {
-            content: '';
-            position: absolute;
-            width: 0;
-            height: 2px;
-            bottom: -5px;
-            left: 0;
-            background: var(--accent-gradient);
-            transition: width 0.3s;
-        }
-
-        .nav-link:hover::after {
-            width: 100%;
-        }
-
-        .logout-btn {
-            background: var(--accent-gradient);
-            color: white;
-            border: none;
-            padding: 0.5rem 1.5rem;
-            border-radius: 8px;
-            text-decoration: none;
-            transition: all 0.3s;
-            font-weight: 500;
-            box-shadow: 0 4px 20px rgba(124, 58, 237, 0.3);
-        }
-
-        .logout-btn:hover {
-            background: var(--accent-gradient-hover);
-            transform: translateY(-2px);
-            box-shadow: 0 6px 30px rgba(124, 58, 237, 0.5);
-        }
-
-        .logo-text h1 {
-            font-size: 1.75rem;
-            font-weight: 700;
-            background: var(--accent-gradient);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            margin-bottom: 0.2rem;
-        }
-
-        .logo-text p {
-            font-size: 0.875rem;
-            color: var(--text-secondary);
-            font-weight: 400;
-            margin: 0;
-        }
-
-        .theme-icon {
-            font-size: 14px;
-            color: var(--text-muted);
-            flex: 1;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 1;
         }
 
         /* Responsive */
@@ -776,8 +807,7 @@
                 font-size: 1.8rem;
             }
             
-            .info-grid,
-            .charts-grid {
+            .info-grid {
                 grid-template-columns: 1fr;
             }
             
@@ -802,6 +832,9 @@
             </div>
             <nav class="nav-items">
                 <a href="/" class="nav-link">Dashboard</a>
+                <a href="/analytics" class="live-dashboard-btn">
+                    Live Analytics
+                </a>
                 <a href="/history" class="nav-link">History</a>
                 <!-- Theme Toggle -->
                 <div class="theme-toggle" onclick="toggleTheme()">
@@ -837,34 +870,32 @@
             <p class="company-gstin">GSTIN: {{ company_data.gstin }}</p>
         </div>
 
-        <!-- Stats Overview -->
-        <div class="stats-overview">
-            <div class="stat-mini">
-                <div class="stat-mini-icon">✅</div>
-                <div class="stat-mini-value">{{ company_data.sts or 'N/A' }}</div>
-                <div class="stat-mini-label">Status</div>
+        <!-- AI Synopsis Section - Now at Top -->
+        {% if synopsis %}
+        <div class="synopsis-section">
+            <h2 class="synopsis-title">
+                <i class="fas fa-robot"></i>
+                AI-Generated Company Overview
+                <span class="ai-badge">Powered by AI</span>
+            </h2>
+            <div class="synopsis-content">
+                {{ synopsis }}
             </div>
-            <div class="stat-mini">
-                <div class="stat-mini-icon">📅</div>
-                <div class="stat-mini-value">{{ company_data.rgdt or 'N/A' }}</div>
-                <div class="stat-mini-label">Registration Date</div>
-            </div>
-            <div class="stat-mini">
-                <div class="stat-mini-icon">📍</div>
-                <div class="stat-mini-value">{% if company_data.stj %}{{ company_data.stj.split('State - ')[1].split(',')[0] if 'State - ' in company_data.stj else 'N/A' }}{% else %}N/A{% endif %}</div>
-                <div class="stat-mini-label">State</div>
-            </div>
-            <div class="stat-mini">
-                <div class="stat-mini-icon">📄</div>
-                <div class="stat-mini-value">{{ company_data.returns|length if company_data.returns else 0 }}</div>
-                <div class="stat-mini-label">Returns Filed</div>
+            <div style="margin-top: 1rem; display: flex; gap: 1rem; flex-wrap: wrap;">
+                <span style="color: var(--text-secondary); font-size: 0.9rem;">
+                    <i class="fas fa-info-circle"></i> Generated using advanced AI analysis
+                </span>
+                <span style="color: var(--text-secondary); font-size: 0.9rem;">
+                    <i class="fas fa-clock"></i> Updated: Just now
+                </span>
             </div>
         </div>
+        {% endif %}
 
-        <!-- Enhanced Compliance Visual -->
-        <div class="compliance-visual">
+        <!-- Enhanced Compliance Score Section -->
+        <div class="compliance-section">
             <div class="compliance-header">
-                <h2 class="compliance-title">Compliance Score Analysis</h2>
+                <h2 class="compliance-title tooltip" data-tooltip="Overall compliance score based on filing history, registration status, and other compliance factors">Compliance Score Analysis</h2>
                 <p class="compliance-subtitle">Based on multiple compliance factors and filing history</p>
             </div>
             
@@ -879,38 +910,46 @@
                 </div>
             </div>
             
-            <div class="score-grade" style="text-align: center; font-size: 1.2rem; color: var(--text-primary);">
+            <div class="score-grade">
                 {% if compliance_score >= 90 %}
-                    <span style="color: var(--success);">Grade A+ (Excellent)</span>
+                    <span style="color: var(--success);" class="tooltip" data-tooltip="Excellent compliance - Green status indicates top-tier tax compliance">Grade A+ (Excellent)</span>
                 {% elif compliance_score >= 80 %}
-                    <span style="color: var(--success);">Grade A (Very Good)</span>
+                    <span style="color: var(--success);" class="tooltip" data-tooltip="Very good compliance - Strong tax compliance record">Grade A (Very Good)</span>
                 {% elif compliance_score >= 70 %}
-                    <span style="color: var(--warning);">Grade B (Good)</span>
+                    <span style="color: var(--warning);" class="tooltip" data-tooltip="Good compliance - Yellow status indicates minor compliance issues">Grade B (Good)</span>
                 {% elif compliance_score >= 60 %}
-                    <span style="color: var(--warning);">Grade C (Average)</span>
+                    <span style="color: var(--warning);" class="tooltip" data-tooltip="Average compliance - Some improvement needed">Grade C (Average)</span>
                 {% else %}
-                    <span style="color: var(--danger);">Grade D (Needs Improvement)</span>
+                    <span style="color: var(--danger);" class="tooltip" data-tooltip="Poor compliance - Red status indicates significant compliance issues">Grade D (Needs Improvement)</span>
                 {% endif %}
             </div>
         </div>
 
-        <!-- Charts Grid -->
-        <div class="charts-grid">
-            <div class="chart-card">
-                <div class="chart-header">
-                    <h3 class="chart-title">Filing Pattern Analysis</h3>
-                </div>
-                <div id="filingPatternChart" style="height: 300px;"></div>
+        <!-- Stats Overview -->
+        <div class="stats-overview">
+            <div class="stat-mini tooltip" data-tooltip="Current registration status with GST authorities">
+                <div class="stat-mini-icon">✅</div>
+                <div class="stat-mini-value">{{ company_data.sts or 'N/A' }}</div>
+                <div class="stat-mini-label">Status</div>
             </div>
-            <div class="chart-card">
-                <div class="chart-header">
-                    <h3 class="chart-title">Return Type Distribution</h3>
-                </div>
-                <div id="returnTypeChart" style="height: 300px;"></div>
+            <div class="stat-mini tooltip" data-tooltip="Date when GST registration was obtained">
+                <div class="stat-mini-icon">📅</div>
+                <div class="stat-mini-value">{{ company_data.rgdt or 'N/A' }}</div>
+                <div class="stat-mini-label">Registration Date</div>
+            </div>
+            <div class="stat-mini tooltip" data-tooltip="State where the company is registered">
+                <div class="stat-mini-icon">📍</div>
+                <div class="stat-mini-value">{% if company_data.stj %}{{ company_data.stj.split('State - ')[1].split(',')[0] if 'State - ' in company_data.stj else 'N/A' }}{% else %}N/A{% endif %}</div>
+                <div class="stat-mini-label">State</div>
+            </div>
+            <div class="stat-mini tooltip" data-tooltip="Total number of GST returns filed by the company">
+                <div class="stat-mini-icon">📄</div>
+                <div class="stat-mini-value">{{ company_data.returns|length if company_data.returns else 0 }}</div>
+                <div class="stat-mini-label">Returns Filed</div>
             </div>
         </div>
 
-        <!-- Info Grid -->
+        <!-- Info Grid with Enhanced Tooltips -->
         <div class="info-grid">
             <!-- Basic Information -->
             <div class="info-card">
@@ -919,33 +958,33 @@
                     Basic Information
                 </h3>
                 <div class="info-item">
-                    <span class="info-label">Trade Name</span>
+                    <span class="info-label tooltip" data-tooltip="Trading name under which business is conducted">Trade Name</span>
                     <span class="info-value">{{ company_data.tradeName or 'N/A' }}</span>
                 </div>
                 <div class="info-item">
-                    <span class="info-label">Business Type</span>
+                    <span class="info-label tooltip" data-tooltip="Type of business entity (Private Limited, LLP, etc.)">Business Type</span>
                     <span class="info-value">{{ company_data.ctb or 'N/A' }}</span>
                 </div>
                 <div class="info-item">
-                    <span class="info-label">Registration Date</span>
+                    <span class="info-label tooltip" data-tooltip="Date of GST registration">Registration Date</span>
                     <span class="info-value">{{ company_data.rgdt or 'N/A' }}</span>
                 </div>
                 <div class="info-item">
-                    <span class="info-label">Status</span>
+                    <span class="info-label tooltip" data-tooltip="Current status with GST authorities">Status</span>
                     <span class="info-value">
                         {% if company_data.sts == 'Active' %}
-                            <span class="status-badge status-active">Active</span>
+                            <span class="status-badge status-active tooltip" data-tooltip="Active status - Company can conduct business">Active</span>
                         {% else %}
-                            <span class="status-badge status-inactive">{{ company_data.sts }}</span>
+                            <span class="status-badge status-inactive tooltip" data-tooltip="Inactive status - May have compliance issues">{{ company_data.sts }}</span>
                         {% endif %}
                     </span>
                 </div>
                 <div class="info-item">
-                    <span class="info-label">PAN</span>
+                    <span class="info-label tooltip" data-tooltip="Permanent Account Number">PAN</span>
                     <span class="info-value">{{ company_data.pan or 'N/A' }}</span>
                 </div>
                 <div class="info-item">
-                    <span class="info-label">Company Category</span>
+                    <span class="info-label tooltip" data-tooltip="Category classification based on turnover">Company Category</span>
                     <span class="info-value">{{ company_data.compCategory or 'N/A' }}</span>
                 </div>
             </div>
@@ -957,15 +996,15 @@
                     Address Details
                 </h3>
                 <div class="info-item">
-                    <span class="info-label">Address</span>
+                    <span class="info-label tooltip" data-tooltip="Registered business address">Address</span>
                     <span class="info-value">{{ company_data.adr or 'N/A' }}</span>
                 </div>
                 <div class="info-item">
-                    <span class="info-label">Pincode</span>
+                    <span class="info-label tooltip" data-tooltip="Postal code of business location">Pincode</span>
                     <span class="info-value">{{ company_data.pincode or 'N/A' }}</span>
                 </div>
                 <div class="info-item">
-                    <span class="info-label">State</span>
+                    <span class="info-label tooltip" data-tooltip="State of registration">State</span>
                     <span class="info-value">{% if company_data.stj %}{{ company_data.stj.split('State - ')[1].split(',')[0] if 'State - ' in company_data.stj else 'N/A' }}{% else %}N/A{% endif %}</span>
                 </div>
             </div>
@@ -977,19 +1016,19 @@
                     Additional Details
                 </h3>
                 <div class="info-item">
-                    <span class="info-label">Nature of Business</span>
+                    <span class="info-label tooltip" data-tooltip="Primary business activities of the company">Nature of Business</span>
                     <span class="info-value">{% if company_data.nba %}{{ ', '.join(company_data.nba) }}{% else %}N/A{% endif %}</span>
                 </div>
                 <div class="info-item">
-                    <span class="info-label">E-Invoice Status</span>
+                    <span class="info-label tooltip" data-tooltip="Electronic invoicing system adoption status">E-Invoice Status</span>
                     <span class="info-value">{{ company_data.einvoiceStatus or 'N/A' }}</span>
                 </div>
                 <div class="info-item">
-                    <span class="info-label">Latest GSTR-1</span>
+                    <span class="info-label tooltip" data-tooltip="Most recent GSTR-1 return filing period">Latest GSTR-1</span>
                     <span class="info-value">{{ company_data.meta.latestgtsr1 if company_data.meta else 'N/A' }}</span>
                 </div>
                 <div class="info-item">
-                    <span class="info-label">Latest GSTR-3B</span>
+                    <span class="info-label tooltip" data-tooltip="Most recent GSTR-3B return filing period">Latest GSTR-3B</span>
                     <span class="info-value">{{ company_data.meta.latestgtsr3b if company_data.meta else 'N/A' }}</span>
                 </div>
             </div>
@@ -1017,19 +1056,16 @@
             </div>
             {% endif %}
             
-            <!-- Returns Summary Chart -->
-            <div id="returnsTimelineChart" style="height: 300px; margin-bottom: 2rem;"></div>
-            
             <!-- Returns Table -->
             <div style="overflow-x: auto;">
                 <table style="width: 100%; border-collapse: collapse; background: var(--bg-secondary); border-radius: 12px; overflow: hidden;">
                     <thead>
                         <tr>
-                            <th style="background: var(--bg-hover); color: var(--text-primary); padding: 1rem; text-align: left; font-weight: 600;">Return Type</th>
-                            <th style="background: var(--bg-hover); color: var(--text-primary); padding: 1rem; text-align: left; font-weight: 600;">Tax Period</th>
-                            <th style="background: var(--bg-hover); color: var(--text-primary); padding: 1rem; text-align: left; font-weight: 600;">Financial Year</th>
-                            <th style="background: var(--bg-hover); color: var(--text-primary); padding: 1rem; text-align: left; font-weight: 600;">Filing Date</th>
-                            <th style="background: var(--bg-hover); color: var(--text-primary); padding: 1rem; text-align: left; font-weight: 600;" class="hide-mobile">Status</th>
+                            <th style="background: var(--bg-hover); color: var(--text-primary); padding: 1rem; text-align: left; font-weight: 600;" class="tooltip" data-tooltip="Type of GST return (GSTR-1, GSTR-3B, etc.)">Return Type</th>
+                            <th style="background: var(--bg-hover); color: var(--text-primary); padding: 1rem; text-align: left; font-weight: 600;" class="tooltip" data-tooltip="Tax period for which return was filed">Tax Period</th>
+                            <th style="background: var(--bg-hover); color: var(--text-primary); padding: 1rem; text-align: left; font-weight: 600;" class="tooltip" data-tooltip="Financial year of the return">Financial Year</th>
+                            <th style="background: var(--bg-hover); color: var(--text-primary); padding: 1rem; text-align: left; font-weight: 600;" class="tooltip" data-tooltip="Date when return was actually filed">Filing Date</th>
+                            <th style="background: var(--bg-hover); color: var(--text-primary); padding: 1rem; text-align: left; font-weight: 600;" class="hide-mobile tooltip" data-tooltip="Whether filed on time or late">Status</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -1043,13 +1079,13 @@
                                 {% if late_filing_analysis %}
                                     {% for late_return in late_filing_analysis.late_returns %}
                                         {% if late_return.return.dof == return.dof and late_return.return.rtntype == return.rtntype %}
-                                            <span style="background: var(--danger); color: white; padding: 0.25rem 0.5rem; border-radius: 12px; font-size: 0.75rem; font-weight: 600; margin-left: 0.5rem;">Late by {{ late_return.delay_days }} days</span>
+                                            <span style="background: var(--danger); color: white; padding: 0.25rem 0.5rem; border-radius: 12px; font-size: 0.75rem; font-weight: 600; margin-left: 0.5rem;" class="tooltip" data-tooltip="Return was filed {{ late_return.delay_days }} days after due date">Late by {{ late_return.delay_days }} days</span>
                                         {% endif %}
                                     {% endfor %}
                                 {% endif %}
                             </td>
                             <td style="padding: 1rem; border-bottom: 1px solid var(--border-color);" class="hide-mobile">
-                                <span style="background: rgba(16, 185, 129, 0.2); color: var(--success); padding: 0.25rem 0.75rem; border-radius: 15px; font-size: 0.85rem; font-weight: 600;">Filed</span>
+                                <span style="background: rgba(16, 185, 129, 0.2); color: var(--success); padding: 0.25rem 0.75rem; border-radius: 15px; font-size: 0.85rem; font-weight: 600;" class="tooltip" data-tooltip="Return has been successfully filed">Filed</span>
                             </td>
                         </tr>
                         {% endfor %}
@@ -1060,41 +1096,6 @@
                     Showing latest 10 returns out of {{ company_data.returns | length }} total
                 </p>
                 {% endif %}
-            </div>
-        </div>
-        {% endif %}
-
-        <!-- Filing Frequency Chart -->
-        {% if company_data.fillingFreq %}
-        <div class="chart-card">
-            <div class="chart-header">
-                <h3 class="chart-title">
-                    <i class="fas fa-calendar-check"></i>
-                    Filing Frequency Pattern
-                </h3>
-            </div>
-            <div id="filingFrequencyChart" style="height: 300px;"></div>
-        </div>
-        {% endif %}
-
-        <!-- AI Synopsis Section -->
-        {% if synopsis %}
-        <div class="synopsis-section">
-            <h2 class="synopsis-title">
-                <i class="fas fa-robot"></i>
-                AI-Generated Company Overview
-                <span class="ai-badge">Powered by AI</span>
-            </h2>
-            <div class="synopsis-content" style="color: var(--text-primary); line-height: 1.8; font-size: 1.1rem;">
-                {{ synopsis }}
-            </div>
-            <div style="margin-top: 1rem; display: flex; gap: 1rem; flex-wrap: wrap;">
-                <span style="color: var(--text-secondary); font-size: 0.9rem;">
-                    <i class="fas fa-info-circle"></i> Generated using advanced AI analysis
-                </span>
-                <span style="color: var(--text-secondary); font-size: 0.9rem;">
-                    <i class="fas fa-clock"></i> Updated: Just now
-                </span>
             </div>
         </div>
         {% endif %}
@@ -1114,7 +1115,7 @@
                 Share Results
             </button>
             
-            <button class="action-btn" style="background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); color: white; box-shadow: 0 4px 20px rgba(59, 130, 246, 0.3);" onclick="window.print()">
+            <button class="action-btn print-btn" onclick="window.print()">
                 <i class="fas fa-print"></i>
                 Print Report
             </button>
@@ -1123,7 +1124,7 @@
 
     <!-- JavaScript -->
     <script>
-        // Theme Toggle Function
+        // Enhanced Theme Toggle Function
         function toggleTheme() {
             const body = document.body;
             const themeIcon = document.getElementById('theme-indicator-icon');
@@ -1137,12 +1138,9 @@
                 if (themeIcon) themeIcon.className = 'fas fa-sun';
                 localStorage.setItem('theme', 'light');
             }
-            
-            // Update charts theme
-            updateChartsTheme();
         }
 
-        // Initialize theme on page load
+        // Initialize theme and features on page load
         document.addEventListener('DOMContentLoaded', function() {
             // Apply saved theme
             const savedTheme = localStorage.getItem('theme');
@@ -1153,14 +1151,13 @@
                 if (themeIcon) themeIcon.className = 'fas fa-sun';
             }
             
-            // Animate score value
+            // Animate compliance score
             animateScore();
             
-            // Initialize charts
-            initializeCharts();
-            
-            // Animate elements on scroll
-            animateOnScroll();
+            // Initialize PWA features
+            if ('serviceWorker' in navigator) {
+                navigator.serviceWorker.register('/sw.js');
+            }
         });
 
         // Animate compliance score
@@ -1185,327 +1182,6 @@
             }, 20);
         }
 
-        // Initialize all charts
-        function initializeCharts() {
-            const isDark = !document.body.classList.contains('light-theme');
-            
-            // Filing Pattern Chart
-            const filingPatternOptions = {
-                series: [{
-                    name: 'Returns Filed',
-                    data: generateMonthlyData()
-                }],
-                chart: {
-                    type: 'area',
-                    height: 300,
-                    background: 'transparent',
-                    toolbar: { show: false },
-                    animations: {
-                        enabled: true,
-                        easing: 'easeinout',
-                        speed: 800
-                    }
-                },
-                stroke: {
-                    curve: 'smooth',
-                    width: 3
-                },
-                fill: {
-                    type: 'gradient',
-                    gradient: {
-                        shadeIntensity: 1,
-                        opacityFrom: 0.7,
-                        opacityTo: 0.3,
-                        stops: [0, 100]
-                    }
-                },
-                colors: ['#7c3aed'],
-                xaxis: {
-                    categories: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
-                    labels: {
-                        style: { colors: isDark ? '#a1a1aa' : '#6b7280' }
-                    }
-                },
-                yaxis: {
-                    labels: {
-                        style: { colors: isDark ? '#a1a1aa' : '#6b7280' }
-                    }
-                },
-                grid: {
-                    borderColor: isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)',
-                    strokeDashArray: 4
-                },
-                theme: { mode: isDark ? 'dark' : 'light' },
-                tooltip: { theme: isDark ? 'dark' : 'light' }
-            };
-            
-            // Return Type Distribution
-            const returnTypeOptions = {
-                series: [
-                    {{ company_data.returns | selectattr("rtntype", "eq", "GSTR1") | list | length }},
-                    {{ company_data.returns | selectattr("rtntype", "eq", "GSTR3B") | list | length }},
-                    {{ company_data.returns | selectattr("rtntype", "eq", "GSTR9") | list | length }}
-                ],
-                chart: {
-                    type: 'donut',
-                    height: 300,
-                    background: 'transparent',
-                    animations: {
-                        enabled: true,
-                        easing: 'easeinout',
-                        speed: 800,
-                        animateGradually: {
-                            enabled: true,
-                            delay: 150
-                        }
-                    }
-                },
-                labels: ['GSTR-1', 'GSTR-3B', 'Annual Returns'],
-                colors: ['#7c3aed', '#3b82f6', '#10b981'],
-                theme: { mode: isDark ? 'dark' : 'light' },
-                legend: {
-                    position: 'bottom',
-                    labels: { colors: isDark ? '#a1a1aa' : '#6b7280' }
-                },
-                dataLabels: {
-                    style: { colors: ['#fff'] }
-                },
-                plotOptions: {
-                    pie: {
-                        donut: {
-                            size: '70%',
-                            labels: {
-                                show: true,
-                                total: {
-                                    show: true,
-                                    label: 'Total',
-                                    formatter: () => '{{ company_data.returns | length }}'
-                                }
-                            }
-                        }
-                    }
-                }
-            };
-            
-            // Returns Timeline Chart
-            const timelineOptions = {
-                series: [{
-                    name: 'Filing Delay',
-                    data: generateTimelineData()
-                }],
-                chart: {
-                    type: 'scatter',
-                    height: 300,
-                    background: 'transparent',
-                    toolbar: { show: false }
-                },
-                xaxis: {
-                    type: 'datetime',
-                    labels: {
-                        style: { colors: isDark ? '#a1a1aa' : '#6b7280' }
-                    }
-                },
-                yaxis: {
-                    title: {
-                        text: 'Days Delay',
-                        style: { color: isDark ? '#a1a1aa' : '#6b7280' }
-                    },
-                    labels: {
-                        style: { colors: isDark ? '#a1a1aa' : '#6b7280' }
-                    }
-                },
-                markers: {
-                    size: 8,
-                    colors: ['#7c3aed'],
-                    strokeColors: '#fff',
-                    strokeWidth: 2,
-                    hover: { size: 10 }
-                },
-                grid: {
-                    borderColor: isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)',
-                    strokeDashArray: 4
-                },
-                theme: { mode: isDark ? 'dark' : 'light' },
-                tooltip: {
-                    theme: isDark ? 'dark' : 'light',
-                    y: {
-                        formatter: (val) => val + ' days delay'
-                    }
-                }
-            };
-            
-            // Filing Frequency Chart
-            {% if company_data.fillingFreq %}
-            const freqData = [];
-            const freqCategories = [];
-            {% for quarter, freq in company_data.fillingFreq.items() %}
-            freqCategories.push('{{ quarter.replace("_", " ") }}');
-            freqData.push('{{ freq }}' === 'M' ? 3 : '{{ freq }}' === 'Q' ? 2 : 1);
-            {% endfor %}
-            
-            const filingFrequencyOptions = {
-                series: [{
-                    name: 'Filing Frequency',
-                    data: freqData
-                }],
-                chart: {
-                    type: 'bar',
-                    height: 300,
-                    background: 'transparent',
-                    toolbar: { show: false }
-                },
-                plotOptions: {
-                    bar: {
-                        borderRadius: 8,
-                        columnWidth: '60%',
-                        distributed: true
-                    }
-                },
-                colors: ['#7c3aed', '#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'],
-                xaxis: {
-                    categories: freqCategories,
-                    labels: {
-                        style: { colors: isDark ? '#a1a1aa' : '#6b7280' }
-                    }
-                },
-                yaxis: {
-                    labels: {
-                        style: { colors: isDark ? '#a1a1aa' : '#6b7280' },
-                        formatter: (val) => val === 3 ? 'Monthly' : val === 2 ? 'Quarterly' : 'Annual'
-                    }
-                },
-                grid: {
-                    borderColor: isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)',
-                    strokeDashArray: 4
-                },
-                theme: { mode: isDark ? 'dark' : 'light' },
-                tooltip: {
-                    theme: isDark ? 'dark' : 'light',
-                    y: {
-                        formatter: (val) => val === 3 ? 'Monthly' : val === 2 ? 'Quarterly' : 'Annual'
-                    }
-                },
-                legend: { show: false }
-            };
-            {% endif %}
-            
-            // Render charts
-            const filingPatternChart = new ApexCharts(document.querySelector("#filingPatternChart"), filingPatternOptions);
-            const returnTypeChart = new ApexCharts(document.querySelector("#returnTypeChart"), returnTypeOptions);
-            const returnsTimelineChart = new ApexCharts(document.querySelector("#returnsTimelineChart"), timelineOptions);
-            
-            filingPatternChart.render();
-            returnTypeChart.render();
-            returnsTimelineChart.render();
-            
-            {% if company_data.fillingFreq %}
-            const filingFrequencyChart = new ApexCharts(document.querySelector("#filingFrequencyChart"), filingFrequencyOptions);
-            filingFrequencyChart.render();
-            {% endif %}
-            
-            // Store charts for theme updates
-            window.charts = {
-                filingPattern: filingPatternChart,
-                returnType: returnTypeChart,
-                timeline: returnsTimelineChart,
-                {% if company_data.fillingFreq %}frequency: filingFrequencyChart{% endif %}
-            };
-        }
-
-        // Generate sample data for charts
-        function generateMonthlyData() {
-            // Generate data based on actual returns
-            const monthlyData = new Array(12).fill(0);
-            {% if company_data.returns %}
-            {% for return in company_data.returns %}
-            // Extract month from tax period
-            {% endfor %}
-            {% endif %}
-            
-            // Return sample data for demo
-            return [2, 3, 2, 4, 3, 5, 4, 6, 5, 7, 6, 8];
-        }
-
-        function generateTimelineData() {
-            const data = [];
-            {% if late_filing_analysis and late_filing_analysis.late_returns %}
-            {% for late in late_filing_analysis.late_returns[:20] %}
-            data.push({
-                x: new Date('{{ late.filing_date }}').getTime(),
-                y: {{ late.delay_days }}
-            });
-            {% endfor %}
-            {% endif %}
-            
-            // Add some sample data if no late filings
-            if (data.length === 0) {
-                const now = new Date();
-                for (let i = 0; i < 10; i++) {
-                    data.push({
-                        x: new Date(now.getFullYear(), now.getMonth() - i, 1).getTime(),
-                        y: Math.floor(Math.random() * 30)
-                    });
-                }
-            }
-            
-            return data;
-        }
-
-        // Update charts theme
-        function updateChartsTheme() {
-            const isDark = !document.body.classList.contains('light-theme');
-            
-            Object.values(window.charts || {}).forEach(chart => {
-                if (chart) {
-                    chart.updateOptions({
-                        theme: { mode: isDark ? 'dark' : 'light' },
-                        xaxis: {
-                            labels: {
-                                style: { colors: isDark ? '#a1a1aa' : '#6b7280' }
-                            }
-                        },
-                        yaxis: {
-                            labels: {
-                                style: { colors: isDark ? '#a1a1aa' : '#6b7280' }
-                            }
-                        },
-                        grid: {
-                            borderColor: isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)'
-                        },
-                        tooltip: {
-                            theme: isDark ? 'dark' : 'light'
-                        },
-                        legend: {
-                            labels: {
-                                colors: isDark ? '#a1a1aa' : '#6b7280'
-                            }
-                        }
-                    });
-                }
-            });
-        }
-
-        // Animate elements on scroll
-        function animateOnScroll() {
-            const observer = new IntersectionObserver((entries) => {
-                entries.forEach(entry => {
-                    if (entry.isIntersecting) {
-                        entry.target.style.opacity = '0';
-                        entry.target.style.transform = 'translateY(20px)';
-                        setTimeout(() => {
-                            entry.target.style.transition = 'all 0.6s ease';
-                            entry.target.style.opacity = '1';
-                            entry.target.style.transform = 'translateY(0)';
-                        }, 100);
-                    }
-                });
-            });
-            
-            document.querySelectorAll('.info-card, .chart-card').forEach(card => {
-                observer.observe(card);
-            });
-        }
-
         // Share functionality
         function shareResults() {
             const shareData = {
@@ -1515,25 +1191,17 @@
             };
             
             if (navigator.share) {
-                navigator.share(shareData)
-                    .then(() => console.log('Shared successfully'))
-                    .catch((error) => console.log('Error sharing:', error));
+                navigator.share(shareData);
             } else {
                 // Fallback - copy to clipboard
-                navigator.clipboard.writeText(window.location.href)
-                    .then(() => {
-                        showToast('Link copied to clipboard!', 'success');
-                    })
-                    .catch((error) => {
-                        console.error('Error copying to clipboard:', error);
-                    });
+                navigator.clipboard.writeText(window.location.href);
+                showToast('Link copied to clipboard!', 'success');
             }
         }
 
         // Toast notification
         function showToast(message, type = 'info') {
             const toast = document.createElement('div');
-            toast.className = 'toast';
             toast.style.cssText = `
                 position: fixed;
                 bottom: 2rem;
@@ -1551,22 +1219,21 @@
             document.body.appendChild(toast);
             
             setTimeout(() => {
-                toast.style.animation = 'slideOut 0.3s ease';
-                setTimeout(() => toast.remove(), 300);
+                toast.remove();
             }, 3000);
         }
 
-        // Confetti effect
+        // Confetti effect for high scores
         function showConfetti() {
             const colors = ['#f093fb', '#f5576c', '#4facfe', '#43e97b', '#fa709a', '#ffc837'];
-            const confettiCount = 150;
+            const confettiCount = 100;
             
             for (let i = 0; i < confettiCount; i++) {
                 const confetti = document.createElement('div');
                 confetti.style.cssText = `
                     position: fixed;
-                    width: 10px;
-                    height: 10px;
+                    width: 8px;
+                    height: 8px;
                     background: ${colors[Math.floor(Math.random() * colors.length)]};
                     left: ${Math.random() * 100}%;
                     top: -10px;
@@ -1576,43 +1243,15 @@
                 `;
                 document.body.appendChild(confetti);
                 
-                const duration = 3000 + Math.random() * 2000;
-                const rotateAngle = Math.random() * 720;
-                
                 confetti.animate([
-                    { 
-                        transform: `translateY(0) rotate(0deg)`, 
-                        opacity: 1 
-                    },
-                    { 
-                        transform: `translateY(${window.innerHeight + 20}px) rotate(${rotateAngle}deg)`, 
-                        opacity: 0 
-                    }
+                    { transform: `translateY(0) rotate(0deg)`, opacity: 1 },
+                    { transform: `translateY(${window.innerHeight + 20}px) rotate(${Math.random() * 720}deg)`, opacity: 0 }
                 ], {
-                    duration: duration,
+                    duration: 3000 + Math.random() * 2000,
                     easing: 'cubic-bezier(0.25, 0.46, 0.45, 0.94)'
                 }).onfinish = () => confetti.remove();
             }
         }
-
-        // Print styles
-        const style = document.createElement('style');
-        style.textContent = `
-            @keyframes slideIn {
-                from { transform: translateX(100%); opacity: 0; }
-                to { transform: translateX(0); opacity: 1; }
-            }
-            @keyframes slideOut {
-                from { transform: translateX(0); opacity: 1; }
-                to { transform: translateX(100%); opacity: 0; }
-            }
-            @media print {
-                body { background: white; color: black; }
-                .no-print, .header, .action-buttons { display: none !important; }
-                .info-card, .chart-card { break-inside: avoid; }
-            }
-        `;
-        document.head.appendChild(style);
     </script>
 </body>
 </html>

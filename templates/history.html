@@ -3,12 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GST Intelligence Platform - Dashboard</title>
+    <title>Search History - GST Intelligence Platform</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link rel="manifest" href="/static/manifest.json">
+    <meta name="theme-color" content="#7c3aed">
     <style>
-        /* CSS Variables for Theme */
+        /* Enhanced CSS Variables and Theme System */
         :root {
             --transition-speed: 0.3s;
+            --animation-speed: 0.6s;
         }
 
         /* Dark Theme (Default) */
@@ -161,6 +164,20 @@
             color: white;
             box-shadow: 0 0 30px rgba(124, 58, 237, 0.5);
             animation: pulse 2s ease-in-out infinite;
+            position: relative;
+        }
+
+        .logo-icon::after {
+            content: '';
+            position: absolute;
+            top: -3px;
+            right: -3px;
+            width: 12px;
+            height: 12px;
+            background: var(--success);
+            border: 2px solid var(--bg-secondary);
+            border-radius: 50%;
+            animation: livePulse 2s ease-in-out infinite;
         }
 
         @keyframes pulse {
@@ -172,6 +189,11 @@
                 transform: scale(1.05); 
                 box-shadow: 0 0 40px rgba(124, 58, 237, 0.7); 
             }
+        }
+
+        @keyframes livePulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.7; transform: scale(1.2); }
         }
 
         .logo-text h1 {
@@ -190,10 +212,10 @@
             margin: 0;
         }
 
-        /* Navigation */
+        /* Enhanced Navigation */
         .nav-items {
             display: flex;
-            gap: 2rem;
+            gap: 1.5rem;
             align-items: center;
             flex-wrap: wrap;
         }
@@ -204,6 +226,8 @@
             transition: all 0.3s;
             font-weight: 500;
             position: relative;
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
         }
 
         .nav-link::after {
@@ -211,18 +235,52 @@
             position: absolute;
             width: 0;
             height: 2px;
-            bottom: -5px;
-            left: 0;
+            bottom: 0;
+            left: 50%;
             background: var(--accent-gradient);
-            transition: width 0.3s;
+            transition: all 0.3s;
+            transform: translateX(-50%);
         }
 
-        .nav-link:hover::after {
-            width: 100%;
+        .nav-link:hover::after,
+        .nav-link.active::after {
+            width: 80%;
         }
 
-        .nav-link:hover {
+        .nav-link:hover,
+        .nav-link.active {
             color: var(--accent-primary);
+            background: var(--bg-hover);
+        }
+
+        .live-dashboard-btn {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            box-shadow: 0 4px 20px rgba(16, 185, 129, 0.3);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .live-dashboard-btn::before {
+            content: '🔴';
+            animation: liveBlink 1.5s ease-in-out infinite;
+        }
+
+        .live-dashboard-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 30px rgba(16, 185, 129, 0.5);
+        }
+
+        @keyframes liveBlink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.6; }
         }
 
         /* Theme Toggle */
@@ -234,7 +292,6 @@
             cursor: pointer;
             display: flex;
             align-items: center;
-            gap: 4px;
             position: relative;
             width: 72px;
             height: 36px;
@@ -243,7 +300,7 @@
 
         .theme-toggle:hover {
             border-color: var(--accent-primary);
-            box-shadow: 0 0 20px rgba(124, 58, 237, 0.2);
+            box-shadow: 0 0 20px rgba(124, 58, 237, 0.3);
         }
 
         .theme-toggle-indicator {
@@ -303,8 +360,8 @@
             min-height: calc(100vh - 80px);
         }
 
-        /* Welcome Section */
-        .welcome-section {
+        /* Page Header */
+        .page-header {
             background: var(--bg-card);
             border: 1px solid var(--border-color);
             border-radius: 20px;
@@ -316,7 +373,7 @@
             overflow: hidden;
         }
 
-        .welcome-section::before {
+        .page-header::before {
             content: '';
             position: absolute;
             top: 0;
@@ -324,146 +381,62 @@
             right: 0;
             height: 4px;
             background: var(--accent-gradient);
+            animation: progressBar 3s ease-in-out infinite;
         }
 
-        .welcome-title {
+        @keyframes progressBar {
+            0% { transform: scaleX(0); }
+            50% { transform: scaleX(1); }
+            100% { transform: scaleX(0); }
+        }
+
+        .page-title {
             font-size: 2.5rem;
             background: var(--accent-gradient);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             margin-bottom: 0.5rem;
             font-weight: 800;
+            position: relative;
+            z-index: 1;
         }
 
-        .welcome-subtitle {
+        .page-subtitle {
             color: var(--text-secondary);
             font-size: 1.2rem;
+            position: relative;
+            z-index: 1;
         }
 
-        /* Search Section */
-        .search-section {
-            background: var(--bg-card);
-            border: 1px solid var(--border-color);
-            border-radius: 20px;
-            padding: 3rem;
-            margin-bottom: 2rem;
-            box-shadow: var(--card-shadow);
-            text-align: center;
-            transition: all var(--transition-speed);
-        }
-
-        .search-section:hover {
-            border-color: var(--accent-primary);
-            transform: translateY(-2px);
-            box-shadow: var(--hover-shadow);
-        }
-
-        .search-title {
-            font-size: 3rem;
-            font-weight: 800;
-            margin-bottom: 1rem;
-            background: var(--accent-gradient);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            line-height: 1.2;
-        }
-
-        .search-form {
-            display: flex;
-            gap: 1rem;
-            flex-wrap: wrap;
-            align-items: flex-end;
-            justify-content: center;
-            margin-top: 2rem;
-        }
-
-        .form-group {
-            flex: 1;
-            min-width: 300px;
-            max-width: 500px;
-        }
-
-        .form-label {
-            display: block;
-            margin-bottom: 0.5rem;
-            color: var(--text-secondary);
-            font-weight: 500;
-            text-align: left;
-        }
-
-        .form-input {
-            width: 100%;
-            padding: 1rem 1.5rem;
-            background: var(--bg-input);
-            border: 2px solid var(--border-color);
-            border-radius: 12px;
-            color: var(--text-primary);
-            font-size: 1rem;
-            transition: all var(--transition-speed);
-        }
-
-        .form-input:focus {
-            outline: none;
-            border-color: var(--accent-primary);
-            box-shadow: 0 0 0 4px rgba(124, 58, 237, 0.1);
-            background: var(--bg-secondary);
-        }
-
-        .form-input::placeholder {
-            color: var(--text-muted);
-        }
-
-        .search-btn {
-            background: var(--accent-gradient);
-            color: white;
-            border: none;
-            padding: 1rem 2rem;
-            border-radius: 12px;
-            font-size: 1rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all var(--transition-speed);
-            display: inline-flex;
-            align-items: center;
-            gap: 0.5rem;
-            box-shadow: 0 4px 20px rgba(124, 58, 237, 0.3);
-        }
-
-        .search-btn:hover {
-            background: var(--accent-gradient-hover);
-            transform: translateY(-2px);
-            box-shadow: 0 6px 30px rgba(124, 58, 237, 0.5);
-        }
-
-        /* Loading */
-        .loading {
-            display: none;
-            text-align: center;
-            padding: 2rem;
-        }
-
-        .spinner {
-            width: 40px;
-            height: 40px;
-            border: 3px solid var(--bg-hover);
-            border-top: 3px solid var(--accent-primary);
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-            margin: 0 auto;
-        }
-
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-
-        /* History Section */
+        /* Enhanced History Section */
         .history-section {
             background: var(--bg-card);
             border: 1px solid var(--border-color);
             border-radius: 20px;
             padding: 2rem;
             box-shadow: var(--card-shadow);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .history-section::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(
+                90deg,
+                transparent,
+                rgba(124, 58, 237, 0.1),
+                transparent
+            );
+            transition: left 0.5s;
+        }
+
+        .history-section:hover::before {
+            left: 100%;
         }
 
         .history-title {
@@ -475,12 +448,49 @@
             justify-content: space-between;
             flex-wrap: wrap;
             gap: 1rem;
+            position: relative;
+            z-index: 1;
         }
 
         .history-header {
             display: flex;
             align-items: center;
             gap: 0.5rem;
+        }
+
+        .history-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+            position: relative;
+            z-index: 1;
+        }
+
+        .stat-card {
+            background: var(--bg-hover);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 1.5rem;
+            text-align: center;
+            transition: all var(--transition-speed);
+        }
+
+        .stat-card:hover {
+            transform: translateY(-3px);
+            box-shadow: var(--hover-shadow);
+        }
+
+        .stat-value {
+            font-size: 2rem;
+            font-weight: 800;
+            color: var(--accent-primary);
+            margin-bottom: 0.5rem;
+        }
+
+        .stat-label {
+            color: var(--text-secondary);
+            font-weight: 500;
         }
 
         .export-btn {
@@ -503,10 +513,12 @@
             box-shadow: 0 6px 30px rgba(16, 185, 129, 0.5);
         }
 
-        /* Table Styles */
+        /* Enhanced Table Styles */
         .table-container {
             overflow-x: auto;
             margin-top: 1rem;
+            position: relative;
+            z-index: 1;
         }
 
         .history-table {
@@ -524,22 +536,47 @@
             text-align: left;
             font-weight: 600;
             border-bottom: 2px solid var(--border-color);
+            position: relative;
+            transition: all var(--transition-speed);
+        }
+
+        .history-table th:hover {
+            background: var(--accent-primary);
+            color: white;
         }
 
         .history-table td {
             padding: 1rem;
             color: var(--text-primary);
             border-bottom: 1px solid var(--border-color);
+            transition: all var(--transition-speed);
         }
 
         .history-table tbody tr {
             cursor: pointer;
             transition: all 0.3s ease;
+            position: relative;
         }
 
         .history-table tbody tr:hover {
             background: var(--bg-hover);
             transform: translateX(5px);
+        }
+
+        .history-table tbody tr::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 4px;
+            background: var(--accent-gradient);
+            transform: scaleY(0);
+            transition: transform 0.3s;
+        }
+
+        .history-table tbody tr:hover::before {
+            transform: scaleY(1);
         }
 
         .view-btn {
@@ -563,13 +600,16 @@
             box-shadow: 0 4px 20px rgba(124, 58, 237, 0.5);
         }
 
-        /* Score Badge */
+        /* Enhanced Score Badges with Tooltips */
         .score-badge {
             display: inline-block;
             padding: 0.25rem 0.75rem;
             border-radius: 15px;
             font-size: 0.85rem;
             font-weight: 600;
+            position: relative;
+            cursor: help;
+            transition: all var(--transition-speed);
         }
 
         .score-high {
@@ -590,11 +630,45 @@
             border: 1px solid rgba(239, 68, 68, 0.3);
         }
 
-        /* Empty State */
+        /* Enhanced Tooltip System */
+        .tooltip {
+            position: relative;
+            cursor: help;
+        }
+
+        .tooltip::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%) translateY(-8px);
+            background: var(--bg-hover);
+            color: var(--text-primary);
+            padding: 0.75rem 1rem;
+            border-radius: 8px;
+            font-size: 0.875rem;
+            white-space: nowrap;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s, transform 0.3s;
+            z-index: 1000;
+            box-shadow: var(--card-shadow);
+            border: 1px solid var(--border-color);
+            max-width: 250px;
+            white-space: normal;
+        }
+
+        .tooltip:hover::after {
+            opacity: 1;
+            transform: translateX(-50%) translateY(-12px);
+        }
+
+        /* Enhanced Empty State */
         .empty-state {
             text-align: center;
             padding: 3rem;
             color: var(--text-secondary);
+            position: relative;
         }
 
         .empty-state svg {
@@ -602,9 +676,55 @@
             height: 64px;
             margin-bottom: 1rem;
             opacity: 0.3;
+            animation: float 3s ease-in-out infinite;
         }
 
-        /* Messages */
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+
+        /* Search Filters */
+        .search-filters {
+            background: var(--bg-hover);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .filter-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .filter-label {
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+
+        .filter-input {
+            padding: 0.5rem 1rem;
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            color: var(--text-primary);
+            font-size: 0.9rem;
+            transition: all var(--transition-speed);
+        }
+
+        .filter-input:focus {
+            outline: none;
+            border-color: var(--accent-primary);
+            box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.1);
+        }
+
+        /* Messages with Enhanced Animation */
         .error-message,
         .success-message {
             padding: 1rem 1.5rem;
@@ -613,7 +733,9 @@
             display: flex;
             align-items: center;
             gap: 0.5rem;
-            animation: slideIn 0.3s ease;
+            animation: slideInBounce 0.5s ease-out;
+            position: relative;
+            overflow: hidden;
         }
 
         .error-message {
@@ -628,18 +750,22 @@
             color: var(--success);
         }
 
-        @keyframes slideIn {
-            from {
-                transform: translateX(-20px);
+        @keyframes slideInBounce {
+            0% {
+                transform: translateX(-100%);
                 opacity: 0;
             }
-            to {
+            60% {
+                transform: translateX(10px);
+                opacity: 1;
+            }
+            100% {
                 transform: translateX(0);
                 opacity: 1;
             }
         }
 
-        /* Mobile Styles */
+        /* Mobile Responsive */
         @media (max-width: 768px) {
             .container {
                 padding: 1rem;
@@ -653,22 +779,29 @@
             .nav-items {
                 width: 100%;
                 justify-content: center;
+                gap: 1rem;
             }
             
-            .welcome-title {
+            .page-title {
                 font-size: 1.8rem;
-            }
-            
-            .search-title {
-                font-size: 2rem;
-            }
-            
-            .form-group {
-                min-width: 100%;
             }
             
             .hide-mobile {
                 display: none;
+            }
+            
+            .nav-link {
+                padding: 0.4rem 0.8rem;
+                font-size: 0.9rem;
+            }
+            
+            .search-filters {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            
+            .filter-group {
+                width: 100%;
             }
         }
     </style>
@@ -688,16 +821,17 @@
             </div>
             <nav class="nav-items">
                 <a href="/" class="nav-link">Dashboard</a>
-                <a href="/history" class="nav-link">History</a>
-                <span class="nav-link">{{ mobile }}</span>
-                <!-- Theme Toggle -->
-                <div style="display: flex; justify-content: flex-end; padding: 1rem;">
-                    <div class="theme-toggle" onclick="toggleTheme()" style="width: 72px;">
-                        <div class="theme-icon"><i class="fas fa-moon"></i></div>
-                        <div class="theme-icon"><i class="fas fa-sun"></i></div>
-                        <div class="theme-toggle-indicator">
-                            <i class="fas fa-moon" id="theme-indicator-icon"></i>
-                        </div>
+                <a href="/analytics" class="live-dashboard-btn">
+                    Live Analytics
+                </a>
+                <a href="/history" class="nav-link active">History</a>
+                <span class="nav-link tooltip" data-tooltip="Logged in user">{{ mobile }}</span>
+                <!-- Enhanced Theme Toggle -->
+                <div class="theme-toggle" onclick="toggleTheme()">
+                    <div class="theme-icon"><i class="fas fa-moon"></i></div>
+                    <div class="theme-icon"><i class="fas fa-sun"></i></div>
+                    <div class="theme-toggle-indicator">
+                        <i class="fas fa-moon" id="theme-indicator-icon"></i>
                     </div>
                 </div>
                 <a href="/logout" class="logout-btn">
@@ -710,58 +844,80 @@
 
     <!-- Main Content -->
     <main class="container">
-        <!-- Welcome Section -->
-        <section class="welcome-section">
-            <h1 class="welcome-title">Welcome to GST Intelligence Platform</h1>
-            <p class="welcome-subtitle">Search and analyze GST compliance data with AI-powered insights</p>
+        <!-- Page Header -->
+        <section class="page-header">
+            <h1 class="page-title">Search History</h1>
+            <p class="page-subtitle">View and manage your GST compliance search history</p>
         </section>
 
-        <!-- Search Section -->
-        <section class="search-section">
-            <h2 class="search-title">Search Company by GSTIN</h2>
-            
-            <form class="search-form" id="searchForm" action="/search" method="POST">
-                <div class="form-group">
-                    <label for="gstin" class="form-label">Enter GSTIN Number</label>
-                    <input type="text" 
-                           id="gstin" 
-                           name="gstin" 
-                           class="form-input" 
-                           placeholder="e.g., 27AADCB2230M1Z8"
-                           pattern="[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}"
-                           maxlength="15"
-                           required>
+        <!-- History Statistics -->
+        {% if history %}
+        <div class="history-stats">
+            <div class="stat-card tooltip" data-tooltip="Total number of companies searched">
+                <div class="stat-value">{{ history|length }}</div>
+                <div class="stat-label">Total Searches</div>
+            </div>
+            <div class="stat-card tooltip" data-tooltip="Companies with good compliance scores (80%+)">
+                <div class="stat-value">{{ history|selectattr('compliance_score', '>=', 80)|list|length if history[0].compliance_score else 0 }}</div>
+                <div class="stat-label">High Compliance</div>
+            </div>
+            <div class="stat-card tooltip" data-tooltip="Average compliance score across all searches">
+                <div class="stat-value">
+                    {% if history and history[0].compliance_score %}
+                        {{ "%.0f"|format((history|map(attribute='compliance_score')|sum) / (history|length)) }}%
+                    {% else %}
+                        N/A
+                    {% endif %}
                 </div>
-                <button type="submit" class="search-btn">
-                    <i class="fas fa-search"></i>
-                    Search
-                </button>
-            </form>
-            
-            <!-- Loading Indicator -->
-            <div class="loading" id="loading">
-                <div class="spinner"></div>
-                <p style="margin-top: 1rem; color: var(--text-secondary);">Fetching GST data...</p>
+                <div class="stat-label">Avg Score</div>
             </div>
-            
-            <!-- Error Messages -->
-            {% if error %}
-            <div class="error-message">
-                <i class="fas fa-exclamation-circle"></i>
-                {{ error }}
+            <div class="stat-card tooltip" data-tooltip="Searches performed this month">
+                <div class="stat-value">{{ history|selectattr('searched_at', 'greaterthan', (moment().subtract(30, 'days')|string))|list|length if history[0].searched_at else history|length }}</div>
+                <div class="stat-label">This Month</div>
             </div>
-            {% endif %}
-        </section>
+        </div>
+        {% endif %}
 
-        <!-- Recent Searches History -->
+        <!-- Search Filters -->
+        {% if history %}
+        <div class="search-filters">
+            <div class="filter-group">
+                <label class="filter-label">Search Company</label>
+                <input type="text" class="filter-input" id="companyFilter" placeholder="Filter by company name...">
+            </div>
+            <div class="filter-group">
+                <label class="filter-label">GSTIN</label>
+                <input type="text" class="filter-input" id="gstinFilter" placeholder="Filter by GSTIN...">
+            </div>
+            <div class="filter-group">
+                <label class="filter-label">Compliance Score</label>
+                <select class="filter-input" id="scoreFilter">
+                    <option value="">All Scores</option>
+                    <option value="high">High (80%+)</option>
+                    <option value="medium">Medium (60-79%)</option>
+                    <option value="low">Low (<60%)</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <label class="filter-label">Sort By</label>
+                <select class="filter-input" id="sortFilter">
+                    <option value="date">Date (Newest First)</option>
+                    <option value="score">Compliance Score</option>
+                    <option value="company">Company Name</option>
+                </select>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- History Section -->
         <section class="history-section">
             <div class="history-title">
                 <div class="history-header">
                     <i class="fas fa-history"></i>
-                    <span>Recent Searches</span>
+                    <span>Search History</span>
                 </div>
                 {% if history %}
-                <button class="export-btn" onclick="exportToExcel()">
+                <button class="export-btn tooltip" data-tooltip="Export search history to Excel" onclick="exportToExcel()">
                     <i class="fas fa-file-excel"></i>
                     Export to Excel
                 </button>
@@ -770,39 +926,39 @@
             
             {% if history %}
             <div class="table-container">
-                <table class="history-table">
+                <table class="history-table" id="historyTable">
                     <thead>
                         <tr>
-                            <th>Date</th>
-                            <th>GSTIN</th>
-                            <th>Company Name</th>
-                            <th class="hide-mobile">Compliance Score</th>
+                            <th class="tooltip" data-tooltip="When the search was performed">Date</th>
+                            <th class="tooltip" data-tooltip="Goods and Services Tax Identification Number">GSTIN</th>
+                            <th class="tooltip" data-tooltip="Registered company name">Company Name</th>
+                            <th class="hide-mobile tooltip" data-tooltip="Compliance score based on filing history">Compliance Score</th>
                             <th>Actions</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for item in history %}
-                        <tr data-gstin="{{ item.gstin }}">
+                        <tr data-gstin="{{ item.gstin }}" data-company="{{ item.company_name|lower }}" data-score="{{ item.compliance_score or 0 }}" data-date="{{ item.searched_at }}">
                             <td>{{ item.searched_at.strftime('%d %b %Y, %I:%M %p') if item.searched_at else 'N/A' }}</td>
                             <td><code style="background: var(--bg-hover); padding: 0.25rem 0.5rem; border-radius: 4px;">{{ item.gstin }}</code></td>
                             <td style="font-weight: 600;">{{ item.company_name }}</td>
                             <td class="hide-mobile">
                                 {% if item.compliance_score %}
                                     {% if item.compliance_score >= 80 %}
-                                        <span class="score-badge score-high">{{ "%.0f"|format(item.compliance_score) }}%</span>
+                                        <span class="score-badge score-high tooltip" data-tooltip="Excellent compliance - Green status indicates top-tier tax compliance">{{ "%.0f"|format(item.compliance_score) }}%</span>
                                     {% elif item.compliance_score >= 60 %}
-                                        <span class="score-badge score-medium">{{ "%.0f"|format(item.compliance_score) }}%</span>
+                                        <span class="score-badge score-medium tooltip" data-tooltip="Average compliance - Yellow status indicates minor compliance issues">{{ "%.0f"|format(item.compliance_score) }}%</span>
                                     {% else %}
-                                        <span class="score-badge score-low">{{ "%.0f"|format(item.compliance_score) }}%</span>
+                                        <span class="score-badge score-low tooltip" data-tooltip="Poor compliance - Red status indicates significant compliance issues">{{ "%.0f"|format(item.compliance_score) }}%</span>
                                     {% endif %}
                                 {% else %}
-                                    <span class="score-badge">N/A</span>
+                                    <span class="score-badge tooltip" data-tooltip="Score not available">N/A</span>
                                 {% endif %}
                             </td>
                             <td>
-                                <form action="/search" method="POST" style="display: inline;">
+                                <form action="/search" method="GET" style="display: inline;">
                                     <input type="hidden" name="gstin" value="{{ item.gstin }}">
-                                    <button type="submit" class="view-btn">
+                                    <button type="submit" class="view-btn tooltip" data-tooltip="View detailed compliance report">
                                         <i class="fas fa-eye"></i> View
                                     </button>
                                 </form>
@@ -823,6 +979,7 @@
                 </svg>
                 <p>No search history yet</p>
                 <p style="color: var(--text-muted); font-size: 0.9rem;">Your recent searches will appear here</p>
+                <a href="/" style="margin-top: 1rem; display: inline-block; padding: 0.75rem 1.5rem; background: var(--accent-gradient); color: white; text-decoration: none; border-radius: 8px; font-weight: 600;">Start Searching</a>
             </div>
             {% endif %}
         </section>
@@ -830,7 +987,7 @@
 
     <!-- JavaScript -->
     <script>
-        // Theme Toggle Function
+        // Enhanced Theme Toggle Function with Cross-Tab Sync
         function toggleTheme() {
             const body = document.body;
             const themeIcon = document.getElementById('theme-indicator-icon');
@@ -844,9 +1001,29 @@
                 if (themeIcon) themeIcon.className = 'fas fa-sun';
                 localStorage.setItem('theme', 'light');
             }
+            
+            // Broadcast theme change to other tabs
+            localStorage.setItem('theme-changed', Date.now());
         }
 
-        // Initialize theme on page load
+        // Listen for theme changes in other tabs
+        window.addEventListener('storage', function(e) {
+            if (e.key === 'theme-changed') {
+                const savedTheme = localStorage.getItem('theme');
+                const body = document.body;
+                const themeIcon = document.getElementById('theme-indicator-icon');
+                
+                if (savedTheme === 'light' && !body.classList.contains('light-theme')) {
+                    body.classList.add('light-theme');
+                    if (themeIcon) themeIcon.className = 'fas fa-sun';
+                } else if (savedTheme === 'dark' && body.classList.contains('light-theme')) {
+                    body.classList.remove('light-theme');
+                    if (themeIcon) themeIcon.className = 'fas fa-moon';
+                }
+            }
+        });
+
+        // Initialize theme and features on page load
         document.addEventListener('DOMContentLoaded', function() {
             // Apply saved theme
             const savedTheme = localStorage.getItem('theme');
@@ -856,39 +1033,175 @@
                 document.body.classList.add('light-theme');
                 if (themeIcon) themeIcon.className = 'fas fa-sun';
             }
+
+            // Initialize PWA features
+            if ('serviceWorker' in navigator) {
+                navigator.serviceWorker.register('/sw.js');
+            }
+
+            // Initialize filters
+            initializeFilters();
+            
+            // Enhanced table row click handler
+            const tableRows = document.querySelectorAll('.history-table tbody tr');
+            tableRows.forEach(function(row) {
+                row.addEventListener('click', function(e) {
+                    if (e.target.tagName === 'BUTTON' || e.target.closest('button')) {
+                        return;
+                    }
+                    
+                    const gstin = row.dataset.gstin;
+                    if (gstin) {
+                        // Add loading effect
+                        row.style.opacity = '0.7';
+                        window.location.href = `/search?gstin=${gstin}`;
+                    }
+                });
+            });
+            
+            // Export to Excel function
+            window.exportToExcel = function() {
+                const exportBtn = event.target.closest('button');
+                exportBtn.disabled = true;
+                const originalText = exportBtn.innerHTML;
+                exportBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Exporting...';
+                
+                window.location.href = '/export/history';
+                
+                setTimeout(function() {
+                    exportBtn.disabled = false;
+                    exportBtn.innerHTML = originalText;
+                }, 3000);
+            };
         });
 
-        // Form submission handler
-        document.getElementById('searchForm').addEventListener('submit', function(e) {
-            // Show loading indicator
-            document.getElementById('loading').style.display = 'block';
+        // Enhanced Filtering System
+        function initializeFilters() {
+            const companyFilter = document.getElementById('companyFilter');
+            const gstinFilter = document.getElementById('gstinFilter');
+            const scoreFilter = document.getElementById('scoreFilter');
+            const sortFilter = document.getElementById('sortFilter');
+            const table = document.getElementById('historyTable');
             
-            // Format GSTIN to uppercase
-            const gstinInput = document.getElementById('gstin');
-            gstinInput.value = gstinInput.value.toUpperCase();
-        });
-        
-        // GSTIN input formatter
-        document.getElementById('gstin').addEventListener('input', function(e) {
-            e.target.value = e.target.value.toUpperCase();
-        });
-        
-        // Export to Excel function
-        function exportToExcel() {
-            window.location.href = '/export/history';
+            if (!table) return;
+            
+            function filterTable() {
+                const rows = Array.from(table.querySelectorAll('tbody tr'));
+                const companyTerm = companyFilter.value.toLowerCase();
+                const gstinTerm = gstinFilter.value.toLowerCase();
+                const scoreFilter_ = scoreFilter.value;
+                
+                let filteredRows = rows.filter(row => {
+                    const company = row.dataset.company || '';
+                    const gstin = row.dataset.gstin.toLowerCase();
+                    const score = parseFloat(row.dataset.score) || 0;
+                    
+                    const companyMatch = !companyTerm || company.includes(companyTerm);
+                    const gstinMatch = !gstinTerm || gstin.includes(gstinTerm);
+                    
+                    let scoreMatch = true;
+                    if (scoreFilter_ === 'high') scoreMatch = score >= 80;
+                    else if (scoreFilter_ === 'medium') scoreMatch = score >= 60 && score < 80;
+                    else if (scoreFilter_ === 'low') scoreMatch = score < 60;
+                    
+                    return companyMatch && gstinMatch && scoreMatch;
+                });
+                
+                // Sort rows
+                const sortBy = sortFilter.value;
+                filteredRows.sort((a, b) => {
+                    if (sortBy === 'date') {
+                        return new Date(b.dataset.date) - new Date(a.dataset.date);
+                    } else if (sortBy === 'score') {
+                        return parseFloat(b.dataset.score) - parseFloat(a.dataset.score);
+                    } else if (sortBy === 'company') {
+                        return a.dataset.company.localeCompare(b.dataset.company);
+                    }
+                    return 0;
+                });
+                
+                // Hide all rows
+                rows.forEach(row => row.style.display = 'none');
+                
+                // Show filtered rows
+                filteredRows.forEach(row => row.style.display = '');
+                
+                // Update empty state
+                const tbody = table.querySelector('tbody');
+                const emptyRow = tbody.querySelector('.empty-row');
+                if (filteredRows.length === 0 && !emptyRow) {
+                    const emptyRowElement = document.createElement('tr');
+                    emptyRowElement.className = 'empty-row';
+                    emptyRowElement.innerHTML = '<td colspan="5" style="text-align: center; padding: 2rem; color: var(--text-secondary);">No results found</td>';
+                    tbody.appendChild(emptyRowElement);
+                } else if (filteredRows.length > 0 && emptyRow) {
+                    emptyRow.remove();
+                }
+            }
+            
+            // Add event listeners
+            companyFilter.addEventListener('input', debounce(filterTable, 300));
+            gstinFilter.addEventListener('input', debounce(filterTable, 300));
+            scoreFilter.addEventListener('change', filterTable);
+            sortFilter.addEventListener('change', filterTable);
         }
-        
-        // Auto-hide messages after 5 seconds
-        setTimeout(function() {
-            const messages = document.querySelectorAll('.error-message, .success-message');
-            messages.forEach(function(msg) {
-                msg.style.transition = 'opacity 0.5s';
-                msg.style.opacity = '0';
-                setTimeout(function() {
-                    msg.style.display = 'none';
-                }, 500);
-            });
-        }, 5000);
+
+        // Debounce function
+        function debounce(func, wait) {
+            let timeout;
+            return function executedFunction(...args) {
+                const later = () => {
+                    clearTimeout(timeout);
+                    func(...args);
+                };
+                clearTimeout(timeout);
+                timeout = setTimeout(later, wait);
+            };
+        }
+
+        // Enhanced keyboard shortcuts
+        document.addEventListener('keydown', function(e) {
+            // Ctrl/Cmd + F to focus company filter
+            if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
+                e.preventDefault();
+                const companyFilter = document.getElementById('companyFilter');
+                if (companyFilter) {
+                    companyFilter.focus();
+                    companyFilter.select();
+                }
+            }
+            
+            // Ctrl/Cmd + D for dark/light toggle
+            if ((e.ctrlKey || e.metaKey) && e.key === 'd') {
+                e.preventDefault();
+                toggleTheme();
+            }
+            
+            // Escape to clear filters
+            if (e.key === 'Escape') {
+                const filters = ['companyFilter', 'gstinFilter', 'scoreFilter'];
+                filters.forEach(id => {
+                    const element = document.getElementById(id);
+                    if (element && element === document.activeElement) {
+                        element.value = '';
+                        element.dispatchEvent(new Event('input'));
+                        element.blur();
+                    }
+                });
+            }
+        });
+
+        // Add smooth scrolling for better UX
+        window.addEventListener('scroll', function() {
+            const header = document.querySelector('.header');
+            if (window.scrollY > 100) {
+                header.style.backdropFilter = 'blur(30px)';
+                header.style.background = 'rgba(20, 20, 20, 0.95)';
+            } else {
+                header.style.backdropFilter = 'blur(20px)';
+                header.style.background = 'var(--bg-secondary)';
+            }
+        });
     </script>
 </body>
 </html>
