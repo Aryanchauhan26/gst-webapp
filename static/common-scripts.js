@@ -529,3 +529,45 @@ document.addEventListener('keydown', function(e) {
         }
     }
 });
+
+// Add to the end of static/common-scripts.js
+
+function createNotificationCenter() {
+    const notificationCenter = document.createElement('div');
+    notificationCenter.className = 'notification-center';
+    notificationCenter.innerHTML = `
+        <div class="notification-bell" onclick="toggleNotifications()">
+            <i class="fas fa-bell"></i>
+            <span class="notification-badge">3</span>
+        </div>
+        <div class="notification-dropdown" id="notificationDropdown" style="display:none;">
+            <div class="notification-item">
+                <i class="fas fa-exclamation-triangle"></i>
+                <span>Company ABC has compliance score drop</span>
+            </div>
+            <div class="notification-item">
+                <i class="fas fa-file-alt"></i>
+                <span>New GST return filed</span>
+            </div>
+            <div class="notification-item">
+                <i class="fas fa-user-plus"></i>
+                <span>New user registered</span>
+            </div>
+        </div>
+    `;
+    const header = document.querySelector('.header-content');
+    if (header) header.appendChild(notificationCenter);
+}
+
+// Toggle notification dropdown
+function toggleNotifications() {
+    const dropdown = document.getElementById('notificationDropdown');
+    if (dropdown) {
+        dropdown.style.display = dropdown.style.display === 'none' ? 'block' : 'none';
+    }
+}
+
+// Initialize notification center on DOMContentLoaded
+document.addEventListener('DOMContentLoaded', function() {
+    createNotificationCenter();
+});

@@ -766,6 +766,53 @@
             z-index: 1;
         }
 
+        /* 3D GST Compliance Visualization */
+        #container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            height: 100vh;
+            padding: 0 2rem;
+            overflow: hidden;
+        }
+
+        #info {
+            max-width: 600px;
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        .metric-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+            box-shadow: var(--card-shadow);
+            transition: all var(--transition-speed);
+        }
+
+        .metric-card:hover {
+            transform: translateY(-5px);
+            box-shadow: var(--hover-shadow);
+            border-color: var(--accent-primary);
+        }
+
+        #tooltip {
+            position: absolute;
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        /* End of 3D GST Compliance Visualization */
+
         /* Responsive */
         @media (max-width: 768px) {
             .container {
@@ -784,8 +831,26 @@
             .hide-mobile {
                 display: none;
             }
+
+            #container {
+                padding: 0 1rem;
+            }
+
+            #info {
+                font-size: 0.9rem;
+            }
+
+            .metric-card {
+                padding: 1rem;
+            }
         }
     </style>
+    <!-- PWA Meta Tags -->
+    <link rel="manifest" href="{{ url_for('static', path='manifest.json') }}">
+    <meta name="theme-color" content="#7c3aed">
+    <link rel="apple-touch-icon" href="/static/icons/icon-192x192.png">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 </head>
 <body>
     <!-- Header -->
@@ -1119,10 +1184,110 @@
                 Print Report
             </button>
         </div>
+
+        <!-- 3D GST Compliance Visualization -->
+        <div id="container">
+            <div id="info">
+                <h2 style="color: #7c3aed; margin-bottom: 15px;">🚀 GST Intelligence 3D Dashboard</h2>
+                <div class="metric-card">
+                    <h4>Total Companies</h4>
+                    <div style="font-size: 24px; color: #10b981;">1,247</div>
+                </div>
+                <div class="metric-card">
+                    <h4>Avg Compliance Score</h4>
+                    <div style="font-size: 24px; color: #f59e0b;">78.5%</div>
+                </div>
+                <div class="metric-card">
+                    <h4>Active Searches</h4>
+                    <div style="font-size: 24px; color: #3b82f6;">43</div>
+                </div>
+                <div style="margin-top: 20px; font-size: 12px; opacity: 0.7;">
+                    💡 Hover over spheres to see company details<br>
+                    🎮 Click and drag to rotate view
+                </div>
+            </div>
+            <div id="tooltip"></div>
+        </div>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+        <script>
+            // 3D GST Compliance Visualization Script
+
+            // Scene and Camera
+            const scene = new THREE.Scene();
+            const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.z = 5;
+
+            // Renderer
+            const renderer = new THREE.WebGLRenderer({ alpha: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            document.getElementById('container').appendChild(renderer.domElement);
+
+            // Sphere Geometry
+            const geometry = new THREE.SphereGeometry(1, 32, 32);
+
+            // Material
+            const material = new THREE.MeshStandardMaterial({
+                color: 0xffffff,
+                roughness: 0.5,
+                metalness: 0.5
+            });
+
+            // Sphere Mesh
+            const sphere = new THREE.Mesh(geometry, material);
+            scene.add(sphere);
+
+            // Light
+            const ambientLight = new THREE.AmbientLight(0x404040, 2);
+            scene.add(ambientLight);
+
+            const pointLight = new THREE.PointLight(0xffffff, 2);
+            pointLight.position.set(5, 5, 5);
+            scene.add(pointLight);
+
+            // Tooltip
+            const tooltip = document.getElementById('tooltip');
+
+            // Animation
+            function animate() {
+                requestAnimationFrame(animate);
+                sphere.rotation.y += 0.01;
+                renderer.render(scene, camera);
+            }
+
+            // Mouse Move Event
+            document.addEventListener('mousemove', (event) => {
+                const x = (event.clientX / window.innerWidth) * 2 - 1;
+                const y = -(event.clientY / window.innerHeight) * 2 + 1;
+                sphere.position.x = x;
+                sphere.position.y = y;
+            });
+
+            // Sphere Hover Event
+            sphere.addEventListener('mouseover', () => {
+                tooltip.style.opacity = 1;
+            });
+
+            sphere.addEventListener('mouseout', () => {
+                tooltip.style.opacity = 0;
+            });
+
+            // Window Resize
+            window.addEventListener('resize', () => {
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(window.innerWidth, window.innerHeight);
+            });
+
+            // Start Animation
+            animate();
+        </script>
     </main>
 
     <!-- JavaScript -->
+    <script src="{{ url_for('static', path='common-scripts.js') }}"></script>
     <script>
+        const companies = {{ companies_json | safe }};
+
         // Theme Toggle Function
         function toggleTheme() {
             const body = document.body;
@@ -1614,5 +1779,14 @@
         `;
         document.head.appendChild(style);
     </script>
+    <script>
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', function() {
+        navigator.serviceWorker.register('/sw.js')
+            .then(function(reg) { console.log('SW registered:', reg); })
+            .catch(function(err) { console.error('SW registration failed:', err); });
+    });
+}
+</script>
 </body>
 </html>

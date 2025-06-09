@@ -211,6 +211,68 @@ class PostgresDB:
             )
             return [dict(row) for row in rows]
 
+    async def update_user_stats(self, mobile: str, search_performed: bool = False):
+        await self.connect()
+        async with self.pool.acquire() as conn:
+            # Update or insert user stats
+            await conn.execute("""
+                INSERT INTO user_stats (mobile, total_searches, last_search_date)
+                VALUES ($1, 1, $2)
+                ON CONFLICT (mobile) DO UPDATE
+                SET total_searches = user_stats.total_searches + 1,
+                    last_search_date = EXCLUDED.last_search_date
+            """, mobile, datetime.now())
+            
+            # Check and unlock achievements
+            await self.check_achievements(mobile)
+
+    async def check_achievements(self, mobile: str):
+        await self.connect()
+        async with self.pool.acquire() as conn:
+            user_achievements = await conn.fetch("SELECT achievement_id FROM user_achievements WHERE mobile = $1", mobile)
+            unlocked_achievements = {ua['achievement_id'] for ua in user_achievements}
+            
+            # Check each achievement requirement
+            achievements = await conn.fetch("SELECT * FROM achievements")
+            for achievement in achievements:
+                if achievement['id'] in unlocked_achievements:
+                    continue  # Already unlocked
+                
+                # Check requirements
+                if achievement['requirement_type'] == 'searches':
+                    if achievement['requirement_value'] <= await self.get_user_search_count(mobile):
+                        await conn.execute(
+                            "INSERT INTO user_achievements (mobile, achievement_id) VALUES ($1, $2)",
+                            mobile, achievement['id']
+                        )
+
+    async def get_user_stats(self, mobile: str):
+        await self.connect()
+        async with self.pool.acquire() as conn:
+            return await conn.fetchrow("SELECT * FROM user_stats WHERE mobile = $1", mobile)
+
+    async def get_user_achievements(self, mobile: str):
+        await self.connect()
+        async with self.pool.acquire() as conn:
+            return await conn.fetch("SELECT * FROM user_achievements WHERE mobile = $1", mobile)
+
+    async def get_available_achievements(self, mobile: str):
+        await self.connect()
+        async with self.pool.acquire() as conn:
+            return await conn.fetch("""
+                SELECT * FROM achievements WHERE id NOT IN (
+                    SELECT achievement_id FROM user_achievements WHERE mobile = $1
+                )
+            """, mobile)
+
+    async def get_leaderboard(self, limit: int = 10):
+        await self.connect()
+        async with self.pool.acquire() as conn:
+            return await conn.fetch("""
+                SELECT mobile, level, xp, total_searches FROM user_stats
+                ORDER BY xp DESC LIMIT $1
+            """, limit)
+
 db = PostgresDB()
 
 # GST API Client with Error Handling
@@ -786,13 +848,21 @@ async def search_gstin(request: Request, gstin: str = Form(...), current_user: s
         # Get late filing analysis
         late_filing_analysis = company_data.get('_late_filing_analysis', {})
         
+        # Update user stats and check achievements
+        xp_gained = await db.update_user_stats(current_user, search_performed=True)
+        new_achievements = await db.check_achievements(current_user)
+        user_stats = await db.get_user_stats(current_user)
+
         return templates.TemplateResponse("results.html", {
             "request": request,
             "mobile": current_user,
             "company_data": company_data,
             "compliance_score": int(compliance_score),
             "synopsis": synopsis,
-            "late_filing_analysis": late_filing_analysis
+            "late_filing_analysis": late_filing_analysis,
+            "xp_gained": xp_gained,
+            "new_achievements": new_achievements,
+            "user_stats": user_stats
         })
         
     except HTTPException as e:
@@ -1421,10 +1491,10 @@ async def general_exception_handler(request: Request, exc: Exception):
 async def startup_event():
     """Run startup tasks"""
     logger.info("GST Intelligence Platform starting up...")
-    # Clean up old sessions in Postgres
     await db.connect()
     async with db.pool.acquire() as conn:
         await conn.execute('DELETE FROM sessions WHERE expires_at < $1', datetime.now())
+    await seed_achievements()  # <-- Add this line
     logger.info("Startup complete")
 
 @app.on_event("shutdown")
@@ -1439,3 +1509,33 @@ if __name__ == "__main__":
 def check_password(password: str, stored_hash: str, salt: str) -> bool:
     hash_attempt = hashlib.pbkdf2_hmac('sha256', password.encode('utf-8'), salt.encode('utf-8'), 100000, dklen=64).hex()
     return hash_attempt == stored_hash
+
+# -- user_stats, achievements, user_achievements
+CREATE TABLE IF NOT EXISTS user_stats (
+    mobile VARCHAR(20) PRIMARY KEY REFERENCES users(mobile),
+    level INTEGER DEFAULT 1,
+    xp INTEGER DEFAULT 0,
+    total_searches INTEGER DEFAULT 0,
+    streak_days INTEGER DEFAULT 0,
+    last_search_date DATE,
+    achievements JSONB DEFAULT '[]'::jsonb,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS achievements (
+    id VARCHAR(50) PRIMARY KEY,
+    title VARCHAR(100) NOT NULL,
+    description TEXT,
+    icon VARCHAR(50),
+    xp_reward INTEGER DEFAULT 0,
+    requirement_type VARCHAR(50),
+    requirement_value INTEGER,
+    rarity VARCHAR(20) DEFAULT 'common'
+);
+
+CREATE TABLE IF NOT EXISTS user_achievements (
+    mobile VARCHAR(20) REFERENCES users(mobile),
+    achievement_id VARCHAR(50) REFERENCES achievements(id),
+    unlocked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (mobile, achievement_id)
+);
