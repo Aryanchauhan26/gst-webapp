@@ -1510,32 +1510,55 @@ def check_password(password: str, stored_hash: str, salt: str) -> bool:
     hash_attempt = hashlib.pbkdf2_hmac('sha256', password.encode('utf-8'), salt.encode('utf-8'), 100000, dklen=64).hex()
     return hash_attempt == stored_hash
 
-# -- user_stats, achievements, user_achievements
-CREATE TABLE IF NOT EXISTS user_stats (
-    mobile VARCHAR(20) PRIMARY KEY REFERENCES users(mobile),
-    level INTEGER DEFAULT 1,
-    xp INTEGER DEFAULT 0,
-    total_searches INTEGER DEFAULT 0,
-    streak_days INTEGER DEFAULT 0,
-    last_search_date DATE,
-    achievements JSONB DEFAULT '[]'::jsonb,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE IF NOT EXISTS achievements (
-    id VARCHAR(50) PRIMARY KEY,
-    title VARCHAR(100) NOT NULL,
-    description TEXT,
-    icon VARCHAR(50),
-    xp_reward INTEGER DEFAULT 0,
-    requirement_type VARCHAR(50),
-    requirement_value INTEGER,
-    rarity VARCHAR(20) DEFAULT 'common'
-);
-
-CREATE TABLE IF NOT EXISTS user_achievements (
-    mobile VARCHAR(20) REFERENCES users(mobile),
-    achievement_id VARCHAR(50) REFERENCES achievements(id),
-    unlocked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY (mobile, achievement_id)
-);
+async def seed_achievements():
+    achievements_data = [
+        {
+            'id': 'first_search',
+            'title': 'First Timer',
+            'description': 'Complete your first GSTIN search',
+            'icon': 'fas fa-baby',
+            'xp_reward': 100,
+            'requirement_type': 'search_count',
+            'requirement_value': 1,
+            'rarity': 'common'
+        },
+        {
+            'id': 'search_master',
+            'title': 'Search Master',
+            'description': 'Perform 100 GSTIN searches',
+            'icon': 'fas fa-search',
+            'xp_reward': 500,
+            'requirement_type': 'search_count',
+            'requirement_value': 100,
+            'rarity': 'rare'
+        },
+        {
+            'id': 'streak_warrior',
+            'title': 'Streak Warrior',
+            'description': 'Maintain a 7-day search streak',
+            'icon': 'fas fa-fire',
+            'xp_reward': 300,
+            'requirement_type': 'streak',
+            'requirement_value': 7,
+            'rarity': 'epic'
+        },
+        {
+            'id': 'compliance_expert',
+            'title': 'Compliance Expert',
+            'description': 'Reach Level 10',
+            'icon': 'fas fa-crown',
+            'xp_reward': 1000,
+            'requirement_type': 'level',
+            'requirement_value': 10,
+            'rarity': 'legendary'
+        }
+    ]
+    await db.connect()
+    async with db.pool.acquire() as conn:
+        for achievement in achievements_data:
+            await conn.execute("""
+                INSERT INTO achievements (id, title, description, icon, xp_reward, 
+                                        requirement_type, requirement_value, rarity)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+                ON CONFLICT (id) DO NOTHING
+            """, *achievement.values())
