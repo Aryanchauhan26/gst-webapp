@@ -11,12 +11,11 @@ import asyncpg
 import hashlib
 import secrets
 import logging
-import time  # Add this import at the top if not present
 from datetime import datetime, timedelta
 from collections import defaultdict
 from typing import Optional, Dict, List
-from fastapi import FastAPI, Request, Form, Depends, HTTPException, status, WebSocket
-from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse, StreamingResponse, FileResponse
+from fastapi import FastAPI, Request, Form, Depends, HTTPException, status
+from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse, StreamingResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 from io import BytesIO
@@ -24,7 +23,6 @@ from weasyprint import HTML
 from dotenv import load_dotenv
 from anthro_ai import get_anthropic_synopsis
 from fastapi import Response
-import json
 
 # Load environment variables
 load_dotenv()
@@ -212,68 +210,6 @@ class PostgresDB:
                 mobile
             )
             return [dict(row) for row in rows]
-
-    async def update_user_stats(self, mobile: str, search_performed: bool = False):
-        await self.connect()
-        async with self.pool.acquire() as conn:
-            # Update or insert user stats
-            await conn.execute("""
-                INSERT INTO user_stats (mobile, total_searches, last_search_date)
-                VALUES ($1, 1, $2)
-                ON CONFLICT (mobile) DO UPDATE
-                SET total_searches = user_stats.total_searches + 1,
-                    last_search_date = EXCLUDED.last_search_date
-            """, mobile, datetime.now())
-            
-            # Check and unlock achievements
-            await self.check_achievements(mobile)
-
-    async def check_achievements(self, mobile: str):
-        await self.connect()
-        async with self.pool.acquire() as conn:
-            user_achievements = await conn.fetch("SELECT achievement_id FROM user_achievements WHERE mobile = $1", mobile)
-            unlocked_achievements = {ua['achievement_id'] for ua in user_achievements}
-            
-            # Check each achievement requirement
-            achievements = await conn.fetch("SELECT * FROM achievements")
-            for achievement in achievements:
-                if achievement['id'] in unlocked_achievements:
-                    continue  # Already unlocked
-                
-                # Check requirements
-                if achievement['requirement_type'] == 'searches':
-                    if achievement['requirement_value'] <= await self.get_user_search_count(mobile):
-                        await conn.execute(
-                            "INSERT INTO user_achievements (mobile, achievement_id) VALUES ($1, $2)",
-                            mobile, achievement['id']
-                        )
-
-    async def get_user_stats(self, mobile: str):
-        await self.connect()
-        async with self.pool.acquire() as conn:
-            return await conn.fetchrow("SELECT * FROM user_stats WHERE mobile = $1", mobile)
-
-    async def get_user_achievements(self, mobile: str):
-        await self.connect()
-        async with self.pool.acquire() as conn:
-            return await conn.fetch("SELECT * FROM user_achievements WHERE mobile = $1", mobile)
-
-    async def get_available_achievements(self, mobile: str):
-        await self.connect()
-        async with self.pool.acquire() as conn:
-            return await conn.fetch("""
-                SELECT * FROM achievements WHERE id NOT IN (
-                    SELECT achievement_id FROM user_achievements WHERE mobile = $1
-                )
-            """, mobile)
-
-    async def get_leaderboard(self, limit: int = 10):
-        await self.connect()
-        async with self.pool.acquire() as conn:
-            return await conn.fetch("""
-                SELECT mobile, level, xp, total_searches FROM user_stats
-                ORDER BY xp DESC LIMIT $1
-            """, limit)
 
 db = PostgresDB()
 
@@ -799,8 +735,7 @@ async def search_gstin_get(request: Request, gstin: str = None, current_user: st
 
 @app.post("/search")
 async def search_gstin(request: Request, gstin: str = Form(...), current_user: str = Depends(require_auth)):
-    start_time = time.time()  # Start timing
-
+    """Search for GSTIN with enhanced features"""
     # Validate GSTIN format
     gstin = gstin.strip().upper()
     if not validate_gstin(gstin):
@@ -851,25 +786,13 @@ async def search_gstin(request: Request, gstin: str = Form(...), current_user: s
         # Get late filing analysis
         late_filing_analysis = company_data.get('_late_filing_analysis', {})
         
-        # Gamification
-        xp_gained = await db.update_user_stats(current_user, search_performed=True)
-        new_achievements = await db.check_achievements(current_user)
-        user_stats = await db.get_user_stats(current_user)
-
-        # Performance monitoring
-        search_duration = time.time() - start_time
-
         return templates.TemplateResponse("results.html", {
             "request": request,
             "mobile": current_user,
             "company_data": company_data,
             "compliance_score": int(compliance_score),
             "synopsis": synopsis,
-            "late_filing_analysis": late_filing_analysis,
-            "xp_gained": xp_gained,
-            "new_achievements": new_achievements,
-            "user_stats": user_stats,
-            "search_duration": f"{search_duration:.2f}s"
+            "late_filing_analysis": late_filing_analysis
         })
         
     except HTTPException as e:
@@ -1475,15 +1398,6 @@ async def favicon():
     favicon_bytes = b'\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\rIDATx\x9cc\xf8\x0f\x00\x00\x01\x01\x00\x05\x00\x01\x8d\xc8\x02\x00\x00\x00\x00IEND\xaeB`\x82'
     return Response(content=favicon_bytes, media_type="image/png")
 
-# Serve manifest.json for PWA
-@app.get("/manifest.json")
-async def manifest():
-    return FileResponse("static/manifest.json", media_type="application/manifest+json")
-
-@app.get("/sw.js")
-async def service_worker():
-    return FileResponse("static/sw.js", media_type="application/javascript")
-
 # Error handlers
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request: Request, exc: HTTPException):
@@ -1507,10 +1421,10 @@ async def general_exception_handler(request: Request, exc: Exception):
 async def startup_event():
     """Run startup tasks"""
     logger.info("GST Intelligence Platform starting up...")
+    # Clean up old sessions in Postgres
     await db.connect()
     async with db.pool.acquire() as conn:
         await conn.execute('DELETE FROM sessions WHERE expires_at < $1', datetime.now())
-    await seed_achievements()  # <-- Add this line
     logger.info("Startup complete")
 
 @app.on_event("shutdown")
@@ -1525,81 +1439,3 @@ if __name__ == "__main__":
 def check_password(password: str, stored_hash: str, salt: str) -> bool:
     hash_attempt = hashlib.pbkdf2_hmac('sha256', password.encode('utf-8'), salt.encode('utf-8'), 100000, dklen=64).hex()
     return hash_attempt == stored_hash
-
-async def seed_achievements():
-    achievements_data = [
-        {
-            'id': 'first_search',
-            'title': 'First Timer',
-            'description': 'Complete your first GSTIN search',
-            'icon': 'fas fa-baby',
-            'xp_reward': 100,
-            'requirement_type': 'search_count',
-            'requirement_value': 1,
-            'rarity': 'common'
-        },
-        {
-            'id': 'search_master',
-            'title': 'Search Master',
-            'description': 'Perform 100 GSTIN searches',
-            'icon': 'fas fa-search',
-            'xp_reward': 500,
-            'requirement_type': 'search_count',
-            'requirement_value': 100,
-            'rarity': 'rare'
-        },
-        {
-            'id': 'streak_warrior',
-            'title': 'Streak Warrior',
-            'description': 'Maintain a 7-day search streak',
-            'icon': 'fas fa-fire',
-            'xp_reward': 300,
-            'requirement_type': 'streak',
-            'requirement_value': 7,
-            'rarity': 'epic'
-        },
-        {
-            'id': 'compliance_expert',
-            'title': 'Compliance Expert',
-            'description': 'Reach Level 10',
-            'icon': 'fas fa-crown',
-            'xp_reward': 1000,
-            'requirement_type': 'level',
-            'requirement_value': 10,
-            'rarity': 'legendary'
-        }
-    ]
-    await db.connect()
-    async with db.pool.acquire() as conn:
-        for achievement in achievements_data:
-            await conn.execute("""
-                INSERT INTO achievements (id, title, description, icon, xp_reward, 
-                                        requirement_type, requirement_value, rarity)
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-                ON CONFLICT (id) DO NOTHING
-            """, *achievement.values())
-
-@app.websocket("/ws/{user_id}")
-async def websocket_endpoint(websocket: WebSocket, user_id: str):
-    await websocket.accept()
-    try:
-        while True:
-            data = await websocket.receive_text()
-            message = json.loads(data)
-            if message['type'] == 'get_metrics':
-                metrics = await get_real_time_metrics()
-                await websocket.send_text(json.dumps({
-                    'type': 'metrics_update',
-                    'data': metrics
-                }))
-    except Exception:
-        pass
-
-@app.get("/api/analytics/overview")
-async def analytics_overview(current_user: str = Depends(require_auth)):
-    return {
-        "total_searches": await get_user_search_count(current_user),
-        "avg_compliance": await get_avg_compliance_score(current_user),
-        "streak_days": await get_user_streak(current_user),
-        "achievements_count": await get_user_achievements_count(current_user)
-    }

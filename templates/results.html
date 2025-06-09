@@ -766,53 +766,6 @@
             z-index: 1;
         }
 
-        /* 3D GST Compliance Visualization */
-        #container {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            flex-direction: column;
-            height: 100vh;
-            padding: 0 2rem;
-            overflow: hidden;
-        }
-
-        #info {
-            max-width: 600px;
-            text-align: center;
-            margin-bottom: 2rem;
-        }
-
-        .metric-card {
-            background: var(--bg-card);
-            border: 1px solid var(--border-color);
-            border-radius: 16px;
-            padding: 1.5rem;
-            margin-bottom: 1rem;
-            box-shadow: var(--card-shadow);
-            transition: all var(--transition-speed);
-        }
-
-        .metric-card:hover {
-            transform: translateY(-5px);
-            box-shadow: var(--hover-shadow);
-            border-color: var(--accent-primary);
-        }
-
-        #tooltip {
-            position: absolute;
-            background: rgba(0, 0, 0, 0.7);
-            color: white;
-            padding: 0.5rem 1rem;
-            border-radius: 8px;
-            font-size: 0.9rem;
-            pointer-events: none;
-            opacity: 0;
-            transition: opacity 0.3s;
-        }
-
-        /* End of 3D GST Compliance Visualization */
-
         /* Responsive */
         @media (max-width: 768px) {
             .container {
@@ -831,26 +784,8 @@
             .hide-mobile {
                 display: none;
             }
-
-            #container {
-                padding: 0 1rem;
-            }
-
-            #info {
-                font-size: 0.9rem;
-            }
-
-            .metric-card {
-                padding: 1rem;
-            }
         }
     </style>
-    <!-- PWA Meta Tags -->
-    <link rel="manifest" href="{{ url_for('static', path='manifest.json') }}">
-    <meta name="theme-color" content="#7c3aed">
-    <link rel="apple-touch-icon" href="/static/icons/icon-192x192.png">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 </head>
 <body>
     <!-- Header -->
@@ -1184,72 +1119,10 @@
                 Print Report
             </button>
         </div>
-
-        <!-- 3D GST Compliance Visualization -->
-        <div id="container">
-            <div id="info">
-                <h2 style="color: #7c3aed; margin-bottom: 15px;">🚀 GST Intelligence 3D Dashboard</h2>
-                <div class="metric-card">
-                    <h4>Total Companies</h4>
-                    <div style="font-size: 24px; color: #10b981;">1,247</div>
-                </div>
-                <div class="metric-card">
-                    <h4>Avg Compliance Score</h4>
-                    <div style="font-size: 24px; color: #f59e0b;">78.5%</div>
-                </div>
-                <div class="metric-card">
-                    <h4>Active Searches</h4>
-                    <div style="font-size: 24px; color: #3b82f6;">43</div>
-                </div>
-                <div style="margin-top: 20px; font-size: 12px; opacity: 0.7;">
-                    💡 Hover over spheres to see company details<br>
-                    🎮 Click and drag to rotate view
-                </div>
-            </div>
-            <div id="tooltip"></div>
-        </div>
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-        <script>
-            // Initialize 3D compliance visualization
-            function init3DVisualization() {
-                const scene = new THREE.Scene();
-                const camera = new THREE.PerspectiveCamera(75, 800/400, 0.1, 1000);
-                const renderer = new THREE.WebGLRenderer({canvas: document.getElementById('complianceVisualization')});
-                
-                // Create compliance score sphere
-                const geometry = new THREE.SphereGeometry(2, 32, 32);
-                const material = new THREE.MeshPhongMaterial({
-                    color: {{ compliance_score }} >= 80 ? 0x10b981 : {{ compliance_score }} >= 60 ? 0xf59e0b : 0xef4444
-                });
-                const sphere = new THREE.Mesh(geometry, material);
-                scene.add(sphere);
-                
-                // Add lighting
-                const light = new THREE.PointLight(0xffffff, 1, 100);
-                light.position.set(5, 5, 5);
-                scene.add(light);
-                
-                camera.position.z = 5;
-                
-                function animate() {
-                    sphere.rotation.x += 0.01;
-                    sphere.rotation.y += 0.01;
-                    renderer.render(scene, camera);
-                    requestAnimationFrame(animate);
-                }
-                animate();
-            }
-
-            // Initialize when page loads
-            document.addEventListener('DOMContentLoaded', init3DVisualization);
-        </script>
     </main>
 
     <!-- JavaScript -->
-    <script src="{{ url_for('static', path='common-scripts.js') }}"></script>
     <script>
-        const companies = {{ companies_json | safe }};
-
         // Theme Toggle Function
         function toggleTheme() {
             const body = document.body;
@@ -1741,18 +1614,5 @@
         `;
         document.head.appendChild(style);
     </script>
-    <script>
-if ('serviceWorker' in navigator) {
-    window.addEventListener('load', function() {
-        navigator.serviceWorker.register('/sw.js')
-            .then(function(reg) { console.log('SW registered:', reg); })
-            .catch(function(err) { console.error('SW registration failed:', err); });
-    });
-}
-</script>
-
-<div class="visualization-container">
-    <canvas id="complianceVisualization" width="800" height="400"></canvas>
-</div>
 </body>
 </html>
