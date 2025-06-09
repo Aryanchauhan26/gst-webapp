@@ -571,3 +571,27 @@ function toggleNotifications() {
 document.addEventListener('DOMContentLoaded', function() {
     createNotificationCenter();
 });
+
+// Smart Search System Class
+class SmartSearchSystem {
+    constructor() {
+        this.initKeyboardShortcuts();
+    }
+    
+    initKeyboardShortcuts() {
+        document.addEventListener('keydown', (e) => {
+            if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+                e.preventDefault();
+                this.showCommandPalette();
+            }
+        });
+    }
+    
+    showCommandPalette() {
+        // Implementation from the smart search artifact
+        alert('Command Palette triggered! (Implement UI here)');
+    }
+}
+
+// Initialize Smart Search System
+new SmartSearchSystem();

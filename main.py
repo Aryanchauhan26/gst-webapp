@@ -11,11 +11,12 @@ import asyncpg
 import hashlib
 import secrets
 import logging
+import time  # Add this import at the top if not present
 from datetime import datetime, timedelta
 from collections import defaultdict
 from typing import Optional, Dict, List
-from fastapi import FastAPI, Request, Form, Depends, HTTPException, status
-from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse, StreamingResponse
+from fastapi import FastAPI, Request, Form, Depends, HTTPException, status, WebSocket
+from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse, StreamingResponse, FileResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 from io import BytesIO
@@ -23,6 +24,7 @@ from weasyprint import HTML
 from dotenv import load_dotenv
 from anthro_ai import get_anthropic_synopsis
 from fastapi import Response
+import json
 
 # Load environment variables
 load_dotenv()
@@ -797,7 +799,8 @@ async def search_gstin_get(request: Request, gstin: str = None, current_user: st
 
 @app.post("/search")
 async def search_gstin(request: Request, gstin: str = Form(...), current_user: str = Depends(require_auth)):
-    """Search for GSTIN with enhanced features"""
+    start_time = time.time()  # Start timing
+
     # Validate GSTIN format
     gstin = gstin.strip().upper()
     if not validate_gstin(gstin):
@@ -848,10 +851,13 @@ async def search_gstin(request: Request, gstin: str = Form(...), current_user: s
         # Get late filing analysis
         late_filing_analysis = company_data.get('_late_filing_analysis', {})
         
-        # Update user stats and check achievements
+        # Gamification
         xp_gained = await db.update_user_stats(current_user, search_performed=True)
         new_achievements = await db.check_achievements(current_user)
         user_stats = await db.get_user_stats(current_user)
+
+        # Performance monitoring
+        search_duration = time.time() - start_time
 
         return templates.TemplateResponse("results.html", {
             "request": request,
@@ -862,7 +868,8 @@ async def search_gstin(request: Request, gstin: str = Form(...), current_user: s
             "late_filing_analysis": late_filing_analysis,
             "xp_gained": xp_gained,
             "new_achievements": new_achievements,
-            "user_stats": user_stats
+            "user_stats": user_stats,
+            "search_duration": f"{search_duration:.2f}s"
         })
         
     except HTTPException as e:
@@ -1468,6 +1475,15 @@ async def favicon():
     favicon_bytes = b'\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\rIDATx\x9cc\xf8\x0f\x00\x00\x01\x01\x00\x05\x00\x01\x8d\xc8\x02\x00\x00\x00\x00IEND\xaeB`\x82'
     return Response(content=favicon_bytes, media_type="image/png")
 
+# Serve manifest.json for PWA
+@app.get("/manifest.json")
+async def manifest():
+    return FileResponse("static/manifest.json", media_type="application/manifest+json")
+
+@app.get("/sw.js")
+async def service_worker():
+    return FileResponse("static/sw.js", media_type="application/javascript")
+
 # Error handlers
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request: Request, exc: HTTPException):
@@ -1562,3 +1578,28 @@ async def seed_achievements():
                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
                 ON CONFLICT (id) DO NOTHING
             """, *achievement.values())
+
+@app.websocket("/ws/{user_id}")
+async def websocket_endpoint(websocket: WebSocket, user_id: str):
+    await websocket.accept()
+    try:
+        while True:
+            data = await websocket.receive_text()
+            message = json.loads(data)
+            if message['type'] == 'get_metrics':
+                metrics = await get_real_time_metrics()
+                await websocket.send_text(json.dumps({
+                    'type': 'metrics_update',
+                    'data': metrics
+                }))
+    except Exception:
+        pass
+
+@app.get("/api/analytics/overview")
+async def analytics_overview(current_user: str = Depends(require_auth)):
+    return {
+        "total_searches": await get_user_search_count(current_user),
+        "avg_compliance": await get_avg_compliance_score(current_user),
+        "streak_days": await get_user_streak(current_user),
+        "achievements_count": await get_user_achievements_count(current_user)
+    }
