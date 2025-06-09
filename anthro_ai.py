@@ -223,12 +223,11 @@ async def get_anthropic_synopsis(company_data: Dict) -> Optional[str]:
         Sources consulted: {', '.join(web_info.get('sources', [])) if web_info.get('sources') else 'No web sources available'}
         
         INSTRUCTIONS:
-        Write a 250-300 word business overview that includes:
+        Write a 100-150 word business overview that includes:
         1. What the company actually does (products/services/industry) based on web research
         2. Company's market presence and business operations
         3. Any notable clients, projects, or achievements found online
         4. Business scale and operational insights
-        5. Brief mention of GST compliance status
         
         If web research found specific information about the company, prioritize that over generic descriptions.
         If no specific web information was found, make intelligent inferences based on the company name and business type.
