@@ -1100,3 +1100,104 @@ html {
         width: 100%;
         max-width: 100%;
         margin-top:
+    }
+
+    /* Enhanced Table Styles - Fixed Alignment */
+.table-container {
+    overflow-x: auto;
+    margin-top: 1rem;
+    position: relative;
+    z-index: 1;
+}
+
+.history-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: var(--bg-secondary);
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+.history-table th {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+    padding: 1rem;
+    text-align: left;
+    font-weight: 600;
+    border-bottom: 2px solid var(--border-color);
+    position: relative;
+    white-space: nowrap;
+}
+
+.history-table th:hover {
+    background: var(--accent-primary);
+    color: white;
+}
+
+.history-table td {
+    padding: 1rem;
+    color: var(--text-primary);
+    border-bottom: 1px solid var(--border-color);
+    transition: all var(--transition-speed);
+    vertical-align: middle;
+}
+
+/* Fix column widths for better alignment */
+.history-table th:nth-child(1),
+.history-table td:nth-child(1) {
+    width: 20%;
+    min-width: 180px;
+}
+
+.history-table th:nth-child(2),
+.history-table td:nth-child(2) {
+    width: 20%;
+    min-width: 150px;
+}
+
+.history-table th:nth-child(3),
+.history-table td:nth-child(3) {
+    width: 35%;
+    min-width: 200px;
+}
+
+.history-table th:nth-child(4),
+.history-table td:nth-child(4) {
+    width: 15%;
+    min-width: 120px;
+    text-align: center;
+}
+
+.history-table th:nth-child(5),
+.history-table td:nth-child(5) {
+    width: 10%;
+    min-width: 100px;
+    text-align: center;
+}
+
+.history-table tbody tr {
+    cursor: pointer;
+    transition: all 0.3s ease;
+    position: relative;
+}
+
+.history-table tbody tr:hover {
+    background: var(--bg-hover);
+    transform: translateX(5px);
+}
+
+.history-table tbody tr::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 4px;
+    background: var(--accent-gradient);
+    transform: scaleY(0);
+    transition: transform 0.3s;
+}
+
+.history-table tbody tr:hover::before {
+    transform: scaleY(1);
+}
