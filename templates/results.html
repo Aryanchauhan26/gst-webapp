@@ -80,6 +80,10 @@
             transition: background-color var(--transition-speed), color var(--transition-speed);
         }
 
+        html {
+            scroll-behavior: smooth;
+        }
+
         /* Animated Background */
         body::before {
             content: '';
@@ -1276,10 +1280,10 @@
                 <div class="returns-category">
                     <div class="category-header" onclick="toggleCategory(this)">
                         <div class="category-info">
-                            <span class="category-title">GSTR-1 (Outward Supplies)</span>
-                            <span class="category-count">{{ gstr1_returns|length }} Returns</span>
+                            <span class="category-title">GSTR-1</span>
+                            <span class="category-count">{{ gstr1_returns|length }}</span>
                         </div>
-                        <i class="fas fa-chevron-down category-toggle"></i>
+                        <span class="category-toggle"><i class="fas fa-chevron-down"></i></span>
                     </div>
                     <div class="category-content">
                         <table class="returns-table">
@@ -1292,35 +1296,29 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                {% for return in gstr1_returns %}
-                                <tr>
-                                    <td>{{ return.taxp }}</td>
-                                    <td>{{ return.fy }}</td>
-                                    <td>{{ return.dof }}</td>
-                                    <td>
-                                        {% if late_filing_analysis %}
-                                            {% set is_late = false %}
-                                            {% for late_return in late_filing_analysis.late_returns %}
-                                                {% if late_return.return.dof == return.dof and late_return.return.rtntype == return.rtntype %}
-                                                    {% set is_late = true %}
-                                                    <span class="filing-status status-late">
-                                                        <i class="fas fa-exclamation-circle"></i>
-                                                        Late by {{ late_return.delay_days }} days
-                                                    </span>
-                                                {% endif %}
-                                            {% endfor %}
-                                            {% if not is_late %}
-                                                <span class="filing-status status-on-time">
-                                                    <i class="fas fa-check-circle"></i>
-                                                    On Time
-                                                </span>
-                                            {% endif %}
-                                        {% else %}
-                                            <span class="filing-status status-on-time">Filed</span>
+                                {% set late_gstr1 = late_filing_analysis.late_returns|selectattr('return.rtntype', 'equalto', 'GSTR1')|list if late_filing_analysis and late_filing_analysis.late_returns else [] %}
+                                {% if late_gstr1 %}
+                                    {% for lr in late_gstr1 %}
+                                    <tr>
+                                        <td>{{ lr.return.taxp }}</td>
+                                        <td>{{ lr.return.fy }}</td>
+                                        <td>{{ lr.return.dof }}</td>
+                                        <td><span class="filing-status status-late">Late by {{ lr.delay_days }} days</span></td>
+                                    </tr>
+                                    {% endfor %}
+                                {% else %}
+                                    {% for r in gstr1_returns %}
+                                        {% set is_late = late_filing_analysis and late_filing_analysis.late_returns and r in late_filing_analysis.late_returns|map(attribute='return')|list %}
+                                        {% if not is_late %}
+                                        <tr>
+                                            <td>{{ r.taxp }}</td>
+                                            <td>{{ r.fy }}</td>
+                                            <td>{{ r.dof }}</td>
+                                            <td><span class="filing-status status-on-time">On Time</span></td>
+                                        </tr>
                                         {% endif %}
-                                    </td>
-                                </tr>
-                                {% endfor %}
+                                    {% endfor %}
+                                {% endif %}
                             </tbody>
                         </table>
                     </div>
