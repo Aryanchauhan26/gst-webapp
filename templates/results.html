@@ -164,6 +164,38 @@
             font-size: 1.1rem;
         }
 
+        .category-title.tooltip {
+            position: relative;
+            cursor: help;
+        }
+
+        .category-title.tooltip::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%) translateY(-8px);
+            background: var(--bg-hover);
+            color: var(--text-primary);
+            padding: 0.75rem 1rem;
+            border-radius: 8px;
+            font-size: 0.875rem;
+            white-space: nowrap;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s, transform 0.3s;
+            z-index: 1000;
+            box-shadow: var(--card-shadow);
+            border: 1px solid var(--border-color);
+            max-width: 250px;
+            white-space: normal;
+        }
+
+        .category-title.tooltip:hover::after {
+            opacity: 1;
+            transform: translateX(-50%) translateY(-12px);
+        }
+
         .category-count {
             background: var(--accent-gradient);
             color: white;
@@ -1137,7 +1169,7 @@
                     <span class="info-value">{{ company_data.tradeName or company_data.lgnm or 'N/A' }}</span>
                 </div>
                 <div class="info-item">
-                    <span class="info-label">Business Type</span>
+                    <span class="info-label tooltip" data-tooltip="The legal constitution of the business, e.g., Private Limited, Partnership, Proprietorship, etc.">Business Type</span>
                     <span class="info-value">{{ company_data.ctb or 'N/A' }}</span>
                 </div>
                 <div class="info-item">
@@ -1159,7 +1191,7 @@
                     <span class="info-value">{{ company_data.pan or 'N/A' }}</span>
                 </div>
                 <div class="info-item">
-                    <span class="info-label">Company Category</span>
+                    <span class="info-label tooltip" data-tooltip="Classification of the company as per GST registration, such as Regular, Composition, etc.">Company Category</span>
                     <span class="info-value">{{ company_data.compCategory or 'N/A' }}</span>
                 </div>
             </div>
@@ -1212,11 +1244,11 @@
                     </span>
                 </div>
                 <div class="info-item">
-                    <span class="info-label tooltip complex-field" data-tooltip="Electronic invoicing system adoption status - Mandatory for certain turnover thresholds">E-Invoice Status</span>
+                    <span class="info-label tooltip" data-tooltip="Electronic invoicing system adoption status - Mandatory for certain turnover thresholds">E-Invoice Status</span>
                     <span class="info-value">{{ company_data.einvoiceStatus or 'N/A' }}</span>
                 </div>
                 <div class="info-item">
-                    <span class="info-label">Duty Type</span>
+                    <span class="info-label tooltip" data-tooltip="Type of duty applicable to the business under GST law">Duty Type</span>
                     <span class="info-value">{{ company_data.dty or 'N/A' }}</span>
                 </div>
                 <div class="info-item">
@@ -1280,7 +1312,7 @@
                 <div class="returns-category">
                     <div class="category-header" onclick="toggleCategory(this)">
                         <div class="category-info">
-                            <span class="category-title">GSTR-1</span>
+                            <span class="category-title tooltip" data-tooltip="GSTR-1: Monthly/quarterly return for outward supplies">GSTR-1</span>
                             <span class="category-count">{{ gstr1_returns|length }}</span>
                         </div>
                         <span class="category-toggle"><i class="fas fa-chevron-down"></i></span>
@@ -1328,7 +1360,7 @@
                 <div class="returns-category">
                     <div class="category-header" onclick="toggleCategory(this)">
                         <div class="category-info">
-                            <span class="category-title">GSTR-3B (Summary Return)</span>
+                            <span class="category-title tooltip" data-tooltip="GSTR-3B: Monthly summary return of inward and outward supplies">GSTR-3B (Summary Return)</span>
                             <span class="category-count">{{ gstr3b_returns|length }} Returns</span>
                         </div>
                         <i class="fas fa-chevron-down category-toggle"></i>
@@ -1376,7 +1408,7 @@
                 <div class="returns-category">
                     <div class="category-header" onclick="toggleCategory(this)">
                         <div class="category-info">
-                            <span class="category-title">GSTR-9 (Annual Return)</span>
+                            <span class="category-title tooltip" data-tooltip="GSTR-9: Annual return summarizing all GST activities">GSTR-9 (Annual Return)</span>
                             <span class="category-count">{{ annual_returns|length }} Returns</span>
                         </div>
                         <i class="fas fa-chevron-down category-toggle"></i>
@@ -1424,7 +1456,7 @@
                 <div class="returns-category">
                     <div class="category-header" onclick="toggleCategory(this)">
                         <div class="category-info">
-                            <span class="category-title">Other Returns</span>
+                            <span class="category-title tooltip" data-tooltip="Other GST returns filed by the company">Other Returns</span>
                             <span class="category-count">{{ other_returns|length }} Returns</span>
                         </div>
                         <i class="fas fa-chevron-down category-toggle"></i>
