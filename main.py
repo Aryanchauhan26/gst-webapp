@@ -815,10 +815,18 @@ async def search_gstin(request: Request, gstin: str = Form(...), current_user: s
 async def view_history(request: Request, current_user: str = Depends(require_auth)):
     """View complete search history"""
     history = await db.get_all_searches(current_user)
+    # Calculate searches in the last 30 days
+    now = datetime.now()
+    last_30_days = now - timedelta(days=30)
+    searches_this_month = sum(
+        1 for item in history
+        if item.get('searched_at') and item['searched_at'] >= last_30_days
+    )
     return templates.TemplateResponse("history.html", {
         "request": request,
         "mobile": current_user,
-        "history": history
+        "history": history,
+        "searches_this_month": searches_this_month
     })
 
 @app.get("/analytics", response_class=HTMLResponse)
@@ -887,10 +895,16 @@ async def analytics_dashboard(request: Request, current_user: str = Depends(requ
             current_user
         )
     
+    # Convert date objects to strings for JSON serialization
+    daily_searches = [
+        {**dict(row), "date": row["date"].isoformat() if hasattr(row["date"], "isoformat") else row["date"]}
+        for row in daily_searches
+    ]
+    
     return templates.TemplateResponse("analytics.html", {
         "request": request,
         "mobile": current_user,
-        "daily_searches": [dict(row) for row in daily_searches],
+        "daily_searches": daily_searches,
         "score_distribution": [dict(row) for row in score_distribution],
         "top_companies": [dict(row) for row in top_companies],
         "total_searches": total_searches or 0,

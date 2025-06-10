@@ -872,7 +872,7 @@
                 <div class="stat-label">Avg Score</div>
             </div>
             <div class="stat-card tooltip" data-tooltip="Searches performed this month">
-                <div class="stat-value">{{ history|selectattr('searched_at', 'greaterthan', (moment().subtract(30, 'days')|string))|list|length if history[0].searched_at else history|length }}</div>
+                <div class="stat-value">{{ searches_this_month }}</div>
                 <div class="stat-label">This Month</div>
             </div>
         </div>
