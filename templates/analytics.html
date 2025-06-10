@@ -272,15 +272,6 @@
                 <div class="stat-value">{{ avg_compliance }}%</div>
                 <div class="stat-label">Avg Compliance Score</div>
             </div>
-            
-            <div class="stat-card">
-                <div class="stat-icon">
-                    <i class="fas fa-clock"></i>
-                </div>
-                <div class="stat-value" id="currentTime">--:--</div>
-                <div class="stat-label">Current Time</div>
-            </div>
-        </div>
 
         <!-- Charts Section -->
         <div class="charts-grid">
@@ -332,14 +323,6 @@
     </main>
 
     <script>
-        // Update current time
-        function updateTime() {
-            const now = new Date();
-            document.getElementById('currentTime').textContent = 
-                now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-        }
-        setInterval(updateTime, 1000);
-        updateTime();
 
         // Chart.js configuration
         Chart.defaults.color = '#a1a1aa';

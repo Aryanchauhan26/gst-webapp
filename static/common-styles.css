@@ -66,20 +66,25 @@ h1, h2, h3, h4, h5, h6, p, span, div {
 .enhanced-tooltip::before,
 .enhanced-tooltip::after {
     z-index: 99999 !important;
+    max-width: 350px;
+    min-width: 120px;
+    white-space: pre-line;
+    word-break: break-word;
+    pointer-events: none;
 }
 
 .returns-category,
 .info-card,
 .category-header,
-.category-content {
+.category-content,
+.stat-card,
+.stats-grid,
+.table-container,
+.history-section,
+.card,
+body,
+html {
     overflow: visible !important;
-}
-
-.tooltip::after,
-.enhanced-tooltip::before {
-    white-space: pre-line;
-    max-width: 90vw;
-    word-break: break-word;
 }
 
 /* Flexbox Improvements - Prevents Overflow */

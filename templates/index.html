@@ -1011,10 +1011,14 @@
                         {% for item in history %}
                         <tr data-gstin="{{ item.gstin }}">
                             <td>{{ item.searched_at.strftime('%d %b %Y, %I:%M %p') if item.searched_at else 'N/A' }}</td>
-                            <td><code style="background: var(--bg-hover); padding: 0.25rem 0.5rem; border-radius: 4px;">{{ item.gstin }}</code></td>
+                            <td>
+                                <code style="background: var(--bg-hover); padding: 0.25rem 0.5rem; border-radius: 4px;">
+                                    {{ item.gstin }}
+                                </code>
+                            </td>
                             <td style="font-weight: 600;">{{ item.company_name }}</td>
                             <td class="hide-mobile">
-                                {% if item.compliance_score %}
+                                {% if item.compliance_score is not none %}
                                     {% if item.compliance_score >= 80 %}
                                         <span class="score-badge score-high tooltip" data-tooltip="Excellent compliance - Green status">{{ "%.0f"|format(item.compliance_score) }}%</span>
                                     {% elif item.compliance_score >= 60 %}
