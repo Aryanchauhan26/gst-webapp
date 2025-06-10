@@ -564,3 +564,97 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     });
 });
+
+// Enhanced Tooltip System
+(function() {
+    let tooltipContainer = null;
+    let currentTarget = null;
+    let hideTimeout = null;
+
+    function createTooltip() {
+        tooltipContainer = document.createElement('div');
+        tooltipContainer.className = 'tooltip-container';
+        tooltipContainer.innerHTML = `
+            <div class="tooltip-content"></div>
+            <div class="tooltip-arrow"></div>
+        `;
+        document.body.appendChild(tooltipContainer);
+    }
+
+    function showTooltip(target) {
+        if (!tooltipContainer) createTooltip();
+        
+        const tooltipText = target.getAttribute('data-tooltip');
+        if (!tooltipText) return;
+        
+        currentTarget = target;
+        clearTimeout(hideTimeout);
+        
+        const content = tooltipContainer.querySelector('.tooltip-content');
+        const arrow = tooltipContainer.querySelector('.tooltip-arrow');
+        content.textContent = tooltipText;
+        
+        // Show tooltip
+        tooltipContainer.classList.add('show');
+        
+        // Position tooltip
+        const rect = target.getBoundingClientRect();
+        const tooltipRect = tooltipContainer.getBoundingClientRect();
+        
+        let top, left;
+        let arrowClass = 'bottom';
+        
+        // Check if tooltip fits above
+        if (rect.top - tooltipRect.height - 10 > 0) {
+            top = rect.top + window.scrollY - tooltipRect.height - 10;
+            arrowClass = 'bottom';
+        } else {
+            // Place below
+            top = rect.bottom + window.scrollY + 10;
+            arrowClass = 'top';
+        }
+        
+        left = rect.left + window.scrollX + (rect.width / 2) - (tooltipRect.width / 2);
+        
+        // Keep tooltip within viewport
+        const padding = 10;
+        if (left < padding) left = padding;
+        if (left + tooltipRect.width > window.innerWidth - padding) {
+            left = window.innerWidth - tooltipRect.width - padding;
+        }
+        
+        tooltipContainer.style.top = top + 'px';
+        tooltipContainer.style.left = left + 'px';
+        
+        arrow.className = 'tooltip-arrow ' + arrowClass;
+    }
+
+    function hideTooltip() {
+        if (tooltipContainer) {
+            tooltipContainer.classList.remove('show');
+            currentTarget = null;
+        }
+    }
+
+    // Event listeners
+    document.addEventListener('mouseover', function(e) {
+        const target = e.target.closest('[data-tooltip]');
+        if (target && target !== currentTarget) {
+            showTooltip(target);
+        }
+    });
+
+    document.addEventListener('mouseout', function(e) {
+        const target = e.target.closest('[data-tooltip]');
+        if (target === currentTarget) {
+            hideTimeout = setTimeout(hideTooltip, 100);
+        }
+    });
+
+    // Update on scroll
+    window.addEventListener('scroll', function() {
+        if (currentTarget) {
+            showTooltip(currentTarget);
+        }
+    }, { passive: true });
+})();

@@ -324,57 +324,114 @@
 
     <script>
 
-        // Chart.js configuration
-        Chart.defaults.color = '#a1a1aa';
-        Chart.defaults.borderColor = '#27272a';
+        // Initialize charts with proper configuration
+document.addEventListener('DOMContentLoaded', function() {
+    // Chart.js global configuration
+    Chart.defaults.color = '#a1a1aa';
+    Chart.defaults.borderColor = '#27272a';
+    Chart.defaults.font.family = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
 
-        // Search Trends Chart
-        const trendsData = {{ daily_searches | tojson }};
-        const trendsCtx = document.getElementById('trendsChart').getContext('2d');
-        new Chart(trendsCtx, {
+    // Search Trends Chart
+    const trendsData = {{ daily_searches | tojson }};
+    const trendsCtx = document.getElementById('trendsChart');
+    
+    if (trendsCtx && trendsData.length > 0) {
+        new Chart(trendsCtx.getContext('2d'), {
             type: 'line',
             data: {
-                labels: trendsData.map(d => new Date(d.date).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric' })),
+                labels: trendsData.map(d => {
+                    const date = new Date(d.date);
+                    return date.toLocaleDateString('en-IN', { 
+                        weekday: 'short', 
+                        day: 'numeric',
+                        month: 'short'
+                    });
+                }),
                 datasets: [{
                     label: 'Searches',
-                    data: trendsData.map(d => d.search_count),
+                    data: trendsData.map(d => d.search_count || 0),
                     borderColor: '#7c3aed',
                     backgroundColor: 'rgba(124, 58, 237, 0.1)',
                     tension: 0.4,
-                    fill: true
+                    fill: true,
+                    pointRadius: 4,
+                    pointHoverRadius: 6,
+                    pointBackgroundColor: '#7c3aed',
+                    pointBorderColor: '#fff',
+                    pointBorderWidth: 2
                 }]
             },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
+                interaction: {
+                    mode: 'index',
+                    intersect: false
+                },
                 plugins: {
-                    legend: { display: false }
+                    legend: { 
+                        display: false 
+                    },
+                    tooltip: {
+                        backgroundColor: '#1a1a1a',
+                        titleColor: '#fff',
+                        bodyColor: '#a1a1aa',
+                        borderColor: '#27272a',
+                        borderWidth: 1,
+                        padding: 12,
+                        displayColors: false,
+                        callbacks: {
+                            label: function(context) {
+                                return 'Searches: ' + context.parsed.y;
+                            }
+                        }
+                    }
                 },
                 scales: {
                     y: {
                         beginAtZero: true,
-                        ticks: { stepSize: 1 }
+                        ticks: { 
+                            stepSize: 1,
+                            color: '#a1a1aa'
+                        },
+                        grid: {
+                            color: '#27272a',
+                            drawBorder: false
+                        }
+                    },
+                    x: {
+                        ticks: {
+                            color: '#a1a1aa'
+                        },
+                        grid: {
+                            display: false
+                        }
                     }
                 }
             }
         });
+    }
 
-        // Score Distribution Chart
-        const distributionData = {{ score_distribution | tojson }};
-        const distributionCtx = document.getElementById('distributionChart').getContext('2d');
-        new Chart(distributionCtx, {
+    // Score Distribution Chart
+    const distributionData = {{ score_distribution | tojson }};
+    const distributionCtx = document.getElementById('distributionChart');
+    
+    if (distributionCtx && distributionData.length > 0) {
+        new Chart(distributionCtx.getContext('2d'), {
             type: 'doughnut',
             data: {
-                labels: distributionData.map(d => d.range),
+                labels: distributionData.map(d => d.range || 'Unknown'),
                 datasets: [{
-                    data: distributionData.map(d => d.count),
+                    data: distributionData.map(d => d.count || 0),
                     backgroundColor: [
                         '#10b981', // Excellent
                         '#3b82f6', // Very Good
                         '#f59e0b', // Good
                         '#8b5cf6', // Average
                         '#ef4444'  // Poor
-                    ]
+                    ],
+                    borderWidth: 0,
+                    hoverOffset: 8
                 }]
             },
             options: {
@@ -382,11 +439,34 @@
                 maintainAspectRatio: false,
                 plugins: {
                     legend: {
-                        position: 'bottom'
+                        position: 'bottom',
+                        labels: {
+                            padding: 15,
+                            usePointStyle: true,
+                            font: {
+                                size: 12
+                            }
+                        }
+                    },
+                    tooltip: {
+                        backgroundColor: '#1a1a1a',
+                        titleColor: '#fff',
+                        bodyColor: '#a1a1aa',
+                        borderColor: '#27272a',
+                        borderWidth: 1,
+                        padding: 12,
+                        callbacks: {
+                            label: function(context) {
+                                const label = context.label || '';
+                                const value = context.parsed || 0;
+                                const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                const percentage = ((value / total) * 100).toFixed(1);
+                                return label + ': ' + value + ' (' + percentage + '%)';
+                            }
+                        }
                     }
                 }
             }
         });
-    </script>
-</body>
-</html>
+    }
+});

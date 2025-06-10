@@ -173,73 +173,45 @@ async def get_company_info_from_web(company_name: str, gstin: str = None, locati
 
 async def get_anthropic_synopsis(company_data: Dict) -> Optional[str]:
     """
-    Generate a comprehensive business overview using web research and AI.
+    Generate a tweet-sized business overview (280 characters max).
     """
     api_key = os.getenv("ANTHROPIC_API_KEY")
     if not api_key:
         logger.warning("ANTHROPIC_API_KEY not set - using fallback synopsis")
-        return await generate_web_based_synopsis(company_data)
+        return await generate_tweet_synopsis(company_data)
     
     try:
-        # Gather web information
-        web_info = await get_company_info_from_web(
-            company_data.get('lgnm', ''),
-            company_data.get('gstin', ''),
-            company_data.get('adr', '')
-        )
-        
         # Extract key data
+        company_name = company_data.get('lgnm', '')
         nba = company_data.get('nba', [])
-        nba_str = ', '.join(nba) if nba else 'Not specified'
+        nba_str = ', '.join(nba[:2]) if nba else 'Business services'  # Limit to 2 activities
         
-        stj = company_data.get('stj', '')
-        state = 'N/A'
-        if stj and 'State - ' in stj:
-            state = stj.split('State - ')[1].split(',')[0]
+        # Get location
+        state = 'India'
+        if company_data.get('stj') and 'State - ' in company_data.get('stj'):
+            state = company_data.get('stj').split('State - ')[1].split(',')[0]
         
-        # Count returns filed
+        # Count returns
         returns = company_data.get('returns', [])
-        gstr1_count = len([r for r in returns if r.get('rtntype') == 'GSTR1'])
-        gstr3b_count = len([r for r in returns if r.get('rtntype') == 'GSTR3B'])
+        compliance_status = "Strong compliance" if len(returns) > 10 else "Active"
         
         prompt = f"""
-        You are a business analyst. Write a comprehensive business overview for this Indian company based on web research.
+        Write a single tweet (max 280 characters) describing this company:
+        - Name: {company_name}
+        - Business: {nba_str}
+        - Location: {state}
+        - Status: {compliance_status}
         
-        COMPANY GST DATA:
-        - Legal Name: {company_data.get("lgnm")}
-        - Trade Name: {company_data.get("tradeName", "")}
-        - GSTIN: {company_data.get("gstin")}
-        - Business Type: {company_data.get("ctb", "")}
-        - Nature of Business: {nba_str}
-        - Registration Date: {company_data.get("rgdt", "")}
-        - Location: {company_data.get("adr", "")}
-        - State: {state}
-        - Company Category: {company_data.get("compCategory", "")}
-        - GST Returns Filed: {len(returns)} total ({gstr1_count} GSTR-1, {gstr3b_count} GSTR-3B)
-        
-        WEB RESEARCH FINDINGS:
-        {web_info.get('web_content', 'No web information found')}
-        
-        Sources consulted: {', '.join(web_info.get('sources', [])) if web_info.get('sources') else 'No web sources available'}
-        
-        INSTRUCTIONS:
-        Write a 100-150 word business overview that includes:
-        1. What the company actually does (products/services/industry) based on web research
-        2. Company's market presence and business operations
-        3. Any notable clients, projects, or achievements found online
-        4. Business scale and operational insights
-        
-        If web research found specific information about the company, prioritize that over generic descriptions.
-        If no specific web information was found, make intelligent inferences based on the company name and business type.
-        
-        Focus on providing actionable business intelligence, not just restating GST data.
+        Make it informative and engaging. Include what they do and their key strength. 
+        No hashtags, no @ mentions. Just a concise business description.
+        Must be under 280 characters.
         """
         
         if AsyncAnthropic:
             client = AsyncAnthropic(api_key=api_key)
             response = await client.messages.create(
                 model="claude-3-haiku-20240307",
-                max_tokens=400,
+                max_tokens=100,
                 temperature=0.7,
                 messages=[
                     {"role": "user", "content": prompt}
@@ -247,13 +219,54 @@ async def get_anthropic_synopsis(company_data: Dict) -> Optional[str]:
             )
             
             if hasattr(response, "content") and len(response.content) > 0:
-                return response.content[0].text.strip()
+                synopsis = response.content[0].text.strip()
+                # Ensure it's under 280 characters
+                if len(synopsis) > 280:
+                    synopsis = synopsis[:277] + "..."
+                return synopsis
     
     except Exception as e:
         logger.error(f"AI synopsis generation error: {e}")
     
-    # Fallback to web-based synopsis without AI
-    return await generate_web_based_synopsis(company_data, web_info if 'web_info' in locals() else None)
+    # Fallback to non-AI tweet synopsis
+    return await generate_tweet_synopsis(company_data)
+
+async def generate_tweet_synopsis(company_data: Dict) -> str:
+    """Generate tweet-sized synopsis without AI (280 chars max)"""
+    
+    company_name = company_data.get("lgnm", "Unknown Company")
+    nba = company_data.get('nba', [])
+    state = 'India'
+    if company_data.get('stj') and 'State - ' in company_data.get('stj'):
+        state = company_data.get('stj').split('State - ')[1].split(',')[0]
+    
+    # Build synopsis
+    if nba:
+        activity = nba[0].lower()
+        synopsis = f"{company_name} is a {activity} company based in {state}."
+    else:
+        synopsis = f"{company_name} is a business services company based in {state}."
+    
+    # Add compliance info if space allows
+    returns = company_data.get('returns', [])
+    if len(returns) > 20 and len(synopsis) < 200:
+        synopsis += f" With {len(returns)} GST returns filed, they maintain strong tax compliance."
+    elif len(returns) > 10 and len(synopsis) < 220:
+        synopsis += f" Active GST filer with {len(returns)} returns."
+    
+    # Add registration year if space allows
+    if company_data.get('rgdt') and len(synopsis) < 240:
+        try:
+            year = company_data.get('rgdt').split('/')[-1]
+            synopsis += f" Est. {year}."
+        except:
+            pass
+    
+    # Ensure under 280 characters
+    if len(synopsis) > 280:
+        synopsis = synopsis[:277] + "..."
+    
+    return synopsis
 
 async def generate_web_based_synopsis(company_data: Dict, web_info: Dict = None) -> str:
     """Generate synopsis based on web research without AI"""
