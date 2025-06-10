@@ -1136,3 +1136,119 @@ html {
     font-family: monospace;
     font-size: 0.9rem;
 }
+
+/* Fix History Section Header */
+.history-header-container {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+.history-title {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 1.5rem;
+    color: var(--text-primary);
+    font-weight: 600;
+}
+
+/* Fix Table Alignment */
+.history-table {
+    width: 100%;
+    table-layout: auto;
+    border-collapse: collapse;
+}
+
+.history-table th,
+.history-table td {
+    padding: 1rem;
+    text-align: left;
+    white-space: nowrap;
+}
+
+.history-table th:last-child,
+.history-table td:last-child {
+    text-align: center;
+    width: 120px;
+}
+
+.history-table th:nth-child(4),
+.history-table td:nth-child(4) {
+    text-align: center;
+    width: 150px;
+}
+
+.history-table code {
+    background: var(--bg-hover);
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-family: monospace;
+    font-size: 0.9rem;
+}
+
+/* Simple CSS Tooltip System */
+[data-tooltip] {
+    position: relative;
+}
+
+[data-tooltip]:hover::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #333;
+    color: #fff;
+    padding: 0.5rem 0.75rem;
+    border-radius: 6px;
+    font-size: 0.875rem;
+    white-space: nowrap;
+    z-index: 10000;
+    pointer-events: none;
+    margin-bottom: 8px;
+}
+
+[data-tooltip]:hover::before {
+    content: '';
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border: 6px solid transparent;
+    border-top-color: #333;
+    z-index: 10000;
+    pointer-events: none;
+    margin-bottom: 2px;
+}
+
+/* Remove all the complex tooltip overrides */
+.tooltip::after,
+.tooltip::before {
+    /* Keep it simple */
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .history-header-container {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    
+    .export-btn {
+        width: 100%;
+        justify-content: center;
+    }
+    
+    .history-table {
+        font-size: 0.875rem;
+    }
+    
+    .history-table th,
+    .history-table td {
+        padding: 0.75rem 0.5rem;
+    }
+}
