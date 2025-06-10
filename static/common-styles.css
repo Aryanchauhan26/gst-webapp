@@ -285,6 +285,58 @@ select:focus {
     border: 1px solid #bee5eb;
 }
 
+/* Custom JS tooltip styles */
+.custom-tooltip {
+    position: absolute;
+    background: #222;
+    color: #fff;
+    padding: 0.5rem 1rem;
+    border-radius: 6px;
+    font-size: 0.95rem;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.25);
+    pointer-events: none;
+    z-index: 99999;
+    white-space: pre-line;
+    min-width: 120px;
+    max-width: 350px;
+    display: none;
+    transition: opacity 0.15s;
+}
+
+/* Dashboard Layout */
+.dashboard-main {
+    display: flex;
+    flex-direction: row;
+    gap: 2rem;
+    align-items: flex-start;
+    width: 100%;
+    margin: 0 auto;
+    max-width: 1600px;
+}
+
+.dashboard-content {
+    flex: 1 1 0;
+    min-width: 0;
+}
+
+.dashboard-sidebar {
+    width: 340px;
+    min-width: 280px;
+    max-width: 400px;
+    flex-shrink: 0;
+}
+
+@media (max-width: 1200px) {
+    .dashboard-main {
+        flex-direction: column;
+    }
+    .dashboard-sidebar {
+        width: 100%;
+        max-width: 100%;
+        margin-bottom: 2rem;
+    }
+}
+
 /* Responsive Breakpoints */
 @media (max-width: 1200px) {
     .container {

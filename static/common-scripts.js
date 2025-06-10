@@ -529,3 +529,38 @@ document.addEventListener('keydown', function(e) {
         }
     }
 });
+
+// Tooltip Functionality
+document.addEventListener('DOMContentLoaded', function () {
+    let tooltip = document.createElement('div');
+    tooltip.className = 'custom-tooltip';
+    document.body.appendChild(tooltip);
+
+    document.body.addEventListener('mouseover', function (e) {
+        let target = e.target.closest('.tooltip, .enhanced-tooltip');
+        if (target && target.dataset.tooltip) {
+            tooltip.textContent = target.dataset.tooltip;
+            tooltip.style.display = 'block';
+            let rect = target.getBoundingClientRect();
+            tooltip.style.left = (rect.left + window.scrollX + rect.width / 2) + 'px';
+            tooltip.style.top = (rect.top + window.scrollY - tooltip.offsetHeight - 8) + 'px';
+            tooltip.style.transform = 'translateX(-50%)';
+        }
+    });
+
+    document.body.addEventListener('mousemove', function (e) {
+        let target = e.target.closest('.tooltip, .enhanced-tooltip');
+        if (target && target.dataset.tooltip) {
+            let rect = target.getBoundingClientRect();
+            tooltip.style.left = (rect.left + window.scrollX + rect.width / 2) + 'px';
+            tooltip.style.top = (rect.top + window.scrollY - tooltip.offsetHeight - 8) + 'px';
+        }
+    });
+
+    document.body.addEventListener('mouseout', function (e) {
+        let target = e.target.closest('.tooltip, .enhanced-tooltip');
+        if (target) {
+            tooltip.style.display = 'none';
+        }
+    });
+});
