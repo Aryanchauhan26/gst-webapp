@@ -7,7 +7,6 @@
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        /* Include your existing dark/light theme CSS variables here */
         * { margin: 0; padding: 0; box-sizing: border-box; }
         
         body {
@@ -15,10 +14,6 @@
             background: #0a0a0a;
             color: #ffffff;
             min-height: 100vh;
-        }
-
-        html {
-            scroll-behavior: smooth;
         }
 
         .container {
@@ -95,17 +90,6 @@
             border-radius: 16px;
             padding: 2rem;
             box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-            min-height: 400px;
-            display: flex;
-            flex-direction: column;
-            justify-content: flex-start;
-        }
-
-        .chart-card canvas {
-            width: 100% !important;
-            height: 320px !important;
-            max-height: 320px;
-            margin-top: 1rem;
         }
 
         .chart-title {
@@ -113,6 +97,12 @@
             font-weight: 600;
             margin-bottom: 1.5rem;
             color: #ffffff;
+        }
+
+        .chart-container {
+            position: relative;
+            height: 300px;
+            width: 100%;
         }
 
         /* Live Indicator */
@@ -223,24 +213,13 @@
                 grid-template-columns: 1fr;
             }
             
-            .stat-value {
-                font-size: 2rem;
-            }
-
-            .chart-card {
-                min-height: 260px;
-            }
-
-            .chart-card canvas {
-                height: 180px !important;
-                max-height: 180px;
+            .chart-container {
+                height: 250px;
             }
         }
     </style>
 </head>
 <body>
-    <!-- Include your existing header here -->
-    
     <main class="container">
         <div class="live-indicator">
             <div class="live-dot"></div>
@@ -272,19 +251,24 @@
                 <div class="stat-value">{{ avg_compliance }}%</div>
                 <div class="stat-label">Avg Compliance Score</div>
             </div>
+        </div>
 
         <!-- Charts Section -->
         <div class="charts-grid">
             <!-- Search Trends Chart -->
             <div class="chart-card">
                 <h3 class="chart-title">Search Trends (Last 7 Days)</h3>
-                <canvas id="trendsChart"></canvas>
+                <div class="chart-container">
+                    <canvas id="trendsChart"></canvas>
+                </div>
             </div>
             
             <!-- Score Distribution Chart -->
             <div class="chart-card">
                 <h3 class="chart-title">Compliance Score Distribution</h3>
-                <canvas id="distributionChart"></canvas>
+                <div class="chart-container">
+                    <canvas id="distributionChart"></canvas>
+                </div>
             </div>
         </div>
 
@@ -323,150 +307,91 @@
     </main>
 
     <script>
-
-        // Initialize charts with proper configuration
-document.addEventListener('DOMContentLoaded', function() {
-    // Chart.js global configuration
-    Chart.defaults.color = '#a1a1aa';
-    Chart.defaults.borderColor = '#27272a';
-    Chart.defaults.font.family = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-
-    // Search Trends Chart
-    const trendsData = {{ daily_searches | tojson }};
-    const trendsCtx = document.getElementById('trendsChart');
-    
-    if (trendsCtx && trendsData.length > 0) {
-        new Chart(trendsCtx.getContext('2d'), {
-            type: 'line',
-            data: {
-                labels: trendsData.map(d => {
-                    const date = new Date(d.date);
-                    return date.toLocaleDateString('en-IN', { 
-                        weekday: 'short', 
-                        day: 'numeric',
-                        month: 'short'
-                    });
-                }),
-                datasets: [{
-                    label: 'Searches',
-                    data: trendsData.map(d => d.search_count || 0),
-                    borderColor: '#7c3aed',
-                    backgroundColor: 'rgba(124, 58, 237, 0.1)',
-                    tension: 0.4,
-                    fill: true,
-                    pointRadius: 4,
-                    pointHoverRadius: 6,
-                    pointBackgroundColor: '#7c3aed',
-                    pointBorderColor: '#fff',
-                    pointBorderWidth: 2
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                interaction: {
-                    mode: 'index',
-                    intersect: false
-                },
-                plugins: {
-                    legend: { 
-                        display: false 
+        // Initialize charts
+        document.addEventListener('DOMContentLoaded', function() {
+            // Chart.js defaults
+            Chart.defaults.color = '#a1a1aa';
+            Chart.defaults.borderColor = '#27272a';
+            
+            // Search Trends Chart
+            const trendsData = {{ daily_searches | tojson | safe }};
+            const trendsCtx = document.getElementById('trendsChart');
+            
+            if (trendsCtx) {
+                const trendsChart = new Chart(trendsCtx, {
+                    type: 'line',
+                    data: {
+                        labels: trendsData.map(d => {
+                            const date = new Date(d.date);
+                            return date.toLocaleDateString('en-IN', { 
+                                day: 'numeric',
+                                month: 'short'
+                            });
+                        }),
+                        datasets: [{
+                            label: 'Searches',
+                            data: trendsData.map(d => d.search_count || 0),
+                            borderColor: '#7c3aed',
+                            backgroundColor: 'rgba(124, 58, 237, 0.1)',
+                            tension: 0.4,
+                            fill: true
+                        }]
                     },
-                    tooltip: {
-                        backgroundColor: '#1a1a1a',
-                        titleColor: '#fff',
-                        bodyColor: '#a1a1aa',
-                        borderColor: '#27272a',
-                        borderWidth: 1,
-                        padding: 12,
-                        displayColors: false,
-                        callbacks: {
-                            label: function(context) {
-                                return 'Searches: ' + context.parsed.y;
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                display: false
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                ticks: {
+                                    stepSize: 1
+                                }
                             }
                         }
                     }
-                },
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        ticks: { 
-                            stepSize: 1,
-                            color: '#a1a1aa'
-                        },
-                        grid: {
-                            color: '#27272a',
-                            drawBorder: false
-                        }
+                });
+            }
+
+            // Score Distribution Chart
+            const distributionData = {{ score_distribution | tojson | safe }};
+            const distributionCtx = document.getElementById('distributionChart');
+            
+            if (distributionCtx) {
+                const distributionChart = new Chart(distributionCtx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: distributionData.map(d => d.range || 'Unknown'),
+                        datasets: [{
+                            data: distributionData.map(d => d.count || 0),
+                            backgroundColor: [
+                                '#10b981',
+                                '#3b82f6',
+                                '#f59e0b',
+                                '#8b5cf6',
+                                '#ef4444'
+                            ]
+                        }]
                     },
-                    x: {
-                        ticks: {
-                            color: '#a1a1aa'
-                        },
-                        grid: {
-                            display: false
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                position: 'bottom',
+                                labels: {
+                                    padding: 10
+                                }
+                            }
                         }
                     }
-                }
+                });
             }
         });
-    }
-
-    // Score Distribution Chart
-    const distributionData = {{ score_distribution | tojson }};
-    const distributionCtx = document.getElementById('distributionChart');
-    
-    if (distributionCtx && distributionData.length > 0) {
-        new Chart(distributionCtx.getContext('2d'), {
-            type: 'doughnut',
-            data: {
-                labels: distributionData.map(d => d.range || 'Unknown'),
-                datasets: [{
-                    data: distributionData.map(d => d.count || 0),
-                    backgroundColor: [
-                        '#10b981', // Excellent
-                        '#3b82f6', // Very Good
-                        '#f59e0b', // Good
-                        '#8b5cf6', // Average
-                        '#ef4444'  // Poor
-                    ],
-                    borderWidth: 0,
-                    hoverOffset: 8
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: {
-                        position: 'bottom',
-                        labels: {
-                            padding: 15,
-                            usePointStyle: true,
-                            font: {
-                                size: 12
-                            }
-                        }
-                    },
-                    tooltip: {
-                        backgroundColor: '#1a1a1a',
-                        titleColor: '#fff',
-                        bodyColor: '#a1a1aa',
-                        borderColor: '#27272a',
-                        borderWidth: 1,
-                        padding: 12,
-                        callbacks: {
-                            label: function(context) {
-                                const label = context.label || '';
-                                const value = context.parsed || 0;
-                                const total = context.dataset.data.reduce((a, b) => a + b, 0);
-                                const percentage = ((value / total) * 100).toFixed(1);
-                                return label + ': ' + value + ' (' + percentage + '%)';
-                            }
-                        }
-                    }
-                }
-            }
-        });
-    }
-});
+    </script>
+</body>
+</html>

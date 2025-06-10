@@ -530,131 +530,72 @@ document.addEventListener('keydown', function(e) {
     }
 });
 
-// Tooltip Functionality
-document.addEventListener('DOMContentLoaded', function () {
+// Tooltip functionality with proper positioning
+document.addEventListener('DOMContentLoaded', function() {
+    // Create tooltip element
     let tooltip = document.createElement('div');
     tooltip.className = 'custom-tooltip';
+    tooltip.style.cssText = `
+        position: fixed;
+        background: #222;
+        color: #fff;
+        padding: 8px 12px;
+        border-radius: 6px;
+        font-size: 14px;
+        pointer-events: none;
+        z-index: 99999;
+        display: none;
+        max-width: 300px;
+        word-wrap: break-word;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        transition: opacity 0.2s;
+    `;
     document.body.appendChild(tooltip);
 
-    document.body.addEventListener('mouseover', function (e) {
-        let target = e.target.closest('.tooltip, .enhanced-tooltip');
-        if (target && target.dataset.tooltip) {
-            tooltip.textContent = target.dataset.tooltip;
-            tooltip.style.display = 'block';
-            let rect = target.getBoundingClientRect();
-            tooltip.style.left = (rect.left + window.scrollX + rect.width / 2) + 'px';
-            tooltip.style.top = (rect.top + window.scrollY - tooltip.offsetHeight - 8) + 'px';
-            tooltip.style.transform = 'translateX(-50%)';
-        }
+    // Show tooltip on hover
+    document.addEventListener('mouseover', function(e) {
+        const target = e.target.closest('[data-tooltip]');
+        if (!target) return;
+        
+        const text = target.getAttribute('data-tooltip');
+        if (!text) return;
+        
+        tooltip.textContent = text;
+        tooltip.style.display = 'block';
+        tooltip.style.opacity = '0';
+        
+        // Position tooltip
+        setTimeout(() => {
+            const rect = target.getBoundingClientRect();
+            const tooltipRect = tooltip.getBoundingClientRect();
+            
+            let left = rect.left + (rect.width / 2) - (tooltipRect.width / 2);
+            let top = rect.top - tooltipRect.height - 8;
+            
+            // Keep within viewport
+            if (left < 10) left = 10;
+            if (left + tooltipRect.width > window.innerWidth - 10) {
+                left = window.innerWidth - tooltipRect.width - 10;
+            }
+            
+            if (top < 10) {
+                top = rect.bottom + 8;
+            }
+            
+            tooltip.style.left = left + 'px';
+            tooltip.style.top = top + 'px';
+            tooltip.style.opacity = '1';
+        }, 10);
     });
 
-    document.body.addEventListener('mousemove', function (e) {
-        let target = e.target.closest('.tooltip, .enhanced-tooltip');
-        if (target && target.dataset.tooltip) {
-            let rect = target.getBoundingClientRect();
-            tooltip.style.left = (rect.left + window.scrollX + rect.width / 2) + 'px';
-            tooltip.style.top = (rect.top + window.scrollY - tooltip.offsetHeight - 8) + 'px';
-        }
-    });
-
-    document.body.addEventListener('mouseout', function (e) {
-        let target = e.target.closest('.tooltip, .enhanced-tooltip');
+    // Hide tooltip
+    document.addEventListener('mouseout', function(e) {
+        const target = e.target.closest('[data-tooltip]');
         if (target) {
-            tooltip.style.display = 'none';
+            tooltip.style.opacity = '0';
+            setTimeout(() => {
+                tooltip.style.display = 'none';
+            }, 200);
         }
     });
 });
-
-// Enhanced Tooltip System
-(function() {
-    let tooltipContainer = null;
-    let currentTarget = null;
-    let hideTimeout = null;
-
-    function createTooltip() {
-        tooltipContainer = document.createElement('div');
-        tooltipContainer.className = 'tooltip-container';
-        tooltipContainer.innerHTML = `
-            <div class="tooltip-content"></div>
-            <div class="tooltip-arrow"></div>
-        `;
-        document.body.appendChild(tooltipContainer);
-    }
-
-    function showTooltip(target) {
-        if (!tooltipContainer) createTooltip();
-        
-        const tooltipText = target.getAttribute('data-tooltip');
-        if (!tooltipText) return;
-        
-        currentTarget = target;
-        clearTimeout(hideTimeout);
-        
-        const content = tooltipContainer.querySelector('.tooltip-content');
-        const arrow = tooltipContainer.querySelector('.tooltip-arrow');
-        content.textContent = tooltipText;
-        
-        // Show tooltip
-        tooltipContainer.classList.add('show');
-        
-        // Position tooltip
-        const rect = target.getBoundingClientRect();
-        const tooltipRect = tooltipContainer.getBoundingClientRect();
-        
-        let top, left;
-        let arrowClass = 'bottom';
-        
-        // Check if tooltip fits above
-        if (rect.top - tooltipRect.height - 10 > 0) {
-            top = rect.top + window.scrollY - tooltipRect.height - 10;
-            arrowClass = 'bottom';
-        } else {
-            // Place below
-            top = rect.bottom + window.scrollY + 10;
-            arrowClass = 'top';
-        }
-        
-        left = rect.left + window.scrollX + (rect.width / 2) - (tooltipRect.width / 2);
-        
-        // Keep tooltip within viewport
-        const padding = 10;
-        if (left < padding) left = padding;
-        if (left + tooltipRect.width > window.innerWidth - padding) {
-            left = window.innerWidth - tooltipRect.width - padding;
-        }
-        
-        tooltipContainer.style.top = top + 'px';
-        tooltipContainer.style.left = left + 'px';
-        
-        arrow.className = 'tooltip-arrow ' + arrowClass;
-    }
-
-    function hideTooltip() {
-        if (tooltipContainer) {
-            tooltipContainer.classList.remove('show');
-            currentTarget = null;
-        }
-    }
-
-    // Event listeners
-    document.addEventListener('mouseover', function(e) {
-        const target = e.target.closest('[data-tooltip]');
-        if (target && target !== currentTarget) {
-            showTooltip(target);
-        }
-    });
-
-    document.addEventListener('mouseout', function(e) {
-        const target = e.target.closest('[data-tooltip]');
-        if (target === currentTarget) {
-            hideTimeout = setTimeout(hideTooltip, 100);
-        }
-    });
-
-    // Update on scroll
-    window.addEventListener('scroll', function() {
-        if (currentTarget) {
-            showTooltip(currentTarget);
-        }
-    }, { passive: true });
-})();

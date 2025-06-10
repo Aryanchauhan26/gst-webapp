@@ -1011,53 +1011,54 @@
             </div>
             
             {% if history %}
-            <div class="table-container">
-                <table class="history-table">
-                    <thead>
-                        <tr>
-                            <th class="tooltip" data-tooltip="When the search was performed">Date</th>
-                            <th class="tooltip" data-tooltip="Goods and Services Tax Identification Number">GSTIN</th>
-                            <th class="tooltip" data-tooltip="Registered company name">Company Name</th>
-                            <th class="hide-mobile tooltip" data-tooltip="Compliance score based on filing history">Compliance Score</th>
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for item in history %}
-                        <tr data-gstin="{{ item.gstin }}">
-                            <td>{{ item.searched_at.strftime('%d %b %Y, %I:%M %p') if item.searched_at else 'N/A' }}</td>
-                            <td>
-                                <code style="background: var(--bg-hover); padding: 0.25rem 0.5rem; border-radius: 4px;">
-                                    {{ item.gstin }}
-                                </code>
-                            </td>
-                            <td style="font-weight: 600;">{{ item.company_name }}</td>
-                            <td class="hide-mobile">
-                                {% if item.compliance_score is not none %}
-                                    {% if item.compliance_score >= 80 %}
-                                        <span class="score-badge score-high tooltip" data-tooltip="Excellent compliance - Green status">{{ "%.0f"|format(item.compliance_score) }}%</span>
-                                    {% elif item.compliance_score >= 60 %}
-                                        <span class="score-badge score-medium tooltip" data-tooltip="Average compliance - Yellow status">{{ "%.0f"|format(item.compliance_score) }}%</span>
-                                    {% else %}
-                                        <span class="score-badge score-low tooltip" data-tooltip="Poor compliance - Red status">{{ "%.0f"|format(item.compliance_score) }}%</span>
-                                    {% endif %}
-                                {% else %}
-                                    <span class="score-badge tooltip" data-tooltip="Score not available">N/A</span>
-                                {% endif %}
-                            </td>
-                            <td>
-                                <form action="/search" method="GET" style="display: inline;">
-                                    <input type="hidden" name="gstin" value="{{ item.gstin }}">
-                                    <button type="submit" class="view-btn tooltip" data-tooltip="View detailed compliance report">
-                                        <i class="fas fa-eye"></i> View
-                                    </button>
-                                </form>
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
+            <!-- Enhanced Table Styles - Fixed Alignment -->
+<div class="table-container">
+    <table class="history-table">
+        <thead>
+            <tr>
+                <th style="width: 20%; text-align: left;">Date</th>
+                <th style="width: 20%; text-align: left;">GSTIN</th>
+                <th style="width: 35%; text-align: left;">Company Name</th>
+                <th style="width: 15%; text-align: center;" class="hide-mobile">Compliance Score</th>
+                <th style="width: 10%; text-align: center;">Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in history %}
+            <tr data-gstin="{{ item.gstin }}">
+                <td style="text-align: left;">{{ item.searched_at.strftime('%d %b %Y, %I:%M %p') if item.searched_at else 'N/A' }}</td>
+                <td style="text-align: left;">
+                    <code style="background: var(--bg-hover); padding: 0.25rem 0.5rem; border-radius: 4px;">
+                        {{ item.gstin }}
+                    </code>
+                </td>
+                <td style="text-align: left; font-weight: 600;">{{ item.company_name }}</td>
+                <td style="text-align: center;" class="hide-mobile">
+                    {% if item.compliance_score is not none %}
+                        {% if item.compliance_score >= 80 %}
+                            <span class="score-badge score-high" data-tooltip="Excellent compliance - Green status">{{ "%.0f"|format(item.compliance_score) }}%</span>
+                        {% elif item.compliance_score >= 60 %}
+                            <span class="score-badge score-medium" data-tooltip="Average compliance - Yellow status">{{ "%.0f"|format(item.compliance_score) }}%</span>
+                        {% else %}
+                            <span class="score-badge score-low" data-tooltip="Poor compliance - Red status">{{ "%.0f"|format(item.compliance_score) }}%</span>
+                        {% endif %}
+                    {% else %}
+                        <span class="score-badge" data-tooltip="Score not available">N/A</span>
+                    {% endif %}
+                </td>
+                <td style="text-align: center;">
+                    <form action="/search" method="GET" style="display: inline;">
+                        <input type="hidden" name="gstin" value="{{ item.gstin }}">
+                        <button type="submit" class="view-btn" data-tooltip="View detailed compliance report">
+                            <i class="fas fa-eye"></i> View
+                        </button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
             {% else %}
             <div class="empty-state">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
