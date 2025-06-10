@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 GST Intelligence Platform - Main Application
-Enhanced with SQLite database, security improvements, and better error handling
+Enhanced with PostgreSQL database, security improvements, and better error handling
 """
 
 import os
@@ -821,6 +821,83 @@ async def view_history(request: Request, current_user: str = Depends(require_aut
         "history": history
     })
 
+@app.get("/analytics", response_class=HTMLResponse)
+async def analytics_dashboard(request: Request, current_user: str = Depends(require_auth)):
+    """Live Analytics Dashboard"""
+    # Get analytics data
+    await db.connect()
+    async with db.pool.acquire() as conn:
+        # Get search trends (last 7 days)
+        daily_searches = await conn.fetch("""
+            SELECT 
+                DATE(searched_at) as date,
+                COUNT(*) as search_count,
+                AVG(compliance_score) as avg_score
+            FROM search_history 
+            WHERE mobile = $1 
+            AND searched_at >= CURRENT_DATE - INTERVAL '7 days'
+            GROUP BY DATE(searched_at)
+            ORDER BY date
+        """, current_user)
+        
+        # Get compliance score distribution
+        score_distribution = await conn.fetch("""
+            SELECT 
+                CASE 
+                    WHEN compliance_score >= 90 THEN 'Excellent (90-100)'
+                    WHEN compliance_score >= 80 THEN 'Very Good (80-89)'
+                    WHEN compliance_score >= 70 THEN 'Good (70-79)'
+                    WHEN compliance_score >= 60 THEN 'Average (60-69)'
+                    ELSE 'Poor (<60)'
+                END as range,
+                COUNT(*) as count
+            FROM search_history 
+            WHERE mobile = $1
+            GROUP BY range
+            ORDER BY range DESC
+        """, current_user)
+        
+        # Get top searched companies
+        top_companies = await conn.fetch("""
+            SELECT 
+                company_name,
+                gstin,
+                COUNT(*) as search_count,
+                MAX(compliance_score) as latest_score
+            FROM search_history 
+            WHERE mobile = $1
+            GROUP BY company_name, gstin
+            ORDER BY search_count DESC
+            LIMIT 10
+        """, current_user)
+        
+        # Get search statistics
+        total_searches = await conn.fetchval(
+            "SELECT COUNT(*) FROM search_history WHERE mobile = $1", 
+            current_user
+        )
+        
+        unique_companies = await conn.fetchval(
+            "SELECT COUNT(DISTINCT gstin) FROM search_history WHERE mobile = $1", 
+            current_user
+        )
+        
+        avg_compliance = await conn.fetchval(
+            "SELECT AVG(compliance_score) FROM search_history WHERE mobile = $1", 
+            current_user
+        )
+    
+    return templates.TemplateResponse("analytics.html", {
+        "request": request,
+        "mobile": current_user,
+        "daily_searches": [dict(row) for row in daily_searches],
+        "score_distribution": [dict(row) for row in score_distribution],
+        "top_companies": [dict(row) for row in top_companies],
+        "total_searches": total_searches or 0,
+        "unique_companies": unique_companies or 0,
+        "avg_compliance": round(avg_compliance or 0, 1)
+    })
+
 @app.get("/export/history")
 async def export_history(current_user: str = Depends(require_auth)):
     """Export search history to CSV"""
@@ -884,7 +961,7 @@ async def generate_pdf(request: Request, gstin: str = Form(...), current_user: s
 # Replace the generate_pdf_report function in main.py with this fixed version
 
 def generate_pdf_report(company_data: dict, compliance_score: float, synopsis: str = None, late_filing_analysis: dict = None) -> BytesIO:
-    """Generate comprehensive PDF report with enhanced styling"""
+    """Generate comprehensive PDF report with enhanced dashboard-like styling"""
     # Extract data
     company_name = company_data.get("lgnm", "Unknown Company")
     gstin = company_data.get("gstin", "N/A")
@@ -893,7 +970,7 @@ def generate_pdf_report(company_data: dict, compliance_score: float, synopsis: s
     reg_date = company_data.get("rgdt", "N/A")
     pan = company_data.get("pan", "N/A")
     category = company_data.get("compCategory", "N/A")
-    trade_name = company_data.get("tradeName", "N/A")
+    trade_name = company_data.get("tradeName", company_name)
     
     # Address details
     address = company_data.get('adr', 'N/A')
@@ -901,10 +978,6 @@ def generate_pdf_report(company_data: dict, compliance_score: float, synopsis: s
     state = "N/A"
     if company_data.get('stj') and 'State - ' in company_data.get('stj'):
         state = company_data.get('stj').split('State - ')[1].split(',')[0]
-    
-    # Jurisdiction
-    stj = company_data.get('stj', 'N/A')
-    ctj = company_data.get('ctj', 'N/A')
     
     # Business details
     nba = company_data.get('nba', [])
@@ -914,56 +987,33 @@ def generate_pdf_report(company_data: dict, compliance_score: float, synopsis: s
     
     # Returns data
     returns = company_data.get('returns', [])
-    gstr1_count = len([r for r in returns if r.get('rtntype') == 'GSTR1'])
-    gstr3b_count = len([r for r in returns if r.get('rtntype') == 'GSTR3B'])
-    gstr9_count = len([r for r in returns if r.get('rtntype') == 'GSTR9'])
+    gstr1_returns = [r for r in returns if r.get('rtntype') == 'GSTR1']
+    gstr3b_returns = [r for r in returns if r.get('rtntype') == 'GSTR3B']
+    gstr9_returns = [r for r in returns if r.get('rtntype') == 'GSTR9']
     
     # Get compliance grade
     if compliance_score >= 90:
-        grade = "A+ (Excellent)"
+        grade = "A+"
+        grade_text = "Excellent"
         grade_color = "#10b981"
     elif compliance_score >= 80:
-        grade = "A (Very Good)"
+        grade = "A"
+        grade_text = "Very Good"
         grade_color = "#34d399"
     elif compliance_score >= 70:
-        grade = "B (Good)"
+        grade = "B"
+        grade_text = "Good"
         grade_color = "#f59e0b"
     elif compliance_score >= 60:
-        grade = "C (Average)"
+        grade = "C"
+        grade_text = "Average"
         grade_color = "#f97316"
     else:
-        grade = "D (Needs Improvement)"
+        grade = "D"
+        grade_text = "Needs Improvement"
         grade_color = "#ef4444"
     
-    # Prepare returns table
-    returns_rows = []
-    if returns:
-        for r in returns[:10]:  # Show top 10 returns
-            return_type = r.get('rtntype', 'N/A')
-            tax_period = r.get('taxp', 'N/A')
-            fy = r.get('fy', 'N/A')
-            dof = r.get('dof', 'N/A')
-            
-            # Check if late
-            status = '<span style="color: #10b981;">On Time</span>'
-            if late_filing_analysis and late_filing_analysis.get('late_returns'):
-                for lr in late_filing_analysis['late_returns']:
-                    if (lr['return'].get('dof') == dof and 
-                        lr['return'].get('rtntype') == return_type):
-                        status = f'<span style="color: #ef4444;">Late by {lr["delay_days"]} days</span>'
-                        break
-            
-            returns_rows.append(f"""
-                <tr>
-                    <td style="padding: 10px; border: 1px solid #e5e7eb;">{return_type}</td>
-                    <td style="padding: 10px; border: 1px solid #e5e7eb;">{tax_period}</td>
-                    <td style="padding: 10px; border: 1px solid #e5e7eb;">{fy}</td>
-                    <td style="padding: 10px; border: 1px solid #e5e7eb;">{dof}</td>
-                    <td style="padding: 10px; border: 1px solid #e5e7eb;">{status}</td>
-                </tr>
-            """)
-    
-    # HTML content with enhanced styling
+    # HTML content with enhanced dashboard-like styling
     html_content = f"""
     <!DOCTYPE html>
     <html>
@@ -972,408 +1022,509 @@ def generate_pdf_report(company_data: dict, compliance_score: float, synopsis: s
         <style>
             @page {{
                 size: A4;
-                margin: 0;
+                margin: 15mm;
             }}
-            body {{
-                font-family: -apple-system, Arial, sans-serif;
+            
+            * {{
                 margin: 0;
                 padding: 0;
+                box-sizing: border-box;
+            }}
+            
+            body {{
+                font-family: -apple-system, Arial, sans-serif;
                 color: #1f2937;
                 line-height: 1.6;
                 background: #ffffff;
             }}
-            .container {{
-                padding: 40px;
-            }}
+            
+            /* Header Section */
             .header {{
                 background: linear-gradient(135deg, #7c3aed 0%, #2563eb 100%);
                 color: white;
-                padding: 40px;
-                margin: -40px -40px 30px -40px;
-                text-align: center;
-                position: relative;
+                padding: 30px;
+                margin: -15mm -15mm 20px -15mm;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
             }}
-            .header h1 {{
-                margin: 0;
-                font-size: 36px;
+            
+            .header-left {{
+                flex: 1;
+            }}
+            
+            .header-title {{
+                font-size: 28px;
                 font-weight: 800;
+                margin-bottom: 5px;
                 letter-spacing: -0.5px;
             }}
-            .header p {{
-                margin: 10px 0 0 0;
-                font-size: 18px;
+            
+            .header-subtitle {{
+                font-size: 14px;
                 opacity: 0.9;
             }}
-            .generated-date {{
-                position: absolute;
-                top: 20px;
-                right: 40px;
+            
+            .header-date {{
                 font-size: 12px;
                 opacity: 0.8;
+                text-align: right;
             }}
-            .company-header {{
+            
+            /* Company Info Section */
+            .company-section {{
                 background: #f8f9fa;
-                padding: 25px;
                 border-radius: 12px;
-                margin-bottom: 30px;
-                border-left: 5px solid #7c3aed;
+                padding: 20px;
+                margin-bottom: 20px;
+                border-left: 4px solid #7c3aed;
             }}
+            
             .company-name {{
-                font-size: 28px;
+                font-size: 24px;
                 font-weight: 700;
                 color: #1f2937;
-                margin: 0 0 5px 0;
+                margin-bottom: 5px;
             }}
-            .gstin-label {{
-                font-size: 16px;
+            
+            .company-gstin {{
+                font-size: 14px;
                 color: #6b7280;
                 font-family: monospace;
             }}
-            .section {{
-                margin-bottom: 30px;
-                background: #ffffff;
-                border: 1px solid #e5e7eb;
-                border-radius: 12px;
-                padding: 25px;
-                page-break-inside: avoid;
-            }}
-            .section-title {{
-                font-size: 20px;
-                font-weight: 700;
-                color: #1f2937;
-                margin: 0 0 20px 0;
-                padding-bottom: 10px;
-                border-bottom: 2px solid #7c3aed;
-                display: flex;
-                align-items: center;
-                gap: 10px;
-            }}
-            .info-grid {{
-                display: grid;
-                grid-template-columns: 1fr 1fr;
-                gap: 20px;
-            }}
-            .info-item {{
-                padding: 15px;
-                background: #f8f9fa;
-                border-radius: 8px;
-                border: 1px solid #e5e7eb;
-            }}
-            .info-label {{
-                font-size: 13px;
-                color: #6b7280;
-                font-weight: 600;
-                display: block;
-                margin-bottom: 5px;
-            }}
-            .info-value {{
-                font-size: 16px;
-                color: #1f2937;
-                font-weight: 500;
-            }}
+            
+            /* Compliance Score Section */
             .compliance-section {{
                 background: linear-gradient(135deg, #7c3aed 0%, #2563eb 100%);
                 color: white;
-                padding: 30px;
                 border-radius: 12px;
+                padding: 25px;
                 text-align: center;
-                margin-bottom: 30px;
-                page-break-inside: avoid;
+                margin-bottom: 20px;
             }}
+            
+            .score-container {{
+                display: inline-block;
+                position: relative;
+            }}
+            
             .score-circle {{
                 width: 120px;
                 height: 120px;
-                margin: 0 auto 20px;
-                background: rgba(255, 255, 255, 0.2);
                 border-radius: 50%;
+                background: rgba(255, 255, 255, 0.2);
                 display: flex;
                 align-items: center;
                 justify-content: center;
+                margin: 0 auto 15px;
                 border: 3px solid rgba(255, 255, 255, 0.4);
             }}
+            
             .score-value {{
-                font-size: 48px;
+                font-size: 36px;
                 font-weight: 800;
             }}
+            
             .score-grade {{
-                font-size: 24px;
-                margin: 10px 0;
-                padding: 8px 24px;
+                font-size: 20px;
+                font-weight: 600;
+                padding: 5px 20px;
                 background-color: {grade_color};
-                border-radius: 30px;
+                border-radius: 20px;
                 display: inline-block;
             }}
-            .returns-summary {{
-                display: grid;
-                grid-template-columns: repeat(4, 1fr);
-                gap: 15px;
-                margin: 20px 0;
-            }}
-            .summary-card {{
-                background: #f8f9fa;
-                padding: 20px;
-                border-radius: 8px;
-                text-align: center;
-                border: 1px solid #e5e7eb;
-            }}
-            .summary-value {{
-                font-size: 32px;
-                font-weight: 700;
-                color: #7c3aed;
-                margin: 0;
-            }}
-            .summary-label {{
-                font-size: 12px;
-                color: #6b7280;
-                margin-top: 5px;
-            }}
-            table {{
-                width: 100%;
-                border-collapse: collapse;
-                margin-top: 20px;
-            }}
-            th {{
-                background: #f8f9fa;
-                padding: 12px;
-                text-align: left;
-                font-weight: 600;
-                font-size: 14px;
-                border: 1px solid #e5e7eb;
-                color: #1f2937;
-            }}
-            td {{
-                padding: 10px;
-                border: 1px solid #e5e7eb;
-                font-size: 14px;
-            }}
-            .synopsis {{
+            
+            /* Synopsis Section */
+            .synopsis-section {{
                 background: #e0e7ff;
-                padding: 25px;
                 border-radius: 12px;
-                margin-bottom: 30px;
-                border-left: 5px solid #7c3aed;
+                padding: 20px;
+                margin-bottom: 20px;
+                border-left: 4px solid #7c3aed;
             }}
-            .synopsis h2 {{
+            
+            .synopsis-title {{
+                font-size: 18px;
+                font-weight: 700;
                 color: #1f2937;
-                margin: 0 0 15px 0;
-                font-size: 20px;
+                margin-bottom: 10px;
+                display: flex;
+                align-items: center;
+                gap: 8px;
             }}
+            
             .synopsis-content {{
                 color: #374151;
                 line-height: 1.8;
-                font-size: 15px;
+                font-size: 14px;
+                text-align: justify;
             }}
+            
+            /* Stats Grid */
+            .stats-grid {{
+                display: grid;
+                grid-template-columns: repeat(4, 1fr);
+                gap: 15px;
+                margin-bottom: 20px;
+            }}
+            
+            .stat-card {{
+                background: #f8f9fa;
+                border-radius: 10px;
+                padding: 15px;
+                text-align: center;
+                border: 1px solid #e5e7eb;
+            }}
+            
+            .stat-value {{
+                font-size: 24px;
+                font-weight: 700;
+                color: #7c3aed;
+                margin-bottom: 5px;
+            }}
+            
+            .stat-label {{
+                font-size: 12px;
+                color: #6b7280;
+            }}
+            
+            /* Info Grid */
+            .info-grid {{
+                display: grid;
+                grid-template-columns: repeat(2, 1fr);
+                gap: 20px;
+                margin-bottom: 20px;
+            }}
+            
+            .info-card {{
+                background: #ffffff;
+                border: 1px solid #e5e7eb;
+                border-radius: 10px;
+                padding: 20px;
+                page-break-inside: avoid;
+            }}
+            
+            .info-card-title {{
+                font-size: 16px;
+                font-weight: 700;
+                color: #1f2937;
+                margin-bottom: 15px;
+                padding-bottom: 10px;
+                border-bottom: 2px solid #7c3aed;
+            }}
+            
+            .info-item {{
+                display: flex;
+                justify-content: space-between;
+                padding: 8px 0;
+                border-bottom: 1px solid #f3f4f6;
+            }}
+            
+            .info-item:last-child {{
+                border-bottom: none;
+            }}
+            
+            .info-label {{
+                font-size: 13px;
+                color: #6b7280;
+                font-weight: 500;
+            }}
+            
+            .info-value {{
+                font-size: 13px;
+                color: #1f2937;
+                font-weight: 600;
+                text-align: right;
+                max-width: 60%;
+                word-wrap: break-word;
+            }}
+            
+            /* Returns Section */
+            .returns-section {{
+                background: #ffffff;
+                border: 1px solid #e5e7eb;
+                border-radius: 10px;
+                padding: 20px;
+                margin-bottom: 20px;
+            }}
+            
+            .returns-title {{
+                font-size: 18px;
+                font-weight: 700;
+                color: #1f2937;
+                margin-bottom: 15px;
+                padding-bottom: 10px;
+                border-bottom: 2px solid #7c3aed;
+            }}
+            
+            /* Alert Box */
             .alert {{
                 background: #fef3c7;
                 border: 1px solid #fbbf24;
                 border-radius: 8px;
-                padding: 15px;
-                margin-bottom: 20px;
+                padding: 12px;
+                margin-bottom: 15px;
                 display: flex;
                 align-items: center;
-                gap: 15px;
+                gap: 10px;
             }}
+            
             .alert-icon {{
-                font-size: 24px;
+                font-size: 20px;
             }}
+            
             .alert-content {{
                 flex: 1;
             }}
+            
             .alert-title {{
                 font-weight: 600;
                 color: #92400e;
-                margin-bottom: 5px;
-            }}
-            .alert-text {{
-                color: #78350f;
+                margin-bottom: 3px;
                 font-size: 14px;
             }}
+            
+            .alert-text {{
+                color: #78350f;
+                font-size: 12px;
+            }}
+            
+            /* Table Styles */
+            table {{
+                width: 100%;
+                border-collapse: collapse;
+                margin-top: 10px;
+                font-size: 12px;
+            }}
+            
+            th {{
+                background: #f8f9fa;
+                padding: 10px;
+                text-align: left;
+                font-weight: 600;
+                border: 1px solid #e5e7eb;
+                color: #1f2937;
+            }}
+            
+            td {{
+                padding: 8px;
+                border: 1px solid #e5e7eb;
+            }}
+            
+            tr:nth-child(even) {{
+                background: #f9fafb;
+            }}
+            
+            /* Status Badges */
+            .status-badge {{
+                display: inline-block;
+                padding: 3px 10px;
+                border-radius: 12px;
+                font-size: 11px;
+                font-weight: 600;
+            }}
+            
+            .status-active {{
+                background: #d1fae5;
+                color: #065f46;
+            }}
+            
+            .status-inactive {{
+                background: #fee2e2;
+                color: #991b1b;
+            }}
+            
+            .status-late {{
+                background: #fee2e2;
+                color: #991b1b;
+            }}
+            
+            .status-on-time {{
+                background: #d1fae5;
+                color: #065f46;
+            }}
+            
+            /* Footer */
             .footer {{
-                margin-top: 50px;
-                padding: 30px;
+                margin-top: 30px;
+                padding: 20px;
                 background: #f8f9fa;
                 text-align: center;
                 border-top: 2px solid #e5e7eb;
-                page-break-inside: avoid;
             }}
+            
             .footer p {{
                 color: #6b7280;
-                font-size: 12px;
-                margin: 5px 0;
+                font-size: 11px;
+                margin: 3px 0;
             }}
-            .status-active {{
-                color: #10b981;
-                font-weight: 600;
-            }}
-            .status-inactive {{
-                color: #ef4444;
-                font-weight: 600;
-            }}
+            
+            /* Utilities */
             .text-center {{ text-align: center; }}
-            .text-muted {{ color: #6b7280; }}
-            .mt-20 {{ margin-top: 20px; }}
+            .mb-10 {{ margin-bottom: 10px; }}
             .mb-20 {{ margin-bottom: 20px; }}
         </style>
     </head>
     <body>
-        <div class="container">
-            <!-- Header -->
-            <div class="header">
-                <div class="generated-date">Generated on {datetime.now().strftime("%d %B %Y")}</div>
-                <h1>GST Compliance Report</h1>
-                <p>Advanced Business Analytics Platform</p>
+        <!-- Header -->
+        <div class="header">
+            <div class="header-left">
+                <div class="header-title">GST Compliance Report</div>
+                <div class="header-subtitle">Advanced Business Analytics Platform</div>
             </div>
-            
-            {f'''<!-- Company Overview -->
-            <div class="synopsis">
-                <h2>🔍 Company Overview</h2>
-                <div class="synopsis-content">{synopsis}</div>
-                <p style="font-size: 12px; color: #6b7280; margin-top: 15px;">
-                    <em>This overview is generated using AI analysis and web research.</em>
-                </p>
-            </div>''' if synopsis else ''}
-            
-            <!-- Company Header -->
-            <div class="company-header">
-                <h2 class="company-name">{company_name}</h2>
-                <p class="gstin-label">GSTIN: {gstin}</p>
-            </div>
-            
-            <!-- Compliance Score -->
-            <div class="compliance-section">
-                <h2 style="color: white; margin-bottom: 20px;">Overall Compliance Score</h2>
+            <div class="header-date">Generated on {datetime.now().strftime("%d %B %Y")}</div>
+        </div>
+        
+        <!-- Company Section -->
+        <div class="company-section">
+            <div class="company-name">{company_name}</div>
+            <div class="company-gstin">GSTIN: {gstin}</div>
+        </div>
+        
+        <!-- Compliance Score -->
+        <div class="compliance-section">
+            <h2 style="margin-bottom: 15px; font-size: 16px; font-weight: 500;">Overall Compliance Score</h2>
+            <div class="score-container">
                 <div class="score-circle">
                     <div class="score-value">{int(compliance_score)}%</div>
                 </div>
-                <div class="score-grade">{grade}</div>
-                <p style="margin-top: 20px; opacity: 0.9;">Based on registration status, filing history, and compliance factors</p>
             </div>
-            
-            <!-- Basic Information -->
-            <div class="section">
-                <h2 class="section-title">📋 Company Information</h2>
-                <div class="info-grid">
-                    <div class="info-item">
-                        <span class="info-label">Legal Name</span>
-                        <span class="info-value">{company_name}</span>
-                    </div>
-                    <div class="info-item">
-                        <span class="info-label">Trade Name</span>
-                        <span class="info-value">{trade_name}</span>
-                    </div>
-                    <div class="info-item">
-                        <span class="info-label">Business Type</span>
-                        <span class="info-value">{company_type}</span>
-                    </div>
-                    <div class="info-item">
-                        <span class="info-label">Registration Date</span>
-                        <span class="info-value">{reg_date}</span>
-                    </div>
-                    <div class="info-item">
-                        <span class="info-label">Status</span>
-                        <span class="info-value {'status-active' if status == 'Active' else 'status-inactive'}">{status}</span>
-                    </div>
-                    <div class="info-item">
-                        <span class="info-label">PAN</span>
-                        <span class="info-value">{pan}</span>
-                    </div>
-                    <div class="info-item">
-                        <span class="info-label">Company Category</span>
-                        <span class="info-value">{category}</span>
-                    </div>
-                    <div class="info-item">
-                        <span class="info-label">E-Invoice Status</span>
-                        <span class="info-value">{einvoice}</span>
-                    </div>
+            <div class="score-grade">{grade} ({grade_text})</div>
+            <p style="margin-top: 10px; font-size: 12px; opacity: 0.9;">Based on registration status, filing history, and compliance factors</p>
+        </div>
+        
+        {f'''<!-- AI Synopsis -->
+        <div class="synopsis-section">
+            <h3 class="synopsis-title">
+                <span>🔍</span>
+                Company Overview
+            </h3>
+            <div class="synopsis-content">{synopsis}</div>
+            <p style="font-size: 11px; color: #6b7280; margin-top: 10px; font-style: italic;">
+                This overview is generated using AI analysis and web research.
+            </p>
+        </div>''' if synopsis else ''}
+        
+        <!-- Stats Overview -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-value">{len(returns)}</div>
+                <div class="stat-label">Total Returns</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">{len(gstr1_returns)}</div>
+                <div class="stat-label">GSTR-1 Filed</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">{len(gstr3b_returns)}</div>
+                <div class="stat-label">GSTR-3B Filed</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">{len(gstr9_returns)}</div>
+                <div class="stat-label">Annual Returns</div>
+            </div>
+        </div>
+        
+        <!-- Company Information Grid -->
+        <div class="info-grid">
+            <div class="info-card">
+                <h3 class="info-card-title">Company Information</h3>
+                <div class="info-item">
+                    <span class="info-label">Legal Name</span>
+                    <span class="info-value">{company_name}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Trade Name</span>
+                    <span class="info-value">{trade_name}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Business Type</span>
+                    <span class="info-value">{company_type}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Registration Date</span>
+                    <span class="info-value">{reg_date}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Status</span>
+                    <span class="info-value">
+                        <span class="status-badge {'status-active' if status == 'Active' else 'status-inactive'}">{status}</span>
+                    </span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">PAN</span>
+                    <span class="info-value">{pan}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Company Category</span>
+                    <span class="info-value">{category}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">E-Invoice Status</span>
+                    <span class="info-value">{einvoice}</span>
                 </div>
             </div>
             
-            <!-- Business Details -->
-            <div class="section">
-                <h2 class="section-title">🏢 Business Details</h2>
-                <div class="info-grid">
-                    <div class="info-item" style="grid-column: 1 / -1;">
-                        <span class="info-label">Principal Place of Business</span>
-                        <span class="info-value">{address}</span>
-                    </div>
-                    <div class="info-item">
-                        <span class="info-label">Pincode</span>
-                        <span class="info-value">{pincode}</span>
-                    </div>
-                    <div class="info-item">
-                        <span class="info-label">State</span>
-                        <span class="info-value">{state}</span>
-                    </div>
-                    <div class="info-item" style="grid-column: 1 / -1;">
-                        <span class="info-label">Nature of Business</span>
-                        <span class="info-value">{nba_str}</span>
-                    </div>
-                    <div class="info-item" style="grid-column: 1 / -1;">
-                        <span class="info-label">State Jurisdiction</span>
-                        <span class="info-value" style="font-size: 14px;">{stj}</span>
-                    </div>
-                    <div class="info-item" style="grid-column: 1 / -1;">
-                        <span class="info-label">Central Jurisdiction</span>
-                        <span class="info-value" style="font-size: 14px;">{ctj}</span>
-                    </div>
+            <div class="info-card">
+                <h3 class="info-card-title">Business Details</h3>
+                <div class="info-item">
+                    <span class="info-label">Address</span>
+                    <span class="info-value" style="text-align: left; font-size: 11px;">{address}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Pincode</span>
+                    <span class="info-value">{pincode}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">State</span>
+                    <span class="info-value">{state}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Nature of Business</span>
+                    <span class="info-value" style="text-align: left; font-size: 11px;">{nba_str}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Duty Type</span>
+                    <span class="info-value">{duty_type}</span>
                 </div>
             </div>
+        </div>
+        
+        <!-- GST Returns Section -->
+        <div class="returns-section">
+            <h3 class="returns-title">GST Returns Summary</h3>
             
-            <!-- GST Returns Summary -->
-            <div class="section">
-                <h2 class="section-title">📊 GST Returns Summary</h2>
-                
-                {f'''<div class="alert">
-                    <div class="alert-icon">⚠️</div>
-                    <div class="alert-content">
-                        <div class="alert-title">Late Filing Alert</div>
-                        <div class="alert-text">{late_filing_analysis['late_count']} returns filed late out of {late_filing_analysis['late_count'] + late_filing_analysis['on_time_count']} total returns. Average delay: {late_filing_analysis['average_delay']:.1f} days.</div>
-                    </div>
-                </div>''' if late_filing_analysis and late_filing_analysis.get('late_count', 0) > 0 else ''}
-                
-                <div class="returns-summary">
-                    <div class="summary-card">
-                        <div class="summary-value">{len(returns)}</div>
-                        <div class="summary-label">Total Returns</div>
-                    </div>
-                    <div class="summary-card">
-                        <div class="summary-value">{gstr1_count}</div>
-                        <div class="summary-label">GSTR-1 Filed</div>
-                    </div>
-                    <div class="summary-card">
-                        <div class="summary-value">{gstr3b_count}</div>
-                        <div class="summary-label">GSTR-3B Filed</div>
-                    </div>
-                    <div class="summary-card">
-                        <div class="summary-value">{gstr9_count}</div>
-                        <div class="summary-label">Annual Returns</div>
-                    </div>
+            {f'''<div class="alert">
+                <div class="alert-icon">⚠️</div>
+                <div class="alert-content">
+                    <div class="alert-title">Late Filing Alert</div>
+                    <div class="alert-text">{late_filing_analysis['late_count']} returns filed late out of {late_filing_analysis['late_count'] + late_filing_analysis['on_time_count']} total returns. Average delay: {late_filing_analysis['average_delay']:.1f} days.</div>
                 </div>
-                
-                {f'''<h3 style="margin-top: 30px; margin-bottom: 15px;">Recent Filing History</h3>
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Return Type</th>
-                            <th>Tax Period</th>
-                            <th>Financial Year</th>
-                            <th>Filing Date</th>
-                            <th>Status</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {''.join(returns_rows)}
-                    </tbody>
-                </table>''' if returns_rows else '<p class="text-center text-muted">No return filing history available.</p>'}
-            </div>
+            </div>''' if late_filing_analysis and late_filing_analysis.get('late_count', 0) > 0 else ''}
             
-            <!-- Footer -->
-            <div class="footer">
-                <p><strong>GST Intelligence Platform</strong></p>
-                <p>This report is generated based on available GST data and AI analysis.</p>
-                <p>For the most current information, please verify with the official GST portal.</p>
-                <p style="margin-top: 15px;">&copy; {datetime.now().year} GST Intelligence Platform. All rights reserved.</p>
-            </div>
+            <h4 style="margin-top: 15px; margin-bottom: 10px; font-size: 14px; color: #1f2937;">Recent Filing History (Latest 10)</h4>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Return Type</th>
+                        <th>Tax Period</th>
+                        <th>Financial Year</th>
+                        <th>Filing Date</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {_generate_returns_rows(returns[:10], late_filing_analysis)}
+                </tbody>
+            </table>
+        </div>
+        
+        <!-- Footer -->
+        <div class="footer">
+            <p><strong>GST Intelligence Platform</strong></p>
+            <p>This report is generated based on available GST data and AI analysis.</p>
+            <p>For the most current information, please verify with the official GST portal.</p>
+            <p style="margin-top: 10px;">© {datetime.now().year} GST Intelligence Platform. All rights reserved.</p>
         </div>
     </body>
     </html>
@@ -1385,6 +1536,36 @@ def generate_pdf_report(company_data: dict, compliance_score: float, synopsis: s
     pdf_file.seek(0)
     
     return pdf_file
+
+def _generate_returns_rows(returns, late_filing_analysis):
+    """Helper method to generate table rows for returns"""
+    rows_html = ""
+    for r in returns:
+        return_type = r.get('rtntype', 'N/A')
+        tax_period = r.get('taxp', 'N/A')
+        fy = r.get('fy', 'N/A')
+        dof = r.get('dof', 'N/A')
+        
+        # Check if late
+        status_html = '<span class="status-badge status-on-time">On Time</span>'
+        if late_filing_analysis and late_filing_analysis.get('late_returns'):
+            for lr in late_filing_analysis['late_returns']:
+                if (lr['return'].get('dof') == dof and 
+                    lr['return'].get('rtntype') == return_type):
+                    status_html = f'<span class="status-badge status-late">Late by {lr["delay_days"]} days</span>'
+                    break
+        
+        rows_html += f"""
+            <tr>
+                <td>{return_type}</td>
+                <td>{tax_period}</td>
+                <td>{fy}</td>
+                <td>{dof}</td>
+                <td>{status_html}</td>
+            </tr>
+        """
+    
+    return rows_html
 
 @app.post("/refresh-session")
 async def refresh_session(current_user: str = Depends(require_auth)):

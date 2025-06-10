@@ -102,6 +102,177 @@
             50% { transform: rotate(5deg) scale(1.1); }
         }
 
+        /* Remove cursor help from non-essential items */
+        .info-label:not(.complex-field),
+        .info-value:not(.complex-field) {
+            cursor: default !important;
+        }
+
+        /* Ensure full text display */
+        .info-value {
+            white-space: normal;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+            max-width: none;
+            text-align: right;
+        }
+
+        /* Returns Accordion System */
+        .returns-accordion {
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            overflow: hidden;
+            margin-top: 1rem;
+        }
+
+        .returns-category {
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .returns-category:last-child {
+            border-bottom: none;
+        }
+
+        .category-header {
+            padding: 1.5rem;
+            background: var(--bg-hover);
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: all 0.3s;
+            user-select: none;
+        }
+
+        .category-header:hover {
+            background: var(--accent-primary);
+            color: white;
+        }
+
+        .category-info {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .category-title {
+            font-weight: 600;
+            font-size: 1.1rem;
+        }
+
+        .category-count {
+            background: var(--accent-gradient);
+            color: white;
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.875rem;
+            font-weight: 600;
+        }
+
+        .category-toggle {
+            font-size: 1.2rem;
+            transition: transform 0.3s;
+        }
+
+        .category-header.active .category-toggle {
+            transform: rotate(180deg);
+        }
+
+        .category-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease;
+        }
+
+        .category-content.active {
+            max-height: 1000px;
+        }
+
+        .returns-table {
+            width: 100%;
+            background: var(--bg-card);
+        }
+
+        .returns-table th {
+            background: var(--bg-secondary);
+            padding: 1rem;
+            text-align: left;
+            font-weight: 600;
+            color: var(--text-primary);
+            font-size: 0.9rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .returns-table td {
+            padding: 1rem;
+            border-bottom: 1px solid var(--border-color);
+            color: var(--text-primary);
+            font-size: 0.9rem;
+        }
+
+        .returns-table tbody tr:hover {
+            background: var(--bg-hover);
+        }
+
+        .filing-status {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.25rem;
+            padding: 0.25rem 0.75rem;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+
+        .status-on-time {
+            background: rgba(16, 185, 129, 0.2);
+            color: var(--success);
+        }
+
+        .status-late {
+            background: rgba(239, 68, 68, 0.2);
+            color: var(--danger);
+        }
+
+        /* Return type badges */
+        .return-type-badge {
+            background: var(--accent-gradient);
+            color: white;
+            padding: 0.25rem 0.5rem;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            display: inline-block;
+        }
+
+        /* Summary Stats */
+        .returns-summary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .summary-stat {
+            background: var(--bg-hover);
+            border-radius: 12px;
+            padding: 1.5rem;
+            text-align: center;
+            border: 1px solid var(--border-color);
+        }
+
+        .summary-stat-value {
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--accent-primary);
+            margin-bottom: 0.25rem;
+        }
+
+        .summary-stat-label {
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+        }
+
         /* Enhanced Header */
         .header {
             background: var(--bg-secondary);
@@ -353,7 +524,7 @@
             z-index: 1;
         }
 
-        /* AI Synopsis Section - Moved to Top */
+        /* AI Synopsis Section */
         .synopsis-section {
             background: linear-gradient(135deg, rgba(124, 58, 237, 0.1) 0%, rgba(37, 99, 235, 0.1) 100%);
             border: 1px solid var(--accent-primary);
@@ -529,7 +700,7 @@
             color: var(--text-secondary);
         }
 
-        /* Info Grid with Enhanced Tooltips */
+        /* Info Grid */
         .info-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
@@ -895,7 +1066,7 @@
         <!-- Enhanced Compliance Score Section -->
         <div class="compliance-section">
             <div class="compliance-header">
-                <h2 class="compliance-title tooltip" data-tooltip="Overall compliance score based on filing history, registration status, and other compliance factors">Compliance Score Analysis</h2>
+                <h2 class="compliance-title">Compliance Score Analysis</h2>
                 <p class="compliance-subtitle">Based on multiple compliance factors and filing history</p>
             </div>
             
@@ -912,44 +1083,44 @@
             
             <div class="score-grade">
                 {% if compliance_score >= 90 %}
-                    <span style="color: var(--success);" class="tooltip" data-tooltip="Excellent compliance - Green status indicates top-tier tax compliance">Grade A+ (Excellent)</span>
+                    <span style="color: var(--success);">Grade A+ (Excellent)</span>
                 {% elif compliance_score >= 80 %}
-                    <span style="color: var(--success);" class="tooltip" data-tooltip="Very good compliance - Strong tax compliance record">Grade A (Very Good)</span>
+                    <span style="color: var(--success);">Grade A (Very Good)</span>
                 {% elif compliance_score >= 70 %}
-                    <span style="color: var(--warning);" class="tooltip" data-tooltip="Good compliance - Yellow status indicates minor compliance issues">Grade B (Good)</span>
+                    <span style="color: var(--warning);">Grade B (Good)</span>
                 {% elif compliance_score >= 60 %}
-                    <span style="color: var(--warning);" class="tooltip" data-tooltip="Average compliance - Some improvement needed">Grade C (Average)</span>
+                    <span style="color: var(--warning);">Grade C (Average)</span>
                 {% else %}
-                    <span style="color: var(--danger);" class="tooltip" data-tooltip="Poor compliance - Red status indicates significant compliance issues">Grade D (Needs Improvement)</span>
+                    <span style="color: var(--danger);">Grade D (Needs Improvement)</span>
                 {% endif %}
             </div>
         </div>
 
         <!-- Stats Overview -->
         <div class="stats-overview">
-            <div class="stat-mini tooltip" data-tooltip="Current registration status with GST authorities">
+            <div class="stat-mini">
                 <div class="stat-mini-icon">✅</div>
                 <div class="stat-mini-value">{{ company_data.sts or 'N/A' }}</div>
                 <div class="stat-mini-label">Status</div>
             </div>
-            <div class="stat-mini tooltip" data-tooltip="Date when GST registration was obtained">
+            <div class="stat-mini">
                 <div class="stat-mini-icon">📅</div>
                 <div class="stat-mini-value">{{ company_data.rgdt or 'N/A' }}</div>
                 <div class="stat-mini-label">Registration Date</div>
             </div>
-            <div class="stat-mini tooltip" data-tooltip="State where the company is registered">
+            <div class="stat-mini">
                 <div class="stat-mini-icon">📍</div>
                 <div class="stat-mini-value">{% if company_data.stj %}{{ company_data.stj.split('State - ')[1].split(',')[0] if 'State - ' in company_data.stj else 'N/A' }}{% else %}N/A{% endif %}</div>
                 <div class="stat-mini-label">State</div>
             </div>
-            <div class="stat-mini tooltip" data-tooltip="Total number of GST returns filed by the company">
+            <div class="stat-mini">
                 <div class="stat-mini-icon">📄</div>
                 <div class="stat-mini-value">{{ company_data.returns|length if company_data.returns else 0 }}</div>
                 <div class="stat-mini-label">Returns Filed</div>
             </div>
         </div>
 
-        <!-- Info Grid with Enhanced Tooltips -->
+        <!-- Info Grid without Basic Tooltips -->
         <div class="info-grid">
             <!-- Basic Information -->
             <div class="info-card">
@@ -958,33 +1129,33 @@
                     Basic Information
                 </h3>
                 <div class="info-item">
-                    <span class="info-label tooltip" data-tooltip="Trading name under which business is conducted">Trade Name</span>
-                    <span class="info-value">{{ company_data.tradeName or 'N/A' }}</span>
+                    <span class="info-label">Trade Name</span>
+                    <span class="info-value">{{ company_data.tradeName or company_data.lgnm or 'N/A' }}</span>
                 </div>
                 <div class="info-item">
-                    <span class="info-label tooltip" data-tooltip="Type of business entity (Private Limited, LLP, etc.)">Business Type</span>
+                    <span class="info-label">Business Type</span>
                     <span class="info-value">{{ company_data.ctb or 'N/A' }}</span>
                 </div>
                 <div class="info-item">
-                    <span class="info-label tooltip" data-tooltip="Date of GST registration">Registration Date</span>
+                    <span class="info-label">Registration Date</span>
                     <span class="info-value">{{ company_data.rgdt or 'N/A' }}</span>
                 </div>
                 <div class="info-item">
-                    <span class="info-label tooltip" data-tooltip="Current status with GST authorities">Status</span>
+                    <span class="info-label">Status</span>
                     <span class="info-value">
                         {% if company_data.sts == 'Active' %}
-                            <span class="status-badge status-active tooltip" data-tooltip="Active status - Company can conduct business">Active</span>
+                            <span class="status-badge status-active">Active</span>
                         {% else %}
-                            <span class="status-badge status-inactive tooltip" data-tooltip="Inactive status - May have compliance issues">{{ company_data.sts }}</span>
+                            <span class="status-badge status-inactive">{{ company_data.sts or 'Inactive' }}</span>
                         {% endif %}
                     </span>
                 </div>
                 <div class="info-item">
-                    <span class="info-label tooltip" data-tooltip="Permanent Account Number">PAN</span>
+                    <span class="info-label">PAN</span>
                     <span class="info-value">{{ company_data.pan or 'N/A' }}</span>
                 </div>
                 <div class="info-item">
-                    <span class="info-label tooltip" data-tooltip="Category classification based on turnover">Company Category</span>
+                    <span class="info-label">Company Category</span>
                     <span class="info-value">{{ company_data.compCategory or 'N/A' }}</span>
                 </div>
             </div>
@@ -996,16 +1167,25 @@
                     Address Details
                 </h3>
                 <div class="info-item">
-                    <span class="info-label tooltip" data-tooltip="Registered business address">Address</span>
-                    <span class="info-value">{{ company_data.adr or 'N/A' }}</span>
+                    <span class="info-label">Address</span>
+                    <span class="info-value" style="text-align: left; padding-left: 1rem;">{{ company_data.adr or 'N/A' }}</span>
                 </div>
                 <div class="info-item">
-                    <span class="info-label tooltip" data-tooltip="Postal code of business location">Pincode</span>
+                    <span class="info-label">Pincode</span>
                     <span class="info-value">{{ company_data.pincode or 'N/A' }}</span>
                 </div>
                 <div class="info-item">
-                    <span class="info-label tooltip" data-tooltip="State of registration">State</span>
+                    <span class="info-label">State</span>
                     <span class="info-value">{% if company_data.stj %}{{ company_data.stj.split('State - ')[1].split(',')[0] if 'State - ' in company_data.stj else 'N/A' }}{% else %}N/A{% endif %}</span>
+                </div>
+                <!-- Jurisdiction fields with tooltips as they are complex -->
+                <div class="info-item">
+                    <span class="info-label tooltip complex-field" data-tooltip="State GST authority jurisdiction details">State Jurisdiction</span>
+                    <span class="info-value" style="font-size: 0.9rem;">{{ company_data.stj or 'N/A' }}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label tooltip complex-field" data-tooltip="Central GST authority jurisdiction details">Central Jurisdiction</span>
+                    <span class="info-value" style="font-size: 0.9rem;">{{ company_data.ctj or 'N/A' }}</span>
                 </div>
             </div>
 
@@ -1016,25 +1196,37 @@
                     Additional Details
                 </h3>
                 <div class="info-item">
-                    <span class="info-label tooltip" data-tooltip="Primary business activities of the company">Nature of Business</span>
-                    <span class="info-value">{% if company_data.nba %}{{ ', '.join(company_data.nba) }}{% else %}N/A{% endif %}</span>
+                    <span class="info-label">Nature of Business</span>
+                    <span class="info-value" style="text-align: left; padding-left: 1rem;">
+                        {% if company_data.nba %}
+                            {% for activity in company_data.nba %}
+                                <div style="margin-bottom: 0.25rem;">• {{ activity }}</div>
+                            {% endfor %}
+                        {% else %}
+                            N/A
+                        {% endif %}
+                    </span>
                 </div>
                 <div class="info-item">
-                    <span class="info-label tooltip" data-tooltip="Electronic invoicing system adoption status">E-Invoice Status</span>
+                    <span class="info-label tooltip complex-field" data-tooltip="Electronic invoicing system adoption status - Mandatory for certain turnover thresholds">E-Invoice Status</span>
                     <span class="info-value">{{ company_data.einvoiceStatus or 'N/A' }}</span>
                 </div>
                 <div class="info-item">
-                    <span class="info-label tooltip" data-tooltip="Most recent GSTR-1 return filing period">Latest GSTR-1</span>
-                    <span class="info-value">{{ company_data.meta.latestgtsr1 if company_data.meta else 'N/A' }}</span>
+                    <span class="info-label">Duty Type</span>
+                    <span class="info-value">{{ company_data.dty or 'N/A' }}</span>
                 </div>
                 <div class="info-item">
-                    <span class="info-label tooltip" data-tooltip="Most recent GSTR-3B return filing period">Latest GSTR-3B</span>
-                    <span class="info-value">{{ company_data.meta.latestgtsr3b if company_data.meta else 'N/A' }}</span>
+                    <span class="info-label">Latest GSTR-1</span>
+                    <span class="info-value">{{ company_data.meta.latestgtsr1 if company_data.meta and company_data.meta.latestgtsr1 else 'N/A' }}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Latest GSTR-3B</span>
+                    <span class="info-value">{{ company_data.meta.latestgtsr3b if company_data.meta and company_data.meta.latestgtsr3b else 'N/A' }}</span>
                 </div>
             </div>
         </div>
 
-        <!-- GST Returns Analysis -->
+        <!-- GST Returns Analysis with Accordion -->
         {% if company_data.returns %}
         <div class="returns-analysis">
             <div class="returns-header">
@@ -1056,45 +1248,237 @@
             </div>
             {% endif %}
             
-            <!-- Returns Table -->
-            <div style="overflow-x: auto;">
-                <table style="width: 100%; border-collapse: collapse; background: var(--bg-secondary); border-radius: 12px; overflow: hidden;">
-                    <thead>
-                        <tr>
-                            <th style="background: var(--bg-hover); color: var(--text-primary); padding: 1rem; text-align: left; font-weight: 600;" class="tooltip" data-tooltip="Type of GST return (GSTR-1, GSTR-3B, etc.)">Return Type</th>
-                            <th style="background: var(--bg-hover); color: var(--text-primary); padding: 1rem; text-align: left; font-weight: 600;" class="tooltip" data-tooltip="Tax period for which return was filed">Tax Period</th>
-                            <th style="background: var(--bg-hover); color: var(--text-primary); padding: 1rem; text-align: left; font-weight: 600;" class="tooltip" data-tooltip="Financial year of the return">Financial Year</th>
-                            <th style="background: var(--bg-hover); color: var(--text-primary); padding: 1rem; text-align: left; font-weight: 600;" class="tooltip" data-tooltip="Date when return was actually filed">Filing Date</th>
-                            <th style="background: var(--bg-hover); color: var(--text-primary); padding: 1rem; text-align: left; font-weight: 600;" class="hide-mobile tooltip" data-tooltip="Whether filed on time or late">Status</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for return in company_data.returns[:10] %}
-                        <tr style="transition: all 0.3s;">
-                            <td style="padding: 1rem; border-bottom: 1px solid var(--border-color); color: var(--text-primary); font-weight: 600;">{{ return.rtntype }}</td>
-                            <td style="padding: 1rem; border-bottom: 1px solid var(--border-color); color: var(--text-primary);">{{ return.taxp }}</td>
-                            <td style="padding: 1rem; border-bottom: 1px solid var(--border-color); color: var(--text-primary);">{{ return.fy }}</td>
-                            <td style="padding: 1rem; border-bottom: 1px solid var(--border-color); color: var(--text-primary);">
-                                {{ return.dof }}
-                                {% if late_filing_analysis %}
-                                    {% for late_return in late_filing_analysis.late_returns %}
-                                        {% if late_return.return.dof == return.dof and late_return.return.rtntype == return.rtntype %}
-                                            <span style="background: var(--danger); color: white; padding: 0.25rem 0.5rem; border-radius: 12px; font-size: 0.75rem; font-weight: 600; margin-left: 0.5rem;" class="tooltip" data-tooltip="Return was filed {{ late_return.delay_days }} days after due date">Late by {{ late_return.delay_days }} days</span>
+            <!-- Returns Summary Stats -->
+            <div class="returns-summary-grid">
+                <div class="summary-stat">
+                    <div class="summary-stat-value">{{ company_data.returns|length }}</div>
+                    <div class="summary-stat-label">Total Returns</div>
+                </div>
+                <div class="summary-stat">
+                    <div class="summary-stat-value">{{ company_data.returns|selectattr('rtntype', 'equalto', 'GSTR1')|list|length }}</div>
+                    <div class="summary-stat-label">GSTR-1 Filed</div>
+                </div>
+                <div class="summary-stat">
+                    <div class="summary-stat-value">{{ company_data.returns|selectattr('rtntype', 'equalto', 'GSTR3B')|list|length }}</div>
+                    <div class="summary-stat-label">GSTR-3B Filed</div>
+                </div>
+                <div class="summary-stat">
+                    <div class="summary-stat-value">{{ company_data.returns|selectattr('rtntype', 'equalto', 'GSTR9')|list|length }}</div>
+                    <div class="summary-stat-label">Annual Returns</div>
+                </div>
+            </div>
+            
+            <!-- Returns Accordion -->
+            <div class="returns-accordion">
+                <!-- GSTR-1 Category -->
+                {% set gstr1_returns = company_data.returns|selectattr('rtntype', 'equalto', 'GSTR1')|list %}
+                {% if gstr1_returns %}
+                <div class="returns-category">
+                    <div class="category-header" onclick="toggleCategory(this)">
+                        <div class="category-info">
+                            <span class="category-title">GSTR-1 (Outward Supplies)</span>
+                            <span class="category-count">{{ gstr1_returns|length }} Returns</span>
+                        </div>
+                        <i class="fas fa-chevron-down category-toggle"></i>
+                    </div>
+                    <div class="category-content">
+                        <table class="returns-table">
+                            <thead>
+                                <tr>
+                                    <th>Tax Period</th>
+                                    <th>Financial Year</th>
+                                    <th>Filing Date</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for return in gstr1_returns %}
+                                <tr>
+                                    <td>{{ return.taxp }}</td>
+                                    <td>{{ return.fy }}</td>
+                                    <td>{{ return.dof }}</td>
+                                    <td>
+                                        {% if late_filing_analysis %}
+                                            {% set is_late = false %}
+                                            {% for late_return in late_filing_analysis.late_returns %}
+                                                {% if late_return.return.dof == return.dof and late_return.return.rtntype == return.rtntype %}
+                                                    {% set is_late = true %}
+                                                    <span class="filing-status status-late">
+                                                        <i class="fas fa-exclamation-circle"></i>
+                                                        Late by {{ late_return.delay_days }} days
+                                                    </span>
+                                                {% endif %}
+                                            {% endfor %}
+                                            {% if not is_late %}
+                                                <span class="filing-status status-on-time">
+                                                    <i class="fas fa-check-circle"></i>
+                                                    On Time
+                                                </span>
+                                            {% endif %}
+                                        {% else %}
+                                            <span class="filing-status status-on-time">Filed</span>
                                         {% endif %}
-                                    {% endfor %}
-                                {% endif %}
-                            </td>
-                            <td style="padding: 1rem; border-bottom: 1px solid var(--border-color);" class="hide-mobile">
-                                <span style="background: rgba(16, 185, 129, 0.2); color: var(--success); padding: 0.25rem 0.75rem; border-radius: 15px; font-size: 0.85rem; font-weight: 600;" class="tooltip" data-tooltip="Return has been successfully filed">Filed</span>
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-                {% if company_data.returns | length > 10 %}
-                <p style="text-align: center; margin-top: 1rem; color: var(--text-secondary);">
-                    Showing latest 10 returns out of {{ company_data.returns | length }} total
-                </p>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                {% endif %}
+                
+                <!-- GSTR-3B Category -->
+                {% set gstr3b_returns = company_data.returns|selectattr('rtntype', 'equalto', 'GSTR3B')|list %}
+                {% if gstr3b_returns %}
+                <div class="returns-category">
+                    <div class="category-header" onclick="toggleCategory(this)">
+                        <div class="category-info">
+                            <span class="category-title">GSTR-3B (Summary Return)</span>
+                            <span class="category-count">{{ gstr3b_returns|length }} Returns</span>
+                        </div>
+                        <i class="fas fa-chevron-down category-toggle"></i>
+                    </div>
+                    <div class="category-content">
+                        <table class="returns-table">
+                            <thead>
+                                <tr>
+                                    <th>Tax Period</th>
+                                    <th>Financial Year</th>
+                                    <th>Filing Date</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for return in gstr3b_returns %}
+                                <tr>
+                                    <td>{{ return.taxp }}</td>
+                                    <td>{{ return.fy }}</td>
+                                    <td>{{ return.dof }}</td>
+                                    <td>
+                                        {% if late_filing_analysis %}
+                                            {% set is_late = false %}
+                                            {% for late_return in late_filing_analysis.late_returns %}
+                                                {% if late_return.return.dof == return.dof and late_return.return.rtntype == return.rtntype %}
+                                                    {% set is_late = true %}
+                                                    <span class="filing-status status-late">
+                                                        <i class="fas fa-exclamation-circle"></i>
+                                                        Late by {{ late_return.delay_days }} days
+                                                    </span>
+                                                {% endif %}
+                                            {% endfor %}
+                                            {% if not is_late %}
+                                                <span class="filing-status status-on-time">
+                                                    <i class="fas fa-check-circle"></i>
+                                                    On Time
+                                                </span>
+                                            {% endif %}
+                                        {% else %}
+                                            <span class="filing-status status-on-time">Filed</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                {% endif %}
+                
+                <!-- Annual Returns Category -->
+                {% set annual_returns = company_data.returns|selectattr('rtntype', 'equalto', 'GSTR9')|list %}
+                {% if annual_returns %}
+                <div class="returns-category">
+                    <div class="category-header" onclick="toggleCategory(this)">
+                        <div class="category-info">
+                            <span class="category-title">GSTR-9 (Annual Return)</span>
+                            <span class="category-count">{{ annual_returns|length }} Returns</span>
+                        </div>
+                        <i class="fas fa-chevron-down category-toggle"></i>
+                    </div>
+                    <div class="category-content">
+                        <table class="returns-table">
+                            <thead>
+                                <tr>
+                                    <th>Tax Period</th>
+                                    <th>Financial Year</th>
+                                    <th>Filing Date</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for return in annual_returns %}
+                                <tr>
+                                    <td>{{ return.taxp }}</td>
+                                    <td>{{ return.fy }}</td>
+                                    <td>{{ return.dof }}</td>
+                                    <td>
+                                        {% if late_filing_analysis %}
+                                            {% set is_late = false %}
+                                            {% for late_return in late_filing_analysis.late_returns %}
+                                                {% if late_return.return.dof == return.dof and late_return.return.rtntype == return.rtntype %}
+                                                    {% set is_late = true %}
+                                                    <span class="filing-status status-late">
+                                                        <i class="fas fa-exclamation-circle"></i>
+                                                        Late by {{ late_return.delay_days }} days
+                                                    </span>
+                                                {% endif %}
+                                            {% endfor %}
+                                            {% if not is_late %}
+                                                <span class="filing-status status-on-time">
+                                                    <i class="fas fa-check-circle"></i>
+                                                    On Time
+                                                </span>
+                                            {% endif %}
+                                        {% else %}
+                                            <span class="filing-status status-on-time">Filed</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                {% endif %}
+                
+                <!-- Other Returns Category -->
+                {% set other_returns = company_data.returns|rejectattr('rtntype', 'in', ['GSTR1', 'GSTR3B', 'GSTR9'])|list %}
+                {% if other_returns %}
+                <div class="returns-category">
+                    <div class="category-header" onclick="toggleCategory(this)">
+                        <div class="category-info">
+                            <span class="category-title">Other Returns</span>
+                            <span class="category-count">{{ other_returns|length }} Returns</span>
+                        </div>
+                        <i class="fas fa-chevron-down category-toggle"></i>
+                    </div>
+                    <div class="category-content">
+                        <table class="returns-table">
+                            <thead>
+                                <tr>
+                                    <th>Return Type</th>
+                                    <th>Tax Period</th>
+                                    <th>Financial Year</th>
+                                    <th>Filing Date</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for return in other_returns %}
+                                <tr>
+                                    <td><span class="return-type-badge">{{ return.rtntype }}</span></td>
+                                    <td>{{ return.taxp }}</td>
+                                    <td>{{ return.fy }}</td>
+                                    <td>{{ return.dof }}</td>
+                                    <td>
+                                        <span class="filing-status status-on-time">Filed</span>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
                 {% endif %}
             </div>
         </div>
@@ -1124,6 +1508,13 @@
 
     <!-- JavaScript -->
     <script>
+        // Toggle accordion categories
+        function toggleCategory(header) {
+            const content = header.nextElementSibling;
+            header.classList.toggle('active');
+            content.classList.toggle('active');
+        }
+
         // Enhanced Theme Toggle Function
         function toggleTheme() {
             const body = document.body;
@@ -1153,6 +1544,12 @@
             
             // Animate compliance score
             animateScore();
+            
+            // Open first category by default
+            const firstCategory = document.querySelector('.category-header');
+            if (firstCategory) {
+                firstCategory.click();
+            }
             
             // Initialize PWA features
             if ('serviceWorker' in navigator) {
