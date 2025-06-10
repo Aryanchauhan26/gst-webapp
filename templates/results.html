@@ -1329,25 +1329,27 @@
                             </thead>
                             <tbody>
                                 {% set late_gstr1 = late_filing_analysis.late_returns|selectattr('return.rtntype', 'equalto', 'GSTR1')|list if late_filing_analysis and late_filing_analysis.late_returns else [] %}
-                                {% if late_gstr1 %}
-                                    {% for lr in late_gstr1 %}
+                                {% set late_gstr1_dofs = late_gstr1|map(attribute='return.dof')|list %}
+                                <!-- Late filings -->
+                                {% for lr in late_gstr1 %}
+                                <tr>
+                                    <td>{{ lr.return.taxp }}</td>
+                                    <td>{{ lr.return.fy }}</td>
+                                    <td>{{ lr.return.dof }}</td>
+                                    <td><span class="filing-status status-late">Late by {{ lr.delay_days }} days</span></td>
+                                </tr>
+                                {% endfor %}
+                                <!-- On-time filings -->
+                                {% for r in gstr1_returns %}
+                                    {% if r.dof not in late_gstr1_dofs %}
                                     <tr>
-                                        <td>{{ lr.return.taxp }}</td>
-                                        <td>{{ lr.return.fy }}</td>
-                                        <td>{{ lr.return.dof }}</td>
-                                        <td><span class="filing-status status-late">Late by {{ lr.delay_days }} days</span></td>
+                                        <td>{{ r.taxp }}</td>
+                                        <td>{{ r.fy }}</td>
+                                        <td>{{ r.dof }}</td>
+                                        <td><span class="filing-status status-on-time">On Time</span></td>
                                     </tr>
-                                    {% endfor %}
-                                {% else %}
-                                    {% for r in gstr1_returns %}
-                                        <tr>
-                                            <td>{{ r.taxp }}</td>
-                                            <td>{{ r.fy }}</td>
-                                            <td>{{ r.dof }}</td>
-                                            <td><span class="filing-status status-on-time">On Time</span></td>
-                                        </tr>
-                                    {% endfor %}
-                                {% endif %}
+                                    {% endif %}
+                                {% endfor %}
                             </tbody>
                         </table>
                     </div>
@@ -1377,25 +1379,27 @@
                             </thead>
                             <tbody>
                                 {% set late_gstr3b = late_filing_analysis.late_returns|selectattr('return.rtntype', 'equalto', 'GSTR3B')|list if late_filing_analysis and late_filing_analysis.late_returns else [] %}
-                                {% if late_gstr3b %}
-                                    {% for lr in late_gstr3b %}
+                                {% set late_gstr3b_dofs = late_gstr3b|map(attribute='return.dof')|list %}
+                                <!-- Late filings -->
+                                {% for lr in late_gstr3b %}
+                                <tr>
+                                    <td>{{ lr.return.taxp }}</td>
+                                    <td>{{ lr.return.fy }}</td>
+                                    <td>{{ lr.return.dof }}</td>
+                                    <td><span class="filing-status status-late">Late by {{ lr.delay_days }} days</span></td>
+                                </tr>
+                                {% endfor %}
+                                <!-- On-time filings -->
+                                {% for r in gstr3b_returns %}
+                                    {% if r.dof not in late_gstr3b_dofs %}
                                     <tr>
-                                        <td>{{ lr.return.taxp }}</td>
-                                        <td>{{ lr.return.fy }}</td>
-                                        <td>{{ lr.return.dof }}</td>
-                                        <td><span class="filing-status status-late">Late by {{ lr.delay_days }} days</span></td>
+                                        <td>{{ r.taxp }}</td>
+                                        <td>{{ r.fy }}</td>
+                                        <td>{{ r.dof }}</td>
+                                        <td><span class="filing-status status-on-time">On Time</span></td>
                                     </tr>
-                                    {% endfor %}
-                                {% else %}
-                                    {% for r in gstr3b_returns %}
-                                        <tr>
-                                            <td>{{ r.taxp }}</td>
-                                            <td>{{ r.fy }}</td>
-                                            <td>{{ r.dof }}</td>
-                                            <td><span class="filing-status status-on-time">On Time</span></td>
-                                        </tr>
-                                    {% endfor %}
-                                {% endif %}
+                                    {% endif %}
+                                {% endfor %}
                             </tbody>
                         </table>
                     </div>
@@ -1425,25 +1429,27 @@
                             </thead>
                             <tbody>
                                 {% set late_gstr9 = late_filing_analysis.late_returns|selectattr('return.rtntype', 'equalto', 'GSTR9')|list if late_filing_analysis and late_filing_analysis.late_returns else [] %}
-                                {% if late_gstr9 %}
-                                    {% for lr in late_gstr9 %}
+                                {% set late_gstr9_dofs = late_gstr9|map(attribute='return.dof')|list %}
+                                <!-- Late filings -->
+                                {% for lr in late_gstr9 %}
+                                <tr>
+                                    <td>{{ lr.return.taxp }}</td>
+                                    <td>{{ lr.return.fy }}</td>
+                                    <td>{{ lr.return.dof }}</td>
+                                    <td><span class="filing-status status-late">Late by {{ lr.delay_days }} days</span></td>
+                                </tr>
+                                {% endfor %}
+                                <!-- On-time filings -->
+                                {% for r in annual_returns %}
+                                    {% if r.dof not in late_gstr9_dofs %}
                                     <tr>
-                                        <td>{{ lr.return.taxp }}</td>
-                                        <td>{{ lr.return.fy }}</td>
-                                        <td>{{ lr.return.dof }}</td>
-                                        <td><span class="filing-status status-late">Late by {{ lr.delay_days }} days</span></td>
+                                        <td>{{ r.taxp }}</td>
+                                        <td>{{ r.fy }}</td>
+                                        <td>{{ r.dof }}</td>
+                                        <td><span class="filing-status status-on-time">On Time</span></td>
                                     </tr>
-                                    {% endfor %}
-                                {% else %}
-                                    {% for r in annual_returns %}
-                                        <tr>
-                                            <td>{{ r.taxp }}</td>
-                                            <td>{{ r.fy }}</td>
-                                            <td>{{ r.dof }}</td>
-                                            <td><span class="filing-status status-on-time">On Time</span></td>
-                                        </tr>
-                                    {% endfor %}
-                                {% endif %}
+                                    {% endif %}
+                                {% endfor %}
                             </tbody>
                         </table>
                     </div>
@@ -1474,27 +1480,29 @@
                             </thead>
                             <tbody>
                                 {% set late_other = late_filing_analysis.late_returns|rejectattr('return.rtntype', 'in', ['GSTR1', 'GSTR3B', 'GSTR9'])|list if late_filing_analysis and late_filing_analysis.late_returns else [] %}
-                                {% if late_other %}
-                                    {% for lr in late_other %}
+                                {% set late_other_keys = late_other|map(attribute='return.dof')|list %}
+                                <!-- Late filings -->
+                                {% for lr in late_other %}
+                                <tr>
+                                    <td><span class="return-type-badge">{{ lr.return.rtntype }}</span></td>
+                                    <td>{{ lr.return.taxp }}</td>
+                                    <td>{{ lr.return.fy }}</td>
+                                    <td>{{ lr.return.dof }}</td>
+                                    <td><span class="filing-status status-late">Late by {{ lr.delay_days }} days</span></td>
+                                </tr>
+                                {% endfor %}
+                                <!-- On-time filings -->
+                                {% for r in other_returns %}
+                                    {% if r.dof not in late_other_keys %}
                                     <tr>
-                                        <td><span class="return-type-badge">{{ lr.return.rtntype }}</span></td>
-                                        <td>{{ lr.return.taxp }}</td>
-                                        <td>{{ lr.return.fy }}</td>
-                                        <td>{{ lr.return.dof }}</td>
-                                        <td><span class="filing-status status-late">Late by {{ lr.delay_days }} days</span></td>
+                                        <td><span class="return-type-badge">{{ r.rtntype }}</span></td>
+                                        <td>{{ r.taxp }}</td>
+                                        <td>{{ r.fy }}</td>
+                                        <td>{{ r.dof }}</td>
+                                        <td><span class="filing-status status-on-time">On Time</span></td>
                                     </tr>
-                                    {% endfor %}
-                                {% else %}
-                                    {% for r in other_returns %}
-                                        <tr>
-                                            <td><span class="return-type-badge">{{ r.rtntype }}</span></td>
-                                            <td>{{ r.taxp }}</td>
-                                            <td>{{ r.fy }}</td>
-                                            <td>{{ r.dof }}</td>
-                                            <td><span class="filing-status status-on-time">On Time</span></td>
-                                        </tr>
-                                    {% endfor %}
-                                {% endif %}
+                                    {% endif %}
+                                {% endfor %}
                             </tbody>
                         </table>
                     </div>

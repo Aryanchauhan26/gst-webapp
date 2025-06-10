@@ -940,6 +940,28 @@ tr:hover {
     transform: translateX(-50%) translateY(-15px);
 }
 
+/* --- Tooltip Always On Top & Not Clipped --- */
+.tooltip::after,
+.tooltip::before,
+.enhanced-tooltip::before,
+.enhanced-tooltip::after {
+    z-index: 99999 !important;
+}
+
+.returns-category,
+.info-card,
+.category-header,
+.category-content {
+    overflow: visible !important;
+}
+
+.tooltip::after,
+.enhanced-tooltip::before {
+    white-space: pre-line;
+    max-width: 90vw;
+    word-break: break-word;
+}
+
 /* Particle Background */
 .particles {
     position: fixed;
