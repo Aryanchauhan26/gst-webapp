@@ -8,18 +8,7 @@
     <link rel="manifest" href="/static/manifest.json">
     <meta name="theme-color" content="#7c3aed">
     <style>
-        /* CRITICAL FIXES APPLIED + Enhanced CSS Variables and Theme System */
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        /* Ensure no clipping for tooltips */
-        body, html, .container, .history-section, .table-container {
-            overflow: visible !important;
-        }
-
+        /* Enhanced CSS Variables and Theme System */
         :root {
             --transition-speed: 0.3s;
             --animation-speed: 0.6s;
@@ -85,6 +74,13 @@
             --hover-shadow: 0 8px 24px rgba(124, 58, 237, 0.15);
         }
 
+        /* Global Styles */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
         html {
             font-size: 16px;
             scroll-behavior: smooth;
@@ -126,7 +122,7 @@
             50% { transform: rotate(5deg) scale(1.1); }
         }
 
-        /* Fixed Header Layout + Enhanced Header with Live Indicators */
+        /* Enhanced Header with Live Indicators */
         .header {
             background: var(--bg-secondary);
             backdrop-filter: blur(20px);
@@ -134,7 +130,7 @@
             padding: 1rem 0;
             position: sticky;
             top: 0;
-            z-index: 1000;
+            z-index: 100;
             box-shadow: var(--card-shadow);
             transition: all var(--transition-speed);
         }
@@ -154,7 +150,6 @@
             display: flex;
             align-items: center;
             gap: 1rem;
-            flex-shrink: 0;
         }
 
         .logo-icon {
@@ -556,7 +551,7 @@
             100% { transform: rotate(360deg); }
         }
 
-        /* History Section with Fixed Layout + Enhanced History Section */
+        /* Enhanced History Section */
         .history-section {
             background: var(--bg-card);
             border: 1px solid var(--border-color);
@@ -587,21 +582,15 @@
             left: 100%;
         }
 
-        .history-header-wrapper,
-        .history-header-container {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 2rem;
-            gap: 1rem;
-        }
-
         .history-title {
             font-size: 1.5rem;
             color: var(--text-primary);
+            margin-bottom: 1.5rem;
             display: flex;
             align-items: center;
-            gap: 0.5rem;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 1rem;
             position: relative;
             z-index: 1;
         }
@@ -616,10 +605,9 @@
             background: linear-gradient(135deg, #10b981 0%, #059669 100%);
             color: white;
             border: none;
-            padding: 0.6rem 1.2rem;
+            padding: 0.5rem 1rem;
             border-radius: 8px;
             font-size: 0.9rem;
-            font-weight: 600;
             cursor: pointer;
             transition: all 0.3s;
             display: flex;
@@ -633,7 +621,7 @@
             box-shadow: 0 6px 30px rgba(16, 185, 129, 0.5);
         }
 
-        /* Fixed Table Layout + Enhanced Table Styles */
+        /* Enhanced Table Styles - Fixed Alignment */
         .table-container {
             overflow-x: auto;
             margin-top: 1rem;
@@ -673,7 +661,7 @@
             vertical-align: middle;
         }
 
-        /* Fixed column widths for better alignment */
+        /* Fix column widths for better alignment */
         .history-table th:nth-child(1),
         .history-table td:nth-child(1) {
             width: 20%;
@@ -733,7 +721,7 @@
             transform: scaleY(1);
         }
 
-        /* Fixed View Button + Enhanced Score Badges */
+        /* View Button */
         .view-btn {
             background: var(--accent-gradient);
             color: white !important;
@@ -747,15 +735,17 @@
             align-items: center;
             gap: 0.3rem;
             white-space: nowrap;
-            transition: all var(--transition-speed);
+            transition: all 0.3s;
+            text-decoration: none;
         }
 
         .view-btn:hover {
+            background: var(--accent-gradient-hover);
             transform: translateY(-2px);
             box-shadow: 0 4px 20px rgba(124, 58, 237, 0.5);
         }
 
-        /* Score Badges */
+        /* Enhanced Score Badges with Tooltips */
         .score-badge {
             display: inline-block;
             padding: 0.25rem 0.75rem;
@@ -785,13 +775,12 @@
             border: 1px solid rgba(239, 68, 68, 0.3);
         }
 
-        /* Simple Tooltip System + Enhanced Tooltip System */
+        /* Tooltip System */
         .tooltip {
             position: relative;
         }
 
-        .tooltip::after,
-        [data-tooltip]::after {
+        .tooltip::after {
             content: attr(data-tooltip);
             position: absolute;
             bottom: 100%;
@@ -809,11 +798,9 @@
             z-index: 1000;
             box-shadow: var(--card-shadow);
             border: 1px solid var(--border-color);
-            margin-bottom: 8px;
         }
 
-        .tooltip:hover::after,
-        [data-tooltip]:hover::after {
+        .tooltip:hover::after {
             opacity: 1;
         }
 
@@ -888,14 +875,12 @@
             .header-content {
                 flex-direction: column;
                 text-align: center;
-                gap: 1rem;
             }
             
             .nav-items {
                 width: 100%;
                 justify-content: center;
                 gap: 1rem;
-                flex-wrap: wrap;
             }
             
             .welcome-title {
@@ -906,13 +891,8 @@
                 font-size: 2rem;
             }
             
-            .search-form {
-                flex-direction: column;
-            }
-            
             .form-group {
                 min-width: 100%;
-                max-width: 100%;
             }
             
             .hide-mobile {
@@ -957,7 +937,7 @@
     </style>
 </head>
 <body>
-    <!-- Fixed Header + Header with Live Dashboard -->
+    <!-- Header with Live Dashboard -->
     <header class="header">
         <div class="header-content">
             <div class="logo">
@@ -972,7 +952,7 @@
             <nav class="nav-items">
                 <a href="/" class="nav-link active">Dashboard</a>
                 <a href="/analytics" class="live-dashboard-btn">
-                    <span>🔴</span> Live Analytics
+                    Live Analytics
                 </a>
                 <a href="/history" class="nav-link">History</a>
                 <span class="nav-link tooltip" data-tooltip="Logged in user">{{ mobile }}</span>
@@ -1040,13 +1020,13 @@
 
         <!-- Recent Searches History -->
         <section class="history-section">
-            <div class="history-header-wrapper">
-                <div class="history-title">
+            <div class="history-title">
+                <div class="history-header">
                     <i class="fas fa-history"></i>
                     <span>Recent Searches</span>
                 </div>
                 {% if history %}
-                <button class="export-btn" onclick="exportToExcel()">
+                <button class="export-btn tooltip" data-tooltip="Export search history to Excel" onclick="exportToExcel()">
                     <i class="fas fa-file-excel"></i>
                     Export to Excel
                 </button>
@@ -1058,10 +1038,10 @@
                 <table class="history-table">
                     <thead>
                         <tr>
-                            <th>Date</th>
-                            <th>GSTIN</th>
-                            <th>Company Name</th>
-                            <th class="hide-mobile">Compliance Score</th>
+                            <th class="tooltip" data-tooltip="When the search was performed">Date</th>
+                            <th class="tooltip" data-tooltip="Goods and Services Tax Identification Number">GSTIN</th>
+                            <th class="tooltip" data-tooltip="Registered company name">Company Name</th>
+                            <th class="hide-mobile tooltip" data-tooltip="Compliance score based on filing history">Compliance Score</th>
                             <th>Actions</th>
                         </tr>
                     </thead>
@@ -1070,26 +1050,28 @@
                         <tr data-gstin="{{ item.gstin }}">
                             <td>{{ item.searched_at.strftime('%d %b %Y, %I:%M %p') if item.searched_at else 'N/A' }}</td>
                             <td>
-                                <code style="background: var(--bg-hover); padding: 0.3rem 0.6rem; border-radius: 6px;">{{ item.gstin }}</code>
+                                <code style="background: var(--bg-hover); padding: 0.25rem 0.5rem; border-radius: 4px;">
+                                    {{ item.gstin }}
+                                </code>
                             </td>
                             <td style="font-weight: 600;">{{ item.company_name }}</td>
                             <td class="hide-mobile">
                                 {% if item.compliance_score is not none %}
                                     {% if item.compliance_score >= 80 %}
-                                        <span class="score-badge score-high">{{ "%.0f"|format(item.compliance_score) }}%</span>
+                                        <span class="score-badge score-high tooltip" data-tooltip="Excellent compliance - Green status">{{ "%.0f"|format(item.compliance_score) }}%</span>
                                     {% elif item.compliance_score >= 60 %}
-                                        <span class="score-badge score-medium">{{ "%.0f"|format(item.compliance_score) }}%</span>
+                                        <span class="score-badge score-medium tooltip" data-tooltip="Average compliance - Yellow status">{{ "%.0f"|format(item.compliance_score) }}%</span>
                                     {% else %}
-                                        <span class="score-badge score-low">{{ "%.0f"|format(item.compliance_score) }}%</span>
+                                        <span class="score-badge score-low tooltip" data-tooltip="Poor compliance - Red status">{{ "%.0f"|format(item.compliance_score) }}%</span>
                                     {% endif %}
                                 {% else %}
-                                    <span class="score-badge">N/A</span>
+                                    <span class="score-badge tooltip" data-tooltip="Score not available">N/A</span>
                                 {% endif %}
                             </td>
                             <td>
-                                <form action="/search" method="GET" style="display: inline; margin: 0;">
+                                <form action="/search" method="GET" style="display: inline;">
                                     <input type="hidden" name="gstin" value="{{ item.gstin }}">
-                                    <button type="submit" class="view-btn">
+                                    <button type="submit" class="view-btn tooltip" data-tooltip="View detailed compliance report">
                                         <i class="fas fa-eye"></i> View
                                     </button>
                                 </form>
@@ -1181,67 +1163,60 @@
 
             // Enhanced form submission handler
             const searchForm = document.getElementById('searchForm');
-            if (searchForm) {
-                searchForm.addEventListener('submit', function(e) {
-                    // Show loading indicator
-                    const loading = document.getElementById('loading');
-                    if (loading) loading.style.display = 'block';
-                    
-                    // Format GSTIN to uppercase
-                    const gstinInput = document.getElementById('gstin');
-                    if (gstinInput) gstinInput.value = gstinInput.value.toUpperCase();
-                    
-                    // Performance tracking
-                    performance.mark('search-start');
-                });
-            }
+            searchForm.addEventListener('submit', function(e) {
+                // Show loading indicator
+                document.getElementById('loading').style.display = 'block';
+                
+                // Format GSTIN to uppercase
+                const gstinInput = document.getElementById('gstin');
+                gstinInput.value = gstinInput.value.toUpperCase();
+                
+                // Performance tracking
+                performance.mark('search-start');
+            });
             
             // Enhanced GSTIN input formatter with validation
             const gstinInput = document.getElementById('gstin');
-            if (gstinInput) {
-                gstinInput.addEventListener('input', function(e) {
-                    let value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
-                    e.target.value = value;
-                    
-                    // Visual feedback
-                    if (value.length === 15) {
-                        const pattern = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/;
-                        if (pattern.test(value)) {
-                            e.target.style.borderColor = 'var(--success)';
-                            e.target.style.boxShadow = '0 0 0 4px rgba(16, 185, 129, 0.1)';
-                        } else {
-                            e.target.style.borderColor = 'var(--danger)';
-                            e.target.style.boxShadow = '0 0 0 4px rgba(239, 68, 68, 0.1)';
-                        }
+            gstinInput.addEventListener('input', function(e) {
+                let value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+                e.target.value = value;
+                
+                // Visual feedback
+                if (value.length === 15) {
+                    const pattern = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/;
+                    if (pattern.test(value)) {
+                        e.target.style.borderColor = 'var(--success)';
+                        e.target.style.boxShadow = '0 0 0 4px rgba(16, 185, 129, 0.1)';
                     } else {
-                        e.target.style.borderColor = 'var(--border-color)';
-                        e.target.style.boxShadow = '';
+                        e.target.style.borderColor = 'var(--danger)';
+                        e.target.style.boxShadow = '0 0 0 4px rgba(239, 68, 68, 0.1)';
                     }
-                });
-            }
+                } else {
+                    e.target.style.borderColor = 'var(--border-color)';
+                    e.target.style.boxShadow = '';
+                }
+            });
             
             // Export to Excel function
             window.exportToExcel = function() {
                 const exportBtn = event.target.closest('button');
-                if (exportBtn) {
-                    exportBtn.disabled = true;
-                    const originalText = exportBtn.innerHTML;
-                    exportBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Exporting...';
-                    
-                    window.location.href = '/export/history';
-                    
-                    setTimeout(function() {
-                        exportBtn.disabled = false;
-                        exportBtn.innerHTML = originalText;
-                    }, 3000);
-                }
+                exportBtn.disabled = true;
+                const originalText = exportBtn.innerHTML;
+                exportBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Exporting...';
+                
+                window.location.href = '/export/history';
+                
+                setTimeout(function() {
+                    exportBtn.disabled = false;
+                    exportBtn.innerHTML = originalText;
+                }, 3000);
             };
             
             // Enhanced table row click handler
             const tableRows = document.querySelectorAll('.history-table tbody tr');
             tableRows.forEach(function(row) {
                 row.addEventListener('click', function(e) {
-                    if (e.target.tagName === 'BUTTON' || e.target.closest('button') || e.target.closest('form')) {
+                    if (e.target.tagName === 'BUTTON' || e.target.closest('button')) {
                         return;
                     }
                     
@@ -1353,14 +1328,12 @@
         // Add smooth scrolling for better UX
         window.addEventListener('scroll', function() {
             const header = document.querySelector('.header');
-            if (header) {
-                if (window.scrollY > 100) {
-                    header.style.backdropFilter = 'blur(30px)';
-                    header.style.background = 'rgba(20, 20, 20, 0.95)';
-                } else {
-                    header.style.backdropFilter = 'blur(20px)';
-                    header.style.background = 'var(--bg-secondary)';
-                }
+            if (window.scrollY > 100) {
+                header.style.backdropFilter = 'blur(30px)';
+                header.style.background = 'rgba(20, 20, 20, 0.95)';
+            } else {
+                header.style.backdropFilter = 'blur(20px)';
+                header.style.background = 'var(--bg-secondary)';
             }
         });
     </script>
