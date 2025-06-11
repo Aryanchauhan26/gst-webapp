@@ -66,13 +66,16 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
     
-    // 4. Table Row Click Handler
+    // 4. Enhanced Table Row Click Handler with Tooltip Fix
     const tableRows = document.querySelectorAll('.history-table tbody tr');
     tableRows.forEach(function(row) {
         row.style.cursor = 'pointer';
         row.addEventListener('click', function(e) {
-            // Don't trigger if clicking on a button
-            if (e.target.tagName === 'BUTTON' || e.target.closest('button')) {
+            // Don't navigate if clicking the view button or any form element
+            if (e.target.tagName === 'BUTTON' || 
+                e.target.closest('button') || 
+                e.target.closest('form') ||
+                e.target.closest('.view-btn')) {
                 return;
             }
             
@@ -178,6 +181,149 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         }
     }, sessionTimeout);
+
+    // 11. Enhanced Tooltip System - Prevents Clipping Issues
+    function createTooltipSystem() {
+        // Create tooltip container that won't be clipped
+        const tooltipContainer = document.createElement('div');
+        tooltipContainer.className = 'tooltip-wrapper enhanced-tooltip';
+        tooltipContainer.style.cssText = `
+            position: fixed;
+            pointer-events: none;
+            z-index: 999999;
+            opacity: 0;
+            transition: opacity 0.2s ease;
+        `;
+        
+        const tooltipContent = document.createElement('div');
+        tooltipContent.className = 'tooltip-content';
+        tooltipContent.style.cssText = `
+            background: #1a1a1a;
+            color: #fff;
+            padding: 10px 14px;
+            border-radius: 8px;
+            font-size: 13px;
+            line-height: 1.4;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            max-width: 300px;
+            word-wrap: break-word;
+            white-space: nowrap;
+        `;
+        
+        // Light theme support
+        if (document.body.classList.contains('light-theme')) {
+            tooltipContent.style.background = '#333';
+            tooltipContent.style.color = '#fff';
+        }
+        
+        tooltipContainer.appendChild(tooltipContent);
+        document.body.appendChild(tooltipContainer);
+        
+        // Add event listeners to all elements with data-tooltip
+        document.querySelectorAll('[data-tooltip]').forEach(element => {
+            element.addEventListener('mouseenter', function(e) {
+                const text = this.getAttribute('data-tooltip');
+                if (!text) return;
+                
+                tooltipContent.textContent = text;
+                tooltipContainer.style.opacity = '1';
+                
+                // Position tooltip with viewport boundary detection
+                const rect = this.getBoundingClientRect();
+                const tooltipRect = tooltipContent.getBoundingClientRect();
+                const viewportWidth = window.innerWidth;
+                const viewportHeight = window.innerHeight;
+                
+                let left = rect.left + (rect.width / 2) - (tooltipRect.width / 2);
+                let top = rect.top - tooltipRect.height - 12;
+                
+                // Horizontal boundary check
+                if (left < 10) {
+                    left = 10;
+                } else if (left + tooltipRect.width > viewportWidth - 10) {
+                    left = viewportWidth - tooltipRect.width - 10;
+                }
+                
+                // Vertical boundary check
+                if (top < 10) {
+                    // Show below if not enough space above
+                    top = rect.bottom + 12;
+                    // Add arrow pointing up
+                    tooltipContent.style.position = 'relative';
+                }
+                
+                tooltipContainer.style.left = left + 'px';
+                tooltipContainer.style.top = top + 'px';
+            });
+            
+            element.addEventListener('mouseleave', function() {
+                tooltipContainer.style.opacity = '0';
+            });
+        });
+        
+        // Update tooltip theme when theme changes
+        document.addEventListener('themeChanged', function() {
+            if (document.body.classList.contains('light-theme')) {
+                tooltipContent.style.background = '#333';
+                tooltipContent.style.color = '#fff';
+            } else {
+                tooltipContent.style.background = '#1a1a1a';
+                tooltipContent.style.color = '#fff';
+            }
+        });
+    }
+    
+    // Initialize enhanced tooltip system
+    createTooltipSystem();
+
+    // 12. Set dynamic greeting
+    setDynamicGreeting();
+    
+    // 13. Create particle background
+    if (window.matchMedia('(prefers-reduced-motion: no-preference)').matches) {
+        createParticles();
+    }
+    
+    // 14. Enhance score displays
+    enhanceScoreDisplay();
+    
+    // 15. Enhance search input
+    enhanceSearchInput();
+    
+    // 16. Animate table rows
+    animateTableRows();
+    
+    // 17. Animate score values on results page
+    const scoreValues = document.querySelectorAll('.score-value');
+    scoreValues.forEach(element => {
+        const value = parseInt(element.textContent);
+        if (!isNaN(value)) {
+            element.textContent = '0%';
+            setTimeout(() => {
+                animateValue(element, 0, value, 1500);
+            }, 500);
+            
+            // Show confetti for high scores
+            if (value >= 90) {
+                setTimeout(showConfetti, 1500);
+            }
+        }
+    });
+    
+    // 18. Add hover effects to buttons
+    const buttons = document.querySelectorAll('button, .btn');
+    buttons.forEach(button => {
+        button.addEventListener('mouseenter', () => {
+            if (!button.disabled) {
+                button.style.transform = 'translateY(-2px)';
+            }
+        });
+        
+        button.addEventListener('mouseleave', () => {
+            button.style.transform = '';
+        });
+    });
 });
 
 // GSTIN Validation Function
@@ -241,47 +387,7 @@ function formatDate(dateString) {
     return new Date(dateString).toLocaleDateString('en-IN', options);
 }
 
-// Add CSS for spinner
-const style = document.createElement('style');
-style.textContent = `
-    .spinner-small {
-        display: inline-block;
-        width: 14px;
-        height: 14px;
-        border: 2px solid #f3f3f3;
-        border-top: 2px solid #333;
-        border-radius: 50%;
-        animation: spin 1s linear infinite;
-    }
-    
-    .validation-message {
-        font-size: 0.875rem;
-        margin-top: 0.25rem;
-    }
-    
-    .text-danger {
-        color: #dc3545;
-    }
-    
-    @media (max-width: 768px) {
-        .nav-items.show {
-            display: flex !important;
-            flex-direction: column;
-            position: absolute;
-            top: 100%;
-            left: 0;
-            right: 0;
-            background: inherit;
-            padding: 1rem;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-        }
-    }
-`;
-document.head.appendChild(style);
-
-// Add this to the end of your static/common-scripts.js file
-
-// Theme Toggle Functionality
+// Enhanced Theme Toggle Functionality
 function toggleTheme() {
     const body = document.body;
     const themeIcon = document.getElementById('theme-indicator-icon');
@@ -295,6 +401,9 @@ function toggleTheme() {
         if (themeIcon) themeIcon.className = 'fas fa-sun';
         localStorage.setItem('theme', 'light');
     }
+    
+    // Dispatch custom event for theme change
+    document.dispatchEvent(new Event('themeChanged'));
 }
 
 // Initialize theme on page load
@@ -371,6 +480,7 @@ function enhanceScoreDisplay() {
     scoreElements.forEach(element => {
         element.addEventListener('mouseenter', function() {
             this.style.transform = 'scale(1.1) rotate(5deg)';
+            this.style.transition = 'transform 0.3s ease';
         });
         element.addEventListener('mouseleave', function() {
             this.style.transform = 'scale(1) rotate(0deg)';
@@ -378,7 +488,7 @@ function enhanceScoreDisplay() {
     });
 }
 
-// 5. Search Input Enhancement
+// 5. Enhanced Search Input with Better Validation
 function enhanceSearchInput() {
     const searchInput = document.getElementById('gstin');
     if (searchInput) {
@@ -415,7 +525,7 @@ function enhanceSearchInput() {
         let placeholderIndex = 0;
         
         setInterval(() => {
-            if (!searchInput.value) {
+            if (!searchInput.value && searchInput !== document.activeElement) {
                 placeholderIndex = (placeholderIndex + 1) % placeholders.length;
                 searchInput.placeholder = placeholders[placeholderIndex];
             }
@@ -464,51 +574,7 @@ function showConfetti() {
     }
 }
 
-// 8. Initialize all enhancements
-document.addEventListener('DOMContentLoaded', function() {
-    // Set dynamic greeting
-    setDynamicGreeting();
-    
-    // Create particle background
-    if (window.matchMedia('(prefers-reduced-motion: no-preference)').matches) {
-        createParticles();
-    }
-    
-    // Enhance score displays
-    enhanceScoreDisplay();
-    
-    // Enhance search input
-    enhanceSearchInput();
-    
-    // Animate table rows
-    animateTableRows();
-    
-    // Animate score values on results page
-    const scoreValues = document.querySelectorAll('.score-value');
-    scoreValues.forEach(element => {
-        const value = parseInt(element.textContent);
-        element.textContent = '0%';
-        setTimeout(() => {
-            animateValue(element, 0, value, 1500);
-        }, 500);
-        
-        // Show confetti for high scores
-        if (value >= 90) {
-            setTimeout(showConfetti, 1500);
-        }
-    });
-    
-    // Add hover sound effects (optional)
-    const buttons = document.querySelectorAll('button, .btn');
-    buttons.forEach(button => {
-        button.addEventListener('mouseenter', () => {
-            // You can add a subtle hover sound here if desired
-            button.style.transform = 'translateY(-2px)';
-        });
-    });
-});
-
-// 9. Keyboard Shortcuts
+// 9. Enhanced Keyboard Shortcuts
 document.addEventListener('keydown', function(e) {
     // Ctrl/Cmd + K to focus search
     if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
@@ -520,84 +586,92 @@ document.addEventListener('keydown', function(e) {
         }
     }
     
+    // Ctrl/Cmd + D for theme toggle
+    if ((e.ctrlKey || e.metaKey) && e.key === 'd') {
+        e.preventDefault();
+        toggleTheme();
+    }
+    
     // Escape to clear search
     if (e.key === 'Escape') {
         const searchInput = document.getElementById('gstin');
         if (searchInput && searchInput === document.activeElement) {
             searchInput.value = '';
             searchInput.blur();
+            // Reset input styling
+            searchInput.style.borderColor = '';
+            searchInput.style.boxShadow = '';
+            searchInput.classList.remove('success-pulse');
         }
     }
 });
 
-<!-- Enhanced JavaScript for Better Tooltip Handling -->
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    // Create a better tooltip system that avoids clipping
-    function createTooltipSystem() {
-        // Create tooltip container
-        const tooltipContainer = document.createElement('div');
-        tooltipContainer.className = 'tooltip-wrapper';
-        tooltipContainer.innerHTML = '<div class="tooltip-content"></div>';
-        document.body.appendChild(tooltipContainer);
-        
-        const tooltipContent = tooltipContainer.querySelector('.tooltip-content');
-        
-        // Add event listeners to all elements with data-tooltip
-        document.querySelectorAll('[data-tooltip]').forEach(element => {
-            element.addEventListener('mouseenter', function(e) {
-                const text = this.getAttribute('data-tooltip');
-                if (!text) return;
-                
-                tooltipContent.textContent = text;
-                tooltipContainer.classList.add('show');
-                
-                // Position tooltip
-                const rect = this.getBoundingClientRect();
-                const tooltipRect = tooltipContent.getBoundingClientRect();
-                
-                let left = rect.left + (rect.width / 2) - (tooltipRect.width / 2);
-                let top = rect.top - tooltipRect.height - 10;
-                
-                // Keep tooltip within viewport
-                if (left < 10) left = 10;
-                if (left + tooltipRect.width > window.innerWidth - 10) {
-                    left = window.innerWidth - tooltipRect.width - 10;
-                }
-                
-                if (top < 10) {
-                    // Show below if not enough space above
-                    top = rect.bottom + 10;
-                }
-                
-                tooltipContainer.style.left = left + 'px';
-                tooltipContainer.style.top = top + 'px';
-            });
-            
-            element.addEventListener('mouseleave', function() {
-                tooltipContainer.classList.remove('show');
-            });
-        });
+// Add Enhanced CSS Styles
+const style = document.createElement('style');
+style.textContent = `
+    .spinner-small {
+        display: inline-block;
+        width: 14px;
+        height: 14px;
+        border: 2px solid #f3f3f3;
+        border-top: 2px solid #333;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
     }
     
-    // Initialize tooltip system
-    createTooltipSystem();
+    .validation-message {
+        font-size: 0.875rem;
+        margin-top: 0.25rem;
+    }
     
-    // Fix table row hover states
-    const tableRows = document.querySelectorAll('.history-table tbody tr');
-    tableRows.forEach(row => {
-        row.style.cursor = 'pointer';
-        row.addEventListener('click', function(e) {
-            // Don't navigate if clicking the view button
-            if (e.target.closest('.view-btn') || e.target.closest('form')) {
-                return;
-            }
-            
-            const gstin = this.dataset.gstin;
-            if (gstin) {
-                window.location.href = `/search?gstin=${gstin}`;
-            }
-        });
-    });
-});
-</script>
+    .text-danger {
+        color: #dc3545;
+    }
+    
+    /* Enhanced tooltip visibility */
+    .enhanced-tooltip {
+        backdrop-filter: blur(10px);
+    }
+    
+    /* Smooth button hover effects */
+    button, .btn {
+        transition: all 0.3s ease;
+    }
+    
+    /* Success pulse animation */
+    .success-pulse {
+        animation: successPulse 2s infinite;
+    }
+    
+    @keyframes successPulse {
+        0% {
+            box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+        }
+        70% {
+            box-shadow: 0 0 0 10px rgba(16, 185, 129, 0);
+        }
+        100% {
+            box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+        }
+    }
+    
+    @media (max-width: 768px) {
+        .nav-items.show {
+            display: flex !important;
+            flex-direction: column;
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: inherit;
+            padding: 1rem;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .enhanced-tooltip .tooltip-content {
+            max-width: 250px;
+            font-size: 12px;
+        }
+    }
+`;
+document.head.appendChild(style);

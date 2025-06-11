@@ -16,6 +16,7 @@ body {
     --accent-primary: #7c3aed;
     --accent-secondary: #a78bfa;
     --accent-gradient: linear-gradient(135deg, #7c3aed 0%, #2563eb 100%);
+    --accent-gradient-hover: linear-gradient(135deg, #8b5cf6 0%, #3b82f6 100%);
     
     --success: #10b981;
     --warning: #f59e0b;
@@ -45,6 +46,7 @@ body.light-theme {
     --accent-primary: #7c3aed;
     --accent-secondary: #8b5cf6;
     --accent-gradient: linear-gradient(135deg, #7c3aed 0%, #2563eb 100%);
+    --accent-gradient-hover: linear-gradient(135deg, #8b5cf6 0%, #3b82f6 100%);
     
     --success: #059669;
     --warning: #d97706;
@@ -167,9 +169,11 @@ h1, h2, h3, h4, h5, h6 {
     padding: 2rem;
     background-color: var(--bg-secondary);
     min-height: 100vh;
+    position: relative;
+    z-index: 1;
 }
 
-/* Enhanced Header Styles */
+/* 2. Fix Header Alignment Issues - Enhanced Header Styles */
 .header {
     background: var(--bg-secondary);
     backdrop-filter: blur(20px);
@@ -177,7 +181,7 @@ h1, h2, h3, h4, h5, h6 {
     padding: 1rem 0;
     position: sticky;
     top: 0;
-    z-index: 100;
+    z-index: 1000;
     box-shadow: var(--card-shadow);
     transition: all var(--transition-speed);
 }
@@ -189,14 +193,15 @@ h1, h2, h3, h4, h5, h6 {
     display: flex;
     align-items: center;
     justify-content: space-between;
+    gap: 1.5rem;
     flex-wrap: wrap;
-    gap: 1rem;
 }
 
 .logo {
     display: flex;
     align-items: center;
     gap: 1rem;
+    flex-shrink: 0;
 }
 
 .logo svg {
@@ -236,7 +241,7 @@ h1, h2, h3, h4, h5, h6 {
     gap: 1.5rem;
 }
 
-/* Theme Toggle */
+/* 7. Enhanced Theme Toggle Position */
 .theme-toggle {
     background: var(--bg-card);
     border: 1px solid var(--border-color);
@@ -250,6 +255,7 @@ h1, h2, h3, h4, h5, h6 {
     width: 72px;
     height: 36px;
     transition: all var(--transition-speed);
+    margin: 0 0.5rem;
 }
 
 .theme-toggle:hover {
@@ -289,9 +295,11 @@ body.light-theme .theme-toggle-indicator {
 /* Navigation */
 .nav-items {
     display: flex;
-    gap: 2rem;
+    gap: 1rem;
     align-items: center;
     flex-wrap: wrap;
+    flex: 1;
+    justify-content: flex-end;
 }
 
 .nav-link {
@@ -488,13 +496,16 @@ body.light-theme .theme-toggle-indicator {
     border: 1px solid rgba(239, 68, 68, 0.3);
 }
 
-/* Score Badge */
+/* 8. Score Badge Alignment Fix */
 .score-badge {
-    display: inline-block;
-    padding: 0.25rem 0.75rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.3rem 0.8rem;
     border-radius: 15px;
     font-size: 0.85rem;
     font-weight: 600;
+    min-width: 50px;
 }
 
 .score-high {
@@ -548,10 +559,11 @@ body.light-theme .theme-toggle-indicator {
     }
 }
 
-/* Tables */
+/* 4. Fix Table Alignment - Tables */
 .table-container {
     overflow-x: auto;
     margin: 1.5rem 0;
+    position: relative;
 }
 
 table {
@@ -661,6 +673,7 @@ tr:hover {
     box-shadow: var(--card-shadow);
 }
 
+/* 5. History Section Title Fix */
 .history-title {
     font-size: 1.5rem;
     color: var(--text-primary);
@@ -672,10 +685,73 @@ tr:hover {
     gap: 1rem;
 }
 
+.history-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+/* Fix History Section Header */
+.history-header-container {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+/* Fixed Table Layout */
 .history-table {
     width: 100%;
+    table-layout: fixed;
     border-collapse: collapse;
+    background: var(--bg-secondary);
+    border-radius: 12px;
+    overflow: hidden;
     margin-top: 1rem;
+}
+
+.history-table th,
+.history-table td {
+    padding: 1rem;
+    text-align: left;
+    vertical-align: middle;
+}
+
+/* Column widths for better alignment */
+.history-table th:nth-child(1),
+.history-table td:nth-child(1) {
+    width: 22%;
+}
+
+.history-table th:nth-child(2),
+.history-table td:nth-child(2) {
+    width: 18%;
+}
+
+.history-table th:nth-child(3),
+.history-table td:nth-child(3) {
+    width: 35%;
+}
+
+.history-table th:nth-child(4),
+.history-table td:nth-child(4) {
+    width: 15%;
+    text-align: center;
+}
+
+.history-table th:nth-child(5),
+.history-table td:nth-child(5) {
+    width: 10%;
+    text-align: center;
+    white-space: nowrap;
+}
+
+/* Ensure form inside table cell doesn't break layout */
+.history-table td form {
+    display: inline-block;
+    margin: 0;
 }
 
 .history-table tbody tr {
@@ -686,6 +762,17 @@ tr:hover {
 .history-table tbody tr:hover {
     background: var(--bg-hover);
     transform: translateX(5px);
+}
+
+/* GSTIN Code Styling */
+.history-table code {
+    background: var(--bg-hover);
+    padding: 0.3rem 0.6rem;
+    border-radius: 6px;
+    font-family: 'Monaco', 'Consolas', monospace;
+    font-size: 0.875rem;
+    color: var(--accent-primary);
+    display: inline-block;
 }
 
 /* Results Page Specific */
@@ -871,100 +958,84 @@ tr:hover {
     border-color: var(--danger);
 }
 
-/* Tooltip styles */
-.tooltip {
-    position: relative;
-}
-
-.tooltip::after {
-    content: attr(data-tooltip);
-    position: absolute;
-    bottom: 100%;
-    left: 50%;
-    transform: translateX(-50%);
-    background: var(--bg-hover);
-    color: var(--text-primary);
-    padding: 0.5rem 1rem;
-    border-radius: 8px;
-    font-size: 0.875rem;
-    white-space: nowrap;
-    opacity: 0;
+/* Enhanced JavaScript-based Tooltip System (Recommended) */
+.tooltip-wrapper {
+    position: fixed;
     pointer-events: none;
-    transition: opacity 0.3s;
-    margin-bottom: 0.5rem;
+    z-index: 999999;
+    opacity: 0;
+    transition: opacity 0.2s ease;
 }
 
-.tooltip:hover::after {
+.tooltip-wrapper.show {
     opacity: 1;
 }
 
-/* Enhanced Tooltip */
-.enhanced-tooltip {
-    position: relative;
-}
-
-.enhanced-tooltip::before {
-    content: attr(data-tooltip);
-    position: absolute;
-    bottom: 100%;
-    left: 50%;
-    transform: translateX(-50%) translateY(-10px);
-    background: var(--accent-gradient);
-    color: white;
-    padding: 8px 16px;
+.tooltip-content {
+    background: #1a1a1a;
+    color: #fff;
+    padding: 10px 16px;
     border-radius: 8px;
     font-size: 14px;
-    white-space: nowrap;
-    opacity: 0;
-    pointer-events: none;
-    transition: all 0.3s;
-    box-shadow: 0 4px 20px rgba(124, 58, 237, 0.3);
+    line-height: 1.4;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    max-width: 320px;
+    word-wrap: break-word;
 }
 
-.enhanced-tooltip::after {
+.light-theme .tooltip-content {
+    background: #333;
+    color: #fff;
+}
+
+/* Simple CSS Tooltip System - Remove duplicate and keep improved version */
+[data-tooltip] {
+    position: relative;
+}
+
+[data-tooltip]:hover::after,
+[data-tooltip]:hover::before {
+    visibility: visible;
+    opacity: 1;
+    transform: translateY(-5px);
+}
+
+[data-tooltip]::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    bottom: calc(100% + 8px);
+    left: 50%;
+    transform: translateX(-50%) translateY(0);
+    background: #1a1a1a;
+    color: #fff;
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 13px;
+    white-space: nowrap;
+    visibility: hidden;
+    opacity: 0;
+    transition: all 0.2s ease;
+    z-index: 999999;
+    pointer-events: none;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    max-width: 250px;
+    width: max-content;
+}
+
+[data-tooltip]::before {
     content: '';
     position: absolute;
-    bottom: 100%;
+    bottom: calc(100% + 3px);
     left: 50%;
-    transform: translateX(-50%) translateY(-4px);
-    border-width: 6px;
-    border-style: solid;
-    border-color: #7c3aed transparent transparent transparent;
+    transform: translateX(-50%);
+    border: 5px solid transparent;
+    border-top-color: #1a1a1a;
+    visibility: hidden;
     opacity: 0;
-    transition: all 0.3s;
-}
-
-.enhanced-tooltip:hover::before,
-.enhanced-tooltip:hover::after {
-    opacity: 1;
-    transform: translateX(-50%) translateY(-15px);
-}
-
-/* --- Tooltip Always On Top & Not Clipped --- */
-.tooltip::after,
-.tooltip::before,
-.enhanced-tooltip::before,
-.enhanced-tooltip::after {
-    z-index: 99999 !important;
-    max-width: 350px;
-    min-width: 120px;
-    white-space: pre-line;
-    word-break: break-word;
+    transition: all 0.2s ease;
+    z-index: 999999;
     pointer-events: none;
-}
-
-.returns-category,
-.info-card,
-.category-header,
-.category-content,
-.stat-card,
-.stats-grid,
-.table-container,
-.history-section,
-.card,
-body,
-html {
-    overflow: visible !important;
 }
 
 /* Particle Background */
@@ -1099,301 +1170,7 @@ html {
     .dashboard-sidebar {
         width: 100%;
         max-width: 100%;
-        margin-top:
     }
-
-    /* View Button Enhancement */
-.view-btn {
-    background: var(--accent-gradient);
-    color: white;
-    border: none;
-    padding: 0.4rem 1rem;
-    border-radius: 6px;
-    font-size: 0.85rem;
-    cursor: pointer;
-    transition: all 0.3s;
-    display: inline-flex;
-    align-items: center;
-    gap: 0.3rem;
-    box-shadow: 0 2px 10px rgba(124, 58, 237, 0.3);
-    white-space: nowrap;
-}
-
-.view-btn:hover {
-    background: var(--accent-gradient-hover);
-    transform: translateY(-2px);
-    box-shadow: 0 4px 20px rgba(124, 58, 237, 0.5);
-}
-
-/* Table specific fixes */
-.history-table {
-    table-layout: fixed;
-    width: 100%;
-}
-
-.history-table code {
-    display: inline-block;
-    font-family: monospace;
-    font-size: 0.9rem;
-}
-
-/* Fix History Section Header */
-.history-header-container {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 1.5rem;
-    flex-wrap: wrap;
-    gap: 1rem;
-}
-
-.history-title {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    font-size: 1.5rem;
-    color: var(--text-primary);
-    font-weight: 600;
-}
-
-/* Fix Table Alignment */
-.history-table {
-    width: 100%;
-    table-layout: auto;
-    border-collapse: collapse;
-}
-
-.history-table th,
-.history-table td {
-    padding: 1rem;
-    text-align: left;
-    white-space: nowrap;
-}
-
-.history-table th:last-child,
-.history-table td:last-child {
-    text-align: center;
-    width: 120px;
-}
-
-.history-table th:nth-child(4),
-.history-table td:nth-child(4) {
-    text-align: center;
-    width: 150px;
-}
-
-.history-table code {
-    background: var(--bg-hover);
-    padding: 0.25rem 0.5rem;
-    border-radius: 4px;
-    font-family: monospace;
-    font-size: 0.9rem;
-}
-
-/* Simple CSS Tooltip System */
-[data-tooltip] {
-    position: relative;
-}
-
-[data-tooltip]:hover::after {
-    content: attr(data-tooltip);
-    position: absolute;
-    bottom: 100%;
-    left: 50%;
-    transform: translateX(-50%);
-    background: #333;
-    color: #fff;
-    padding: 0.5rem 0.75rem;
-    border-radius: 6px;
-    font-size: 0.875rem;
-    white-space: nowrap;
-    z-index: 10000;
-    pointer-events: none;
-    margin-bottom: 8px;
-}
-
-[data-tooltip]:hover::before {
-    content: '';
-    position: absolute;
-    bottom: 100%;
-    left: 50%;
-    transform: translateX(-50%);
-    border: 6px solid transparent;
-    border-top-color: #333;
-    z-index: 10000;
-    pointer-events: none;
-    margin-bottom: 2px;
-}
-
-/* Remove all the complex tooltip overrides */
-.tooltip::after,
-.tooltip::before {
-    /* Keep it simple */
-}
-
-/* Responsive adjustments */
-@media (max-width: 768px) {
-    .history-header-container {
-        flex-direction: column;
-        align-items: flex-start;
-    }
-    
-    .export-btn {
-        width: 100%;
-        justify-content: center;
-    }
-    
-    .history-table {
-        font-size: 0.875rem;
-    }
-    
-    .history-table th,
-    .history-table td {
-        padding: 0.75rem 0.5rem;
-    }
-}
-
-<style>
-/* ===== CRITICAL FIXES FOR TOOLTIP, HEADER, AND VIEW BUTTON ===== */
-
-/* 1. Fix Tooltip Clipping Issues */
-/* Remove all overflow:hidden from parent containers */
-body,
-html,
-.container,
-.history-section,
-.info-card,
-.card,
-.stats-grid,
-.returns-category,
-.category-header,
-.category-content,
-.table-container {
-    overflow: visible !important;
-}
-
-/* Enhanced JavaScript-based Tooltip System (Recommended) */
-.tooltip-wrapper {
-    position: fixed;
-    pointer-events: none;
-    z-index: 999999;
-    opacity: 0;
-    transition: opacity 0.2s ease;
-}
-
-.tooltip-wrapper.show {
-    opacity: 1;
-}
-
-.tooltip-content {
-    background: #1a1a1a;
-    color: #fff;
-    padding: 10px 16px;
-    border-radius: 8px;
-    font-size: 14px;
-    line-height: 1.4;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    max-width: 320px;
-    word-wrap: break-word;
-}
-
-.light-theme .tooltip-content {
-    background: #333;
-    color: #fff;
-}
-
-/* Simple CSS Tooltip Fallback */
-[data-tooltip] {
-    position: relative;
-}
-
-[data-tooltip]:hover::after,
-[data-tooltip]:hover::before {
-    visibility: visible;
-    opacity: 1;
-    transform: translateY(-5px);
-}
-
-[data-tooltip]::after {
-    content: attr(data-tooltip);
-    position: absolute;
-    bottom: calc(100% + 8px);
-    left: 50%;
-    transform: translateX(-50%) translateY(0);
-    background: #1a1a1a;
-    color: #fff;
-    padding: 8px 12px;
-    border-radius: 6px;
-    font-size: 13px;
-    white-space: nowrap;
-    visibility: hidden;
-    opacity: 0;
-    transition: all 0.2s ease;
-    z-index: 999999;
-    pointer-events: none;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-    max-width: 250px;
-    width: max-content;
-}
-
-[data-tooltip]::before {
-    content: '';
-    position: absolute;
-    bottom: calc(100% + 3px);
-    left: 50%;
-    transform: translateX(-50%);
-    border: 5px solid transparent;
-    border-top-color: #1a1a1a;
-    visibility: hidden;
-    opacity: 0;
-    transition: all 0.2s ease;
-    z-index: 999999;
-    pointer-events: none;
-}
-
-/* Ensure tooltips show above everything */
-.table-container {
-    position: relative;
-}
-
-/* 2. Fix Header Alignment Issues */
-.header {
-    background: var(--bg-secondary);
-    backdrop-filter: blur(20px);
-    border-bottom: 1px solid var(--border-color);
-    padding: 1rem 0;
-    position: sticky;
-    top: 0;
-    z-index: 100;
-    box-shadow: var(--card-shadow);
-}
-
-.header-content {
-    max-width: 1400px;
-    margin: 0 auto;
-    padding: 0 2rem;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 1.5rem;
-    flex-wrap: wrap;
-}
-
-.logo {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-    flex-shrink: 0;
-}
-
-.nav-items {
-    display: flex;
-    gap: 1rem;
-    align-items: center;
-    flex-wrap: wrap;
-    flex: 1;
-    justify-content: flex-end;
 }
 
 /* 3. Fix View Button Styling and Alignment */
@@ -1432,142 +1209,6 @@ html,
     font-size: 0.875rem;
 }
 
-/* 4. Fix Table Alignment */
-.history-table {
-    width: 100%;
-    table-layout: fixed;
-    border-collapse: collapse;
-    background: var(--bg-secondary);
-    border-radius: 12px;
-    overflow: hidden;
-}
-
-.history-table th,
-.history-table td {
-    padding: 1rem;
-    text-align: left;
-    vertical-align: middle;
-}
-
-/* Column widths for better alignment */
-.history-table th:nth-child(1),
-.history-table td:nth-child(1) {
-    width: 22%;
-}
-
-.history-table th:nth-child(2),
-.history-table td:nth-child(2) {
-    width: 18%;
-}
-
-.history-table th:nth-child(3),
-.history-table td:nth-child(3) {
-    width: 35%;
-}
-
-.history-table th:nth-child(4),
-.history-table td:nth-child(4) {
-    width: 15%;
-    text-align: center;
-}
-
-.history-table th:nth-child(5),
-.history-table td:nth-child(5) {
-    width: 10%;
-    text-align: center;
-    white-space: nowrap;
-}
-
-/* Ensure form inside table cell doesn't break layout */
-.history-table td form {
-    display: inline-block;
-    margin: 0;
-}
-
-/* GSTIN Code Styling */
-.history-table code {
-    background: var(--bg-hover);
-    padding: 0.3rem 0.6rem;
-    border-radius: 6px;
-    font-family: 'Monaco', 'Consolas', monospace;
-    font-size: 0.875rem;
-    color: var(--accent-primary);
-    display: inline-block;
-}
-
-/* 5. History Section Title Fix */
-.history-title {
-    font-size: 1.5rem;
-    color: var(--text-primary);
-    margin-bottom: 1.5rem;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    flex-wrap: wrap;
-    gap: 1rem;
-}
-
-.history-header {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-}
-
-/* 6. Mobile Responsive Fixes */
-@media (max-width: 768px) {
-    .header-content {
-        flex-direction: column;
-        gap: 1rem;
-        text-align: center;
-    }
-    
-    .nav-items {
-        width: 100%;
-        justify-content: center;
-    }
-    
-    .history-table {
-        font-size: 0.875rem;
-    }
-    
-    .history-table th,
-    .history-table td {
-        padding: 0.75rem 0.5rem;
-    }
-    
-    .view-btn {
-        padding: 0.4rem 0.8rem;
-        font-size: 0.8rem;
-    }
-    
-    /* Make table responsive */
-    .table-container {
-        overflow-x: auto;
-        -webkit-overflow-scrolling: touch;
-    }
-    
-    .history-table {
-        min-width: 600px;
-    }
-}
-
-/* 7. Enhanced Theme Toggle Position */
-.theme-toggle {
-    margin: 0 0.5rem;
-}
-
-/* 8. Score Badge Alignment Fix */
-.score-badge {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    padding: 0.3rem 0.8rem;
-    border-radius: 15px;
-    font-size: 0.85rem;
-    font-weight: 600;
-    min-width: 50px;
-}
-
 /* 9. Export Button Alignment */
 .export-btn {
     background: linear-gradient(135deg, #10b981 0%, #059669 100%);
@@ -1585,20 +1226,47 @@ html,
     box-shadow: 0 4px 20px rgba(16, 185, 129, 0.3);
 }
 
-/* 10. Ensure proper stacking context */
-.container {
-    position: relative;
-    z-index: 1;
+/* 6. Mobile Responsive Fixes */
+@media (max-width: 768px) {
+    .header-content {
+        flex-direction: column;
+        gap: 1rem;
+        text-align: center;
+    }
+    
+    .nav-items {
+        width: 100%;
+        justify-content: center;
+    }
+    
+    .history-header-container {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    
+    .export-btn {
+        width: 100%;
+        justify-content: center;
+    }
+    
+    .history-table {
+        font-size: 0.875rem;
+        min-width: 600px;
+    }
+    
+    .history-table th,
+    .history-table td {
+        padding: 0.75rem 0.5rem;
+    }
+    
+    .view-btn {
+        padding: 0.4rem 0.8rem;
+        font-size: 0.8rem;
+    }
+    
+    /* Make table responsive */
+    .table-container {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
 }
-
-.header {
-    z-index: 1000;
-}
-
-/* Tooltips should be on top */
-[data-tooltip]::after,
-[data-tooltip]::before,
-.tooltip-wrapper {
-    z-index: 999999 !important;
-}
-</style>
