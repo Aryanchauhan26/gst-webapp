@@ -529,3 +529,75 @@ document.addEventListener('keydown', function(e) {
         }
     }
 });
+
+<!-- Enhanced JavaScript for Better Tooltip Handling -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Create a better tooltip system that avoids clipping
+    function createTooltipSystem() {
+        // Create tooltip container
+        const tooltipContainer = document.createElement('div');
+        tooltipContainer.className = 'tooltip-wrapper';
+        tooltipContainer.innerHTML = '<div class="tooltip-content"></div>';
+        document.body.appendChild(tooltipContainer);
+        
+        const tooltipContent = tooltipContainer.querySelector('.tooltip-content');
+        
+        // Add event listeners to all elements with data-tooltip
+        document.querySelectorAll('[data-tooltip]').forEach(element => {
+            element.addEventListener('mouseenter', function(e) {
+                const text = this.getAttribute('data-tooltip');
+                if (!text) return;
+                
+                tooltipContent.textContent = text;
+                tooltipContainer.classList.add('show');
+                
+                // Position tooltip
+                const rect = this.getBoundingClientRect();
+                const tooltipRect = tooltipContent.getBoundingClientRect();
+                
+                let left = rect.left + (rect.width / 2) - (tooltipRect.width / 2);
+                let top = rect.top - tooltipRect.height - 10;
+                
+                // Keep tooltip within viewport
+                if (left < 10) left = 10;
+                if (left + tooltipRect.width > window.innerWidth - 10) {
+                    left = window.innerWidth - tooltipRect.width - 10;
+                }
+                
+                if (top < 10) {
+                    // Show below if not enough space above
+                    top = rect.bottom + 10;
+                }
+                
+                tooltipContainer.style.left = left + 'px';
+                tooltipContainer.style.top = top + 'px';
+            });
+            
+            element.addEventListener('mouseleave', function() {
+                tooltipContainer.classList.remove('show');
+            });
+        });
+    }
+    
+    // Initialize tooltip system
+    createTooltipSystem();
+    
+    // Fix table row hover states
+    const tableRows = document.querySelectorAll('.history-table tbody tr');
+    tableRows.forEach(row => {
+        row.style.cursor = 'pointer';
+        row.addEventListener('click', function(e) {
+            // Don't navigate if clicking the view button
+            if (e.target.closest('.view-btn') || e.target.closest('form')) {
+                return;
+            }
+            
+            const gstin = this.dataset.gstin;
+            if (gstin) {
+                window.location.href = `/search?gstin=${gstin}`;
+            }
+        });
+    });
+});
+</script>

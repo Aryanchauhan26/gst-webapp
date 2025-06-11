@@ -1252,3 +1252,353 @@ html {
         padding: 0.75rem 0.5rem;
     }
 }
+
+<style>
+/* ===== CRITICAL FIXES FOR TOOLTIP, HEADER, AND VIEW BUTTON ===== */
+
+/* 1. Fix Tooltip Clipping Issues */
+/* Remove all overflow:hidden from parent containers */
+body,
+html,
+.container,
+.history-section,
+.info-card,
+.card,
+.stats-grid,
+.returns-category,
+.category-header,
+.category-content,
+.table-container {
+    overflow: visible !important;
+}
+
+/* Enhanced JavaScript-based Tooltip System (Recommended) */
+.tooltip-wrapper {
+    position: fixed;
+    pointer-events: none;
+    z-index: 999999;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
+.tooltip-wrapper.show {
+    opacity: 1;
+}
+
+.tooltip-content {
+    background: #1a1a1a;
+    color: #fff;
+    padding: 10px 16px;
+    border-radius: 8px;
+    font-size: 14px;
+    line-height: 1.4;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    max-width: 320px;
+    word-wrap: break-word;
+}
+
+.light-theme .tooltip-content {
+    background: #333;
+    color: #fff;
+}
+
+/* Simple CSS Tooltip Fallback */
+[data-tooltip] {
+    position: relative;
+}
+
+[data-tooltip]:hover::after,
+[data-tooltip]:hover::before {
+    visibility: visible;
+    opacity: 1;
+    transform: translateY(-5px);
+}
+
+[data-tooltip]::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    bottom: calc(100% + 8px);
+    left: 50%;
+    transform: translateX(-50%) translateY(0);
+    background: #1a1a1a;
+    color: #fff;
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 13px;
+    white-space: nowrap;
+    visibility: hidden;
+    opacity: 0;
+    transition: all 0.2s ease;
+    z-index: 999999;
+    pointer-events: none;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    max-width: 250px;
+    width: max-content;
+}
+
+[data-tooltip]::before {
+    content: '';
+    position: absolute;
+    bottom: calc(100% + 3px);
+    left: 50%;
+    transform: translateX(-50%);
+    border: 5px solid transparent;
+    border-top-color: #1a1a1a;
+    visibility: hidden;
+    opacity: 0;
+    transition: all 0.2s ease;
+    z-index: 999999;
+    pointer-events: none;
+}
+
+/* Ensure tooltips show above everything */
+.table-container {
+    position: relative;
+}
+
+/* 2. Fix Header Alignment Issues */
+.header {
+    background: var(--bg-secondary);
+    backdrop-filter: blur(20px);
+    border-bottom: 1px solid var(--border-color);
+    padding: 1rem 0;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    box-shadow: var(--card-shadow);
+}
+
+.header-content {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 0 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+}
+
+.logo {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex-shrink: 0;
+}
+
+.nav-items {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+    flex-wrap: wrap;
+    flex: 1;
+    justify-content: flex-end;
+}
+
+/* 3. Fix View Button Styling and Alignment */
+.view-btn {
+    background: var(--accent-gradient);
+    color: white !important;
+    border: none;
+    padding: 0.5rem 1.2rem;
+    border-radius: 8px;
+    font-size: 0.875rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    box-shadow: 0 2px 10px rgba(124, 58, 237, 0.3);
+    white-space: nowrap;
+    text-decoration: none;
+    position: relative;
+    overflow: hidden;
+}
+
+.view-btn:hover {
+    background: var(--accent-gradient-hover);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 20px rgba(124, 58, 237, 0.5);
+    color: white !important;
+}
+
+.view-btn:active {
+    transform: translateY(0);
+}
+
+.view-btn i {
+    font-size: 0.875rem;
+}
+
+/* 4. Fix Table Alignment */
+.history-table {
+    width: 100%;
+    table-layout: fixed;
+    border-collapse: collapse;
+    background: var(--bg-secondary);
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+.history-table th,
+.history-table td {
+    padding: 1rem;
+    text-align: left;
+    vertical-align: middle;
+}
+
+/* Column widths for better alignment */
+.history-table th:nth-child(1),
+.history-table td:nth-child(1) {
+    width: 22%;
+}
+
+.history-table th:nth-child(2),
+.history-table td:nth-child(2) {
+    width: 18%;
+}
+
+.history-table th:nth-child(3),
+.history-table td:nth-child(3) {
+    width: 35%;
+}
+
+.history-table th:nth-child(4),
+.history-table td:nth-child(4) {
+    width: 15%;
+    text-align: center;
+}
+
+.history-table th:nth-child(5),
+.history-table td:nth-child(5) {
+    width: 10%;
+    text-align: center;
+    white-space: nowrap;
+}
+
+/* Ensure form inside table cell doesn't break layout */
+.history-table td form {
+    display: inline-block;
+    margin: 0;
+}
+
+/* GSTIN Code Styling */
+.history-table code {
+    background: var(--bg-hover);
+    padding: 0.3rem 0.6rem;
+    border-radius: 6px;
+    font-family: 'Monaco', 'Consolas', monospace;
+    font-size: 0.875rem;
+    color: var(--accent-primary);
+    display: inline-block;
+}
+
+/* 5. History Section Title Fix */
+.history-title {
+    font-size: 1.5rem;
+    color: var(--text-primary);
+    margin-bottom: 1.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+.history-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+/* 6. Mobile Responsive Fixes */
+@media (max-width: 768px) {
+    .header-content {
+        flex-direction: column;
+        gap: 1rem;
+        text-align: center;
+    }
+    
+    .nav-items {
+        width: 100%;
+        justify-content: center;
+    }
+    
+    .history-table {
+        font-size: 0.875rem;
+    }
+    
+    .history-table th,
+    .history-table td {
+        padding: 0.75rem 0.5rem;
+    }
+    
+    .view-btn {
+        padding: 0.4rem 0.8rem;
+        font-size: 0.8rem;
+    }
+    
+    /* Make table responsive */
+    .table-container {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+    
+    .history-table {
+        min-width: 600px;
+    }
+}
+
+/* 7. Enhanced Theme Toggle Position */
+.theme-toggle {
+    margin: 0 0.5rem;
+}
+
+/* 8. Score Badge Alignment Fix */
+.score-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.3rem 0.8rem;
+    border-radius: 15px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    min-width: 50px;
+}
+
+/* 9. Export Button Alignment */
+.export-btn {
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    color: white;
+    border: none;
+    padding: 0.6rem 1.2rem;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    box-shadow: 0 4px 20px rgba(16, 185, 129, 0.3);
+}
+
+/* 10. Ensure proper stacking context */
+.container {
+    position: relative;
+    z-index: 1;
+}
+
+.header {
+    z-index: 1000;
+}
+
+/* Tooltips should be on top */
+[data-tooltip]::after,
+[data-tooltip]::before,
+.tooltip-wrapper {
+    z-index: 999999 !important;
+}
+</style>
