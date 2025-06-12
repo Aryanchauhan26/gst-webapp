@@ -618,129 +618,6 @@ td {
     color: var(--text-primary);
 }
 
-tr:hover {
-    background: var(--bg-hover);
-}
-
-/* Animations - Smoother with cubic-bezier easing */
-.fade-in {
-    animation: fadeIn 0.6s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-@keyframes fadeIn {
-    from { 
-        opacity: 0; 
-        transform: translateY(20px); 
-    }
-    to { 
-        opacity: 1; 
-        transform: translateY(0); 
-    }
-}
-
-/* Smooth scrolling with momentum */
-* {
-    scroll-behavior: smooth;
-}
-
-/* GPU acceleration for smooth animations */
-.animated {
-    transform: translateZ(0);
-    backface-visibility: hidden;
-}
-
-/* Loading */
-.loading {
-    display: none;
-    text-align: center;
-    padding: 2rem;
-}
-
-.spinner {
-    width: 40px;
-    height: 40px;
-    border: 3px solid var(--bg-hover);
-    border-top: 3px solid var(--accent-primary);
-    border-radius: 50%;
-    animation: spin 1s linear infinite;
-    margin: 0 auto;
-}
-
-@keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
-}
-
-/* Empty State */
-.empty-state {
-    text-align: center;
-    padding: 3rem;
-    color: var(--text-secondary);
-}
-
-.empty-state svg {
-    width: 64px;
-    height: 64px;
-    margin-bottom: 1rem;
-    opacity: 0.3;
-}
-
-/* Welcome Section */
-.welcome-section {
-    background: var(--bg-card);
-    border-radius: 16px;
-    padding: 2rem;
-    margin-bottom: 2rem;
-    box-shadow: var(--card-shadow);
-}
-
-.welcome-title {
-    font-size: 1.8rem;
-    color: var(--text-primary);
-    margin-bottom: 0.5rem;
-}
-
-.welcome-subtitle {
-    color: var(--text-secondary);
-    font-size: 1.1rem;
-}
-
-/* History Section */
-.history-section {
-    background: var(--bg-card);
-    border-radius: 16px;
-    padding: 2rem;
-    box-shadow: var(--card-shadow);
-}
-
-/* 5. History Section Title Fix */
-.history-title {
-    font-size: 1.5rem;
-    color: var(--text-primary);
-    margin-bottom: 1.5rem;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    flex-wrap: wrap;
-    gap: 1rem;
-}
-
-.history-header {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-}
-
-/* Fix History Section Header */
-.history-header-container {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 1.5rem;
-    flex-wrap: wrap;
-    gap: 1rem;
-}
-
 /* Fixed Table Layout */
 .history-table {
     width: 100%;
@@ -759,39 +636,70 @@ tr:hover {
     vertical-align: middle;
 }
 
-/* Column widths for better alignment */
+/* REPLACE THE EXISTING COLUMN WIDTH SECTION WITH THIS ENHANCED VERSION */
+/* Fixed Column Widths for Better Alignment */
 .history-table th:nth-child(1),
 .history-table td:nth-child(1) {
-    width: 22%;
+    width: 20%;
+    min-width: 140px;
+    white-space: nowrap;
 }
 
 .history-table th:nth-child(2),
 .history-table td:nth-child(2) {
-    width: 18%;
+    width: 22%;
+    min-width: 150px;
 }
 
 .history-table th:nth-child(3),
 .history-table td:nth-child(3) {
     width: 35%;
+    min-width: 200px;
+    max-width: 300px;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .history-table th:nth-child(4),
 .history-table td:nth-child(4) {
-    width: 15%;
+    width: 13%;
+    min-width: 100px;
     text-align: center;
 }
 
 .history-table th:nth-child(5),
 .history-table td:nth-child(5) {
     width: 10%;
+    min-width: 80px;
     text-align: center;
     white-space: nowrap;
+}
+
+.history-table td {
+    padding: 1rem;
+    color: var(--text-primary);
+    border-bottom: 1px solid var(--border-color);
+    vertical-align: middle;
+    /* Prevent content from breaking layout */
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Company Name Cell */
+.company-name-cell {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    display: block;
 }
 
 /* Ensure form inside table cell doesn't break layout */
 .history-table td form {
     display: inline-block;
     margin: 0;
+    padding: 0;
+    width: 100%;
 }
 
 .history-table tbody tr {
@@ -799,12 +707,13 @@ tr:hover {
     transition: all 0.3s ease;
 }
 
+/* UPDATED: Remove hover transform that causes misalignment */
 .history-table tbody tr:hover {
     background: var(--bg-hover);
-    transform: translateX(5px);
+    /* REMOVED: transform: translateX(5px); - This was causing alignment issues */
 }
 
-/* GSTIN Code Styling */
+/* GSTIN Code Styling - ENHANCED */
 .history-table code {
     background: var(--bg-hover);
     padding: 0.3rem 0.6rem;
@@ -813,6 +722,9 @@ tr:hover {
     font-size: 0.875rem;
     color: var(--accent-primary);
     display: inline-block;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 /* Results Page Specific */
@@ -1213,12 +1125,12 @@ tr:hover {
     }
 }
 
-/* 3. Fix View Button Styling and Alignment */
+/* 3. Fix View Button Styling and Alignment - UPDATED */
 .view-btn {
     background: var(--accent-gradient);
     color: white !important;
     border: none;
-    padding: 0.5rem 1.2rem;
+    padding: 0.4rem 1rem;
     border-radius: 8px;
     font-size: 0.875rem;
     font-weight: 600;
@@ -1232,21 +1144,8 @@ tr:hover {
     text-decoration: none;
     position: relative;
     overflow: hidden;
-}
-
-.view-btn:hover {
-    background: var(--accent-gradient-hover);
-    transform: translateY(-2px);
-    box-shadow: 0 4px 20px rgba(124, 58, 237, 0.5);
-    color: white !important;
-}
-
-.view-btn:active {
-    transform: translateY(0);
-}
-
-.view-btn i {
-    font-size: 0.875rem;
+    min-width: 70px;
+    justify-content: center;
 }
 
 /* 9. Export Button Alignment */
@@ -1266,7 +1165,7 @@ tr:hover {
     box-shadow: 0 4px 20px rgba(16, 185, 129, 0.3);
 }
 
-/* 6. Mobile Responsive Fixes */
+/* 6. Mobile Responsive Fixes - UPDATED */
 @media (max-width: 768px) {
     .header-content {
         flex-direction: column;
@@ -1291,7 +1190,7 @@ tr:hover {
     
     .history-table {
         font-size: 0.875rem;
-        min-width: 600px;
+        min-width: 700px; /* UPDATED: Increased from 600px */
     }
     
     .history-table th,
@@ -1308,5 +1207,245 @@ tr:hover {
     .table-container {
         overflow-x: auto;
         -webkit-overflow-scrolling: touch;
+    }
+}
+
+/* Fixed Filing Area (Returns Accordion) CSS */
+.returns-accordion {
+    background: var(--bg-secondary);
+    border-radius: 12px;
+    overflow: hidden;
+    margin-top: 1rem;
+    position: relative;
+    z-index: 1;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+}
+
+.returns-category {
+    border-bottom: 1px solid var(--border-color);
+    position: relative;
+    overflow: visible;
+}
+
+.returns-category:last-child {
+    border-bottom: none;
+}
+
+.category-header {
+    padding: 1.5rem;
+    background: var(--bg-hover);
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: all 0.3s;
+    user-select: none;
+    position: relative;
+    z-index: 2;
+}
+
+.category-header:hover {
+    background: var(--bg-card);
+    padding-left: 1.75rem;
+}
+
+.category-header.active {
+    background: var(--bg-card);
+    border-bottom: 2px solid var(--accent-primary);
+}
+
+.category-info {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.category-title {
+    font-weight: 600;
+    font-size: 1.1rem;
+    color: var(--text-primary);
+}
+
+.category-count {
+    background: var(--accent-gradient);
+    color: white;
+    padding: 0.25rem 0.75rem;
+    border-radius: 20px;
+    font-size: 0.875rem;
+    font-weight: 600;
+    min-width: 40px;
+    text-align: center;
+}
+
+.category-toggle {
+    font-size: 1.2rem;
+    transition: transform 0.3s;
+    color: var(--text-secondary);
+}
+
+.category-header.active .category-toggle {
+    transform: rotate(180deg);
+    color: var(--accent-primary);
+}
+
+.category-content {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    z-index: 1;
+    background: var(--bg-card);
+}
+
+.category-content.active {
+    max-height: 1000px;
+    overflow-x: auto;
+    overflow-y: visible;
+}
+
+/* Returns Table Styling */
+.returns-table {
+    width: 100%;
+    background: var(--bg-card);
+    border-collapse: collapse;
+    table-layout: fixed;
+    margin: 0;
+}
+
+.returns-table th {
+    background: var(--bg-secondary);
+    padding: 1rem;
+    text-align: left;
+    font-weight: 600;
+    color: var(--text-primary);
+    font-size: 0.9rem;
+    border-bottom: 2px solid var(--border-color);
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+/* Column widths for returns table */
+.returns-table th:nth-child(1),
+.returns-table td:nth-child(1) {
+    width: 25%;
+}
+
+.returns-table th:nth-child(2),
+.returns-table td:nth-child(2) {
+    width: 25%;
+}
+
+.returns-table th:nth-child(3),
+.returns-table td:nth-child(3) {
+    width: 25%;
+}
+
+.returns-table th:nth-child(4),
+.returns-table td:nth-child(4) {
+    width: 25%;
+}
+
+/* For other returns table with 5 columns */
+.returns-table.other-returns th:nth-child(1),
+.returns-table.other-returns td:nth-child(1) {
+    width: 20%;
+}
+
+.returns-table.other-returns th:nth-child(2),
+.returns-table.other-returns td:nth-child(2) {
+    width: 20%;
+}
+
+.returns-table.other-returns th:nth-child(3),
+.returns-table.other-returns td:nth-child(3) {
+    width: 20%;
+}
+
+.returns-table.other-returns th:nth-child(4),
+.returns-table.other-returns td:nth-child(4) {
+    width: 20%;
+}
+
+.returns-table.other-returns th:nth-child(5),
+.returns-table.other-returns td:nth-child(5) {
+    width: 20%;
+}
+
+.returns-table td {
+    padding: 1rem;
+    border-bottom: 1px solid var(--border-color);
+    color: var(--text-primary);
+    font-size: 0.9rem;
+    vertical-align: middle;
+}
+
+.returns-table tbody tr {
+    transition: background-color 0.2s;
+}
+
+.returns-table tbody tr:hover {
+    background: var(--bg-hover);
+}
+
+.returns-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+/* Filing Status Badges */
+.filing-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.25rem 0.75rem;
+    border-radius: 12px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.status-on-time {
+    background: rgba(16, 185, 129, 0.15);
+    color: var(--success);
+    border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.status-late {
+    background: rgba(239, 68, 68, 0.15);
+    color: var(--danger);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+/* Return type badges */
+.return-type-badge {
+    background: var(--accent-gradient);
+    color: white;
+    padding: 0.25rem 0.75rem;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    display: inline-block;
+}
+
+/* Mobile Responsive */
+@media (max-width: 768px) {
+    .category-content.active {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+    
+    .returns-table {
+        min-width: 600px;
+        font-size: 0.85rem;
+    }
+    
+    .returns-table th,
+    .returns-table td {
+        padding: 0.75rem 0.5rem;
+    }
+    
+    .filing-status {
+        font-size: 0.75rem;
+        padding: 0.2rem 0.5rem;
     }
 }

@@ -454,5 +454,61 @@
     </script>
 
     <script src="/static/common-scripts.js"></script>
+    <!-- Add this script section before closing </body> tag in analytics.html -->
+<script>
+    // Theme Toggle Function
+    function toggleTheme() {
+        const body = document.body;
+        const themeIcon = document.getElementById('theme-indicator-icon');
+        
+        if (body.classList.contains('light-theme')) {
+            body.classList.remove('light-theme');
+            if (themeIcon) themeIcon.className = 'fas fa-moon';
+            localStorage.setItem('theme', 'dark');
+        } else {
+            body.classList.add('light-theme');
+            if (themeIcon) themeIcon.className = 'fas fa-sun';
+            localStorage.setItem('theme', 'light');
+        }
+        
+        // Broadcast theme change to other tabs
+        localStorage.setItem('theme-changed', Date.now());
+    }
+
+    // Listen for theme changes in other tabs
+    window.addEventListener('storage', function(e) {
+        if (e.key === 'theme-changed') {
+            const savedTheme = localStorage.getItem('theme');
+            const body = document.body;
+            const themeIcon = document.getElementById('theme-indicator-icon');
+            
+            if (savedTheme === 'light' && !body.classList.contains('light-theme')) {
+                body.classList.add('light-theme');
+                if (themeIcon) themeIcon.className = 'fas fa-sun';
+            } else if (savedTheme === 'dark' && body.classList.contains('light-theme')) {
+                body.classList.remove('light-theme');
+                if (themeIcon) themeIcon.className = 'fas fa-moon';
+            }
+        }
+    });
+
+    // Apply saved theme on page load
+    document.addEventListener('DOMContentLoaded', function() {
+        const savedTheme = localStorage.getItem('theme');
+        const themeIcon = document.getElementById('theme-indicator-icon');
+        
+        if (savedTheme === 'light') {
+            document.body.classList.add('light-theme');
+            if (themeIcon) themeIcon.className = 'fas fa-sun';
+        }
+        
+        // Update chart colors based on theme
+        if (typeof Chart !== 'undefined') {
+            const isDark = !document.body.classList.contains('light-theme');
+            Chart.defaults.color = isDark ? '#a1a1aa' : '#6b7280';
+            Chart.defaults.borderColor = isDark ? '#27272a' : '#e5e7eb';
+        }
+    });
+</script>
 </body>
 </html>

@@ -99,13 +99,29 @@ document.addEventListener('DOMContentLoaded', function() {
     console.log('✅ All common scripts initialized successfully');
 });
 
-// FIXED: Single Tooltip System - No Duplicates
+// Fixed Single Tooltip System - Prevents Duplicates
 function initializeSingleTooltipSystem() {
     console.log('💬 Initializing single tooltip system...');
     
-    // Remove any existing tooltip containers to prevent duplicates
-    const existingTooltips = document.querySelectorAll('.tooltip-container, .enhanced-tooltip-container');
+    // Remove ALL existing tooltip containers first
+    const existingTooltips = document.querySelectorAll('.tooltip-container, .enhanced-tooltip-container, .tooltip-wrapper, .custom-tooltip');
     existingTooltips.forEach(el => el.remove());
+    
+    // Disable CSS tooltips completely
+    const style = document.createElement('style');
+    style.textContent = `
+        [data-tooltip]::after,
+        [data-tooltip]::before,
+        .tooltip::after,
+        .tooltip::before,
+        .enhanced-tooltip::after,
+        .enhanced-tooltip::before {
+            display: none !important;
+            visibility: hidden !important;
+            opacity: 0 !important;
+        }
+    `;
+    document.head.appendChild(style);
     
     // Create single tooltip container
     const tooltipContainer = document.createElement('div');
@@ -158,6 +174,8 @@ function initializeSingleTooltipSystem() {
         const tooltipRect = tooltipContent.getBoundingClientRect();
         const viewportWidth = window.innerWidth;
         const viewportHeight = window.innerHeight;
+        const scrollY = window.scrollY;
+        const scrollX = window.scrollX;
         
         // Default: above the element
         let left = rect.left + (rect.width / 2) - (tooltipRect.width / 2);
@@ -199,8 +217,14 @@ function initializeSingleTooltipSystem() {
     
     // Show tooltip
     function showTooltip(target) {
-        const text = target.getAttribute('data-tooltip');
+        const text = target.getAttribute('data-tooltip') || target.getAttribute('title');
         if (!text) return;
+        
+        // Remove title attribute to prevent browser tooltip
+        if (target.hasAttribute('title')) {
+            target.setAttribute('data-tooltip', text);
+            target.removeAttribute('title');
+        }
         
         currentTarget = target;
         tooltipContent.textContent = text;
@@ -219,7 +243,7 @@ function initializeSingleTooltipSystem() {
     
     // Event listeners using delegation
     document.addEventListener('mouseenter', function(e) {
-        const target = e.target.closest('[data-tooltip]');
+        const target = e.target.closest('[data-tooltip], [title]');
         if (target) {
             clearTimeout(hideTimeout);
             showTimeout = setTimeout(() => showTooltip(target), 300);
@@ -227,7 +251,7 @@ function initializeSingleTooltipSystem() {
     }, true);
     
     document.addEventListener('mouseleave', function(e) {
-        const target = e.target.closest('[data-tooltip]');
+        const target = e.target.closest('[data-tooltip], [title]');
         if (target && target === currentTarget) {
             clearTimeout(showTimeout);
             hideTimeout = setTimeout(hideTooltip, 100);
@@ -235,18 +259,19 @@ function initializeSingleTooltipSystem() {
     }, true);
     
     // Update on scroll
+    let scrollTimeout;
     window.addEventListener('scroll', function() {
         if (currentTarget) {
             tooltipContainer.style.opacity = '0';
-            clearTimeout(showTimeout);
-            showTimeout = setTimeout(() => {
+            clearTimeout(scrollTimeout);
+            scrollTimeout = setTimeout(() => {
                 if (currentTarget) {
                     positionTooltip(currentTarget);
                     tooltipContainer.style.opacity = '1';
                 }
             }, 100);
         }
-    });
+    }, { passive: true });
     
     console.log('✅ Single tooltip system initialized');
 }
