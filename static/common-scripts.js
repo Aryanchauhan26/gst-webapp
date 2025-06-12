@@ -1,9 +1,18 @@
-// GST Intelligence Platform - Common Scripts
-// Add shared JavaScript here if needed.
+// GST Intelligence Platform - Enhanced Common Scripts
+// Includes robust tooltip system, user dropdown, and smooth animations
 
 document.addEventListener('DOMContentLoaded', function() {
     
-    // 1. Auto-dismiss messages after 5 seconds
+    // 1. Enhanced Tooltip System - Prevents Clipping
+    initializeEnhancedTooltipSystem();
+    
+    // 2. User Profile Dropdown System
+    initializeUserDropdown();
+    
+    // 3. Smooth Animations with RequestAnimationFrame
+    initializeSmoothAnimations();
+    
+    // 4. Auto-dismiss messages after 5 seconds
     const messages = document.querySelectorAll('.message, .error-message, .success-message');
     messages.forEach(function(message) {
         setTimeout(function() {
@@ -16,7 +25,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }, 5000);
     });
     
-    // 2. GSTIN Input Formatter and Validator
+    // 5. GSTIN Input Formatter and Validator
     const gstinInputs = document.querySelectorAll('input[name="gstin"], #gstin');
     gstinInputs.forEach(function(input) {
         // Auto-uppercase
@@ -34,7 +43,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
     
-    // 3. Form Submit Handler with Loading State
+    // 6. Form Submit Handler with Loading State
     const forms = document.querySelectorAll('form');
     forms.forEach(function(form) {
         form.addEventListener('submit', function(e) {
@@ -66,7 +75,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
     
-    // 4. Enhanced Table Row Click Handler with Tooltip Fix
+    // 7. Enhanced Table Row Click Handler
     const tableRows = document.querySelectorAll('.history-table tbody tr');
     tableRows.forEach(function(row) {
         row.style.cursor = 'pointer';
@@ -86,7 +95,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
     
-    // 5. Mobile Menu Toggle
+    // 8. Mobile Menu Toggle
     const menuToggle = document.getElementById('mobile-menu-toggle');
     const navItems = document.querySelector('.nav-items');
     if (menuToggle && navItems) {
@@ -104,7 +113,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
-    // 6. Copy to Clipboard
+    // 9. Copy to Clipboard
     window.copyToClipboard = function(text, button) {
         navigator.clipboard.writeText(text).then(function() {
             const originalText = button.innerHTML;
@@ -121,7 +130,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     };
     
-    // 7. Share Functionality
+    // 10. Share Functionality
     window.shareResults = function(title, text, url) {
         if (navigator.share) {
             navigator.share({
@@ -139,7 +148,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     };
     
-    // 8. Export to Excel Handler
+    // 11. Export to Excel Handler
     window.exportToExcel = function() {
         const exportBtn = event.target.closest('button');
         exportBtn.disabled = true;
@@ -156,12 +165,12 @@ document.addEventListener('DOMContentLoaded', function() {
         }, 3000);
     };
     
-    // 9. Prevent Form Resubmission on Page Refresh
+    // 12. Prevent Form Resubmission on Page Refresh
     if (window.history.replaceState) {
         window.history.replaceState(null, null, window.location.href);
     }
     
-    // 10. Handle Session Timeout Warning
+    // 13. Handle Session Timeout Warning
     let sessionWarningShown = false;
     const sessionTimeout = 115 * 60 * 1000; // 115 minutes (5 min before 2 hour timeout)
     
@@ -182,119 +191,24 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }, sessionTimeout);
 
-    // 11. Enhanced Tooltip System - Prevents Clipping Issues
-    function createTooltipSystem() {
-        // Create tooltip container that won't be clipped
-        const tooltipContainer = document.createElement('div');
-        tooltipContainer.className = 'tooltip-wrapper enhanced-tooltip';
-        tooltipContainer.style.cssText = `
-            position: fixed;
-            pointer-events: none;
-            z-index: 999999;
-            opacity: 0;
-            transition: opacity 0.2s ease;
-        `;
-        
-        const tooltipContent = document.createElement('div');
-        tooltipContent.className = 'tooltip-content';
-        tooltipContent.style.cssText = `
-            background: #1a1a1a;
-            color: #fff;
-            padding: 10px 14px;
-            border-radius: 8px;
-            font-size: 13px;
-            line-height: 1.4;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            max-width: 300px;
-            word-wrap: break-word;
-            white-space: nowrap;
-        `;
-        
-        // Light theme support
-        if (document.body.classList.contains('light-theme')) {
-            tooltipContent.style.background = '#333';
-            tooltipContent.style.color = '#fff';
-        }
-        
-        tooltipContainer.appendChild(tooltipContent);
-        document.body.appendChild(tooltipContainer);
-        
-        // Add event listeners to all elements with data-tooltip
-        document.querySelectorAll('[data-tooltip]').forEach(element => {
-            element.addEventListener('mouseenter', function(e) {
-                const text = this.getAttribute('data-tooltip');
-                if (!text) return;
-                
-                tooltipContent.textContent = text;
-                tooltipContainer.style.opacity = '1';
-                
-                // Position tooltip with viewport boundary detection
-                const rect = this.getBoundingClientRect();
-                const tooltipRect = tooltipContent.getBoundingClientRect();
-                const viewportWidth = window.innerWidth;
-                const viewportHeight = window.innerHeight;
-                
-                let left = rect.left + (rect.width / 2) - (tooltipRect.width / 2);
-                let top = rect.top - tooltipRect.height - 12;
-                
-                // Horizontal boundary check
-                if (left < 10) {
-                    left = 10;
-                } else if (left + tooltipRect.width > viewportWidth - 10) {
-                    left = viewportWidth - tooltipRect.width - 10;
-                }
-                
-                // Vertical boundary check
-                if (top < 10) {
-                    // Show below if not enough space above
-                    top = rect.bottom + 12;
-                    // Add arrow pointing up
-                    tooltipContent.style.position = 'relative';
-                }
-                
-                tooltipContainer.style.left = left + 'px';
-                tooltipContainer.style.top = top + 'px';
-            });
-            
-            element.addEventListener('mouseleave', function() {
-                tooltipContainer.style.opacity = '0';
-            });
-        });
-        
-        // Update tooltip theme when theme changes
-        document.addEventListener('themeChanged', function() {
-            if (document.body.classList.contains('light-theme')) {
-                tooltipContent.style.background = '#333';
-                tooltipContent.style.color = '#fff';
-            } else {
-                tooltipContent.style.background = '#1a1a1a';
-                tooltipContent.style.color = '#fff';
-            }
-        });
-    }
-    
-    // Initialize enhanced tooltip system
-    createTooltipSystem();
-
-    // 12. Set dynamic greeting
+    // 14. Set dynamic greeting
     setDynamicGreeting();
     
-    // 13. Create particle background
+    // 15. Create particle background
     if (window.matchMedia('(prefers-reduced-motion: no-preference)').matches) {
         createParticles();
     }
     
-    // 14. Enhance score displays
+    // 16. Enhance score displays
     enhanceScoreDisplay();
     
-    // 15. Enhance search input
+    // 17. Enhance search input
     enhanceSearchInput();
     
-    // 16. Animate table rows
+    // 18. Animate table rows
     animateTableRows();
     
-    // 17. Animate score values on results page
+    // 19. Animate score values on results page
     const scoreValues = document.querySelectorAll('.score-value');
     scoreValues.forEach(element => {
         const value = parseInt(element.textContent);
@@ -311,20 +225,823 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
     
-    // 18. Add hover effects to buttons
+    // 20. Add hover effects to buttons
     const buttons = document.querySelectorAll('button, .btn');
     buttons.forEach(button => {
         button.addEventListener('mouseenter', () => {
             if (!button.disabled) {
-                button.style.transform = 'translateY(-2px)';
+                requestAnimationFrame(() => {
+                    button.style.transform = 'translateY(-2px)';
+                });
             }
         });
         
         button.addEventListener('mouseleave', () => {
-            button.style.transform = '';
+            requestAnimationFrame(() => {
+                button.style.transform = '';
+            });
         });
     });
 });
+
+// Enhanced Tooltip System - Renders at body level to prevent clipping
+function initializeEnhancedTooltipSystem() {
+    // Remove any existing tooltip containers
+    const existingTooltips = document.querySelectorAll('.enhanced-tooltip-container');
+    existingTooltips.forEach(el => el.remove());
+    
+    // Create tooltip container at body level
+    const tooltipContainer = document.createElement('div');
+    tooltipContainer.className = 'enhanced-tooltip-container';
+    tooltipContainer.style.cssText = `
+        position: fixed;
+        pointer-events: none;
+        z-index: 999999;
+        opacity: 0;
+        transition: opacity 0.2s ease;
+    `;
+    
+    const tooltipContent = document.createElement('div');
+    tooltipContent.className = 'enhanced-tooltip-content';
+    tooltipContent.style.cssText = `
+        background: #1a1a1a;
+        color: #fff;
+        padding: 10px 14px;
+        border-radius: 8px;
+        font-size: 13px;
+        line-height: 1.4;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        max-width: 300px;
+        word-wrap: break-word;
+        white-space: pre-wrap;
+    `;
+    
+    const tooltipArrow = document.createElement('div');
+    tooltipArrow.className = 'enhanced-tooltip-arrow';
+    tooltipArrow.style.cssText = `
+        position: absolute;
+        width: 0;
+        height: 0;
+        border-style: solid;
+    `;
+    
+    tooltipContainer.appendChild(tooltipContent);
+    tooltipContainer.appendChild(tooltipArrow);
+    document.body.appendChild(tooltipContainer);
+    
+    // Light theme support
+    if (document.body.classList.contains('light-theme')) {
+        tooltipContent.style.background = '#333';
+        tooltipContent.style.color = '#fff';
+    }
+    
+    // Track current tooltip target
+    let currentTarget = null;
+    let showTimeout = null;
+    let hideTimeout = null;
+    
+    // Position tooltip with smart positioning
+    function positionTooltip(target) {
+        const rect = target.getBoundingClientRect();
+        const tooltipRect = tooltipContent.getBoundingClientRect();
+        const viewportWidth = window.innerWidth;
+        const viewportHeight = window.innerHeight;
+        const scrollY = window.scrollY;
+        const scrollX = window.scrollX;
+        
+        // Default position: above the element
+        let left = rect.left + (rect.width / 2) - (tooltipRect.width / 2);
+        let top = rect.top - tooltipRect.height - 12;
+        let arrowPosition = 'bottom';
+        
+        // Horizontal boundary check
+        if (left < 10) {
+            left = 10;
+        } else if (left + tooltipRect.width > viewportWidth - 10) {
+            left = viewportWidth - tooltipRect.width - 10;
+        }
+        
+        // Vertical boundary check - show below if not enough space above
+        if (top < 10) {
+            top = rect.bottom + 12;
+            arrowPosition = 'top';
+        }
+        
+        // Update positions
+        tooltipContainer.style.left = left + 'px';
+        tooltipContainer.style.top = top + 'px';
+        
+        // Update arrow
+        const arrowLeft = rect.left + (rect.width / 2) - left;
+        tooltipArrow.style.left = arrowLeft + 'px';
+        
+        if (arrowPosition === 'bottom') {
+            tooltipArrow.style.bottom = '-6px';
+            tooltipArrow.style.top = 'auto';
+            tooltipArrow.style.borderWidth = '6px 6px 0 6px';
+            tooltipArrow.style.borderColor = '#1a1a1a transparent transparent transparent';
+        } else {
+            tooltipArrow.style.top = '-6px';
+            tooltipArrow.style.bottom = 'auto';
+            tooltipArrow.style.borderWidth = '0 6px 6px 6px';
+            tooltipArrow.style.borderColor = 'transparent transparent #1a1a1a transparent';
+        }
+        
+        if (document.body.classList.contains('light-theme')) {
+            tooltipArrow.style.borderColor = arrowPosition === 'bottom' 
+                ? '#333 transparent transparent transparent'
+                : 'transparent transparent #333 transparent';
+        }
+    }
+    
+    // Show tooltip
+    function showTooltip(target) {
+        const text = target.getAttribute('data-tooltip');
+        if (!text) return;
+        
+        currentTarget = target;
+        tooltipContent.textContent = text;
+        
+        // Position before showing
+        requestAnimationFrame(() => {
+            positionTooltip(target);
+            tooltipContainer.style.opacity = '1';
+        });
+    }
+    
+    // Hide tooltip
+    function hideTooltip() {
+        currentTarget = null;
+        tooltipContainer.style.opacity = '0';
+    }
+    
+    // Add event listeners using event delegation
+    document.addEventListener('mouseenter', function(e) {
+        const target = e.target.closest('[data-tooltip]');
+        if (target) {
+            clearTimeout(hideTimeout);
+            showTimeout = setTimeout(() => showTooltip(target), 200);
+        }
+    }, true);
+    
+    document.addEventListener('mouseleave', function(e) {
+        const target = e.target.closest('[data-tooltip]');
+        if (target && target === currentTarget) {
+            clearTimeout(showTimeout);
+            hideTimeout = setTimeout(hideTooltip, 100);
+        }
+    }, true);
+    
+    // Update tooltip position on scroll
+    let scrollTimeout;
+    window.addEventListener('scroll', function() {
+        if (currentTarget) {
+            clearTimeout(scrollTimeout);
+            tooltipContainer.style.opacity = '0';
+            scrollTimeout = setTimeout(() => {
+                if (currentTarget) {
+                    positionTooltip(currentTarget);
+                    tooltipContainer.style.opacity = '1';
+                }
+            }, 100);
+        }
+    });
+    
+    // Update tooltip theme when theme changes
+    document.addEventListener('themeChanged', function() {
+        if (document.body.classList.contains('light-theme')) {
+            tooltipContent.style.background = '#333';
+            tooltipContent.style.color = '#fff';
+        } else {
+            tooltipContent.style.background = '#1a1a1a';
+            tooltipContent.style.color = '#fff';
+        }
+    });
+}
+
+// User Profile Dropdown System
+function initializeUserDropdown() {
+    // Find all user profile elements
+    const userElements = document.querySelectorAll('.nav-link[data-tooltip*="Logged in user"], .user-profile');
+    
+    userElements.forEach(userElement => {
+        // Get mobile number from text content
+        const mobile = userElement.textContent.trim();
+        
+        // Create dropdown structure
+        const dropdownWrapper = document.createElement('div');
+        dropdownWrapper.className = 'user-dropdown-wrapper';
+        dropdownWrapper.style.cssText = 'position: relative; display: inline-block;';
+        
+        // Create profile button
+        const profileButton = document.createElement('button');
+        profileButton.className = 'user-profile-btn';
+        profileButton.innerHTML = `
+            <i class="fas fa-user-circle"></i>
+            <span>${mobile}</span>
+            <i class="fas fa-chevron-down dropdown-arrow"></i>
+        `;
+        profileButton.style.cssText = `
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 0.5rem 1rem;
+            color: var(--text-primary);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-weight: 500;
+            transition: all 0.3s;
+        `;
+        
+        // Create dropdown menu
+        const dropdownMenu = document.createElement('div');
+        dropdownMenu.className = 'user-dropdown-menu';
+        dropdownMenu.innerHTML = `
+            <a href="#" class="dropdown-item" onclick="openProfileModal(); return false;">
+                <i class="fas fa-user"></i>
+                <span>My Profile</span>
+            </a>
+            <a href="#" class="dropdown-item" onclick="openChangePasswordModal(); return false;">
+                <i class="fas fa-key"></i>
+                <span>Change Password</span>
+            </a>
+            <a href="/history" class="dropdown-item">
+                <i class="fas fa-history"></i>
+                <span>Search History</span>
+            </a>
+            <a href="#" class="dropdown-item" onclick="openSettingsModal(); return false;">
+                <i class="fas fa-cog"></i>
+                <span>Settings</span>
+            </a>
+            <div class="dropdown-divider"></div>
+            <a href="/logout" class="dropdown-item logout-item">
+                <i class="fas fa-sign-out-alt"></i>
+                <span>Logout</span>
+            </a>
+        `;
+        dropdownMenu.style.cssText = `
+            position: absolute;
+            top: 100%;
+            right: 0;
+            margin-top: 0.5rem;
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            box-shadow: var(--card-shadow);
+            min-width: 200px;
+            opacity: 0;
+            visibility: hidden;
+            transform: translateY(-10px);
+            transition: all 0.3s;
+            z-index: 1000;
+            overflow: hidden;
+        `;
+        
+        // Add to wrapper
+        dropdownWrapper.appendChild(profileButton);
+        dropdownWrapper.appendChild(dropdownMenu);
+        
+        // Replace original element
+        userElement.parentNode.replaceChild(dropdownWrapper, userElement);
+        
+        // Toggle dropdown
+        let isOpen = false;
+        profileButton.addEventListener('click', function(e) {
+            e.stopPropagation();
+            isOpen = !isOpen;
+            
+            if (isOpen) {
+                dropdownMenu.style.opacity = '1';
+                dropdownMenu.style.visibility = 'visible';
+                dropdownMenu.style.transform = 'translateY(0)';
+                profileButton.style.background = 'var(--bg-hover)';
+                profileButton.style.borderColor = 'var(--accent-primary)';
+                profileButton.querySelector('.dropdown-arrow').style.transform = 'rotate(180deg)';
+            } else {
+                closeDropdown();
+            }
+        });
+        
+        function closeDropdown() {
+            isOpen = false;
+            dropdownMenu.style.opacity = '0';
+            dropdownMenu.style.visibility = 'hidden';
+            dropdownMenu.style.transform = 'translateY(-10px)';
+            profileButton.style.background = 'var(--bg-card)';
+            profileButton.style.borderColor = 'var(--border-color)';
+            profileButton.querySelector('.dropdown-arrow').style.transform = 'rotate(0)';
+        }
+        
+        // Close on outside click
+        document.addEventListener('click', function(e) {
+            if (!dropdownWrapper.contains(e.target)) {
+                closeDropdown();
+            }
+        });
+    });
+}
+
+// Modal System for Profile Management
+window.openProfileModal = function() {
+    // First fetch current profile
+    fetch('/api/profile')
+        .then(response => response.json())
+        .then(profile => {
+            createModal({
+                title: 'My Profile',
+                content: `
+                    <form id="profileForm" style="display: flex; flex-direction: column; gap: 1.5rem;">
+                        <div class="form-group">
+                            <label style="color: var(--text-secondary); margin-bottom: 0.5rem; display: block;">Mobile Number</label>
+                            <input type="text" value="${profile.mobile || ''}" disabled style="background: var(--bg-hover); cursor: not-allowed;">
+                        </div>
+                        <div class="form-group">
+                            <label>Display Name</label>
+                            <input type="text" name="displayName" placeholder="Enter your name" value="${profile.display_name || ''}">
+                        </div>
+                        <div class="form-group">
+                            <label>Email (Optional)</label>
+                            <input type="email" name="email" placeholder="Enter your email" value="${profile.email || ''}">
+                        </div>
+                        <div class="form-group">
+                            <label>Company Name (Optional)</label>
+                            <input type="text" name="company" placeholder="Enter company name" value="${profile.company || ''}">
+                        </div>
+                        <button type="submit" class="btn btn-primary">Save Profile</button>
+                    </form>
+                `,
+                onSubmit: async function(formData) {
+                    try {
+                        const response = await fetch('/api/profile', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(formData)
+                        });
+                        const result = await response.json();
+                        if (response.ok) {
+                            showToast('Profile updated successfully!', 'success');
+                            return true;
+                        } else {
+                            showToast(result.error || 'Failed to update profile', 'error');
+                            return false;
+                        }
+                    } catch (error) {
+                        showToast('Error updating profile', 'error');
+                        return false;
+                    }
+                }
+            });
+        })
+        .catch(error => {
+            showToast('Error loading profile', 'error');
+        });
+};
+
+window.openChangePasswordModal = function() {
+    createModal({
+        title: 'Change Password',
+        content: `
+            <form id="passwordForm" style="display: flex; flex-direction: column; gap: 1.5rem;">
+                <div class="form-group">
+                    <label>Current Password</label>
+                    <input type="password" name="currentPassword" required>
+                </div>
+                <div class="form-group">
+                    <label>New Password</label>
+                    <input type="password" name="newPassword" required minlength="6">
+                    <div class="password-strength" style="margin-top: 0.5rem;">
+                        <div class="password-strength-bar" style="height: 4px; background: var(--bg-hover); border-radius: 2px;">
+                            <div id="strengthBar" style="height: 100%; width: 0; background: var(--accent-gradient); transition: width 0.3s;"></div>
+                        </div>
+                        <div id="strengthText" style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 0.25rem;"></div>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Confirm New Password</label>
+                    <input type="password" name="confirmPassword" required>
+                </div>
+                <button type="submit" class="btn btn-primary">Change Password</button>
+            </form>
+        `,
+        onMount: function() {
+            // Password strength checker
+            const newPasswordInput = document.querySelector('input[name="newPassword"]');
+            const strengthBar = document.getElementById('strengthBar');
+            const strengthText = document.getElementById('strengthText');
+            
+            newPasswordInput.addEventListener('input', function() {
+                const password = this.value;
+                let strength = 0;
+                let message = '';
+                
+                if (password.length >= 6) strength += 25;
+                if (password.length >= 8) strength += 25;
+                if (/[A-Z]/.test(password)) strength += 25;
+                if (/[0-9]/.test(password)) strength += 25;
+                
+                strengthBar.style.width = strength + '%';
+                
+                if (strength <= 25) {
+                    strengthBar.style.background = 'var(--danger)';
+                    message = 'Weak';
+                } else if (strength <= 50) {
+                    strengthBar.style.background = 'var(--warning)';
+                    message = 'Fair';
+                } else if (strength <= 75) {
+                    strengthBar.style.background = 'var(--info)';
+                    message = 'Good';
+                } else {
+                    strengthBar.style.background = 'var(--success)';
+                    message = 'Strong';
+                }
+                
+                strengthText.textContent = password.length > 0 ? message : '';
+            });
+        },
+        onSubmit: async function(formData) {
+            if (formData.newPassword !== formData.confirmPassword) {
+                showToast('Passwords do not match!', 'error');
+                return false;
+            }
+            
+            try {
+                const response = await fetch('/api/change-password', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(formData)
+                });
+                const result = await response.json();
+                if (response.ok) {
+                    showToast('Password changed successfully!', 'success');
+                    return true;
+                } else {
+                    showToast(result.error || 'Failed to change password', 'error');
+                    return false;
+                }
+            } catch (error) {
+                showToast('Error changing password', 'error');
+                return false;
+            }
+        }
+    });
+};
+
+window.openSettingsModal = function() {
+    createModal({
+        title: 'Settings',
+        content: `
+            <form id="settingsForm" style="display: flex; flex-direction: column; gap: 1.5rem;">
+                <div class="setting-group">
+                    <h3 style="margin-bottom: 1rem;">Preferences</h3>
+                    <label class="toggle-setting">
+                        <input type="checkbox" name="emailNotifications">
+                        <span>Email Notifications</span>
+                    </label>
+                    <label class="toggle-setting">
+                        <input type="checkbox" name="autoSearch" checked>
+                        <span>Auto-search on GSTIN paste</span>
+                    </label>
+                    <label class="toggle-setting">
+                        <input type="checkbox" name="animations" checked>
+                        <span>Enable animations</span>
+                    </label>
+                </div>
+                <div class="setting-group">
+                    <h3 style="margin-bottom: 1rem;">Data & Privacy</h3>
+                    <button type="button" class="btn btn-secondary" onclick="downloadUserData()">
+                        <i class="fas fa-download"></i> Download My Data
+                    </button>
+                    <button type="button" class="btn btn-danger" onclick="confirmDeleteAccount()">
+                        <i class="fas fa-trash"></i> Delete Account
+                    </button>
+                </div>
+                <button type="submit" class="btn btn-primary">Save Settings</button>
+            </form>
+        `,
+        onSubmit: async function(formData) {
+            try {
+                const response = await fetch('/api/settings', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(formData)
+                });
+                if (response.ok) {
+                    // Save settings locally
+                    localStorage.setItem('userSettings', JSON.stringify(formData));
+                    showToast('Settings saved successfully!', 'success');
+                    return true;
+                }
+            } catch (error) {
+                showToast('Error saving settings', 'error');
+                return false;
+            }
+        }
+    });
+};
+
+// Download user data
+window.downloadUserData = async function() {
+    try {
+        const response = await fetch('/api/export-data');
+        const data = await response.json();
+        
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `gst-intelligence-data-${new Date().toISOString().split('T')[0]}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        
+        showToast('Data exported successfully!', 'success');
+    } catch (error) {
+        showToast('Error exporting data', 'error');
+    }
+};
+
+// Confirm account deletion
+window.confirmDeleteAccount = function() {
+    if (confirm('Are you sure you want to delete your account? This action cannot be undone.')) {
+        if (confirm('This will permanently delete all your data. Type "DELETE" to confirm.')) {
+            const confirmation = prompt('Type DELETE to confirm account deletion:');
+            if (confirmation === 'DELETE') {
+                // Handle account deletion
+                showToast('Account deletion request submitted', 'info');
+            }
+        }
+    }
+};
+
+// Modal Creator Function
+function createModal(options) {
+    // Remove existing modals
+    const existingModals = document.querySelectorAll('.modal-overlay');
+    existingModals.forEach(modal => modal.remove());
+    
+    // Create modal overlay
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay';
+    overlay.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.5);
+        backdrop-filter: blur(5px);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 10000;
+        opacity: 0;
+        transition: opacity 0.3s;
+    `;
+    
+    // Create modal content
+    const modal = document.createElement('div');
+    modal.className = 'modal-content';
+    modal.style.cssText = `
+        background: var(--bg-card);
+        border: 1px solid var(--border-color);
+        border-radius: 16px;
+        padding: 2rem;
+        max-width: 500px;
+        width: 90%;
+        max-height: 80vh;
+        overflow-y: auto;
+        box-shadow: var(--card-shadow);
+        transform: scale(0.9);
+        transition: transform 0.3s;
+    `;
+    
+    modal.innerHTML = `
+        <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+            <h2 style="margin: 0; color: var(--text-primary);">${options.title}</h2>
+            <button class="modal-close" style="background: none; border: none; color: var(--text-secondary); font-size: 1.5rem; cursor: pointer;">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="modal-body">
+            ${options.content}
+        </div>
+    `;
+    
+    overlay.appendChild(modal);
+    document.body.appendChild(overlay);
+    
+    // Apply common form styles
+    const style = document.createElement('style');
+    style.textContent = `
+        .modal-content .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+        .modal-content label {
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+        .modal-content input {
+            padding: 0.75rem;
+            background: var(--bg-input);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            color: var(--text-primary);
+            transition: all 0.3s;
+        }
+        .modal-content input:focus {
+            outline: none;
+            border-color: var(--accent-primary);
+            box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.1);
+        }
+        .modal-content .btn {
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .modal-content .btn-primary {
+            background: var(--accent-gradient);
+            color: white;
+        }
+        .modal-content .btn-secondary {
+            background: var(--bg-hover);
+            color: var(--text-primary);
+        }
+        .modal-content .btn-danger {
+            background: var(--danger);
+            color: white;
+        }
+        .modal-content .toggle-setting {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 0;
+            cursor: pointer;
+        }
+        .modal-content .setting-group {
+            padding: 1rem;
+            background: var(--bg-hover);
+            border-radius: 8px;
+        }
+    `;
+    document.head.appendChild(style);
+    
+    // Show modal with animation
+    requestAnimationFrame(() => {
+        overlay.style.opacity = '1';
+        modal.style.transform = 'scale(1)';
+    });
+    
+    // Close functionality
+    const closeModal = () => {
+        overlay.style.opacity = '0';
+        modal.style.transform = 'scale(0.9)';
+        setTimeout(() => {
+            overlay.remove();
+            style.remove();
+        }, 300);
+    };
+    
+    // Close button
+    modal.querySelector('.modal-close').addEventListener('click', closeModal);
+    
+    // Close on overlay click
+    overlay.addEventListener('click', (e) => {
+        if (e.target === overlay) {
+            closeModal();
+        }
+    });
+    
+    // Handle form submission if exists
+    const form = modal.querySelector('form');
+    if (form && options.onSubmit) {
+        form.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const formData = {};
+            const inputs = form.querySelectorAll('input:not([type="submit"]), select, textarea');
+            inputs.forEach(input => {
+                if (input.type === 'checkbox') {
+                    formData[input.name] = input.checked;
+                } else {
+                    formData[input.name] = input.value;
+                }
+            });
+            
+            const result = options.onSubmit(formData);
+            if (result !== false) {
+                closeModal();
+            }
+        });
+    }
+    
+    // Call onMount if provided
+    if (options.onMount) {
+        options.onMount();
+    }
+}
+
+// Helper function to get current user mobile
+function getCurrentUserMobile() {
+    const userElement = document.querySelector('.user-profile-btn span');
+    return userElement ? userElement.textContent : '';
+}
+
+// Toast notification system
+function showToast(message, type = 'info') {
+    const toast = document.createElement('div');
+    toast.className = 'toast-notification';
+    toast.style.cssText = `
+        position: fixed;
+        bottom: 2rem;
+        right: 2rem;
+        background: ${type === 'success' ? 'var(--success)' : type === 'error' ? 'var(--danger)' : 'var(--info)'};
+        color: white;
+        padding: 1rem 1.5rem;
+        border-radius: 8px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+        z-index: 10001;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        animation: toastSlideIn 0.3s ease;
+        max-width: 400px;
+    `;
+    
+    const icon = type === 'success' ? 'check-circle' : type === 'error' ? 'exclamation-circle' : 'info-circle';
+    toast.innerHTML = `<i class="fas fa-${icon}"></i> ${message}`;
+    
+    document.body.appendChild(toast);
+    
+    setTimeout(() => {
+        toast.style.animation = 'toastSlideOut 0.3s ease';
+        setTimeout(() => toast.remove(), 300);
+    }, 3000);
+}
+
+// Smooth animations with RequestAnimationFrame
+function initializeSmoothAnimations() {
+    // Optimize scroll performance
+    let ticking = false;
+    function updateScrollEffects() {
+        const scrollY = window.scrollY;
+        
+        // Header shadow on scroll
+        const header = document.querySelector('.header');
+        if (header) {
+            if (scrollY > 50) {
+                header.style.boxShadow = '0 4px 20px rgba(0, 0, 0, 0.1)';
+            } else {
+                header.style.boxShadow = '';
+            }
+        }
+        
+        // Parallax effects
+        const parallaxElements = document.querySelectorAll('[data-parallax]');
+        parallaxElements.forEach(el => {
+            const speed = el.dataset.parallax || 0.5;
+            const yPos = -(scrollY * speed);
+            el.style.transform = `translateY(${yPos}px)`;
+        });
+        
+        ticking = false;
+    }
+    
+    window.addEventListener('scroll', () => {
+        if (!ticking) {
+            window.requestAnimationFrame(updateScrollEffects);
+            ticking = true;
+        }
+    });
+    
+    // Smooth hover effects for cards
+    const cards = document.querySelectorAll('.card, .info-card, .stat-card');
+    cards.forEach(card => {
+        card.style.transition = 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1)';
+        card.style.willChange = 'transform';
+        
+        card.addEventListener('mouseenter', () => {
+            requestAnimationFrame(() => {
+                card.style.transform = 'translateY(-5px)';
+                card.style.boxShadow = 'var(--hover-shadow)';
+            });
+        });
+        
+        card.addEventListener('mouseleave', () => {
+            requestAnimationFrame(() => {
+                card.style.transform = '';
+                card.style.boxShadow = '';
+            });
+        });
+    });
+}
 
 // GSTIN Validation Function
 function validateGSTIN(input) {
@@ -406,24 +1123,6 @@ function toggleTheme() {
     document.dispatchEvent(new Event('themeChanged'));
 }
 
-// Initialize theme on page load
-document.addEventListener('DOMContentLoaded', function() {
-    // Check for saved theme preference
-    const savedTheme = localStorage.getItem('theme');
-    const themeIcon = document.getElementById('theme-indicator-icon');
-    
-    if (savedTheme === 'light') {
-        document.body.classList.add('light-theme');
-        if (themeIcon) themeIcon.className = 'fas fa-sun';
-    }
-    
-    // Add theme toggle to existing DOMContentLoaded or create new one
-    const themeToggleBtn = document.querySelector('.theme-toggle');
-    if (themeToggleBtn) {
-        themeToggleBtn.addEventListener('click', toggleTheme);
-    }
-});
-
 // 1. Animated Number Counter
 function animateValue(element, start, end, duration) {
     let startTimestamp = null;
@@ -443,14 +1142,31 @@ function animateValue(element, start, end, duration) {
 function createParticles() {
     const particlesContainer = document.createElement('div');
     particlesContainer.className = 'particles';
+    particlesContainer.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        z-index: -1;
+        pointer-events: none;
+    `;
     document.body.appendChild(particlesContainer);
     
     for (let i = 0; i < 50; i++) {
         const particle = document.createElement('div');
         particle.className = 'particle';
-        particle.style.left = Math.random() * 100 + '%';
-        particle.style.animationDelay = Math.random() * 15 + 's';
-        particle.style.animationDuration = 15 + Math.random() * 10 + 's';
+        particle.style.cssText = `
+            position: absolute;
+            width: 5px;
+            height: 5px;
+            background: rgba(124, 58, 237, 0.5);
+            border-radius: 50%;
+            left: ${Math.random() * 100}%;
+            animation: particleFloat ${15 + Math.random() * 10}s linear infinite;
+            animation-delay: ${Math.random() * 15}s;
+        `;
         particlesContainer.appendChild(particle);
     }
 }
@@ -468,22 +1184,30 @@ function setDynamicGreeting() {
         greeting = '🌙 Good Evening';
     }
     
-    const greetingElement = document.querySelector('.welcome-title');
-    if (greetingElement) {
-        greetingElement.textContent = `${greeting}, Welcome to GST Intelligence Platform`;
-    }
+    const greetingElements = document.querySelectorAll('.welcome-title');
+    greetingElements.forEach(element => {
+        if (element.textContent.includes('Welcome')) {
+            element.textContent = `${greeting}, Welcome to GST Intelligence Platform`;
+        }
+    });
 }
 
 // 4. Interactive Score Display
 function enhanceScoreDisplay() {
     const scoreElements = document.querySelectorAll('.score-badge');
     scoreElements.forEach(element => {
+        element.style.transition = 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)';
+        
         element.addEventListener('mouseenter', function() {
-            this.style.transform = 'scale(1.1) rotate(5deg)';
-            this.style.transition = 'transform 0.3s ease';
+            requestAnimationFrame(() => {
+                this.style.transform = 'scale(1.1) rotate(5deg)';
+            });
         });
+        
         element.addEventListener('mouseleave', function() {
-            this.style.transform = 'scale(1) rotate(0deg)';
+            requestAnimationFrame(() => {
+                this.style.transform = 'scale(1) rotate(0deg)';
+            });
         });
     });
 }
@@ -540,10 +1264,12 @@ function animateTableRows() {
         row.style.opacity = '0';
         row.style.transform = 'translateX(-20px)';
         setTimeout(() => {
-            row.style.transition = 'all 0.5s ease';
-            row.style.opacity = '1';
-            row.style.transform = 'translateX(0)';
-        }, index * 100);
+            requestAnimationFrame(() => {
+                row.style.transition = 'all 0.5s cubic-bezier(0.4, 0, 0.2, 1)';
+                row.style.opacity = '1';
+                row.style.transform = 'translateX(0)';
+            });
+        }, index * 50);
     });
 }
 
@@ -554,14 +1280,17 @@ function showConfetti() {
     
     for (let i = 0; i < confettiCount; i++) {
         const confetti = document.createElement('div');
-        confetti.style.position = 'fixed';
-        confetti.style.width = '10px';
-        confetti.style.height = '10px';
-        confetti.style.backgroundColor = confettiColors[Math.floor(Math.random() * confettiColors.length)];
-        confetti.style.left = Math.random() * 100 + '%';
-        confetti.style.top = '-10px';
-        confetti.style.transform = `rotate(${Math.random() * 360}deg)`;
-        confetti.style.zIndex = '9999';
+        confetti.style.cssText = `
+            position: fixed;
+            width: 10px;
+            height: 10px;
+            background: ${confettiColors[Math.floor(Math.random() * confettiColors.length)]};
+            left: ${Math.random() * 100}%;
+            top: -10px;
+            transform: rotate(${Math.random() * 360}deg);
+            z-index: 9999;
+            pointer-events: none;
+        `;
         document.body.appendChild(confetti);
         
         confetti.animate([
@@ -607,8 +1336,9 @@ document.addEventListener('keydown', function(e) {
 });
 
 // Add Enhanced CSS Styles
-const style = document.createElement('style');
-style.textContent = `
+const enhancedStyles = document.createElement('style');
+enhancedStyles.textContent = `
+    /* Spinner Styles */
     .spinner-small {
         display: inline-block;
         width: 14px;
@@ -628,14 +1358,97 @@ style.textContent = `
         color: #dc3545;
     }
     
-    /* Enhanced tooltip visibility */
-    .enhanced-tooltip {
-        backdrop-filter: blur(10px);
+    /* User Dropdown Styles */
+    .user-dropdown-wrapper {
+        position: relative;
+        display: inline-block;
     }
     
-    /* Smooth button hover effects */
-    button, .btn {
-        transition: all 0.3s ease;
+    .user-profile-btn:hover {
+        background: var(--bg-hover) !important;
+        border-color: var(--accent-primary) !important;
+    }
+    
+    .dropdown-arrow {
+        transition: transform 0.3s;
+        font-size: 0.8rem;
+        margin-left: 0.25rem;
+    }
+    
+    .dropdown-item {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        padding: 0.75rem 1rem;
+        color: var(--text-primary);
+        text-decoration: none;
+        transition: all 0.2s;
+    }
+    
+    .dropdown-item:hover {
+        background: var(--bg-hover);
+        color: var(--accent-primary);
+    }
+    
+    .dropdown-item i {
+        width: 20px;
+        text-align: center;
+    }
+    
+    .dropdown-divider {
+        height: 1px;
+        background: var(--border-color);
+        margin: 0.5rem 0;
+    }
+    
+    .logout-item {
+        color: var(--danger);
+    }
+    
+    .logout-item:hover {
+        background: rgba(239, 68, 68, 0.1);
+        color: var(--danger);
+    }
+    
+    /* Toast Animations */
+    @keyframes toastSlideIn {
+        from {
+            transform: translateX(100%);
+            opacity: 0;
+        }
+        to {
+            transform: translateX(0);
+            opacity: 1;
+        }
+    }
+    
+    @keyframes toastSlideOut {
+        from {
+            transform: translateX(0);
+            opacity: 1;
+        }
+        to {
+            transform: translateX(100%);
+            opacity: 0;
+        }
+    }
+    
+    /* Particle Animation */
+    @keyframes particleFloat {
+        from {
+            transform: translateY(100vh) translateX(0);
+            opacity: 0;
+        }
+        10% {
+            opacity: 1;
+        }
+        90% {
+            opacity: 1;
+        }
+        to {
+            transform: translateY(-100vh) translateX(100px);
+            opacity: 0;
+        }
     }
     
     /* Success pulse animation */
@@ -655,6 +1468,34 @@ style.textContent = `
         }
     }
     
+    /* Smooth transitions for cards */
+    .card, .info-card, .stat-card {
+        transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), 
+                    box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+                    border-color 0.3s ease;
+        will-change: transform;
+    }
+    
+    /* Optimized animations */
+    * {
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+    }
+    
+    /* GPU acceleration for animated elements */
+    .particle,
+    .logo-icon,
+    .score-circle-progress,
+    .category-toggle {
+        transform: translateZ(0);
+        backface-visibility: hidden;
+    }
+    
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+    
     @media (max-width: 768px) {
         .nav-items.show {
             display: flex !important;
@@ -668,10 +1509,9 @@ style.textContent = `
             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
         }
         
-        .enhanced-tooltip .tooltip-content {
-            max-width: 250px;
-            font-size: 12px;
+        .user-dropdown-menu {
+            right: -50px !important;
         }
     }
 `;
-document.head.appendChild(style);
+document.head.appendChild(enhancedStyles);

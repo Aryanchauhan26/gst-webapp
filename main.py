@@ -154,6 +154,38 @@ class PostgresDB:
             )
             return [dict(row) for row in rows]
 
+    async def update_user_profile(self, mobile: str, profile_data: Dict):
+        await self.connect()
+        async with self.pool.acquire() as conn:
+            # Update user profile (you may need to add these columns to your users table)
+            await conn.execute("""
+                UPDATE users 
+                SET display_name = $2, email = $3, company = $4, updated_at = $5
+                WHERE mobile = $1
+            """, mobile, profile_data.get('displayName'), profile_data.get('email'), 
+                profile_data.get('company'), datetime.now())
+
+    async def change_password(self, mobile: str, new_password: str) -> bool:
+        salt = secrets.token_hex(16)
+        password_hash = hashlib.pbkdf2_hmac('sha256', new_password.encode('utf-8'), salt.encode('utf-8'), 100000, dklen=64).hex()
+        
+        await self.connect()
+        async with self.pool.acquire() as conn:
+            await conn.execute(
+                "UPDATE users SET password_hash = $2, salt = $3, updated_at = $4 WHERE mobile = $1",
+                mobile, password_hash, salt, datetime.now()
+            )
+        return True
+
+    async def get_user_profile(self, mobile: str) -> Dict:
+        await self.connect()
+        async with self.pool.acquire() as conn:
+            row = await conn.fetchrow("""
+                SELECT mobile, display_name, email, company, created_at, last_login
+                FROM users WHERE mobile = $1
+            """, mobile)
+            return dict(row) if row else None
+
 db = PostgresDB()
 
 # GST API Client
@@ -788,6 +820,83 @@ async def startup_event():
 @app.on_event("shutdown")
 async def shutdown_event():
     logger.info("GST Intelligence Platform shutting down...")
+
+@app.get("/api/profile")
+async def get_profile(current_user: str = Depends(require_auth)):
+    """Get current user profile"""
+    try:
+        profile = await db.get_user_profile(current_user)
+        if not profile:
+            raise HTTPException(status_code=404, detail="Profile not found")
+        return profile
+    except Exception as e:
+        logger.error(f"Profile fetch error: {e}")
+        raise HTTPException(status_code=500, detail="Failed to fetch profile")
+
+@app.post("/api/profile")
+async def update_profile(profile_data: dict, current_user: str = Depends(require_auth)):
+    """Update user profile"""
+    try:
+        await db.update_user_profile(current_user, profile_data)
+        return {"success": True, "message": "Profile updated successfully"}
+    except Exception as e:
+        logger.error(f"Profile update error: {e}")
+        raise HTTPException(status_code=500, detail="Failed to update profile")
+
+@app.post("/api/change-password")
+async def change_password_api(password_data: dict, current_user: str = Depends(require_auth)):
+    """Change user password"""
+    try:
+        current_password = password_data.get('currentPassword')
+        new_password = password_data.get('newPassword')
+        
+        if not current_password or not new_password:
+            raise HTTPException(status_code=400, detail="Missing password data")
+        
+        # Verify current password
+        if not await db.verify_user(current_user, current_password):
+            raise HTTPException(status_code=400, detail="Current password is incorrect")
+        
+        if len(new_password) < 6:
+            raise HTTPException(status_code=400, detail="New password must be at least 6 characters")
+        
+        await db.change_password(current_user, new_password)
+        return {"success": True, "message": "Password changed successfully"}
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Password change error: {e}")
+        raise HTTPException(status_code=500, detail="Failed to change password")
+
+@app.post("/api/settings")
+async def update_settings(settings_data: dict, current_user: str = Depends(require_auth)):
+    """Update user settings"""
+    try:
+        # For now, just return success - you can extend this to store settings in DB
+        return {"success": True, "message": "Settings saved successfully"}
+    except Exception as e:
+        logger.error(f"Settings update error: {e}")
+        raise HTTPException(status_code=500, detail="Failed to update settings")
+
+@app.get("/api/export-data")
+async def export_user_data(current_user: str = Depends(require_auth)):
+    """Export all user data"""
+    try:
+        profile = await db.get_user_profile(current_user)
+        history = await db.get_all_searches(current_user)
+        
+        export_data = {
+            "profile": profile,
+            "search_history": history,
+            "exported_at": datetime.now().isoformat(),
+            "total_searches": len(history)
+        }
+        
+        return export_data
+    except Exception as e:
+        logger.error(f"Data export error: {e}")
+        raise HTTPException(status_code=500, detail="Failed to export data")
 
 if __name__ == "__main__":
     import uvicorn

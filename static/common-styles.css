@@ -45,19 +45,67 @@ h1, h2, h3, h4, h5, h6, p, span, div {
     margin-bottom: 0;
 }
 
-/* Z-Index Management - Prevents Layer Conflicts */
+/* ADD THIS ENHANCED Z-INDEX SECTION HERE */
+/* --- Enhanced Z-Index Management --- */
+:root {
+    --z-background: -1;
+    --z-content: 1;
+    --z-header: 100;
+    --z-dropdown: 200;
+    --z-modal: 1000;
+    --z-tooltip: 99999;
+}
+
+/* Ensure proper stacking context */
 .header {
     position: relative;
-    z-index: 1000;
+    z-index: var(--z-header);
 }
 
 .dropdown-menu,
-.modal {
-    z-index: 1100;
+.user-dropdown-menu {
+    z-index: var(--z-dropdown);
 }
 
-.loading-overlay {
-    z-index: 9999;
+.modal-overlay {
+    z-index: var(--z-modal);
+}
+
+/* Enhanced tooltip container positioned at body level */
+.enhanced-tooltip-container {
+    z-index: var(--z-tooltip) !important;
+    pointer-events: none;
+}
+
+/* Remove overflow hidden from containers to prevent clipping */
+.returns-category,
+.info-card,
+.category-header,
+.category-content,
+.stat-card,
+.stats-grid,
+.table-container,
+.history-section,
+.card {
+    position: relative;
+}
+
+/* Allow overflow for tooltip visibility */
+.info-card:not(.no-overflow),
+.stat-card:not(.no-overflow),
+.card:not(.no-overflow) {
+    overflow: visible;
+}
+
+/* Special handling for sections that need overflow */
+.returns-accordion {
+    position: relative;
+    isolation: isolate;
+}
+
+.category-content {
+    position: relative;
+    z-index: 1;
 }
 
 /* --- Tooltip Always On Top & Not Clipped --- */

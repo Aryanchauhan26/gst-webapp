@@ -74,7 +74,7 @@ body.light-theme {
 
 html {
     font-size: 16px;
-    scroll-behavior: smooth;
+    scroll-behavior: smooth; /* ADD THIS */
 }
 
 body {
@@ -177,13 +177,17 @@ h1, h2, h3, h4, h5, h6 {
 .header {
     background: var(--bg-secondary);
     backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
     border-bottom: 1px solid var(--border-color);
     padding: 1rem 0;
     position: sticky;
     top: 0;
-    z-index: 1000;
+    z-index: 100;
     box-shadow: var(--card-shadow);
-    transition: all var(--transition-speed);
+    transition: all var(--transition-speed) cubic-bezier(0.4, 0, 0.2, 1);
+    min-height: 80px;
+    display: flex;
+    align-items: center;
 }
 
 .header-content {
@@ -195,6 +199,8 @@ h1, h2, h3, h4, h5, h6 {
     justify-content: space-between;
     gap: 1.5rem;
     flex-wrap: wrap;
+    width: 100%;
+    min-height: 60px;
 }
 
 .logo {
@@ -327,6 +333,29 @@ body.light-theme .theme-toggle-indicator {
 
 .logout-btn:hover {
     background-color: var(--bg-hover);
+    border-color: var(--accent-primary);
+    transform: translateY(-1px);
+}
+
+/* User Profile Button */
+.user-profile-btn {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 0.5rem 1rem;
+    color: var(--text-primary);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-weight: 500;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    font-family: inherit;
+    font-size: inherit;
+}
+
+.user-profile-btn:hover {
+    background: var(--bg-hover);
     border-color: var(--accent-primary);
     transform: translateY(-1px);
 }
@@ -593,9 +622,9 @@ tr:hover {
     background: var(--bg-hover);
 }
 
-/* Animations */
+/* Animations - Smoother with cubic-bezier easing */
 .fade-in {
-    animation: fadeIn 0.6s ease-out;
+    animation: fadeIn 0.6s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 @keyframes fadeIn {
@@ -607,6 +636,17 @@ tr:hover {
         opacity: 1; 
         transform: translateY(0); 
     }
+}
+
+/* Smooth scrolling with momentum */
+* {
+    scroll-behavior: smooth;
+}
+
+/* GPU acceleration for smooth animations */
+.animated {
+    transform: translateZ(0);
+    backface-visibility: hidden;
 }
 
 /* Loading */
