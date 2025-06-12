@@ -171,32 +171,9 @@
             cursor: help;
         }
 
-        .category-title.tooltip::after {
-            content: attr(data-tooltip);
-            position: absolute;
-            bottom: 100%;
-            left: 50%;
-            transform: translateX(-50%) translateY(-8px);
-            background: var(--bg-hover);
-            color: var(--text-primary);
-            padding: 0.75rem 1rem;
-            border-radius: 8px;
-            font-size: 0.875rem;
-            white-space: nowrap;
-            opacity: 0;
-            pointer-events: none;
-            transition: opacity 0.3s, transform 0.3s;
-            z-index: 1000;
-            box-shadow: var(--card-shadow);
-            border: 1px solid var(--border-color);
-            max-width: 250px;
-            white-space: normal;
-        }
+        .category-title
 
-        .category-title.tooltip:hover::after {
-            opacity: 1;
-            transform: translateX(-50%) translateY(-12px);
-        }
+        .category-title
 
         .category-count {
             background: var(--accent-gradient);
@@ -820,39 +797,6 @@
         .info-value {
             color: var(--text-primary);
             font-weight: 600;
-        }
-
-        /* Enhanced Tooltip System */
-        .tooltip {
-            position: relative;
-            cursor: help;
-        }
-
-        .tooltip::after {
-            content: attr(data-tooltip);
-            position: absolute;
-            bottom: 100%;
-            left: 50%;
-            transform: translateX(-50%) translateY(-8px);
-            background: var(--bg-hover);
-            color: var(--text-primary);
-            padding: 0.75rem 1rem;
-            border-radius: 8px;
-            font-size: 0.875rem;
-            white-space: nowrap;
-            opacity: 0;
-            pointer-events: none;
-            transition: opacity 0.3s, transform 0.3s;
-            z-index: 1000;
-            box-shadow: var(--card-shadow);
-            border: 1px solid var(--border-color);
-            max-width: 250px;
-            white-space: normal;
-        }
-
-        .tooltip:hover::after {
-            opacity: 1;
-            transform: translateX(-50%) translateY(-12px);
         }
 
         /* Status Badges */

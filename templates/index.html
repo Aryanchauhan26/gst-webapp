@@ -798,30 +798,6 @@
             position: relative;
         }
 
-        .tooltip::after {
-            content: attr(data-tooltip);
-            position: absolute;
-            bottom: 100%;
-            left: 50%;
-            transform: translateX(-50%) translateY(-8px);
-            background: var(--bg-hover);
-            color: var(--text-primary);
-            padding: 0.5rem 1rem;
-            border-radius: 8px;
-            font-size: 0.875rem;
-            white-space: nowrap;
-            opacity: 0;
-            pointer-events: none;
-            transition: opacity 0.3s;
-            z-index: 1000;
-            box-shadow: var(--card-shadow);
-            border: 1px solid var(--border-color);
-        }
-
-        .tooltip:hover::after {
-            opacity: 1;
-        }
-
         /* Enhanced Empty State */
         .empty-state {
             text-align: center;
@@ -992,7 +968,6 @@
                 opacity: 1;
             }
 
-            
         }
     </style>
 </head>

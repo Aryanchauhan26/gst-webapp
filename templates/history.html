@@ -360,6 +360,7 @@
             padding: 2rem;
             background-color: transparent;
             min-height: calc(100vh - 80px);
+            overflow-x: hidden; /* CRITICAL FIX */
         }
 
         /* Page Header */
@@ -521,6 +522,8 @@
             margin-top: 1rem;
             position: relative;
             z-index: 1;
+            border-radius: 12px;
+            box-shadow: var(--card-shadow);
         }
 
         .history-table {
@@ -529,6 +532,7 @@
             background: var(--bg-secondary);
             border-radius: 12px;
             overflow: hidden;
+            table-layout: fixed; /* CRITICAL FIX */
         }
 
         .history-table th {
@@ -542,9 +546,37 @@
             transition: all var(--transition-speed);
         }
 
-        .history-table th:hover {
-            background: var(--accent-primary);
-            color: white;
+        /* FIXED COLUMN WIDTHS */
+        .history-table th:nth-child(1),
+        .history-table td:nth-child(1) {
+            width: 20%;
+            min-width: 120px;
+        }
+
+        .history-table th:nth-child(2),
+        .history-table td:nth-child(2) {
+            width: 25%;
+            min-width: 150px;
+        }
+
+        .history-table th:nth-child(3),
+        .history-table td:nth-child(3) {
+            width: 30%;
+            min-width: 200px;
+        }
+
+        .history-table th:nth-child(4),
+        .history-table td:nth-child(4) {
+            width: 15%;
+            min-width: 100px;
+            text-align: center;
+        }
+
+        .history-table th:nth-child(5),
+        .history-table td:nth-child(5) {
+            width: 10%;
+            min-width: 80px;
+            text-align: center;
         }
 
         .history-table td {
@@ -552,6 +584,9 @@
             color: var(--text-primary);
             border-bottom: 1px solid var(--border-color);
             transition: all var(--transition-speed);
+            word-wrap: break-word; /* PREVENTS OVERFLOW */
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
 
         .history-table tbody tr {
@@ -562,24 +597,10 @@
 
         .history-table tbody tr:hover {
             background: var(--bg-hover);
-            transform: translateX(5px);
+            /* REMOVE transform: translateX(5px); - THIS CAUSES SHIFTING */
         }
 
-        .history-table tbody tr::before {
-            content: '';
-            position: absolute;
-            left: 0;
-            top: 0;
-            bottom: 0;
-            width: 4px;
-            background: var(--accent-gradient);
-            transform: scaleY(0);
-            transition: transform 0.3s;
-        }
-
-        .history-table tbody tr:hover::before {
-            transform: scaleY(1);
-        }
+        /* REMOVE ::before PSEUDO-ELEMENTS - THEY CAUSE LAYOUT ISSUES */
 
         .view-btn {
             background: var(--accent-gradient);
@@ -630,39 +651,6 @@
             background: rgba(239, 68, 68, 0.2);
             color: var(--danger);
             border: 1px solid rgba(239, 68, 68, 0.3);
-        }
-
-        /* Enhanced Tooltip System */
-        .tooltip {
-            position: relative;
-            cursor: help;
-        }
-
-        .tooltip::after {
-            content: attr(data-tooltip);
-            position: absolute;
-            bottom: 100%;
-            left: 50%;
-            transform: translateX(-50%) translateY(-8px);
-            background: var(--bg-hover);
-            color: var(--text-primary);
-            padding: 0.75rem 1rem;
-            border-radius: 8px;
-            font-size: 0.875rem;
-            white-space: nowrap;
-            opacity: 0;
-            pointer-events: none;
-            transition: opacity 0.3s, transform 0.3s;
-            z-index: 1000;
-            box-shadow: var(--card-shadow);
-            border: 1px solid var(--border-color);
-            max-width: 250px;
-            white-space: normal;
-        }
-
-        .tooltip:hover::after {
-            opacity: 1;
-            transform: translateX(-50%) translateY(-12px);
         }
 
         /* Enhanced Empty State */
@@ -773,37 +761,13 @@
                 padding: 1rem;
             }
             
-            .header-content {
-                flex-direction: column;
-                text-align: center;
+            .table-container {
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
             }
             
-            .nav-items {
-                width: 100%;
-                justify-content: center;
-                gap: 1rem;
-            }
-            
-            .page-title {
-                font-size: 1.8rem;
-            }
-            
-            .hide-mobile {
-                display: none;
-            }
-            
-            .nav-link {
-                padding: 0.4rem 0.8rem;
-                font-size: 0.9rem;
-            }
-            
-            .search-filters {
-                flex-direction: column;
-                align-items: stretch;
-            }
-            
-            .filter-group {
-                width: 100%;
+            .history-table {
+                min-width: 600px; /* ENSURES TABLE DOESN'T SHRINK TOO MUCH */
             }
         }
     </style>
@@ -945,7 +909,7 @@
                             <td><code style="background: var(--bg-hover); padding: 0.25rem 0.5rem; border-radius: 4px;">{{ item.gstin }}</code></td>
                             <td style="font-weight: 600;">{{ item.company_name }}</td>
                             <td class="hide-mobile">
-                                {% if item.compliance_score %}
+                                {% if item.compliance_score is not none and item.compliance_score > 0 %}
                                     {% if item.compliance_score >= 80 %}
                                         <span class="score-badge score-high tooltip" data-tooltip="Excellent compliance - Green status indicates top-tier tax compliance">{{ "%.0f"|format(item.compliance_score) }}%</span>
                                     {% elif item.compliance_score >= 60 %}
@@ -954,7 +918,7 @@
                                         <span class="score-badge score-low tooltip" data-tooltip="Poor compliance - Red status indicates significant compliance issues">{{ "%.0f"|format(item.compliance_score) }}%</span>
                                     {% endif %}
                                 {% else %}
-                                    <span class="score-badge tooltip" data-tooltip="Score not available">N/A</span>
+                                    <span class="score-badge tooltip" data-tooltip="Compliance score not calculated yet">Pending</span>
                                 {% endif %}
                             </td>
                             <td>
