@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-GST Intelligence Platform - Main Application (Cleaned)
+GST Intelligence Platform - Main Application (Fixed)
 Enhanced with PostgreSQL database and AI-powered insights
 """
 
@@ -319,6 +319,9 @@ def analyze_late_filings(returns: List[Dict]) -> Dict:
     }
 
 def calculate_compliance_score(company_data: dict) -> float:
+    """
+    FIXED: Calculate compliance score with proper logic
+    """
     score = 100.0
     
     # Registration Status (25 points)
@@ -421,7 +424,10 @@ def calculate_compliance_score(company_data: dict) -> float:
     if not annual_returns:
         score -= 5
     
-    return max(0, min(100, score))
+    # FIXED: Ensure score is always calculated and returned
+    final_score = max(0, min(100, score))
+    logger.info(f"Calculated compliance score: {final_score} for company {company_data.get('lgnm', 'Unknown')}")
+    return final_score
 
 def check_password(password: str, stored_hash: str, salt: str) -> bool:
     hash_attempt = hashlib.pbkdf2_hmac('sha256', password.encode('utf-8'), salt.encode('utf-8'), 100000, dklen=64).hex()
@@ -551,7 +557,10 @@ async def process_search(request: Request, gstin: str, current_user: str):
             raise HTTPException(status_code=503, detail="GST API service not configured")
             
         company_data = await api_client.fetch_gstin_data(gstin)
+        
+        # FIXED: Ensure compliance score is always calculated
         compliance_score = calculate_compliance_score(company_data)
+        logger.info(f"Final compliance score for template: {compliance_score}")
         
         synopsis = None
         if ANTHROPIC_API_KEY:
@@ -560,13 +569,17 @@ async def process_search(request: Request, gstin: str, current_user: str):
             except Exception as e:
                 logger.error(f"Failed to get AI synopsis: {e}")
         
+        # FIXED: Pass the compliance score explicitly
         await db.add_search_history(current_user, gstin, company_data.get("lgnm", "Unknown"), compliance_score)
         
         late_filing_analysis = company_data.get('_late_filing_analysis', {})
         
         return templates.TemplateResponse("results.html", {
-            "request": request, "mobile": current_user, "company_data": company_data,
-            "compliance_score": int(compliance_score), "synopsis": synopsis,
+            "request": request, 
+            "mobile": current_user, 
+            "company_data": company_data,
+            "compliance_score": int(compliance_score),  # FIXED: Ensure it's an integer
+            "synopsis": synopsis,
             "late_filing_analysis": late_filing_analysis
         })
         

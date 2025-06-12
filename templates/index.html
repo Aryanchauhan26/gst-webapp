@@ -292,7 +292,7 @@
             50% { opacity: 0.6; }
         }
 
-        /* Theme Toggle with Enhanced Animation */
+        /* FIXED: Enhanced Theme Toggle with proper indicator */
         .theme-toggle {
             background: var(--bg-card);
             border: 1px solid var(--border-color);
@@ -305,6 +305,7 @@
             width: 72px;
             height: 36px;
             transition: all var(--transition-speed);
+            overflow: hidden;
         }
 
         .theme-toggle:hover {
@@ -323,9 +324,10 @@
             align-items: center;
             justify-content: center;
             color: white;
-            font-size: 14px;
+            font-size: 12px;
             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
             left: 4px;
+            z-index: 10;
         }
 
         body.light-theme .theme-toggle-indicator {
@@ -333,13 +335,14 @@
         }
 
         .theme-icon {
-            font-size: 14px;
+            font-size: 12px;
             color: var(--text-muted);
             flex: 1;
             display: flex;
             align-items: center;
             justify-content: center;
             z-index: 1;
+            position: relative;
         }
 
         .logout-btn {
@@ -639,7 +642,7 @@
             box-shadow: 0 6px 30px rgba(16, 185, 129, 0.5);
         }
 
-        /* Enhanced Table Styles - Fixed Alignment */
+        /* FIXED: Enhanced Table Alignment and Theme Toggle */
         .table-container {
             overflow-x: auto;
             margin-top: 1rem;
@@ -653,6 +656,7 @@
             background: var(--bg-secondary);
             border-radius: 12px;
             overflow: hidden;
+            table-layout: fixed; /* FIXED: Prevents misalignment */
         }
 
         .history-table th {
@@ -671,45 +675,26 @@
             color: white;
         }
 
+        /* FIXED: Proper column sizing */
+        .history-table th:nth-child(1),
+        .history-table td:nth-child(1) { width: 22%; min-width: 140px; }
+        .history-table th:nth-child(2),
+        .history-table td:nth-child(2) { width: 22%; min-width: 150px; }
+        .history-table th:nth-child(3),
+        .history-table td:nth-child(3) { width: 32%; min-width: 200px; }
+        .history-table th:nth-child(4),
+        .history-table td:nth-child(4) { width: 14%; min-width: 100px; text-align: center; }
+        .history-table th:nth-child(5),
+        .history-table td:nth-child(5) { width: 10%; min-width: 80px; text-align: center; }
+
         .history-table td {
             padding: 1rem;
             color: var(--text-primary);
             border-bottom: 1px solid var(--border-color);
             transition: all var(--transition-speed);
             vertical-align: middle;
-        }
-
-        /* Fix column widths for better alignment */
-        .history-table th:nth-child(1),
-        .history-table td:nth-child(1) {
-            width: 20%;
-            min-width: 180px;
-        }
-
-        .history-table th:nth-child(2),
-        .history-table td:nth-child(2) {
-            width: 20%;
-            min-width: 150px;
-        }
-
-        .history-table th:nth-child(3),
-        .history-table td:nth-child(3) {
-            width: 35%;
-            min-width: 200px;
-        }
-
-        .history-table th:nth-child(4),
-        .history-table td:nth-child(4) {
-            width: 15%;
-            min-width: 120px;
-            text-align: center;
-        }
-
-        .history-table th:nth-child(5),
-        .history-table td:nth-child(5) {
-            width: 10%;
-            min-width: 100px;
-            text-align: center;
+            word-wrap: break-word;
+            overflow: hidden;
         }
 
         .history-table tbody tr {
@@ -718,9 +703,10 @@
             position: relative;
         }
 
+        /* FIXED: Remove problematic hover transforms that cause misalignment */
         .history-table tbody tr:hover {
             background: var(--bg-hover);
-            transform: translateX(5px);
+            /* Removed transform: translateX(5px) - this causes layout shifts */
         }
 
         .history-table tbody tr::before {
@@ -793,9 +779,24 @@
             border: 1px solid rgba(239, 68, 68, 0.3);
         }
 
-        /* Tooltip System */
+        /* FIXED: Ensure only one tooltip system works */
         .tooltip {
             position: relative;
+            cursor: help;
+        }
+
+        /* Remove duplicate CSS tooltips - we'll use only JavaScript tooltips */
+        .tooltip::after,
+        .tooltip::before {
+            display: none !important;
+        }
+
+        /* FIXED: Company name truncation for better alignment */
+        .company-name-cell {
+            max-width: 200px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
         }
 
         /* Enhanced Empty State */
@@ -860,6 +861,87 @@
             }
         }
 
+        /* FIXED: Enhanced user profile button styling */
+        .user-profile-btn {
+            background: var(--bg-card) !important;
+            border: 1px solid var(--border-color) !important;
+            border-radius: 10px !important;
+            padding: 0.6rem 1.2rem !important;
+            color: var(--text-primary) !important;
+            cursor: pointer !important;
+            display: flex !important;
+            align-items: center !important;
+            gap: 0.75rem !important;
+            font-weight: 500 !important;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+            font-family: inherit !important;
+            font-size: 0.95rem !important;
+            white-space: nowrap !important;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1) !important;
+        }
+
+        .user-profile-btn:hover {
+            background: var(--bg-hover) !important;
+            border-color: var(--accent-primary) !important;
+            transform: translateY(-1px) !important;
+            box-shadow: 0 4px 16px rgba(124, 58, 237, 0.2) !important;
+        }
+
+        .user-profile-btn i {
+            font-size: 1.1rem;
+            color: var(--accent-primary);
+        }
+
+        /* FIXED: Enhanced dropdown styling */
+        .user-dropdown-menu {
+            position: absolute !important;
+            top: 100% !important;
+            right: 0 !important;
+            margin-top: 0.75rem !important;
+            background: var(--bg-card) !important;
+            border: 1px solid var(--border-color) !important;
+            border-radius: 16px !important;
+            box-shadow: 0 12px 48px rgba(0, 0, 0, 0.3) !important;
+            min-width: 220px !important;
+            z-index: 1000 !important;
+            overflow: hidden !important;
+            backdrop-filter: blur(20px) !important;
+        }
+
+        .dropdown-item {
+            display: flex !important;
+            align-items: center !important;
+            gap: 1rem !important;
+            padding: 1rem 1.25rem !important;
+            color: var(--text-primary) !important;
+            text-decoration: none !important;
+            transition: all 0.2s !important;
+            cursor: pointer !important;
+            border-bottom: 1px solid var(--border-color) !important;
+        }
+
+        .dropdown-item:last-child {
+            border-bottom: none !important;
+        }
+
+        .dropdown-item:hover {
+            background: var(--bg-hover) !important;
+            color: var(--accent-primary) !important;
+            padding-left: 1.5rem !important;
+        }
+
+        .dropdown-item i {
+            width: 20px !important;
+            text-align: center !important;
+            font-size: 1rem !important;
+        }
+
+        .dropdown-arrow {
+            transition: transform 0.3s !important;
+            font-size: 0.8rem !important;
+            margin-left: 0.5rem !important;
+        }
+
         /* Mobile Responsive Enhancements */
         @media (max-width: 768px) {
             .container {
@@ -897,77 +979,22 @@
                 padding: 0.4rem 0.8rem;
                 font-size: 0.9rem;
             }
-        }
 
-        /* Performance Indicators */
-        .performance-indicator {
-            position: fixed;
-            bottom: 2rem;
-            right: 2rem;
-            background: var(--bg-card);
-            border: 1px solid var(--border-color);
-            border-radius: 12px;
-            padding: 1rem;
-            box-shadow: var(--card-shadow);
-            z-index: 1000;
-            display: none;
-        }
-
-        /* Force tooltip visibility */
-        .enhanced-tooltip-container {
-            z-index: 999999 !important;
-            pointer-events: none !important;
-            position: fixed !important;
-        }
-        
-        /* Ensure user dropdown works */
-        .user-dropdown-wrapper {
-            position: relative !important;
-            display: inline-block !important;
-        }
-
-        .user-profile-btn {
-            background: var(--bg-card) !important;
-            border: 1px solid var(--border-color) !important;
-            border-radius: 8px !important;
-            padding: 0.5rem 1rem !important;
-            color: var(--text-primary) !important;
-            cursor: pointer !important;
-            display: flex !important;
-            align-items: center !important;
-            gap: 0.5rem !important;
-            font-weight: 500 !important;
-            transition: all 0.3s !important;
-        }
-
-        .user-dropdown-menu {
-            position: absolute !important;
-            top: 100% !important;
-            right: 0 !important;
-            margin-top: 0.5rem !important;
-            background: var(--bg-card) !important;
-            border: 1px solid var(--border-color) !important;
-            border-radius: 12px !important;
-            box-shadow: var(--card-shadow) !important;
-            min-width: 200px !important;
-            z-index: 1000 !important;
-        }
-
-        .performance-indicator.show {
-            display: block;
-            animation: slideUp 0.3s ease-out;
-        }
-
-        @keyframes slideUp {
-            from {
-                transform: translateY(100%);
-                opacity: 0;
+            /* FIXED: Better responsive behavior */
+            .history-table {
+                min-width: 600px;
+                font-size: 0.9rem;
             }
-            to {
-                transform: translateY(0);
-                opacity: 1;
+            
+            .history-table th,
+            .history-table td {
+                padding: 0.75rem 0.5rem;
             }
-
+            
+            .table-container {
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+            }
         }
     </style>
 </head>
@@ -990,8 +1017,12 @@
                     Live Analytics
                 </a>
                 <a href="/history" class="nav-link">History</a>
-                <span class="nav-link user-profile tooltip" data-tooltip="Logged in user: {{ mobile }}">{{ mobile }}</span>
-                <!-- Enhanced Theme Toggle -->
+                <!-- FIXED: Enhanced user profile element for dropdown -->
+                <span class="nav-link user-profile" data-tooltip="Logged in as: {{ mobile }}">
+                    <i class="fas fa-user-circle"></i>
+                    {{ mobile }}
+                </span>
+                <!-- FIXED: Enhanced Theme Toggle with proper icons -->
                 <div class="theme-toggle" onclick="toggleTheme()">
                     <div class="theme-icon"><i class="fas fa-moon"></i></div>
                     <div class="theme-icon"><i class="fas fa-sun"></i></div>
@@ -1025,7 +1056,7 @@
                     <input type="text" 
                            id="gstin" 
                            name="gstin" 
-                           class="form-input tooltip" 
+                           class="form-input" 
                            data-tooltip="Enter 15-digit GSTIN (e.g., 27AADCB2230M1Z8)"
                            placeholder="e.g., 27AADCB2230M1Z8"
                            pattern="[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}"
@@ -1053,7 +1084,7 @@
             {% endif %}
         </section>
 
-        <!-- Recent Searches History -->
+        <!-- FIXED: Recent Searches History with Better Alignment -->
         <section class="history-section">
             <div class="history-title">
                 <div class="history-header">
@@ -1061,7 +1092,7 @@
                     <span>Recent Searches</span>
                 </div>
                 {% if history %}
-                <button class="export-btn tooltip" data-tooltip="Export search history to Excel" onclick="exportToExcel()">
+                <button class="export-btn" data-tooltip="Export search history to Excel" onclick="exportToExcel()">
                     <i class="fas fa-file-excel"></i>
                     Export to Excel
                 </button>
@@ -1073,10 +1104,10 @@
                 <table class="history-table">
                     <thead>
                         <tr>
-                            <th class="tooltip" data-tooltip="When the search was performed">Date</th>
-                            <th class="tooltip" data-tooltip="Goods and Services Tax Identification Number">GSTIN</th>
-                            <th class="tooltip" data-tooltip="Registered company name">Company Name</th>
-                            <th class="hide-mobile tooltip" data-tooltip="Compliance score based on filing history">Compliance Score</th>
+                            <th data-tooltip="When the search was performed">Date</th>
+                            <th data-tooltip="Goods and Services Tax Identification Number">GSTIN</th>
+                            <th data-tooltip="Registered company name">Company Name</th>
+                            <th class="hide-mobile" data-tooltip="Compliance score based on filing history">Compliance Score</th>
                             <th>Actions</th>
                         </tr>
                     </thead>
@@ -1085,28 +1116,32 @@
                         <tr data-gstin="{{ item.gstin }}">
                             <td>{{ item.searched_at.strftime('%d %b %Y, %I:%M %p') if item.searched_at else 'N/A' }}</td>
                             <td>
-                                <code style="background: var(--bg-hover); padding: 0.25rem 0.5rem; border-radius: 4px;">
+                                <code style="background: var(--bg-hover); padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.85rem;">
                                     {{ item.gstin }}
                                 </code>
                             </td>
-                            <td style="font-weight: 600;">{{ item.company_name }}</td>
+                            <td>
+                                <div class="company-name-cell" data-tooltip="{{ item.company_name }}">
+                                    {{ item.company_name }}
+                                </div>
+                            </td>
                             <td class="hide-mobile">
-                                {% if item.compliance_score is not none %}
+                                {% if item.compliance_score is not none and item.compliance_score > 0 %}
                                     {% if item.compliance_score >= 80 %}
-                                        <span class="score-badge score-high tooltip" data-tooltip="Excellent compliance - Green status">{{ "%.0f"|format(item.compliance_score) }}%</span>
+                                        <span class="score-badge score-high" data-tooltip="Excellent compliance - Score: {{ '%.0f'|format(item.compliance_score) }}%">{{ "%.0f"|format(item.compliance_score) }}%</span>
                                     {% elif item.compliance_score >= 60 %}
-                                        <span class="score-badge score-medium tooltip" data-tooltip="Average compliance - Yellow status">{{ "%.0f"|format(item.compliance_score) }}%</span>
+                                        <span class="score-badge score-medium" data-tooltip="Average compliance - Score: {{ '%.0f'|format(item.compliance_score) }}%">{{ "%.0f"|format(item.compliance_score) }}%</span>
                                     {% else %}
-                                        <span class="score-badge score-low tooltip" data-tooltip="Poor compliance - Red status">{{ "%.0f"|format(item.compliance_score) }}%</span>
+                                        <span class="score-badge score-low" data-tooltip="Poor compliance - Score: {{ '%.0f'|format(item.compliance_score) }}%">{{ "%.0f"|format(item.compliance_score) }}%</span>
                                     {% endif %}
                                 {% else %}
-                                    <span class="score-badge tooltip" data-tooltip="Score not available">N/A</span>
+                                    <span class="score-badge" data-tooltip="Compliance score not available">N/A</span>
                                 {% endif %}
                             </td>
                             <td>
-                                <form action="/search" method="GET" style="display: inline;">
+                                <form action="/search" method="GET" style="display: inline; margin: 0;">
                                     <input type="hidden" name="gstin" value="{{ item.gstin }}">
-                                    <button type="submit" class="view-btn tooltip" data-tooltip="View detailed compliance report">
+                                    <button type="submit" class="view-btn" data-tooltip="View detailed compliance report">
                                         <i class="fas fa-eye"></i> View
                                     </button>
                                 </form>
@@ -1132,19 +1167,12 @@
         </section>
     </main>
 
-    <!-- Performance Indicator -->
-    <div class="performance-indicator" id="performanceIndicator">
-        <div style="font-size: 0.8rem; color: var(--text-secondary);">
-            <i class="fas fa-tachometer-alt"></i> Page Load: <span id="loadTime">-</span>ms
-        </div>
-    </div>
-
     <!-- JavaScript with Enhanced Features -->
     <script>
         // Performance monitoring
         const startTime = performance.now();
 
-        // Enhanced Theme Toggle Function
+        // FIXED: Enhanced Theme Toggle Function
         function toggleTheme() {
             const body = document.body;
             const themeIcon = document.getElementById('theme-indicator-icon');
@@ -1153,12 +1181,10 @@
                 body.classList.remove('light-theme');
                 if (themeIcon) themeIcon.className = 'fas fa-moon';
                 localStorage.setItem('theme', 'dark');
-                document.documentElement.style.setProperty('--theme-transition', '0.3s');
             } else {
                 body.classList.add('light-theme');
                 if (themeIcon) themeIcon.className = 'fas fa-sun';
                 localStorage.setItem('theme', 'light');
-                document.documentElement.style.setProperty('--theme-transition', '0.3s');
             }
             
             // Broadcast theme change to other tabs
@@ -1247,7 +1273,7 @@
                 }, 3000);
             };
             
-            // Enhanced table row click handler
+            // FIXED: Enhanced table row click handler without layout shift
             const tableRows = document.querySelectorAll('.history-table tbody tr');
             tableRows.forEach(function(row) {
                 row.addEventListener('click', function(e) {
@@ -1257,7 +1283,7 @@
                     
                     const gstin = row.dataset.gstin;
                     if (gstin) {
-                        // Add loading effect
+                        // Add loading effect without transform
                         row.style.opacity = '0.7';
                         window.location.href = `/search?gstin=${gstin}`;
                     }
@@ -1276,22 +1302,6 @@
                     }, 500);
                 });
             }, 5000);
-
-            // Show performance indicator
-            const endTime = performance.now();
-            const loadTime = Math.round(endTime - startTime);
-            const performanceIndicator = document.getElementById('performanceIndicator');
-            const loadTimeElement = document.getElementById('loadTime');
-            
-            if (loadTimeElement) {
-                loadTimeElement.textContent = loadTime;
-                performanceIndicator.classList.add('show');
-                
-                // Hide after 3 seconds
-                setTimeout(() => {
-                    performanceIndicator.classList.remove('show');
-                }, 3000);
-            }
         });
 
         // PWA initialization
@@ -1372,43 +1382,8 @@
             }
         });
     </script>
-    <!-- ADD THIS DEBUG SCRIPT BEFORE </body> -->
-<script>
-console.log('🔍 GST Platform Debug - Checking for issues...');
 
-document.addEventListener('DOMContentLoaded', function() {
-    console.log('📋 DOM loaded, checking elements...');
-    
-    // Check for user elements
-    const userElements = document.querySelectorAll('.user-profile, .nav-link.tooltip[data-tooltip*="Logged in user"]');
-    console.log('👤 Found user elements:', userElements.length, userElements);
-    
-    // Check if tooltip system loaded
-    const tooltipContainer = document.querySelector('.enhanced-tooltip-container');
-    console.log('💬 Tooltip container exists:', !!tooltipContainer);
-    
-    // Check if JavaScript functions exist
-    console.log('🔧 Functions available:', {
-        'initializeEnhancedTooltipSystem': typeof initializeEnhancedTooltipSystem,
-        'initializeUserDropdown': typeof initializeUserDropdown,
-        'openProfileModal': typeof window.openProfileModal
-    });
-    
-    // Force initialize if needed
-    if (userElements.length > 0 && typeof initializeUserDropdown === 'function') {
-        console.log('🚀 Force initializing user dropdown...');
-        initializeUserDropdown();
-    }
-    
-    // Force initialize tooltips
-    if (typeof initializeEnhancedTooltipSystem === 'function') {
-        console.log('💬 Force initializing tooltip system...');
-        initializeEnhancedTooltipSystem();
-    }
-});
-</script>
-
-<!-- Include enhanced common scripts -->
-<script src="/static/common-scripts.js"></script>
+    <!-- Include enhanced common scripts -->
+    <script src="/static/common-scripts.js"></script>
 </body>
 </html>
