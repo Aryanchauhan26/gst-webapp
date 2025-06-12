@@ -385,6 +385,91 @@ select:focus {
     }
 }
 
+/* Enhanced User Dropdown Styles */
+.user-dropdown-wrapper {
+    position: relative !important;
+    display: inline-block !important;
+}
+
+.user-profile-btn {
+    background: var(--bg-card) !important;
+    border: 1px solid var(--border-color) !important;
+    border-radius: 8px !important;
+    padding: 0.5rem 1rem !important;
+    color: var(--text-primary) !important;
+    cursor: pointer !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 0.5rem !important;
+    font-weight: 500 !important;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    font-family: inherit !important;
+    font-size: inherit !important;
+    white-space: nowrap !important;
+}
+
+.user-profile-btn:hover {
+    background: var(--bg-hover) !important;
+    border-color: var(--accent-primary) !important;
+    transform: translateY(-1px) !important;
+}
+
+.user-dropdown-menu {
+    position: absolute !important;
+    top: 100% !important;
+    right: 0 !important;
+    margin-top: 0.5rem !important;
+    background: var(--bg-card) !important;
+    border: 1px solid var(--border-color) !important;
+    border-radius: 12px !important;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3) !important;
+    min-width: 200px !important;
+    z-index: var(--z-dropdown) !important;
+    overflow: hidden !important;
+}
+
+.dropdown-item {
+    display: flex !important;
+    align-items: center !important;
+    gap: 0.75rem !important;
+    padding: 0.75rem 1rem !important;
+    color: var(--text-primary) !important;
+    text-decoration: none !important;
+    transition: all 0.2s !important;
+    cursor: pointer !important;
+}
+
+.dropdown-item:hover {
+    background: var(--bg-hover) !important;
+    color: var(--accent-primary) !important;
+}
+
+.dropdown-item i {
+    width: 20px !important;
+    text-align: center !important;
+}
+
+.dropdown-divider {
+    height: 1px !important;
+    background: var(--border-color) !important;
+    margin: 0.5rem 0 !important;
+}
+
+.logout-item {
+    color: var(--danger) !important;
+}
+
+.logout-item:hover {
+    background: rgba(239, 68, 68, 0.1) !important;
+    color: var(--danger) !important;
+}
+
+.dropdown-arrow {
+    transition: transform 0.3s !important;
+    font-size: 0.8rem !important;
+    margin-left: 0.25rem !important;
+}
+
 /* Responsive Breakpoints */
 @media (max-width: 1200px) {
     .container {

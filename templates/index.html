@@ -7,6 +7,9 @@
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <link rel="manifest" href="/static/manifest.json">
     <meta name="theme-color" content="#7c3aed">
+    <link rel="stylesheet" href="/static/common-styles.css">
+    <link rel="stylesheet" href="/static/style.css">
+    
     <style>
         /* Enhanced CSS Variables and Theme System */
         :root {
@@ -123,27 +126,33 @@
         }
 
         /* Enhanced Header with Live Indicators */
+        /* Force override conflicting header styles */
         .header {
-            background: var(--bg-secondary);
-            backdrop-filter: blur(20px);
-            border-bottom: 1px solid var(--border-color);
-            padding: 1rem 0;
-            position: sticky;
-            top: 0;
-            z-index: 100;
-            box-shadow: var(--card-shadow);
-            transition: all var(--transition-speed);
+            background: var(--bg-secondary) !important;
+            backdrop-filter: blur(20px) !important;
+            -webkit-backdrop-filter: blur(20px) !important;
+            border-bottom: 1px solid var(--border-color) !important;
+            padding: 1rem 0 !important;
+            position: sticky !important;
+            top: 0 !important;
+            z-index: 100 !important;
+            box-shadow: var(--card-shadow) !important;
+            min-height: 80px !important;
+            display: flex !important;
+            align-items: center !important;
         }
 
         .header-content {
-            max-width: 1400px;
-            margin: 0 auto;
-            padding: 0 2rem;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            flex-wrap: wrap;
-            gap: 1rem;
+            max-width: 1400px !important;
+            margin: 0 auto !important;
+            padding: 0 2rem !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: space-between !important;
+            gap: 1.5rem !important;
+            flex-wrap: wrap !important;
+            width: 100% !important;
+            min-height: 60px !important;
         }
 
         .logo {
@@ -928,6 +937,46 @@
             display: none;
         }
 
+        /* Force tooltip visibility */
+        .enhanced-tooltip-container {
+            z-index: 999999 !important;
+            pointer-events: none !important;
+            position: fixed !important;
+        }
+        
+        /* Ensure user dropdown works */
+        .user-dropdown-wrapper {
+            position: relative !important;
+            display: inline-block !important;
+        }
+
+        .user-profile-btn {
+            background: var(--bg-card) !important;
+            border: 1px solid var(--border-color) !important;
+            border-radius: 8px !important;
+            padding: 0.5rem 1rem !important;
+            color: var(--text-primary) !important;
+            cursor: pointer !important;
+            display: flex !important;
+            align-items: center !important;
+            gap: 0.5rem !important;
+            font-weight: 500 !important;
+            transition: all 0.3s !important;
+        }
+
+        .user-dropdown-menu {
+            position: absolute !important;
+            top: 100% !important;
+            right: 0 !important;
+            margin-top: 0.5rem !important;
+            background: var(--bg-card) !important;
+            border: 1px solid var(--border-color) !important;
+            border-radius: 12px !important;
+            box-shadow: var(--card-shadow) !important;
+            min-width: 200px !important;
+            z-index: 1000 !important;
+        }
+
         .performance-indicator.show {
             display: block;
             animation: slideUp 0.3s ease-out;
@@ -942,6 +991,8 @@
                 transform: translateY(0);
                 opacity: 1;
             }
+
+            
         }
     </style>
 </head>
@@ -964,7 +1015,7 @@
                     Live Analytics
                 </a>
                 <a href="/history" class="nav-link">History</a>
-                <span class="nav-link tooltip" data-tooltip="Logged in user">{{ mobile }}</span>
+                <span class="nav-link user-profile tooltip" data-tooltip="Logged in user: {{ mobile }}">{{ mobile }}</span>
                 <!-- Enhanced Theme Toggle -->
                 <div class="theme-toggle" onclick="toggleTheme()">
                     <div class="theme-icon"><i class="fas fa-moon"></i></div>
@@ -1346,5 +1397,43 @@
             }
         });
     </script>
+    <!-- ADD THIS DEBUG SCRIPT BEFORE </body> -->
+<script>
+console.log('🔍 GST Platform Debug - Checking for issues...');
+
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('📋 DOM loaded, checking elements...');
+    
+    // Check for user elements
+    const userElements = document.querySelectorAll('.user-profile, .nav-link.tooltip[data-tooltip*="Logged in user"]');
+    console.log('👤 Found user elements:', userElements.length, userElements);
+    
+    // Check if tooltip system loaded
+    const tooltipContainer = document.querySelector('.enhanced-tooltip-container');
+    console.log('💬 Tooltip container exists:', !!tooltipContainer);
+    
+    // Check if JavaScript functions exist
+    console.log('🔧 Functions available:', {
+        'initializeEnhancedTooltipSystem': typeof initializeEnhancedTooltipSystem,
+        'initializeUserDropdown': typeof initializeUserDropdown,
+        'openProfileModal': typeof window.openProfileModal
+    });
+    
+    // Force initialize if needed
+    if (userElements.length > 0 && typeof initializeUserDropdown === 'function') {
+        console.log('🚀 Force initializing user dropdown...');
+        initializeUserDropdown();
+    }
+    
+    // Force initialize tooltips
+    if (typeof initializeEnhancedTooltipSystem === 'function') {
+        console.log('💬 Force initializing tooltip system...');
+        initializeEnhancedTooltipSystem();
+    }
+});
+</script>
+
+<!-- Include enhanced common scripts -->
+<script src="/static/common-scripts.js"></script>
 </body>
 </html>

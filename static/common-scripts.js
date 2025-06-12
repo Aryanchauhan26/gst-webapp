@@ -242,6 +242,21 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         });
     });
+    
+    // FORCE USER DROPDOWN INITIALIZATION WITH RETRY
+    setTimeout(function() {
+        console.log('🚀 Force initializing user dropdown...');
+        initializeUserDropdown();
+        
+        // Retry if no dropdowns were created
+        setTimeout(function() {
+            const dropdowns = document.querySelectorAll('.user-dropdown-wrapper');
+            if (dropdowns.length === 0) {
+                console.log('⚠️ No dropdowns found, retrying...');
+                initializeUserDropdown();
+            }
+        }, 1000);
+    }, 500);
 });
 
 // Enhanced Tooltip System - Renders at body level to prevent clipping
@@ -422,126 +437,112 @@ function initializeEnhancedTooltipSystem() {
 
 // User Profile Dropdown System
 function initializeUserDropdown() {
-    // Find all user profile elements
-    const userElements = document.querySelectorAll('.nav-link[data-tooltip*="Logged in user"], .user-profile');
+    console.log('🔧 Initializing user dropdown system...');
     
-    userElements.forEach(userElement => {
-        // Get mobile number from text content
+    // ENHANCED SELECTOR - More flexible element detection
+    const userElements = document.querySelectorAll([
+        '.user-profile',
+        '.nav-link[data-tooltip*="Logged in user"]',
+        '.nav-link.tooltip[data-tooltip*="Logged in user"]',
+        '.nav-link.user-profile'
+    ].join(', '));
+    
+    console.log('👤 Found user elements:', userElements.length, userElements);
+    
+    userElements.forEach(function(userElement, index) {
+        console.log(`🔍 Processing user element ${index + 1}:`, userElement);
+        
+        // Skip if already processed
+        if (userElement.classList.contains('dropdown-processed')) {
+            console.log('⚠️ Element already processed, skipping...');
+            return;
+        }
+        
+        // Mark as processed
+        userElement.classList.add('dropdown-processed');
+        
+        // Get mobile number
         const mobile = userElement.textContent.trim();
+        console.log('📱 Mobile number:', mobile);
         
-        // Create dropdown structure
-        const dropdownWrapper = document.createElement('div');
-        dropdownWrapper.className = 'user-dropdown-wrapper';
-        dropdownWrapper.style.cssText = 'position: relative; display: inline-block;';
+        // Create dropdown wrapper
+        const wrapper = document.createElement('div');
+        wrapper.className = 'user-dropdown-wrapper';
         
-        // Create profile button
-        const profileButton = document.createElement('button');
-        profileButton.className = 'user-profile-btn';
-        profileButton.innerHTML = `
+        // Create enhanced button
+        const button = document.createElement('button');
+        button.className = 'user-profile-btn';
+        button.innerHTML = `
             <i class="fas fa-user-circle"></i>
             <span>${mobile}</span>
             <i class="fas fa-chevron-down dropdown-arrow"></i>
         `;
-        profileButton.style.cssText = `
-            background: var(--bg-card);
-            border: 1px solid var(--border-color);
-            border-radius: 8px;
-            padding: 0.5rem 1rem;
-            color: var(--text-primary);
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            font-weight: 500;
-            transition: all 0.3s;
-        `;
         
         // Create dropdown menu
-        const dropdownMenu = document.createElement('div');
-        dropdownMenu.className = 'user-dropdown-menu';
-        dropdownMenu.innerHTML = `
-            <a href="#" class="dropdown-item" onclick="openProfileModal(); return false;">
-                <i class="fas fa-user"></i>
-                <span>My Profile</span>
-            </a>
-            <a href="#" class="dropdown-item" onclick="openChangePasswordModal(); return false;">
+        const menu = document.createElement('div');
+        menu.className = 'user-dropdown-menu';
+        menu.style.display = 'none';
+        menu.innerHTML = `
+            <div class="dropdown-item" onclick="openProfileModal()">
+                <i class="fas fa-user-edit"></i>
+                <span>Edit Profile</span>
+            </div>
+            <div class="dropdown-item" onclick="openPasswordModal()">
                 <i class="fas fa-key"></i>
                 <span>Change Password</span>
-            </a>
-            <a href="/history" class="dropdown-item">
-                <i class="fas fa-history"></i>
-                <span>Search History</span>
-            </a>
-            <a href="#" class="dropdown-item" onclick="openSettingsModal(); return false;">
+            </div>
+            <div class="dropdown-item" onclick="openSettingsModal()">
                 <i class="fas fa-cog"></i>
                 <span>Settings</span>
-            </a>
+            </div>
             <div class="dropdown-divider"></div>
-            <a href="/logout" class="dropdown-item logout-item">
+            <div class="dropdown-item logout-item" onclick="window.location.href='/logout'">
                 <i class="fas fa-sign-out-alt"></i>
                 <span>Logout</span>
-            </a>
+            </div>
         `;
-        dropdownMenu.style.cssText = `
-            position: absolute;
-            top: 100%;
-            right: 0;
-            margin-top: 0.5rem;
-            background: var(--bg-card);
-            border: 1px solid var(--border-color);
-            border-radius: 12px;
-            box-shadow: var(--card-shadow);
-            min-width: 200px;
-            opacity: 0;
-            visibility: hidden;
-            transform: translateY(-10px);
-            transition: all 0.3s;
-            z-index: 1000;
-            overflow: hidden;
-        `;
-        
-        // Add to wrapper
-        dropdownWrapper.appendChild(profileButton);
-        dropdownWrapper.appendChild(dropdownMenu);
         
         // Replace original element
-        userElement.parentNode.replaceChild(dropdownWrapper, userElement);
+        userElement.parentNode.insertBefore(wrapper, userElement);
+        wrapper.appendChild(button);
+        wrapper.appendChild(menu);
+        userElement.remove();
         
-        // Toggle dropdown
-        let isOpen = false;
-        profileButton.addEventListener('click', function(e) {
+        // Add click handler
+        button.addEventListener('click', function(e) {
             e.stopPropagation();
-            isOpen = !isOpen;
+            const isVisible = menu.style.display === 'block';
             
-            if (isOpen) {
-                dropdownMenu.style.opacity = '1';
-                dropdownMenu.style.visibility = 'visible';
-                dropdownMenu.style.transform = 'translateY(0)';
-                profileButton.style.background = 'var(--bg-hover)';
-                profileButton.style.borderColor = 'var(--accent-primary)';
-                profileButton.querySelector('.dropdown-arrow').style.transform = 'rotate(180deg)';
-            } else {
-                closeDropdown();
+            // Hide all other dropdowns
+            document.querySelectorAll('.user-dropdown-menu').forEach(m => {
+                if (m !== menu) m.style.display = 'none';
+            });
+            
+            menu.style.display = isVisible ? 'none' : 'block';
+            
+            // Rotate arrow
+            const arrow = button.querySelector('.dropdown-arrow');
+            if (arrow) {
+                arrow.style.transform = isVisible ? 'rotate(0deg)' : 'rotate(180deg)';
             }
         });
         
-        function closeDropdown() {
-            isOpen = false;
-            dropdownMenu.style.opacity = '0';
-            dropdownMenu.style.visibility = 'hidden';
-            dropdownMenu.style.transform = 'translateY(-10px)';
-            profileButton.style.background = 'var(--bg-card)';
-            profileButton.style.borderColor = 'var(--border-color)';
-            profileButton.querySelector('.dropdown-arrow').style.transform = 'rotate(0)';
-        }
-        
-        // Close on outside click
-        document.addEventListener('click', function(e) {
-            if (!dropdownWrapper.contains(e.target)) {
-                closeDropdown();
-            }
-        });
+        console.log('✅ Successfully created user dropdown for:', mobile);
     });
+    
+    // Close dropdown when clicking outside
+    document.addEventListener('click', function(e) {
+        if (!e.target.closest('.user-dropdown-wrapper')) {
+            document.querySelectorAll('.user-dropdown-menu').forEach(menu => {
+                menu.style.display = 'none';
+            });
+            document.querySelectorAll('.dropdown-arrow').forEach(arrow => {
+                arrow.style.transform = 'rotate(0deg)';
+            });
+        }
+    });
+    
+    console.log('✅ User dropdown system initialized');
 }
 
 // Modal System for Profile Management

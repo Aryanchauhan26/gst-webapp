@@ -5,6 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Live Analytics - GST Intelligence Platform</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <!-- ADD THESE CSS LINKS -->
+    <link rel="stylesheet" href="/static/common-styles.css">
+    <link rel="stylesheet" href="/static/style.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -220,6 +223,47 @@
     </style>
 </head>
 <body>
+    <!-- ADD THIS COMPLETE HEADER SECTION -->
+    <header class="header">
+        <div class="header-content">
+            <div class="logo">
+                <div class="logo-icon">
+                    <i class="fas fa-chart-line"></i>
+                </div>
+                <div class="logo-text">
+                    <h1>GST Intelligence</h1>
+                    <p>Advanced Business Analytics Platform</p>
+                </div>
+            </div>
+            <nav class="nav-items">
+                <a href="/" class="nav-link">Dashboard</a>
+                <a href="/analytics" class="nav-link active">
+                    <i class="fas fa-chart-pie"></i>
+                    Live Analytics
+                </a>
+                <a href="/history" class="nav-link">History</a>
+                <!-- THIS IS THE CRITICAL USER PROFILE ELEMENT -->
+                <span class="nav-link user-profile tooltip" data-tooltip="Logged in user: {{ mobile }}">{{ mobile }}</span>
+                <!-- Theme Toggle -->
+                <div class="theme-toggle" onclick="toggleTheme()">
+                    <div class="theme-icon">
+                        <i class="fas fa-moon"></i>
+                    </div>
+                    <div class="theme-icon">
+                        <i class="fas fa-sun"></i>
+                    </div>
+                    <div class="theme-toggle-indicator">
+                        <i class="fas fa-moon" id="theme-indicator-icon"></i>
+                    </div>
+                </div>
+                <a href="/logout" class="logout-btn">
+                    <i class="fas fa-sign-out-alt"></i>
+                    Logout
+                </a>
+            </nav>
+        </div>
+    </header>
+
     <main class="container">
         <div class="live-indicator">
             <div class="live-dot"></div>
@@ -393,5 +437,22 @@
             }
         });
     </script>
+
+    <!-- ADD DEBUG SCRIPT TO CHECK IF USER DROPDOWN INITIALIZES -->
+    <script>
+        console.log('🔍 Analytics Page Debug - Checking user elements...');
+        document.addEventListener('DOMContentLoaded', function() {
+            const userElements = document.querySelectorAll('.user-profile, .nav-link.tooltip[data-tooltip*="Logged in user"]');
+            console.log('👤 Found user elements:', userElements.length, userElements);
+            
+            if (userElements.length > 0) {
+                console.log('✅ User element found on analytics page');
+            } else {
+                console.log('❌ No user elements found on analytics page');
+            }
+        });
+    </script>
+
+    <script src="/static/common-scripts.js"></script>
 </body>
 </html>
