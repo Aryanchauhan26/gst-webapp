@@ -854,6 +854,7 @@
             z-index: 1000 !important;
             overflow: hidden !important;
             backdrop-filter: blur(20px) !important;
+            display: none !important;
         }
 
         .dropdown-item {
@@ -866,6 +867,7 @@
             transition: all 0.2s !important;
             cursor: pointer !important;
             border-bottom: 1px solid var(--border-color) !important;
+            font-size: 0.9rem !important;
         }
 
         .dropdown-item:last-child {
@@ -884,10 +886,19 @@
             font-size: 1rem !important;
         }
 
-        .dropdown-arrow {
-            transition: transform 0.3s !important;
-            font-size: 0.8rem !important;
-            margin-left: 0.5rem !important;
+        .dropdown-divider {
+            height: 1px !important;
+            background: var(--border-color) !important;
+            margin: 0.5rem 0 !important;
+        }
+
+        .logout-item {
+            color: var(--danger) !important;
+        }
+
+        .logout-item:hover {
+            background: rgba(239, 68, 68, 0.1) !important;
+            color: var(--danger) !important;
         }
 
         /* Mobile Responsive Enhancements */
@@ -966,12 +977,12 @@
                 </a>
                 <a href="/history" class="nav-link">History</a>
                 <!-- FIXED: Enhanced user profile element for dropdown -->
-                <div class="user-profile-section">
-                    <span class="user-profile" data-tooltip="Logged in as: {{ mobile }}">
-                        <i class="fas fa-user-circle"></i>
-                        {{ mobile }}
-                    </span>
-                </div>
+                <div class="user-profile-container">
+    <div class="user-profile" data-tooltip="Click for profile options">
+        <i class="fas fa-user-circle"></i>
+        {{ mobile }}
+    </div>
+</div>
                 <!-- FIXED: Enhanced Theme Toggle with proper icons -->
                 <div class="theme-toggle" onclick="toggleTheme()">
                     <div class="theme-icon"><i class="fas fa-moon"></i></div>
