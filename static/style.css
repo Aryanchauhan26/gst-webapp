@@ -904,17 +904,7 @@ td {
 }
 
 /* Enhanced JavaScript-based Tooltip System (Recommended) */
-.tooltip-wrapper {
-    position: fixed;
-    pointer-events: none;
-    z-index: 999999;
-    opacity: 0;
-    transition: opacity 0.2s ease;
-}
 
-.tooltip-wrapper.show {
-    opacity: 1;
-}
 
 .tooltip-content {
     background: #1a1a1a;
