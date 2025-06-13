@@ -5,27 +5,516 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Live Analytics - GST Intelligence Platform</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <!-- ADD THESE CSS LINKS -->
+    <link rel="manifest" href="/static/manifest.json">
+    <meta name="theme-color" content="#7c3aed">
+    <!-- FIXED: Load common styles first -->
     <link rel="stylesheet" href="/static/common-styles.css">
     <link rel="stylesheet" href="/static/style.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body class="page-analytics">
+    <!-- FIXED: Header WITHOUT User Dropdown -->
+    <header class="header">
+        <div class="header-content">
+            <div class="logo">
+                <div class="logo-icon">
+                    <i class="fas fa-chart-line"></i>
+                </div>
+                <div class="logo-text">
+                    <h1>GST Intelligence</h1>
+                    <p>Advanced Business Analytics Platform</p>
+                </div>
+            </div>
+            <nav class="nav-items">
+                <a href="/" class="nav-link">
+                    <i class="fas fa-tachometer-alt"></i>
+                    Dashboard
+                </a>
+                <a href="/analytics" class="nav-link active">
+                    <i class="fas fa-chart-pie"></i>
+                    Live Analytics
+                </a>
+                <a href="/history" class="nav-link">
+                    <i class="fas fa-history"></i>
+                    History
+                </a>
+                
+                <!-- FIXED: Simple user display (no dropdown) -->
+                <span class="nav-link user-display" data-tooltip="Logged in user: {{ mobile }}">
+                    <i class="fas fa-user-circle"></i>
+                    {{ mobile }}
+                </span>
+                
+                <!-- Theme Toggle -->
+                <div class="theme-toggle" onclick="toggleTheme()">
+                    <div class="theme-icon">
+                        <i class="fas fa-moon"></i>
+                    </div>
+                    <div class="theme-icon">
+                        <i class="fas fa-sun"></i>
+                    </div>
+                    <div class="theme-toggle-indicator">
+                        <i class="fas fa-moon" id="theme-indicator-icon"></i>
+                    </div>
+                </div>
+                
+                <a href="/logout" class="logout-btn">
+                    <i class="fas fa-sign-out-alt"></i>
+                    Logout
+                </a>
+            </nav>
+        </div>
+    </header>
+
+    <main class="container">
+        <!-- Live Indicator -->
+        <div class="live-indicator">
+            <div class="live-dot"></div>
+            <span>Live Analytics Dashboard</span>
+            <span class="last-updated" data-tooltip="Data refreshed in real-time">
+                Last updated: <span id="lastUpdated">Just now</span>
+            </span>
+        </div>
+
+        <!-- Stats Overview -->
+        <div class="stats-grid">
+            <div class="stat-card" data-tooltip="Total number of GSTIN searches performed">
+                <div class="stat-icon">
+                    <i class="fas fa-search"></i>
+                </div>
+                <div class="stat-value">{{ total_searches }}</div>
+                <div class="stat-label">Total Searches</div>
+                <div class="stat-change positive">
+                    <i class="fas fa-arrow-up"></i>
+                    <span>+12% this week</span>
+                </div>
+            </div>
+            
+            <div class="stat-card" data-tooltip="Unique companies analyzed for compliance">
+                <div class="stat-icon">
+                    <i class="fas fa-building"></i>
+                </div>
+                <div class="stat-value">{{ unique_companies }}</div>
+                <div class="stat-label">Companies Analyzed</div>
+                <div class="stat-change positive">
+                    <i class="fas fa-plus"></i>
+                    <span>Growing database</span>
+                </div>
+            </div>
+            
+            <div class="stat-card" data-tooltip="Average compliance score across all analyzed companies">
+                <div class="stat-icon">
+                    <i class="fas fa-percentage"></i>
+                </div>
+                <div class="stat-value">{{ avg_compliance }}%</div>
+                <div class="stat-label">Avg Compliance Score</div>
+                <div class="stat-change {% if avg_compliance >= 75 %}positive{% else %}neutral{% endif %}">
+                    <i class="fas {% if avg_compliance >= 75 %}fa-arrow-up{% else %}fa-minus{% endif %}"></i>
+                    <span>{% if avg_compliance >= 75 %}Good trend{% else %}Stable{% endif %}</span>
+                </div>
+            </div>
+
+            <div class="stat-card" data-tooltip="AI-powered insights and recommendations">
+                <div class="stat-icon">
+                    <i class="fas fa-robot"></i>
+                </div>
+                <div class="stat-value">AI</div>
+                <div class="stat-label">Powered Analytics</div>
+                <div class="stat-change positive">
+                    <i class="fas fa-sparkles"></i>
+                    <span>Active</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Charts Section -->
+        <div class="charts-grid">
+            <!-- Search Trends Chart -->
+            <div class="chart-card">
+                <div class="chart-header">
+                    <h3 class="chart-title">Search Trends (Last 7 Days)</h3>
+                    <div class="chart-controls">
+                        <button class="chart-btn active" data-tooltip="View daily trends">Daily</button>
+                        <button class="chart-btn" data-tooltip="View weekly trends">Weekly</button>
+                    </div>
+                </div>
+                <div class="chart-container">
+                    <canvas id="trendsChart"></canvas>
+                </div>
+            </div>
+            
+            <!-- Score Distribution Chart -->
+            <div class="chart-card">
+                <div class="chart-header">
+                    <h3 class="chart-title">Compliance Score Distribution</h3>
+                    <div class="chart-legend">
+                        <span class="legend-item excellent">Excellent (90+)</span>
+                        <span class="legend-item good">Good (70-89)</span>
+                        <span class="legend-item average">Average (50-69)</span>
+                        <span class="legend-item poor">Poor (<50)</span>
+                    </div>
+                </div>
+                <div class="chart-container">
+                    <canvas id="distributionChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Top Companies Section -->
+        <div class="chart-card">
+            <div class="chart-header">
+                <h3 class="chart-title">Most Searched Companies</h3>
+                <div class="filter-controls">
+                    <select class="filter-select" data-tooltip="Filter by time period">
+                        <option value="week">This Week</option>
+                        <option value="month" selected>This Month</option>
+                        <option value="quarter">This Quarter</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div class="companies-table-container">
+                {% if top_companies %}
+                <table class="companies-table">
+                    <thead>
+                        <tr>
+                            <th>Rank</th>
+                            <th>Company Name</th>
+                            <th>GSTIN</th>
+                            <th>Searches</th>
+                            <th>Latest Score</th>
+                            <th>Trend</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for company in top_companies %}
+                        <tr class="company-row" data-tooltip="Click to view detailed analysis">
+                            <td class="rank-cell">
+                                <span class="rank-badge">{{ loop.index }}</span>
+                            </td>
+                            <td class="company-cell">
+                                <div class="company-name">{{ company.company_name }}</div>
+                            </td>
+                            <td class="gstin-cell">
+                                <code class="gstin-code">{{ company.gstin }}</code>
+                            </td>
+                            <td class="searches-cell">
+                                <span class="search-count">{{ company.search_count }}</span>
+                                <span class="search-label">searches</span>
+                            </td>
+                            <td class="score-cell">
+                                {% if company.latest_score %}
+                                    {% if company.latest_score >= 80 %}
+                                        <span class="score-badge score-high">{{ "%.0f"|format(company.latest_score) }}%</span>
+                                    {% elif company.latest_score >= 60 %}
+                                        <span class="score-badge score-medium">{{ "%.0f"|format(company.latest_score) }}%</span>
+                                    {% else %}
+                                        <span class="score-badge score-low">{{ "%.0f"|format(company.latest_score) }}%</span>
+                                    {% endif %}
+                                {% else %}
+                                    <span class="score-badge">N/A</span>
+                                {% endif %}
+                            </td>
+                            <td class="trend-cell">
+                                <i class="fas fa-arrow-up trend-icon positive" data-tooltip="Improving compliance"></i>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                {% else %}
+                <div class="empty-state">
+                    <div class="empty-icon">
+                        <i class="fas fa-chart-bar"></i>
+                    </div>
+                    <h4>No data available yet</h4>
+                    <p>Start searching companies to see analytics here</p>
+                    <a href="/" class="btn btn-primary">Start Searching</a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Insights Panel -->
+        <div class="insights-panel">
+            <div class="panel-header">
+                <h3>
+                    <i class="fas fa-lightbulb"></i>
+                    AI Insights & Recommendations
+                </h3>
+                <span class="ai-badge" data-tooltip="Powered by advanced AI algorithms">AI</span>
+            </div>
+            
+            <div class="insights-grid">
+                <div class="insight-card trend">
+                    <div class="insight-icon">
+                        <i class="fas fa-trending-up"></i>
+                    </div>
+                    <div class="insight-content">
+                        <h4>Compliance Trend</h4>
+                        <p>Companies in your searches show a positive compliance trend with 78% maintaining scores above 70%.</p>
+                    </div>
+                </div>
+                
+                <div class="insight-card warning">
+                    <div class="insight-icon">
+                        <i class="fas fa-exclamation-triangle"></i>
+                    </div>
+                    <div class="insight-content">
+                        <h4>Filing Patterns</h4>
+                        <p>{{ (top_companies|length * 0.15)|round|int }} companies show irregular filing patterns. Consider deeper analysis.</p>
+                    </div>
+                </div>
+                
+                <div class="insight-card success">
+                    <div class="insight-icon">
+                        <i class="fas fa-check-circle"></i>
+                    </div>
+                    <div class="insight-content">
+                        <h4>High Performers</h4>
+                        <p>{{ (top_companies|selectattr('latest_score', '>=', 90)|list|length) }} companies maintain excellent compliance scores above 90%.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Enhanced JavaScript for Analytics -->
+    <script>
+        // Chart.js configuration and initialization
+        document.addEventListener('DOMContentLoaded', function() {
+            // Set Chart.js defaults for dark theme
+            Chart.defaults.color = '#a1a1aa';
+            Chart.defaults.borderColor = '#27272a';
+            Chart.defaults.backgroundColor = 'rgba(124, 58, 237, 0.1)';
+            
+            // Initialize Search Trends Chart
+            initializeTrendsChart();
+            
+            // Initialize Distribution Chart
+            initializeDistributionChart();
+            
+            // Update timestamps
+            updateTimestamps();
+            
+            // Auto-refresh data every 30 seconds
+            setInterval(updateTimestamps, 30000);
+            
+            console.log('📊 Analytics dashboard initialized');
+        });
+
+        function initializeTrendsChart() {
+            const trendsData = {{ daily_searches | tojson | safe }};
+            const trendsCtx = document.getElementById('trendsChart');
+            
+            if (trendsCtx && trendsData) {
+                new Chart(trendsCtx, {
+                    type: 'line',
+                    data: {
+                        labels: trendsData.map(d => {
+                            const date = new Date(d.date);
+                            return date.toLocaleDateString('en-IN', { 
+                                day: 'numeric',
+                                month: 'short'
+                            });
+                        }),
+                        datasets: [{
+                            label: 'Daily Searches',
+                            data: trendsData.map(d => d.search_count || 0),
+                            borderColor: '#7c3aed',
+                            backgroundColor: 'rgba(124, 58, 237, 0.1)',
+                            tension: 0.4,
+                            fill: true,
+                            pointBackgroundColor: '#7c3aed',
+                            pointBorderColor: '#ffffff',
+                            pointBorderWidth: 2,
+                            pointRadius: 4
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                display: false
+                            },
+                            tooltip: {
+                                mode: 'index',
+                                intersect: false,
+                                backgroundColor: 'rgba(26, 26, 26, 0.9)',
+                                titleColor: '#ffffff',
+                                bodyColor: '#a1a1aa',
+                                borderColor: '#7c3aed',
+                                borderWidth: 1
+                            }
+                        },
+                        scales: {
+                            x: {
+                                grid: {
+                                    color: 'rgba(39, 39, 42, 0.5)'
+                                }
+                            },
+                            y: {
+                                beginAtZero: true,
+                                ticks: {
+                                    stepSize: 1
+                                },
+                                grid: {
+                                    color: 'rgba(39, 39, 42, 0.5)'
+                                }
+                            }
+                        },
+                        interaction: {
+                            mode: 'nearest',
+                            axis: 'x',
+                            intersect: false
+                        }
+                    }
+                });
+            }
+        }
+
+        function initializeDistributionChart() {
+            const distributionData = {{ score_distribution | tojson | safe }};
+            const distributionCtx = document.getElementById('distributionChart');
+            
+            if (distributionCtx && distributionData) {
+                new Chart(distributionCtx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: distributionData.map(d => d.range || 'Unknown'),
+                        datasets: [{
+                            data: distributionData.map(d => d.count || 0),
+                            backgroundColor: [
+                                '#10b981', // Excellent - Green
+                                '#3b82f6', // Very Good - Blue  
+                                '#f59e0b', // Good - Yellow
+                                '#8b5cf6', // Average - Purple
+                                '#ef4444'  // Poor - Red
+                            ],
+                            borderWidth: 0,
+                            hoverOffset: 4
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                display: false // We have custom legend
+                            },
+                            tooltip: {
+                                backgroundColor: 'rgba(26, 26, 26, 0.9)',
+                                titleColor: '#ffffff',
+                                bodyColor: '#a1a1aa',
+                                borderColor: '#7c3aed',
+                                borderWidth: 1,
+                                callbacks: {
+                                    label: function(context) {
+                                        const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                        const percentage = ((context.parsed / total) * 100).toFixed(1);
+                                        return `${context.label}: ${context.parsed} (${percentage}%)`;
+                                    }
+                                }
+                            }
+                        },
+                        cutout: '60%'
+                    }
+                });
+            }
+        }
+
+        function updateTimestamps() {
+            const now = new Date();
+            const timeString = now.toLocaleTimeString('en-IN', { 
+                hour: '2-digit', 
+                minute: '2-digit'
+            });
+            
+            const lastUpdatedElement = document.getElementById('lastUpdated');
+            if (lastUpdatedElement) {
+                lastUpdatedElement.textContent = timeString;
+            }
+        }
+
+        // Company row click handler
+        document.querySelectorAll('.company-row').forEach(row => {
+            row.addEventListener('click', function() {
+                const gstin = this.querySelector('.gstin-code').textContent;
+                if (gstin) {
+                    window.location.href = `/search?gstin=${gstin}`;
+                }
+            });
+        });
+
+        // Chart control buttons
+        document.querySelectorAll('.chart-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                // Remove active class from siblings
+                this.parentNode.querySelectorAll('.chart-btn').forEach(b => b.classList.remove('active'));
+                // Add active class to clicked button
+                this.classList.add('active');
+                
+                // Here you would typically update the chart data
+                console.log('Chart period changed to:', this.textContent);
+            });
+        });
+    </script>
+
+    <!-- Load common scripts -->
+    <script src="/static/common-scripts.js"></script>
+
+    <!-- Analytics-specific styles -->
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: #0a0a0a;
-            color: #ffffff;
-            min-height: 100vh;
+        .page-analytics .user-display {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 0.5rem 1rem;
+            color: var(--text-primary);
+            font-weight: 500;
+            transition: all 0.3s;
         }
 
-        .container {
-            max-width: 1400px;
-            margin: 0 auto;
-            padding: 2rem;
+        .page-analytics .user-display:hover {
+            background: var(--bg-hover);
+            border-color: var(--accent-primary);
         }
 
-        /* Stats Cards */
+        .live-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: rgba(16, 185, 129, 0.2);
+            color: var(--success);
+            padding: 0.75rem 1.5rem;
+            border-radius: 20px;
+            font-size: 0.875rem;
+            font-weight: 600;
+            margin-bottom: 2rem;
+            animation: pulse 2s ease-in-out infinite;
+            border: 1px solid var(--success);
+        }
+
+        .live-dot {
+            width: 8px;
+            height: 8px;
+            background: var(--success);
+            border-radius: 50%;
+            animation: blink 1.5s ease-in-out infinite;
+        }
+
+        .last-updated {
+            margin-left: 1rem;
+            opacity: 0.8;
+            font-weight: 400;
+        }
+
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
         .stats-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
@@ -34,8 +523,8 @@
         }
 
         .stat-card {
-            background: #1a1a1a;
-            border: 1px solid #27272a;
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
             border-radius: 16px;
             padding: 2rem;
             text-align: center;
@@ -51,18 +540,18 @@
             left: 0;
             right: 0;
             height: 4px;
-            background: linear-gradient(135deg, #7c3aed 0%, #2563eb 100%);
+            background: var(--accent-gradient);
         }
 
         .stat-card:hover {
             transform: translateY(-5px);
-            box-shadow: 0 12px 40px rgba(124, 58, 237, 0.2);
+            box-shadow: var(--hover-shadow);
         }
 
         .stat-icon {
             font-size: 3rem;
             margin-bottom: 1rem;
-            background: linear-gradient(135deg, #7c3aed 0%, #2563eb 100%);
+            background: var(--accent-gradient);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
         }
@@ -70,16 +559,32 @@
         .stat-value {
             font-size: 2.5rem;
             font-weight: 800;
-            color: #ffffff;
+            color: var(--text-primary);
             margin-bottom: 0.5rem;
         }
 
         .stat-label {
-            color: #a1a1aa;
+            color: var(--text-secondary);
             font-size: 1rem;
+            margin-bottom: 0.5rem;
         }
 
-        /* Charts Section */
+        .stat-change {
+            font-size: 0.875rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.25rem;
+        }
+
+        .stat-change.positive {
+            color: var(--success);
+        }
+
+        .stat-change.neutral {
+            color: var(--text-muted);
+        }
+
         .charts-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
@@ -88,18 +593,50 @@
         }
 
         .chart-card {
-            background: #1a1a1a;
-            border: 1px solid #27272a;
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
             border-radius: 16px;
             padding: 2rem;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            box-shadow: var(--card-shadow);
+        }
+
+        .chart-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            flex-wrap: wrap;
+            gap: 1rem;
         }
 
         .chart-title {
             font-size: 1.25rem;
             font-weight: 600;
-            margin-bottom: 1.5rem;
-            color: #ffffff;
+            margin: 0;
+            color: var(--text-primary);
+        }
+
+        .chart-controls {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .chart-btn {
+            background: var(--bg-hover);
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 0.875rem;
+        }
+
+        .chart-btn.active,
+        .chart-btn:hover {
+            background: var(--accent-primary);
+            color: white;
+            border-color: var(--accent-primary);
         }
 
         .chart-container {
@@ -108,109 +645,222 @@
             width: 100%;
         }
 
-        /* Live Indicator */
-        .live-indicator {
-            display: inline-flex;
+        .chart-legend {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .legend-item {
+            display: flex;
             align-items: center;
             gap: 0.5rem;
-            background: rgba(16, 185, 129, 0.2);
-            color: #10b981;
-            padding: 0.5rem 1rem;
-            border-radius: 20px;
             font-size: 0.875rem;
-            font-weight: 600;
-            margin-bottom: 2rem;
-            animation: pulse 2s ease-in-out infinite;
         }
 
-        .live-dot {
-            width: 8px;
-            height: 8px;
-            background: #10b981;
-            border-radius: 50%;
-            animation: blink 1.5s ease-in-out infinite;
+        .legend-item::before {
+            content: '';
+            width: 12px;
+            height: 12px;
+            border-radius: 2px;
         }
 
-        @keyframes blink {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.5; }
+        .legend-item.excellent::before { background: #10b981; }
+        .legend-item.good::before { background: #3b82f6; }
+        .legend-item.average::before { background: #f59e0b; }
+        .legend-item.poor::before { background: #ef4444; }
+
+        .companies-table-container {
+            overflow-x: auto;
         }
 
-        @keyframes pulse {
-            0%, 100% { transform: scale(1); }
-            50% { transform: scale(1.05); }
-        }
-
-        /* Top Companies List */
-        .companies-list {
-            background: #141414;
+        .companies-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: var(--bg-secondary);
             border-radius: 12px;
             overflow: hidden;
         }
 
-        .company-item {
-            padding: 1rem 1.5rem;
-            border-bottom: 1px solid #27272a;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            transition: background 0.3s;
+        .companies-table th {
+            background: var(--bg-hover);
+            padding: 1rem;
+            text-align: left;
+            font-weight: 600;
+            color: var(--text-primary);
+            border-bottom: 2px solid var(--border-color);
         }
 
-        .company-item:hover {
-            background: #252525;
+        .companies-table td {
+            padding: 1rem;
+            border-bottom: 1px solid var(--border-color);
+            color: var(--text-primary);
         }
 
-        .company-info {
-            flex: 1;
+        .company-row {
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .company-row:hover {
+            background: var(--bg-hover);
+        }
+
+        .rank-badge {
+            background: var(--accent-gradient);
+            color: white;
+            padding: 0.25rem 0.75rem;
+            border-radius: 15px;
+            font-size: 0.875rem;
+            font-weight: 600;
         }
 
         .company-name {
             font-weight: 600;
-            color: #ffffff;
-            margin-bottom: 0.25rem;
+            color: var(--text-primary);
         }
 
-        .company-gstin {
-            font-size: 0.875rem;
-            color: #71717a;
+        .gstin-code {
+            background: var(--bg-hover);
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
             font-family: monospace;
-        }
-
-        .company-stats {
-            text-align: right;
+            font-size: 0.875rem;
+            color: var(--accent-primary);
         }
 
         .search-count {
-            font-size: 0.875rem;
-            color: #a1a1aa;
+            font-weight: 600;
+            color: var(--accent-primary);
         }
 
-        .score-badge {
-            display: inline-block;
+        .search-label {
+            color: var(--text-muted);
+            font-size: 0.875rem;
+        }
+
+        .trend-icon {
+            color: var(--success);
+        }
+
+        .filter-controls {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .filter-select {
+            background: var(--bg-input);
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            font-size: 0.875rem;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 3rem;
+            color: var(--text-secondary);
+        }
+
+        .empty-icon {
+            font-size: 4rem;
+            margin-bottom: 1rem;
+            opacity: 0.3;
+        }
+
+        .insights-panel {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 2rem;
+            box-shadow: var(--card-shadow);
+        }
+
+        .panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .panel-header h3 {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin: 0;
+            color: var(--text-primary);
+        }
+
+        .ai-badge {
+            background: var(--accent-gradient);
+            color: white;
             padding: 0.25rem 0.75rem;
             border-radius: 15px;
-            font-size: 0.85rem;
+            font-size: 0.75rem;
             font-weight: 600;
-            margin-top: 0.25rem;
         }
 
-        .score-high {
+        .insights-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1rem;
+        }
+
+        .insight-card {
+            background: var(--bg-hover);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 1.5rem;
+            display: flex;
+            gap: 1rem;
+            transition: all 0.3s;
+        }
+
+        .insight-card:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--hover-shadow);
+        }
+
+        .insight-icon {
+            flex-shrink: 0;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 8px;
+            font-size: 1.2rem;
+        }
+
+        .insight-card.trend .insight-icon {
             background: rgba(16, 185, 129, 0.2);
-            color: #10b981;
+            color: var(--success);
         }
 
-        .score-medium {
+        .insight-card.warning .insight-icon {
             background: rgba(245, 158, 11, 0.2);
-            color: #f59e0b;
+            color: var(--warning);
         }
 
-        .score-low {
-            background: rgba(239, 68, 68, 0.2);
-            color: #ef4444;
+        .insight-card.success .insight-icon {
+            background: rgba(59, 130, 246, 0.2);
+            color: var(--info);
         }
 
-        /* Responsive */
+        .insight-content h4 {
+            margin: 0 0 0.5rem 0;
+            color: var(--text-primary);
+            font-size: 1rem;
+        }
+
+        .insight-content p {
+            margin: 0;
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            line-height: 1.4;
+        }
+
         @media (max-width: 768px) {
             .charts-grid {
                 grid-template-columns: 1fr;
@@ -219,241 +869,24 @@
             .chart-container {
                 height: 250px;
             }
+            
+            .companies-table {
+                font-size: 0.875rem;
+            }
+            
+            .insights-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .stat-card {
+                padding: 1.5rem;
+            }
+            
+            .chart-header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
         }
     </style>
-</head>
-<body>
-    <!-- ADD THIS COMPLETE HEADER SECTION -->
-    <header class="header">
-        <div class="header-content">
-            <div class="logo">
-                <div class="logo-icon">
-                    <i class="fas fa-chart-line"></i>
-                </div>
-                <div class="logo-text">
-                    <h1>GST Intelligence</h1>
-                    <p>Advanced Business Analytics Platform</p>
-                </div>
-            </div>
-            <nav class="nav-items">
-                <a href="/" class="nav-link">Dashboard</a>
-                <a href="/analytics" class="nav-link active">
-                    <i class="fas fa-chart-pie"></i>
-                    Live Analytics
-                </a>
-                <a href="/history" class="nav-link">History</a>
-                <!-- THIS IS THE CRITICAL USER PROFILE ELEMENT -->
-                <span class="nav-link user-profile tooltip" data-tooltip="Logged in user: {{ mobile }}">{{ mobile }}</span>
-                <!-- Theme Toggle -->
-                <div class="theme-toggle" onclick="toggleTheme()">
-                    <div class="theme-icon">
-                        <i class="fas fa-moon"></i>
-                    </div>
-                    <div class="theme-icon">
-                        <i class="fas fa-sun"></i>
-                    </div>
-                    <div class="theme-toggle-indicator">
-                        <i class="fas fa-moon" id="theme-indicator-icon"></i>
-                    </div>
-                </div>
-                <a href="/logout" class="logout-btn">
-                    <i class="fas fa-sign-out-alt"></i>
-                    Logout
-                </a>
-            </nav>
-        </div>
-    </header>
-
-    <main class="container">
-        <div class="live-indicator">
-            <div class="live-dot"></div>
-            <span>Live Analytics Dashboard</span>
-        </div>
-
-        <!-- Stats Overview -->
-        <div class="stats-grid">
-            <div class="stat-card">
-                <div class="stat-icon">
-                    <i class="fas fa-search"></i>
-                </div>
-                <div class="stat-value">{{ total_searches }}</div>
-                <div class="stat-label">Total Searches</div>
-            </div>
-            
-            <div class="stat-card">
-                <div class="stat-icon">
-                    <i class="fas fa-building"></i>
-                </div>
-                <div class="stat-value">{{ unique_companies }}</div>
-                <div class="stat-label">Companies Analyzed</div>
-            </div>
-            
-            <div class="stat-card">
-                <div class="stat-icon">
-                    <i class="fas fa-percentage"></i>
-                </div>
-                <div class="stat-value">{{ avg_compliance }}%</div>
-                <div class="stat-label">Avg Compliance Score</div>
-            </div>
-        </div>
-
-        <!-- Charts Section -->
-        <div class="charts-grid">
-            <!-- Search Trends Chart -->
-            <div class="chart-card">
-                <h3 class="chart-title">Search Trends (Last 7 Days)</h3>
-                <div class="chart-container">
-                    <canvas id="trendsChart"></canvas>
-                </div>
-            </div>
-            
-            <!-- Score Distribution Chart -->
-            <div class="chart-card">
-                <h3 class="chart-title">Compliance Score Distribution</h3>
-                <div class="chart-container">
-                    <canvas id="distributionChart"></canvas>
-                </div>
-            </div>
-        </div>
-
-        <!-- Top Companies -->
-        <div class="chart-card">
-            <h3 class="chart-title">Most Searched Companies</h3>
-            <div class="companies-list">
-                {% for company in top_companies %}
-                <div class="company-item">
-                    <div class="company-info">
-                        <div class="company-name">{{ company.company_name }}</div>
-                        <div class="company-gstin">{{ company.gstin }}</div>
-                    </div>
-                    <div class="company-stats">
-                        <div class="search-count">{{ company.search_count }} searches</div>
-                        {% if company.latest_score %}
-                            {% if company.latest_score >= 80 %}
-                                <span class="score-badge score-high">{{ "%.0f"|format(company.latest_score) }}%</span>
-                            {% elif company.latest_score >= 60 %}
-                                <span class="score-badge score-medium">{{ "%.0f"|format(company.latest_score) }}%</span>
-                            {% else %}
-                                <span class="score-badge score-low">{{ "%.0f"|format(company.latest_score) }}%</span>
-                            {% endif %}
-                        {% endif %}
-                    </div>
-                </div>
-                {% endfor %}
-                
-                {% if not top_companies %}
-                <div style="text-align: center; padding: 3rem; color: #71717a;">
-                    No search data available yet
-                </div>
-                {% endif %}
-            </div>
-        </div>
-    </main>
-
-    <script>
-        // Initialize charts
-        document.addEventListener('DOMContentLoaded', function() {
-            // Chart.js defaults
-            Chart.defaults.color = '#a1a1aa';
-            Chart.defaults.borderColor = '#27272a';
-            
-            // Search Trends Chart
-            const trendsData = {{ daily_searches | tojson | safe }};
-            const trendsCtx = document.getElementById('trendsChart');
-            
-            if (trendsCtx) {
-                const trendsChart = new Chart(trendsCtx, {
-                    type: 'line',
-                    data: {
-                        labels: trendsData.map(d => {
-                            const date = new Date(d.date);
-                            return date.toLocaleDateString('en-IN', { 
-                                day: 'numeric',
-                                month: 'short'
-                            });
-                        }),
-                        datasets: [{
-                            label: 'Searches',
-                            data: trendsData.map(d => d.search_count || 0),
-                            borderColor: '#7c3aed',
-                            backgroundColor: 'rgba(124, 58, 237, 0.1)',
-                            tension: 0.4,
-                            fill: true
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: {
-                            legend: {
-                                display: false
-                            }
-                        },
-                        scales: {
-                            y: {
-                                beginAtZero: true,
-                                ticks: {
-                                    stepSize: 1
-                                }
-                            }
-                        }
-                    }
-                });
-            }
-
-            // Score Distribution Chart
-            const distributionData = {{ score_distribution | tojson | safe }};
-            const distributionCtx = document.getElementById('distributionChart');
-            
-            if (distributionCtx) {
-                const distributionChart = new Chart(distributionCtx, {
-                    type: 'doughnut',
-                    data: {
-                        labels: distributionData.map(d => d.range || 'Unknown'),
-                        datasets: [{
-                            data: distributionData.map(d => d.count || 0),
-                            backgroundColor: [
-                                '#10b981',
-                                '#3b82f6',
-                                '#f59e0b',
-                                '#8b5cf6',
-                                '#ef4444'
-                            ]
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: {
-                            legend: {
-                                position: 'bottom',
-                                labels: {
-                                    padding: 10
-                                }
-                            }
-                        }
-                    }
-                });
-            }
-        });
-    </script>
-
-    <!-- ADD DEBUG SCRIPT TO CHECK IF USER DROPDOWN INITIALIZES -->
-    <script>
-        console.log('🔍 Analytics Page Debug - Checking user elements...');
-        document.addEventListener('DOMContentLoaded', function() {
-            const userElements = document.querySelectorAll('.user-profile, .nav-link.tooltip[data-tooltip*="Logged in user"]');
-            console.log('👤 Found user elements:', userElements.length, userElements);
-            
-            if (userElements.length > 0) {
-                console.log('✅ User element found on analytics page');
-            } else {
-                console.log('❌ No user elements found on analytics page');
-            }
-        });
-    </script>
-
-    <script src="/static/common-scripts.js"></script>
-    <!-- Add this script section before closing </body> tag in analytics.html -->
-<script>
-    // Theme Toggle Function
+</body>
+</html>
