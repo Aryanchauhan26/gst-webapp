@@ -680,21 +680,49 @@
             background: var(--bg-secondary);
             border-radius: 12px;
             overflow: hidden;
+            table-layout: fixed; /* CRITICAL: Forces fixed column widths */
+        }
+
+        /* Fixed column widths */
+        .companies-table th:nth-child(1),
+        .companies-table td:nth-child(1) { width: 8%; }   /* Rank */
+        .companies-table th:nth-child(2),
+        .companies-table td:nth-child(2) { width: 30%; }  /* Company Name */
+        .companies-table th:nth-child(3),
+        .companies-table td:nth-child(3) { width: 25%; }  /* GSTIN */
+        .companies-table th:nth-child(4),
+        .companies-table td:nth-child(4) { width: 12%; }  /* Searches */
+        .companies-table th:nth-child(5),
+        .companies-table td:nth-child(5) { width: 15%; }  /* Score */
+        .companies-table th:nth-child(6),
+        .companies-table td:nth-child(6) { width: 10%; }  /* Trend */
+
+        /* Truncate long company names */
+        .company-name {
+            font-weight: 600;
+            color: var(--text-primary);
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            max-width: 100%;
+        }
+
+        .companies-table td {
+            padding: 0.75rem 0.5rem; /* Reduced padding */
+            border-bottom: 1px solid var(--border-color);
+            color: var(--text-primary);
+            vertical-align: middle;
+            overflow: hidden;
         }
 
         .companies-table th {
             background: var(--bg-hover);
-            padding: 1rem;
+            padding: 0.75rem 0.5rem; /* Reduced padding */
             text-align: left;
             font-weight: 600;
             color: var(--text-primary);
             border-bottom: 2px solid var(--border-color);
-        }
-
-        .companies-table td {
-            padding: 1rem;
-            border-bottom: 1px solid var(--border-color);
-            color: var(--text-primary);
+            font-size: 0.9rem;
         }
 
         .company-row {

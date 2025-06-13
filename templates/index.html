@@ -966,10 +966,12 @@
                 </a>
                 <a href="/history" class="nav-link">History</a>
                 <!-- FIXED: Enhanced user profile element for dropdown -->
-                <span class="nav-link user-profile" data-tooltip="Logged in as: {{ mobile }}">
-                    <i class="fas fa-user-circle"></i>
-                    {{ mobile }}
-                </span>
+                <div class="user-profile-section">
+                    <span class="user-profile" data-tooltip="Logged in as: {{ mobile }}">
+                        <i class="fas fa-user-circle"></i>
+                        {{ mobile }}
+                    </span>
+                </div>
                 <!-- FIXED: Enhanced Theme Toggle with proper icons -->
                 <div class="theme-toggle" onclick="toggleTheme()">
                     <div class="theme-icon"><i class="fas fa-moon"></i></div>
@@ -1307,9 +1309,4 @@
 }
 </style>
 
-    <!-- JavaScript with Enhanced Features -->
     <script src="/static/common-scripts.js"></script>
-        // Performance monitoring
-        const startTime = performance.now();
-
-        // FIXED: Enhanced Theme Toggle Function

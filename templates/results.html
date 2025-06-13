@@ -1563,3 +1563,34 @@
         to { transform: translateX(100%); opacity: 0; }
     }
 </style>
+<script>
+// Fixed Toggle for GST Filing Categories
+function toggleCategory(header) {
+    const content = header.nextElementSibling;
+    const isActive = header.classList.contains('active');
+    
+    // Close all other categories
+    document.querySelectorAll('.category-header').forEach(h => {
+        if (h !== header) {
+            h.classList.remove('active');
+            const otherContent = h.nextElementSibling;
+            if (otherContent) {
+                otherContent.classList.remove('active');
+                otherContent.style.maxHeight = '0';
+            }
+        }
+    });
+    
+    // Toggle current category
+    if (!isActive) {
+        header.classList.add('active');
+        content.classList.add('active');
+        // Calculate and set actual height for smooth animation
+        content.style.maxHeight = content.scrollHeight + 'px';
+    } else {
+        header.classList.remove('active');
+        content.classList.remove('active');
+        content.style.maxHeight = '0';
+    }
+}
+</script>
