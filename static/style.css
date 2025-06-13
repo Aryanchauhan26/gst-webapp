@@ -903,27 +903,6 @@ td {
     border-color: var(--danger);
 }
 
-/* Enhanced JavaScript-based Tooltip System (Recommended) */
-
-
-.tooltip-content {
-    background: #1a1a1a;
-    color: #fff;
-    padding: 10px 16px;
-    border-radius: 8px;
-    font-size: 14px;
-    line-height: 1.4;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    max-width: 320px;
-    word-wrap: break-word;
-}
-
-.light-theme .tooltip-content {
-    background: #333;
-    color: #fff;
-}
-
 /* Particle Background */
 .particles {
     position: fixed;
@@ -1006,24 +985,6 @@ td {
     100% {
         transform: translateX(100%);
     }
-}
-
-/* Custom JS tooltip styles */
-.custom-tooltip {
-    position: absolute;
-    background: #222;
-    color: #fff;
-    padding: 0.5rem 1rem;
-    border-radius: 6px;
-    font-size: 0.95rem;
-    box-shadow: 0 4px 16px rgba(0,0,0,0.25);
-    pointer-events: none;
-    z-index: 99999;
-    white-space: pre-line;
-    min-width: 120px;
-    max-width: 350px;
-    display: none;
-    transition: opacity 0.15s;
 }
 
 /* Dashboard Layout */
@@ -1153,3 +1114,4 @@ td {
     position: relative;
     z-index: 1;
     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+} /* ADD THIS CLOSING BRACE */

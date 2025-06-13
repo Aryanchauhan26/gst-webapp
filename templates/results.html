@@ -1425,24 +1425,141 @@
         </div>
     </main>
 
-    <!-- JavaScript -->
-    <script>
-        // FIXED: Toggle accordion categories with better animation
-        function toggleCategory(header) {
-            const content = header.nextElementSibling;
-            const isActive = header.classList.contains('active');
-            
-            // Close all other categories first
-            document.querySelectorAll('.category-header.active').forEach(h => {
-                if (h !== header) {
-                    h.classList.remove('active');
-                    h.nextElementSibling.classList.remove('active');
+    <!-- Add this JavaScript at the bottom of results.html, before closing </body> tag -->
+<script>
+    // Fixed Toggle for GST Filing Categories
+    function toggleCategory(header) {
+        const content = header.nextElementSibling;
+        const isActive = header.classList.contains('active');
+        
+        // Close all other categories
+        document.querySelectorAll('.category-header').forEach(h => {
+            if (h !== header) {
+                h.classList.remove('active');
+                const otherContent = h.nextElementSibling;
+                if (otherContent) {
+                    otherContent.classList.remove('active');
+                    otherContent.style.maxHeight = '0';
                 }
-            });
-            
-            // Toggle current category
-            header.classList.toggle('active');
-            content.classList.toggle('active');
+            }
+        });
+        
+        // Toggle current category
+        if (!isActive) {
+            header.classList.add('active');
+            content.classList.add('active');
+            // Calculate and set actual height for smooth animation
+            content.style.maxHeight = content.scrollHeight + 'px';
+        } else {
+            header.classList.remove('active');
+            content.classList.remove('active');
+            content.style.maxHeight = '0';
         }
+    }
 
-        // Enhanced Theme Toggle Function
+    // Theme Toggle Function
+    function toggleTheme() {
+        const isLight = document.body.classList.contains('light-theme');
+        document.body.classList.toggle('light-theme');
+        localStorage.setItem('theme', isLight ? 'dark' : 'light');
+        updateThemeIcon();
+    }
+
+    function updateThemeIcon() {
+        const indicators = document.querySelectorAll('#theme-indicator-icon');
+        const isLight = document.body.classList.contains('light-theme');
+        indicators.forEach(icon => {
+            icon.className = isLight ? 'fas fa-sun' : 'fas fa-moon';
+        });
+    }
+
+    // Initialize theme on page load
+    document.addEventListener('DOMContentLoaded', function() {
+        const savedTheme = localStorage.getItem('theme') || 'dark';
+        document.body.className = savedTheme === 'light' ? 'light-theme' : '';
+        updateThemeIcon();
+        
+        // Animate score value
+        const scoreElement = document.getElementById('scoreValue');
+        if (scoreElement) {
+            const targetScore = parseInt(scoreElement.textContent);
+            let currentScore = 0;
+            const increment = targetScore / 50;
+            
+            const animateScore = setInterval(() => {
+                currentScore += increment;
+                if (currentScore >= targetScore) {
+                    currentScore = targetScore;
+                    clearInterval(animateScore);
+                }
+                scoreElement.textContent = Math.round(currentScore) + '%';
+            }, 30);
+        }
+    });
+
+    // Share functionality
+    function shareResults() {
+        const shareData = {
+            title: 'GST Compliance Report',
+            text: `Check out this GST compliance report for {{ company_data.lgnm }}`,
+            url: window.location.href
+        };
+        
+        if (navigator.share) {
+            navigator.share(shareData);
+        } else {
+            // Fallback - copy to clipboard
+            navigator.clipboard.writeText(window.location.href);
+            showToast('Link copied to clipboard!', 'success');
+        }
+    }
+
+    // Simple toast notification
+    function showToast(message, type = 'info') {
+        const toast = document.createElement('div');
+        toast.style.cssText = `
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            background: ${type === 'success' ? '#10b981' : '#3b82f6'};
+            color: white;
+            padding: 1rem 1.5rem;
+            border-radius: 8px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+            z-index: 10001;
+            animation: slideIn 0.3s ease;
+        `;
+        toast.textContent = message;
+        document.body.appendChild(toast);
+        
+        setTimeout(() => {
+            toast.style.animation = 'slideOut 0.3s ease';
+            setTimeout(() => toast.remove(), 300);
+        }, 3000);
+    }
+</script>
+
+<!-- Add required CSS for animations -->
+<style>
+    /* Fix for category content animation */
+    .category-content {
+        max-height: 0;
+        overflow: hidden;
+        transition: max-height 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+        background: var(--bg-card);
+    }
+    
+    .category-content.active {
+        overflow: visible;
+    }
+    
+    /* Animation keyframes */
+    @keyframes slideIn {
+        from { transform: translateX(100%); opacity: 0; }
+        to { transform: translateX(0); opacity: 1; }
+    }
+    
+    @keyframes slideOut {
+        to { transform: translateX(100%); opacity: 0; }
+    }
+</style>
