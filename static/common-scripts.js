@@ -1,5 +1,5 @@
-// GST Intelligence Platform - FIXED Common Scripts
-// Complete JavaScript Framework - No Conflicts, Consistent Functionality
+// GST Intelligence Platform - Common Scripts
+// Complete JavaScript Framework - Clean and Consistent
 
 console.log('🚀 GST Platform Scripts Loading...');
 
@@ -156,7 +156,7 @@ class TooltipManager {
 }
 
 // ===========================================
-// 2. THEME SYSTEM - FIXED IMPLEMENTATION
+// 2. THEME SYSTEM
 // ===========================================
 
 class ThemeManager {
@@ -260,7 +260,7 @@ class UserDropdownManager {
     }
 
     init() {
-        // Only initialize on dashboard (check for specific elements or page indicators)
+        // Only initialize on dashboard
         if (!this.isDashboardPage()) {
             debugLog('Not dashboard page, skipping user dropdown');
             return;
@@ -273,11 +273,10 @@ class UserDropdownManager {
     }
 
     isDashboardPage() {
-        // Check if we're on the dashboard by looking for dashboard-specific elements
-        return document.querySelector('.welcome-section') !== null ||
-               document.querySelector('.search-section') !== null ||
+        // Check if we're on the dashboard
+        return document.querySelector('.page-dashboard') !== null ||
                window.location.pathname === '/' ||
-               document.body.classList.contains('page-dashboard');
+               document.querySelector('.user-profile') !== null;
     }
 
     initializeUserDropdowns() {
@@ -411,8 +410,6 @@ class FormManager {
                 
                 if (value.length === 15) {
                     e.target.style.borderColor = isValid ? 'var(--success)' : 'var(--danger)';
-                    
-                    // Add validation feedback
                     this.showValidationFeedback(e.target, isValid, isValid ? 'Valid GSTIN format' : 'Invalid GSTIN format');
                 } else {
                     e.target.style.borderColor = 'var(--border-color)';
@@ -512,7 +509,6 @@ class FormManager {
     }
 
     initializeFormSubmissions() {
-        // Add loading states to form submissions
         const forms = document.querySelectorAll('form');
         
         forms.forEach(form => {
@@ -555,6 +551,12 @@ class FormManager {
         const existingFeedback = input.parentNode.querySelector('.validation-feedback');
         if (existingFeedback) {
             existingFeedback.remove();
+        }
+    }
+
+    showToast(message, type) {
+        if (typeof notificationManager !== 'undefined') {
+            notificationManager.showToast(message, type);
         }
     }
 }
@@ -818,9 +820,10 @@ class KeyboardShortcutManager {
 }
 
 // ===========================================
-// 8. AUTO-DISMISS MESSAGES
+// 8. UTILITY FUNCTIONS
 // ===========================================
 
+// Auto-dismiss messages
 function autoDismissMessages() {
     const messages = document.querySelectorAll('.message, .error-message, .success-message');
     messages.forEach((message, index) => {
@@ -829,13 +832,9 @@ function autoDismissMessages() {
                 message.style.animation = 'fadeOut 0.5s ease';
                 setTimeout(() => message.remove(), 500);
             }
-        }, 5000 + (index * 1000)); // Stagger dismissal
+        }, 5000 + (index * 1000));
     });
 }
-
-// ===========================================
-// 9. UTILITY FUNCTIONS
-// ===========================================
 
 // Dynamic greeting based on time
 function setDynamicGreeting() {
@@ -850,12 +849,6 @@ function setDynamicGreeting() {
     greetingElements.forEach(el => {
         if (el) el.textContent = greeting;
     });
-}
-
-// Export functionality
-function exportToExcel() {
-    window.location.href = '/export/history';
-    notificationManager.showToast('Exporting data to Excel...', 'info');
 }
 
 // Page transition effects
@@ -880,7 +873,7 @@ function initPerformanceMonitoring() {
 }
 
 // ===========================================
-// 10. MODAL FUNCTIONS (GLOBAL)
+// 9. MODAL FUNCTIONS (GLOBAL)
 // ===========================================
 
 window.openProfileModal = function() {
@@ -904,7 +897,6 @@ window.openProfileModal = function() {
             </form>
         `,
         onSubmit: async function(formData) {
-            // Simulate API call
             await new Promise(resolve => setTimeout(resolve, 1000));
             notificationManager.showToast('Profile updated successfully!', 'success');
             return true;
@@ -942,7 +934,6 @@ window.openPasswordModal = function() {
                 return false;
             }
             
-            // Simulate API call
             await new Promise(resolve => setTimeout(resolve, 1000));
             notificationManager.showToast('Password changed successfully!', 'success');
             return true;
@@ -980,10 +971,8 @@ window.openSettingsModal = function() {
             </form>
         `,
         onSubmit: async function(formData) {
-            // Save settings
             localStorage.setItem('userSettings', JSON.stringify(formData));
             
-            // Apply theme change if needed
             if (formData.darkMode !== (themeManager.currentTheme === 'dark')) {
                 themeManager.toggleTheme();
             }
@@ -995,7 +984,7 @@ window.openSettingsModal = function() {
 };
 
 // ===========================================
-// 11. GLOBAL THEME TOGGLE FUNCTION
+// 10. GLOBAL THEME TOGGLE FUNCTION
 // ===========================================
 
 window.toggleTheme = function() {
@@ -1003,7 +992,7 @@ window.toggleTheme = function() {
 };
 
 // ===========================================
-// 12. ANIMATION KEYFRAMES (CSS-in-JS)
+// 11. ANIMATION KEYFRAMES (CSS-in-JS)
 // ===========================================
 
 function injectAnimationStyles() {
@@ -1039,140 +1028,4 @@ function injectAnimationStyles() {
             height: 16px;
             top: 50%;
             left: 50%;
-            margin-left: -8px;
-            margin-top: -8px;
-            border: 2px solid rgba(255, 255, 255, 0.3);
-            border-radius: 50%;
-            border-top-color: white;
-            animation: spin 0.8s linear infinite;
-        }
-        
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
-    `;
-    
-    // Only add if not already present
-    if (!document.querySelector('#gst-animations')) {
-        style.id = 'gst-animations';
-        document.head.appendChild(style);
-    }
-}
-
-// ===========================================
-// 13. MAIN INITIALIZATION
-// ===========================================
-
-// Global instances
-let tooltipManager;
-let themeManager;
-let userDropdownManager;
-let formManager;
-let modalManager;
-let notificationManager;
-let keyboardManager;
-
-// Initialize everything when DOM is ready
-document.addEventListener('DOMContentLoaded', function() {
-    console.log('🔧 GST Platform Scripts Initializing...');
-    
-    try {
-        // Initialize CSS animations
-        injectAnimationStyles();
-        
-        // Initialize core systems
-        tooltipManager = new TooltipManager();
-        themeManager = new ThemeManager();
-        modalManager = new ModalManager();
-        notificationManager = new NotificationManager();
-        keyboardManager = new KeyboardShortcutManager();
-        
-        // Initialize form management
-        formManager = new FormManager();
-        
-        // Initialize user dropdown (dashboard only)
-        userDropdownManager = new UserDropdownManager();
-        
-        // Initialize utility functions
-        setDynamicGreeting();
-        autoDismissMessages();
-        initPageTransitions();
-        initPerformanceMonitoring();
-        
-        // Refresh greeting every hour
-        setInterval(setDynamicGreeting, 60 * 60 * 1000);
-        
-        console.log('✅ All GST Platform scripts initialized successfully');
-        
-        // Show welcome notification on dashboard
-        if (window.location.pathname === '/') {
-            setTimeout(() => {
-                notificationManager.showToast('Welcome to GST Intelligence Platform! Press Ctrl+K to search.', 'info', 5000);
-            }, 1000);
-        }
-        
-    } catch (error) {
-        console.error('❌ Error initializing GST Platform scripts:', error);
-    }
-});
-
-// Handle page visibility changes
-document.addEventListener('visibilitychange', function() {
-    if (document.hidden) {
-        // Page is hidden, close dropdowns and modals
-        if (userDropdownManager) {
-            document.querySelectorAll('.user-dropdown-menu').forEach(menu => {
-                menu.style.display = 'none';
-            });
-        }
-    }
-});
-
-// Handle window resize
-let resizeTimeout;
-window.addEventListener('resize', function() {
-    clearTimeout(resizeTimeout);
-    resizeTimeout = setTimeout(() => {
-        // Close dropdowns on resize
-        document.querySelectorAll('.user-dropdown-menu').forEach(menu => {
-            menu.style.display = 'none';
-        });
-    }, 250);
-});
-
-// ===========================================
-// 14. DEBUG AND DEVELOPMENT HELPERS
-// ===========================================
-
-// Development helper functions (only in debug mode)
-if (GST_CONFIG.DEBUG) {
-    window.GST_DEBUG = {
-        tooltipManager,
-        themeManager,
-        userDropdownManager,
-        formManager,
-        modalManager,
-        notificationManager,
-        keyboardManager,
-        showToast: (msg, type) => notificationManager.showToast(msg, type),
-        toggleDebug: () => {
-            GST_CONFIG.DEBUG = !GST_CONFIG.DEBUG;
-            console.log('Debug mode:', GST_CONFIG.DEBUG ? 'ON' : 'OFF');
-        }
-    };
-    
-    console.log('🐛 Debug mode enabled. Access GST_DEBUG object for debugging.');
-}
-
-// Service Worker registration (if available)
-if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/sw.js')
-            .then(registration => {
-                debugLog('Service Worker registered:', registration);
-            })
-            .catch(error => {
-                debugLog('Service Worker registration failed:', error);
-            });
-    });
-}
+            

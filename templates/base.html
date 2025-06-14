@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}GST Intelligence Platform{% endblock %}</title>
+    
+    <!-- Meta Tags -->
+    <link rel="manifest" href="/static/manifest.json">
+    <meta name="theme-color" content="#7c3aed">
+    <meta name="description" content="Advanced GST Compliance Analytics Platform">
+    
+    <!-- External CSS -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    
+    <!-- Internal CSS - Load in order -->
+    <link rel="stylesheet" href="/static/common-styles.css">
+    <link rel="stylesheet" href="/static/style.css">
+    
+    <!-- Page-specific CSS -->
+    {% block extra_css %}{% endblock %}
+</head>
+<body class="{% block body_class %}{% endblock %}">
+    
+    {% block header %}
+    <!-- Header -->
+    <header class="header">
+        <div class="header-content">
+            <div class="logo">
+                <div class="logo-icon">
+                    <i class="fas fa-chart-line"></i>
+                </div>
+                <div class="logo-text">
+                    <h1>GST Intelligence</h1>
+                    <p>Advanced Business Analytics Platform</p>
+                </div>
+            </div>
+            
+            {% if current_user %}
+            <nav class="nav-items">
+                <a href="/" class="nav-link {% if request.url.path == '/' %}active{% endif %}">
+                    <i class="fas fa-tachometer-alt"></i>
+                    Dashboard
+                </a>
+                <a href="/analytics" class="nav-link {% if request.url.path == '/analytics' %}active{% endif %}">
+                    <i class="fas fa-chart-pie"></i>
+                    Analytics
+                </a>
+                <a href="/history" class="nav-link {% if request.url.path == '/history' %}active{% endif %}">
+                    <i class="fas fa-history"></i>
+                    History
+                </a>
+                
+                <!-- User Profile (Dashboard only) -->
+                {% if request.url.path == '/' %}
+                <span class="user-profile" data-tooltip="Click for profile options">
+                    <i class="fas fa-user-circle"></i>
+                    {{ current_user }}
+                </span>
+                {% else %}
+                <span class="nav-link user-display" data-tooltip="Logged in user: {{ current_user }}">
+                    <i class="fas fa-user-circle"></i>
+                    {{ current_user }}
+                </span>
+                {% endif %}
+                
+                <!-- Theme Toggle -->
+                <div class="theme-toggle" onclick="toggleTheme()">
+                    <div class="theme-icon"><i class="fas fa-moon"></i></div>
+                    <div class="theme-icon"><i class="fas fa-sun"></i></div>
+                    <div class="theme-toggle-indicator">
+                        <i class="fas fa-moon" id="theme-indicator-icon"></i>
+                    </div>
+                </div>
+                
+                <a href="/logout" class="logout-btn">
+                    <i class="fas fa-sign-out-alt"></i>
+                    Logout
+                </a>
+            </nav>
+            {% endif %}
+        </div>
+    </header>
+    {% endblock %}
+
+    <!-- Main Content -->
+    <main class="{% block main_class %}container{% endblock %}">
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Scripts -->
+    <script src="/static/common-scripts.js"></script>
+    {% block extra_js %}{% endblock %}
+    
+    <!-- Page-specific inline scripts -->
+    {% block inline_js %}{% endblock %}
+</body>
+</html>

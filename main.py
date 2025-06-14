@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-GST Intelligence Platform - Main Application (Fixed)
+GST Intelligence Platform - Main Application (Cleaned)
 Enhanced with PostgreSQL database and AI-powered insights
 """
 
@@ -154,38 +154,6 @@ class PostgresDB:
             )
             return [dict(row) for row in rows]
 
-    async def update_user_profile(self, mobile: str, profile_data: Dict):
-        await self.connect()
-        async with self.pool.acquire() as conn:
-            # Update user profile (you may need to add these columns to your users table)
-            await conn.execute("""
-                UPDATE users 
-                SET display_name = $2, email = $3, company = $4, updated_at = $5
-                WHERE mobile = $1
-            """, mobile, profile_data.get('displayName'), profile_data.get('email'), 
-                profile_data.get('company'), datetime.now())
-
-    async def change_password(self, mobile: str, new_password: str) -> bool:
-        salt = secrets.token_hex(16)
-        password_hash = hashlib.pbkdf2_hmac('sha256', new_password.encode('utf-8'), salt.encode('utf-8'), 100000, dklen=64).hex()
-        
-        await self.connect()
-        async with self.pool.acquire() as conn:
-            await conn.execute(
-                "UPDATE users SET password_hash = $2, salt = $3, updated_at = $4 WHERE mobile = $1",
-                mobile, password_hash, salt, datetime.now()
-            )
-        return True
-
-    async def get_user_profile(self, mobile: str) -> Dict:
-        await self.connect()
-        async with self.pool.acquire() as conn:
-            row = await conn.fetchrow("""
-                SELECT mobile, display_name, email, company, created_at, last_login
-                FROM users WHERE mobile = $1
-            """, mobile)
-            return dict(row) if row else None
-
 db = PostgresDB()
 
 # GST API Client
@@ -319,9 +287,7 @@ def analyze_late_filings(returns: List[Dict]) -> Dict:
     }
 
 def calculate_compliance_score(company_data: dict) -> float:
-    """
-    FIXED: Calculate compliance score with proper logic
-    """
+    """Calculate compliance score with proper logic"""
     score = 100.0
     
     # Registration Status (25 points)
@@ -424,7 +390,6 @@ def calculate_compliance_score(company_data: dict) -> float:
     if not annual_returns:
         score -= 5
     
-    # FIXED: Ensure score is always calculated and returned
     final_score = max(0, min(100, score))
     logger.info(f"Calculated compliance score: {final_score} for company {company_data.get('lgnm', 'Unknown')}")
     return final_score
@@ -465,7 +430,9 @@ async def health_check():
 async def home(request: Request, current_user: str = Depends(require_auth)):
     history = await db.get_search_history(current_user)
     return templates.TemplateResponse("index.html", {
-        "request": request, "mobile": current_user, "history": history
+        "request": request, 
+        "current_user": current_user, 
+        "history": history
     })
 
 @app.get("/login", response_class=HTMLResponse)
@@ -542,13 +509,13 @@ async def process_search(request: Request, gstin: str, current_user: str):
     if not validate_gstin(gstin):
         history = await db.get_search_history(current_user)
         return templates.TemplateResponse("index.html", {
-            "request": request, "mobile": current_user, "error": "Invalid GSTIN format", "history": history
+            "request": request, "current_user": current_user, "error": "Invalid GSTIN format", "history": history
         })
     
     if not api_limiter.is_allowed(current_user):
         history = await db.get_search_history(current_user)
         return templates.TemplateResponse("index.html", {
-            "request": request, "mobile": current_user, 
+            "request": request, "current_user": current_user, 
             "error": "API rate limit exceeded. Please try again later.", "history": history
         })
     
@@ -558,7 +525,7 @@ async def process_search(request: Request, gstin: str, current_user: str):
             
         company_data = await api_client.fetch_gstin_data(gstin)
         
-        # FIXED: Ensure compliance score is always calculated
+        # Calculate compliance score
         compliance_score = calculate_compliance_score(company_data)
         logger.info(f"Final compliance score for template: {compliance_score}")
         
@@ -569,16 +536,16 @@ async def process_search(request: Request, gstin: str, current_user: str):
             except Exception as e:
                 logger.error(f"Failed to get AI synopsis: {e}")
         
-        # FIXED: Pass the compliance score explicitly
+        # Add to search history
         await db.add_search_history(current_user, gstin, company_data.get("lgnm", "Unknown"), compliance_score)
         
         late_filing_analysis = company_data.get('_late_filing_analysis', {})
         
         return templates.TemplateResponse("results.html", {
             "request": request, 
-            "mobile": current_user, 
+            "current_user": current_user, 
             "company_data": company_data,
-            "compliance_score": int(compliance_score),  # FIXED: Ensure it's an integer
+            "compliance_score": int(compliance_score),
             "synopsis": synopsis,
             "late_filing_analysis": late_filing_analysis
         })
@@ -586,13 +553,13 @@ async def process_search(request: Request, gstin: str, current_user: str):
     except HTTPException as e:
         history = await db.get_search_history(current_user)
         return templates.TemplateResponse("index.html", {
-            "request": request, "mobile": current_user, "error": e.detail, "history": history
+            "request": request, "current_user": current_user, "error": e.detail, "history": history
         })
     except Exception as e:
         logger.error(f"Search error: {e}")
         history = await db.get_search_history(current_user)
         return templates.TemplateResponse("index.html", {
-            "request": request, "mobile": current_user, 
+            "request": request, "current_user": current_user, 
             "error": "An error occurred while searching. Please try again.", "history": history
         })
 
@@ -606,7 +573,9 @@ async def view_history(request: Request, current_user: str = Depends(require_aut
         if item.get('searched_at') and item['searched_at'] >= last_30_days
     )
     return templates.TemplateResponse("history.html", {
-        "request": request, "mobile": current_user, "history": history,
+        "request": request, 
+        "current_user": current_user, 
+        "history": history,
         "searches_this_month": searches_this_month
     })
 
@@ -645,10 +614,13 @@ async def analytics_dashboard(request: Request, current_user: str = Depends(requ
     ]
     
     return templates.TemplateResponse("analytics.html", {
-        "request": request, "mobile": current_user, "daily_searches": daily_searches,
+        "request": request, 
+        "current_user": current_user, 
+        "daily_searches": daily_searches,
         "score_distribution": [dict(row) for row in score_distribution],
         "top_companies": [dict(row) for row in top_companies],
-        "total_searches": total_searches or 0, "unique_companies": unique_companies or 0,
+        "total_searches": total_searches or 0, 
+        "unique_companies": unique_companies or 0,
         "avg_compliance": round(avg_compliance or 0, 1)
     })
 
@@ -749,10 +721,6 @@ def generate_pdf_report(company_data: dict, compliance_score: float, synopsis: s
             .info-item:last-child {{ border-bottom: none; }}
             .info-label {{ font-size: 13px; color: #6b7280; font-weight: 500; }}
             .info-value {{ font-size: 13px; color: #1f2937; font-weight: 600; }}
-            
-            table {{ width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 12px; }}
-            th {{ background: #f8f9fa; padding: 10px; font-weight: 600; border: 1px solid #e5e7eb; }}
-            td {{ padding: 8px; border: 1px solid #e5e7eb; }}
         </style>
     </head>
     <body>
@@ -833,83 +801,6 @@ async def startup_event():
 @app.on_event("shutdown")
 async def shutdown_event():
     logger.info("GST Intelligence Platform shutting down...")
-
-@app.get("/api/profile")
-async def get_profile(current_user: str = Depends(require_auth)):
-    """Get current user profile"""
-    try:
-        profile = await db.get_user_profile(current_user)
-        if not profile:
-            raise HTTPException(status_code=404, detail="Profile not found")
-        return profile
-    except Exception as e:
-        logger.error(f"Profile fetch error: {e}")
-        raise HTTPException(status_code=500, detail="Failed to fetch profile")
-
-@app.post("/api/profile")
-async def update_profile(profile_data: dict, current_user: str = Depends(require_auth)):
-    """Update user profile"""
-    try:
-        await db.update_user_profile(current_user, profile_data)
-        return {"success": True, "message": "Profile updated successfully"}
-    except Exception as e:
-        logger.error(f"Profile update error: {e}")
-        raise HTTPException(status_code=500, detail="Failed to update profile")
-
-@app.post("/api/change-password")
-async def change_password_api(password_data: dict, current_user: str = Depends(require_auth)):
-    """Change user password"""
-    try:
-        current_password = password_data.get('currentPassword')
-        new_password = password_data.get('newPassword')
-        
-        if not current_password or not new_password:
-            raise HTTPException(status_code=400, detail="Missing password data")
-        
-        # Verify current password
-        if not await db.verify_user(current_user, current_password):
-            raise HTTPException(status_code=400, detail="Current password is incorrect")
-        
-        if len(new_password) < 6:
-            raise HTTPException(status_code=400, detail="New password must be at least 6 characters")
-        
-        await db.change_password(current_user, new_password)
-        return {"success": True, "message": "Password changed successfully"}
-    
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Password change error: {e}")
-        raise HTTPException(status_code=500, detail="Failed to change password")
-
-@app.post("/api/settings")
-async def update_settings(settings_data: dict, current_user: str = Depends(require_auth)):
-    """Update user settings"""
-    try:
-        # For now, just return success - you can extend this to store settings in DB
-        return {"success": True, "message": "Settings saved successfully"}
-    except Exception as e:
-        logger.error(f"Settings update error: {e}")
-        raise HTTPException(status_code=500, detail="Failed to update settings")
-
-@app.get("/api/export-data")
-async def export_user_data(current_user: str = Depends(require_auth)):
-    """Export all user data"""
-    try:
-        profile = await db.get_user_profile(current_user)
-        history = await db.get_all_searches(current_user)
-        
-        export_data = {
-            "profile": profile,
-            "search_history": history,
-            "exported_at": datetime.now().isoformat(),
-            "total_searches": len(history)
-        }
-        
-        return export_data
-    except Exception as e:
-        logger.error(f"Data export error: {e}")
-        raise HTTPException(status_code=500, detail="Failed to export data")
 
 if __name__ == "__main__":
     import uvicorn
