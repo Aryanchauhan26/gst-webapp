@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-GST Intelligence Platform - Main Application (Cleaned)
+GST Intelligence Platform - Main Application (Complete Fixed Version)
 Enhanced with PostgreSQL database and AI-powered insights
 """
 
@@ -42,6 +42,14 @@ POSTGRES_DSN = "postgresql://neondb_owner:npg_i3m7wqMeHXaW@ep-fragrant-cell-a10j
 app = FastAPI(title="GST Intelligence Platform", version="2.0.0")
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
+
+# Add template globals - FIXED: Use add_global instead of context_processor
+def setup_template_globals():
+    """Setup global template variables"""
+    templates.env.globals.update({
+        'current_year': datetime.now().year,
+        'app_version': "2.0.0"
+    })
 
 # Authentication functions (MUST be defined before routes)
 async def get_current_user(request: Request) -> Optional[str]:
@@ -94,6 +102,61 @@ class PostgresDB:
     async def connect(self):
         if not self.pool:
             self.pool = await asyncpg.create_pool(dsn=self.dsn)
+
+    async def ensure_tables(self):
+        """Ensure all required tables exist"""
+        await self.connect()
+        async with self.pool.acquire() as conn:
+            # Create users table
+            await conn.execute("""
+                CREATE TABLE IF NOT EXISTS users (
+                    mobile VARCHAR(10) PRIMARY KEY,
+                    password_hash VARCHAR(128) NOT NULL,
+                    salt VARCHAR(32) NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    last_login TIMESTAMP
+                );
+            """)
+            
+            # Create sessions table
+            await conn.execute("""
+                CREATE TABLE IF NOT EXISTS sessions (
+                    session_token VARCHAR(64) PRIMARY KEY,
+                    mobile VARCHAR(10) NOT NULL,
+                    expires_at TIMESTAMP NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (mobile) REFERENCES users(mobile) ON DELETE CASCADE
+                );
+            """)
+            
+            # Create search_history table
+            await conn.execute("""
+                CREATE TABLE IF NOT EXISTS search_history (
+                    id SERIAL PRIMARY KEY,
+                    mobile VARCHAR(10) NOT NULL,
+                    gstin VARCHAR(15) NOT NULL,
+                    company_name TEXT NOT NULL,
+                    compliance_score DECIMAL(5,2),
+                    searched_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (mobile) REFERENCES users(mobile) ON DELETE CASCADE
+                );
+            """)
+            
+            # Create user_preferences table
+            await conn.execute("""
+                CREATE TABLE IF NOT EXISTS user_preferences (
+                    mobile VARCHAR(10) PRIMARY KEY,
+                    preferences JSONB NOT NULL DEFAULT '{}',
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (mobile) REFERENCES users(mobile) ON DELETE CASCADE
+                );
+            """)
+            
+            # Create indexes
+            await conn.execute("CREATE INDEX IF NOT EXISTS idx_sessions_expires ON sessions(expires_at);")
+            await conn.execute("CREATE INDEX IF NOT EXISTS idx_search_history_mobile ON search_history(mobile);")
+            await conn.execute("CREATE INDEX IF NOT EXISTS idx_search_history_searched_at ON search_history(searched_at);")
 
     async def create_user(self, mobile: str, password_hash: str, salt: str):
         await self.connect()
@@ -203,7 +266,7 @@ class GSAPIClient:
 
 api_client = GSAPIClient(RAPIDAPI_KEY, RAPIDAPI_HOST) if RAPIDAPI_KEY else None
 
-# Add these new API endpoints to your main.py file
+# API endpoints
 
 @app.get("/api/user/stats")
 async def get_user_stats(request: Request, current_user: str = Depends(require_auth)):
@@ -293,16 +356,16 @@ async def get_user_activity(current_user: str = Depends(require_auth), days: int
         await db.connect()
         async with db.pool.acquire() as conn:
             # Daily search activity
-            daily_activity = await conn.fetch("""
+            daily_activity = await conn.fetch(f"""
                 SELECT 
                     DATE(searched_at) as date,
                     COUNT(*) as searches,
                     AVG(compliance_score) as avg_score
                 FROM search_history 
-                WHERE mobile = $1 AND searched_at >= CURRENT_DATE - INTERVAL '%s days'
+                WHERE mobile = $1 AND searched_at >= CURRENT_DATE - INTERVAL '{days} days'
                 GROUP BY DATE(searched_at)
                 ORDER BY date
-            """, current_user, days)
+            """, current_user)
             
             # Hourly distribution
             hourly_activity = await conn.fetch("""
@@ -394,10 +457,12 @@ async def clear_user_data(current_user: str = Depends(require_auth)):
     try:
         await db.connect()
         async with db.pool.acquire() as conn:
-            deleted_count = await conn.fetchval(
-                "DELETE FROM search_history WHERE mobile = $1 RETURNING COUNT(*)",
+            result = await conn.execute(
+                "DELETE FROM search_history WHERE mobile = $1",
                 current_user
             )
+            # Extract count from result string like "DELETE 5"
+            deleted_count = int(result.split()[-1]) if result.split()[-1].isdigit() else 0
             
             return {
                 "success": True,
@@ -470,12 +535,6 @@ def get_user_achievements(total_searches: int, avg_compliance: float) -> list:
         })
     
     return achievements
-
-async def get_current_user(request: Request) -> Optional[str]:
-    session_token = request.cookies.get("session_token")
-    if not session_token:
-        return None
-    return await db.get_session(session_token)
 
 # Validation functions
 def validate_mobile(mobile: str) -> tuple[bool, str]:
@@ -706,13 +765,6 @@ async def health_check():
             content={"status": "unhealthy", "error": str(e), "timestamp": datetime.now()}
         )
 
-@app.context_processor
-def utility_processor():
-    return dict(
-        current_year=datetime.now().year,
-        app_version="2.0.0"
-    )
-
 @app.get("/", response_class=HTMLResponse)
 async def home(request: Request, current_user: str = Depends(require_auth)):
     history = await db.get_search_history(current_user)
@@ -882,7 +934,7 @@ async def analytics_dashboard(request: Request, current_user: str = Depends(requ
                         WHEN compliance_score >= 70 THEN 'Good (70-79)'
                         WHEN compliance_score >= 60 THEN 'Average (60-69)'
                         ELSE 'Poor (<60)' END as range, COUNT(*) as count
-            FROM search_history WHERE mobile = $1 GROUP BY range ORDER BY range DESC
+            FROM search_history WHERE mobile = $1 AND compliance_score IS NOT NULL GROUP BY range ORDER BY range DESC
         """, current_user)
         
         top_companies = await conn.fetch("""
@@ -984,6 +1036,7 @@ def generate_pdf_report(company_data: dict, compliance_score: float, synopsis: s
             * {{ margin: 0; padding: 0; box-sizing: border-box; }}
             body {{ font-family: Arial, sans-serif; color: #1f2937; line-height: 1.6; }}
             
+            .header {{ background: linear-gradient(135deg, #7c3aed 0%, #2563eb 100%); color: white;
                      padding: 30px; margin: -15mm -15mm 20px -15mm; }}
             .header-title {{ font-size: 28px; font-weight: 800; margin-bottom: 5px; }}
             .header-subtitle {{ font-size: 14px; opacity: 0.9; }}
@@ -1079,6 +1132,8 @@ async def general_exception_handler(request: Request, exc: Exception):
 @app.on_event("startup")
 async def startup_event():
     logger.info("GST Intelligence Platform starting up...")
+    await db.ensure_tables()  # Create tables if they don't exist
+    setup_template_globals()  # Setup template globals
     await db.connect()
     async with db.pool.acquire() as conn:
         await conn.execute('DELETE FROM sessions WHERE expires_at < $1', datetime.now())

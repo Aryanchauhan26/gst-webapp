@@ -1,36 +1,40 @@
 # Core FastAPI dependencies
-fastapi
-uvicorn
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
 
 # HTTP and networking
-httpx
+httpx==0.25.2
 
 # Template engine
-jinja2
+jinja2==3.1.2
 
 # PDF generation
-weasyprint
+weasyprint==60.2
 
 # Form handling
-python-multipart
+python-multipart==0.0.6
 
 # Environment management
-python-dotenv
+python-dotenv==1.0.0
 
 # AI integration
-anthropic
+anthropic==0.7.8
 
 # Web scraping
-beautifulsoup4
+beautifulsoup4==4.12.2
 
 # Web search capability
-googlesearch-python
+googlesearch-python==1.2.3
 
 # Database (PostgreSQL/Neon)
-asyncpg
+asyncpg==0.29.0
 
 # Security
-cryptography
+cryptography==41.0.8
 
 # XML processing for PDF generation
-lxml
+lxml==4.9.3
+
+# Additional dependencies for proper functionality
+requests==2.31.0
+pydantic==2.5.0
