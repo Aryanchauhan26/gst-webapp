@@ -206,7 +206,7 @@
             </div>
             <div class="footer__bottom">
                 <p class="footer__copyright">
-                    &copy; {{ current_year or 2024 }} GST Intelligence Platform. All rights reserved.
+                    &copy; 2024 GST Intelligence Platform. All rights reserved.
                 </p>
                 <div class="footer__meta">
                     <span class="footer__version">v2.0.0</span>
@@ -241,14 +241,6 @@
     
     <!-- Page-specific JavaScript -->
     {% block extra_js %}{% endblock %}
-
-    <!-- Analytics (if needed) -->
-    {% if analytics_enabled %}
-    <script defer>
-        // Analytics initialization
-        console.log('Analytics enabled');
-    </script>
-    {% endif %}
 
     <!-- Service Worker Registration -->
     <script>
