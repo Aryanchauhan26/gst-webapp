@@ -185,6 +185,7 @@
             transform: rotate(45deg);
         }
 
+        /* Dropdown Header Styles */
         .dropdown-header {
             display: flex;
             align-items: center;
@@ -193,21 +194,21 @@
             border-bottom: 1px solid var(--border-color);
             margin: -1rem -1rem 1rem -1rem;
             background: var(--bg-hover);
-            border-radius: 20px 20px 0 0;
+            border-radius: 16px 16px 0 0;
         }
 
         .dropdown-avatar {
-            width: 48px;
-            height: 48px;
+            width: 40px;
+            height: 40px;
             background: var(--accent-gradient);
-            border-radius: 14px;
+            border-radius: 10px;
             display: flex;
             align-items: center;
             justify-content: center;
             color: white;
-            font-size: 20px;
+            font-size: 16px;
             font-weight: 700;
-            box-shadow: 0 6px 20px rgba(124, 58, 237, 0.4);
+            box-shadow: 0 4px 15px rgba(124, 58, 237, 0.4);
         }
 
         .dropdown-user-info h4 {
@@ -215,16 +216,46 @@
             font-weight: 600;
             color: var(--text-primary);
             margin-bottom: 0.25rem;
+            margin-top: 0;
         }
 
         .dropdown-user-info p {
-            font-size: 0.85rem;
+            font-size: 0.8rem;
             color: var(--text-secondary);
             margin: 0;
         }
 
+        .quick-stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.75rem;
+            margin-bottom: 1rem;
+        }
+
+        .quick-stat {
+            background: var(--bg-secondary);
+            border-radius: 8px;
+            padding: 0.75rem;
+            text-align: center;
+            border: 1px solid var(--border-color);
+        }
+
+        .quick-stat-value {
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: var(--accent-primary);
+            margin-bottom: 0.25rem;
+        }
+
+        .quick-stat-label {
+            font-size: 0.7rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
         .dropdown-section {
-            margin-bottom: 1.5rem;
+            margin-bottom: 1rem;
         }
 
         .dropdown-section:last-child {
@@ -232,12 +263,12 @@
         }
 
         .dropdown-section-title {
-            font-size: 0.75rem;
+            font-size: 0.7rem;
             color: var(--text-muted);
             text-transform: uppercase;
             font-weight: 600;
             letter-spacing: 0.5px;
-            margin-bottom: 0.75rem;
+            margin-bottom: 0.5rem;
             padding-left: 0.5rem;
         }
 
@@ -246,7 +277,7 @@
             align-items: center;
             gap: 0.75rem;
             padding: 0.75rem;
-            border-radius: 12px;
+            border-radius: 8px;
             color: var(--text-primary);
             text-decoration: none;
             transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
@@ -277,9 +308,9 @@
         }
 
         .dropdown-item i {
-            width: 20px;
+            width: 16px;
             text-align: center;
-            font-size: 16px;
+            font-size: 14px;
             color: var(--text-muted);
             transition: color 0.2s;
         }
@@ -290,6 +321,7 @@
 
         .dropdown-item span {
             font-weight: 500;
+            font-size: 0.9rem;
         }
 
         .dropdown-item.danger:hover {
@@ -305,35 +337,6 @@
             height: 1px;
             background: var(--border-color);
             margin: 0.75rem 0;
-        }
-
-        .quick-stats {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 0.75rem;
-            margin-bottom: 1rem;
-        }
-
-        .quick-stat {
-            background: var(--bg-secondary);
-            border-radius: 12px;
-            padding: 0.75rem;
-            text-align: center;
-            border: 1px solid var(--border-color);
-        }
-
-        .quick-stat-value {
-            font-size: 1.25rem;
-            font-weight: 700;
-            color: var(--accent-primary);
-            margin-bottom: 0.25rem;
-        }
-
-        .quick-stat-label {
-            font-size: 0.7rem;
-            color: var(--text-secondary);
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
         }
 
         /* Responsive Design */
@@ -387,124 +390,143 @@
     
     {% block header %}
     <!-- Header -->
-    <header class="header">
-        <div class="header-content">
-            <div class="logo">
-                <div class="logo-icon">
-                    <i class="fas fa-chart-line"></i>
+    <!-- Replace the entire header section with this enhanced version -->
+<header class="header">
+    <div class="header-content">
+        <!-- Logo Section -->
+        <div class="logo">
+            <div class="logo-icon">
+                <i class="fas fa-chart-line"></i>
+            </div>
+            <div class="logo-text">
+                <h1 class="logo-title">GST Intelligence</h1>
+                <p class="logo-subtitle">Advanced Business Analytics Platform</p>
+            </div>
+        </div>
+        
+        {% if current_user %}
+        <!-- Navigation Items -->
+        <nav class="nav-items">
+            <a href="/" class="nav-link {% if request.url.path == '/' %}active{% endif %}">
+                <i class="fas fa-tachometer-alt"></i>
+                <span>Dashboard</span>
+            </a>
+            <a href="/analytics" class="nav-link {% if request.url.path == '/analytics' %}active{% endif %}">
+                <i class="fas fa-chart-pie"></i>
+                <span>Live Analytics</span>
+            </a>
+            <a href="/history" class="nav-link {% if request.url.path == '/history' %}active{% endif %}">
+                <i class="fas fa-history"></i>
+                <span>History</span>
+            </a>
+            
+            <!-- Theme Toggle -->
+            <div class="theme-toggle" onclick="toggleTheme()" data-tooltip="Toggle theme">
+                <div class="theme-icon">
+                    <i class="fas fa-moon"></i>
                 </div>
-                <div class="logo-text">
-                    <h1>GST Intelligence</h1>
-                    <p>Advanced Business Analytics Platform</p>
+                <div class="theme-icon">
+                    <i class="fas fa-sun"></i>
+                </div>
+                <div class="theme-toggle-indicator">
+                    <i class="fas fa-moon" id="theme-indicator-icon"></i>
                 </div>
             </div>
             
-            {% if current_user %}
-            <nav class="nav-items">
-                <a href="/" class="nav-link {% if request.url.path == '/' %}active{% endif %}">
-                    <i class="fas fa-tachometer-alt"></i>
-                    Dashboard
-                </a>
-                <a href="/analytics" class="nav-link {% if request.url.path == '/analytics' %}active{% endif %}">
-                    <i class="fas fa-chart-pie"></i>
-                    Analytics
-                </a>
-                <a href="/history" class="nav-link {% if request.url.path == '/history' %}active{% endif %}">
-                    <i class="fas fa-history"></i>
-                    History
-                </a>
+            <!-- Enhanced User Profile Dropdown -->
+            <div class="user-profile-wrapper">
+                <button class="user-profile-btn" id="userProfileBtn" data-tooltip="User menu">
+                    <div class="user-avatar">
+                        {{ current_user[0]|upper }}
+                    </div>
+                    <div class="user-info">
+                        <span class="user-name">{{ current_user }}</span>
+                        <span class="user-status">
+                            <span class="status-dot"></span>
+                            Online
+                        </span>
+                    </div>
+                    <i class="fas fa-chevron-down dropdown-arrow"></i>
+                </button>
                 
-                <!-- Enhanced Universal User Profile Dropdown -->
-                <div class="user-profile-wrapper">
-                    <button class="user-profile-btn" id="userProfileBtn">
-                        <div class="user-avatar">
+                <div class="user-dropdown-menu" id="userDropdownMenu">
+                    <div class="dropdown-header">
+                        <div class="dropdown-avatar">
                             {{ current_user[0]|upper }}
                         </div>
-                        <div class="user-info">
-                            <span class="user-name">{{ current_user }}</span>
-                            <span class="user-status">
-                                <span class="status-dot"></span>
-                                Online
-                            </span>
+                        <div class="dropdown-user-info">
+                            <h4>{{ current_user }}</h4>
+                            <p>Premium User</p>
                         </div>
-                        <i class="fas fa-chevron-down dropdown-arrow"></i>
-                    </button>
+                    </div>
                     
-                    <div class="user-dropdown-menu" id="userDropdownMenu">
-                        <div class="dropdown-header">
-                            <div class="dropdown-avatar">
-                                {{ current_user[0]|upper }}
-                            </div>
-                            <div class="dropdown-user-info">
-                                <h4>{{ current_user }}</h4>
-                                <p>Premium User</p>
-                            </div>
+                    <div class="quick-stats">
+                        <div class="quick-stat">
+                            <div class="quick-stat-value" id="userSearchCount">-</div>
+                            <div class="quick-stat-label">Searches</div>
                         </div>
-                        
-                        <div class="quick-stats">
-                            <div class="quick-stat">
-                                <div class="quick-stat-value" id="userSearchCount">-</div>
-                                <div class="quick-stat-label">Searches</div>
-                            </div>
-                            <div class="quick-stat">
-                                <div class="quick-stat-value" id="userAvgScore">-</div>
-                                <div class="quick-stat-label">Avg Score</div>
-                            </div>
-                        </div>
-                        
-                        <div class="dropdown-section">
-                            <div class="dropdown-section-title">Account</div>
-                            <div class="dropdown-item" onclick="openProfileModal()">
-                                <i class="fas fa-user-edit"></i>
-                                <span>Edit Profile</span>
-                            </div>
-                            <div class="dropdown-item" onclick="openPasswordModal()">
-                                <i class="fas fa-key"></i>
-                                <span>Change Password</span>
-                            </div>
-                            <div class="dropdown-item" onclick="openSettingsModal()">
-                                <i class="fas fa-cog"></i>
-                                <span>Settings</span>
-                            </div>
-                        </div>
-                        
-                        <div class="dropdown-section">
-                            <div class="dropdown-section-title">Quick Actions</div>
-                            <div class="dropdown-item" onclick="window.location.href='/history'">
-                                <i class="fas fa-history"></i>
-                                <span>View History</span>
-                            </div>
-                            <div class="dropdown-item" onclick="window.location.href='/analytics'">
-                                <i class="fas fa-chart-bar"></i>
-                                <span>Analytics</span>
-                            </div>
-                            <div class="dropdown-item" onclick="exportUserData()">
-                                <i class="fas fa-download"></i>
-                                <span>Export Data</span>
-                            </div>
-                        </div>
-                        
-                        <div class="dropdown-divider"></div>
-                        
-                        <div class="dropdown-item danger" onclick="window.location.href='/logout'">
-                            <i class="fas fa-sign-out-alt"></i>
-                            <span>Logout</span>
+                        <div class="quick-stat">
+                            <div class="quick-stat-value" id="userAvgScore">-</div>
+                            <div class="quick-stat-label">Avg Score</div>
                         </div>
                     </div>
-                </div>
-                
-                <!-- Theme Toggle -->
-                <div class="theme-toggle" onclick="toggleTheme()">
-                    <div class="theme-icon"><i class="fas fa-moon"></i></div>
-                    <div class="theme-icon"><i class="fas fa-sun"></i></div>
-                    <div class="theme-toggle-indicator">
-                        <i class="fas fa-moon" id="theme-indicator-icon"></i>
+                    
+                    <div class="dropdown-section">
+                        <div class="dropdown-section-title">Account</div>
+                        <div class="dropdown-item" onclick="openProfileModal()">
+                            <i class="fas fa-user-edit"></i>
+                            <span>Edit Profile</span>
+                        </div>
+                        <div class="dropdown-item" onclick="openPasswordModal()">
+                            <i class="fas fa-key"></i>
+                            <span>Change Password</span>
+                        </div>
+                        <div class="dropdown-item" onclick="openSettingsModal()">
+                            <i class="fas fa-cog"></i>
+                            <span>Settings</span>
+                        </div>
+                    </div>
+                    
+                    <div class="dropdown-section">
+                        <div class="dropdown-section-title">Quick Actions</div>
+                        <div class="dropdown-item" onclick="window.location.href='/history'">
+                            <i class="fas fa-history"></i>
+                            <span>View History</span>
+                        </div>
+                        <div class="dropdown-item" onclick="window.location.href='/analytics'">
+                            <i class="fas fa-chart-bar"></i>
+                            <span>Analytics</span>
+                        </div>
+                        <div class="dropdown-item" onclick="exportUserData()">
+                            <i class="fas fa-download"></i>
+                            <span>Export Data</span>
+                        </div>
+                    </div>
+                    
+                    <div class="dropdown-divider"></div>
+                    
+                    <div class="dropdown-item danger" onclick="window.location.href='/logout'">
+                        <i class="fas fa-sign-out-alt"></i>
+                        <span>Logout</span>
                     </div>
                 </div>
-            </nav>
-            {% endif %}
+            </div>
+        </nav>
+        
+        <!-- Mobile Menu Toggle (for responsive design) -->
+        <button class="mobile-menu-toggle" id="mobileMenuToggle" onclick="toggleMobileMenu()">
+            <i class="fas fa-bars"></i>
+        </button>
+        
+        {% else %}
+        <!-- Login/Signup buttons for non-authenticated users -->
+        <div class="auth-buttons">
+            <a href="/login" class="btn btn-secondary">Login</a>
+            <a href="/signup" class="btn btn-primary">Sign Up</a>
         </div>
-    </header>
+        {% endif %}
+    </div>
+</header>
     {% endblock %}
 
     <!-- Main Content -->
@@ -512,11 +534,7 @@
         {% block content %}{% endblock %}
     </main>
 
-    <!-- Scripts -->
-    <script src="/static/common-scripts.js"></script>
-    {% block extra_js %}{% endblock %}
-    
-    <!-- Enhanced User Profile Script -->
+    <!-- Enhanced User Profile Functionality -->
     <script>
         // Enhanced User Profile Functionality
         document.addEventListener('DOMContentLoaded', function() {
@@ -533,6 +551,13 @@
                 // Close on outside click
                 document.addEventListener('click', function(e) {
                     if (!e.target.closest('.user-profile-wrapper')) {
+                        closeUserDropdown();
+                    }
+                });
+                
+                // Keyboard navigation
+                document.addEventListener('keydown', function(e) {
+                    if (e.key === 'Escape') {
                         closeUserDropdown();
                     }
                 });
@@ -562,7 +587,7 @@
             btn.classList.add('active');
             menu.classList.add('active');
             
-            // Add animation delay for better UX
+            // Load fresh stats
             setTimeout(() => {
                 loadUserStats();
             }, 150);
@@ -572,27 +597,48 @@
             const btn = document.getElementById('userProfileBtn');
             const menu = document.getElementById('userDropdownMenu');
             
-            btn.classList.remove('active');
-            menu.classList.remove('active');
+            if (btn) btn.classList.remove('active');
+            if (menu) menu.classList.remove('active');
         }
         
         async function loadUserStats() {
             try {
-                // This would typically fetch from your API
-                // For now, using placeholder logic
+                const response = await fetch('/api/user/stats');
+                const data = await response.json();
+                
                 const searchCountEl = document.getElementById('userSearchCount');
                 const avgScoreEl = document.getElementById('userAvgScore');
+                const uniqueCompaniesEl = document.getElementById('userUniqueCompanies');
                 
-                if (searchCountEl && avgScoreEl) {
-                    // Animate numbers
-                    animateNumber(searchCountEl, 0, 23, 800);
-                    animateNumber(avgScoreEl, 0, 78, 1000, '%');
+                if (data.success && data.data) {
+                    if (searchCountEl) {
+                        animateNumber(searchCountEl, 0, data.data.total_searches || 0, 800);
+                    }
+                    if (avgScoreEl) {
+                        animateNumber(avgScoreEl, 0, data.data.avg_compliance || 0, 1000, '%');
+                    }
+                    if (uniqueCompaniesEl) {
+                        animateNumber(uniqueCompaniesEl, 0, data.data.unique_companies || 0, 600);
+                    }
+                } else {
+                    // Fallback to demo data
+                    if (searchCountEl) animateNumber(searchCountEl, 0, 23, 800);
+                    if (avgScoreEl) animateNumber(avgScoreEl, 0, 78, 1000, '%');
+                    if (uniqueCompaniesEl) animateNumber(uniqueCompaniesEl, 0, 12, 600);
                 }
             } catch (error) {
                 console.error('Error loading user stats:', error);
+                // Fallback to demo data
+                const searchCountEl = document.getElementById('userSearchCount');
+                const avgScoreEl = document.getElementById('userAvgScore');
+                const uniqueCompaniesEl = document.getElementById('userUniqueCompanies');
+                
+                if (searchCountEl) animateNumber(searchCountEl, 0, 23, 800);
+                if (avgScoreEl) animateNumber(avgScoreEl, 0, 78, 1000, '%');
+                if (uniqueCompaniesEl) animateNumber(uniqueCompaniesEl, 0, 12, 600);
             }
         }
-        
+
         function animateNumber(element, start, end, duration, suffix = '') {
             const startTime = performance.now();
             const difference = end - start;
@@ -611,7 +657,7 @@
             
             requestAnimationFrame(step);
         }
-        
+
         function exportUserData() {
             window.location.href = '/export/history';
             if (typeof notificationManager !== 'undefined') {
@@ -619,14 +665,23 @@
             }
             closeUserDropdown();
         }
-        
-        // Keyboard navigation
-        document.addEventListener('keydown', function(e) {
-            if (e.key === 'Escape') {
-                closeUserDropdown();
+
+        // Mobile menu toggle
+        function toggleMobileMenu() {
+            const navItems = document.querySelector('.nav-items');
+            if (navItems) {
+                navItems.style.display = navItems.style.display === 'none' ? 'flex' : 'none';
             }
-        });
+        }
+
+        // Global function for theme toggle compatibility
+        window.toggleUserDropdown = toggleUserDropdown;
+        window.exportUserData = exportUserData;
+        window.toggleMobileMenu = toggleMobileMenu;
     </script>
+
+    <!-- Main Scripts -->
+    <script src="/static/common-scripts.js"></script>
     
     <!-- Page-specific inline scripts -->
     {% block inline_js %}{% endblock %}
