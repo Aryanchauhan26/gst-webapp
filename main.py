@@ -153,6 +153,12 @@ class PostgresDB:
                 mobile
             )
             return [dict(row) for row in rows]
+        
+    async def require_auth(request: Request) -> str:
+    user = await get_current_user(request)
+    if not user:
+        raise HTTPException(status_code=status.HTTP_303_SEE_OTHER, headers={"Location": "/login"})
+    return user    
 
 db = PostgresDB()
 
@@ -457,12 +463,6 @@ async def get_current_user(request: Request) -> Optional[str]:
     if not session_token:
         return None
     return await db.get_session(session_token)
-
-async def require_auth(request: Request) -> str:
-    user = await get_current_user(request)
-    if not user:
-        raise HTTPException(status_code=status.HTTP_303_SEE_OTHER, headers={"Location": "/login"})
-    return user
 
 # Validation functions
 def validate_mobile(mobile: str) -> tuple[bool, str]:
