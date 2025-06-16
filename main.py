@@ -155,10 +155,10 @@ class PostgresDB:
             return [dict(row) for row in rows]
         
     async def require_auth(request: Request) -> str:
-    user = await get_current_user(request)
-    if not user:
-        raise HTTPException(status_code=status.HTTP_303_SEE_OTHER, headers={"Location": "/login"})
-    return user    
+        user = await get_current_user(request)
+        if not user:
+            raise HTTPException(status_code=status.HTTP_303_SEE_OTHER, headers={"Location": "/login"})
+        return user    
 
 db = PostgresDB()
 
