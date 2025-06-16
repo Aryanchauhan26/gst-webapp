@@ -11,6 +11,7 @@ import asyncpg
 import hashlib
 import secrets
 import logging
+import json
 from datetime import datetime, timedelta
 from collections import defaultdict
 from typing import Optional, Dict, List
@@ -41,6 +42,24 @@ POSTGRES_DSN = "postgresql://neondb_owner:npg_i3m7wqMeHXaW@ep-fragrant-cell-a10j
 app = FastAPI(title="GST Intelligence Platform", version="2.0.0")
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
+
+# Authentication functions (MUST be defined before routes)
+async def get_current_user(request: Request) -> Optional[str]:
+    """Get current user from session"""
+    session_token = request.cookies.get("session_token")
+    if not session_token:
+        return None
+    return await db.get_session(session_token)
+
+async def require_auth(request: Request) -> str:
+    """Require authentication for protected routes"""
+    user = await get_current_user(request)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_303_SEE_OTHER, 
+            headers={"Location": "/login"}
+        )
+    return user
 
 # Rate Limiter
 class RateLimiter:
@@ -964,7 +983,6 @@ def generate_pdf_report(company_data: dict, compliance_score: float, synopsis: s
             * {{ margin: 0; padding: 0; box-sizing: border-box; }}
             body {{ font-family: Arial, sans-serif; color: #1f2937; line-height: 1.6; }}
             
-            .header {{ background: linear-gradient(135deg, #7c3aed 0%, #2563eb 100%); color: white;
                      padding: 30px; margin: -15mm -15mm 20px -15mm; }}
             .header-title {{ font-size: 28px; font-weight: 800; margin-bottom: 5px; }}
             .header-subtitle {{ font-size: 14px; opacity: 0.9; }}
