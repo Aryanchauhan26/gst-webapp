@@ -16,9 +16,372 @@
     <!-- Internal CSS - Load in order -->
     <link rel="stylesheet" href="/static/common-styles.css">
     <link rel="stylesheet" href="/static/style.css">
+    <script src="/static/user-dashboard.js" defer></script>
     
     <!-- Page-specific CSS -->
     {% block extra_css %}{% endblock %}
+    
+    <!-- Enhanced User Profile Styles -->
+    <style>
+        /* Unified User Profile Dropdown */
+        .user-profile-wrapper {
+            position: relative;
+            display: inline-block;
+        }
+
+        .user-profile-btn {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            background: var(--bg-card);
+            border: 2px solid var(--border-color);
+            border-radius: 16px;
+            padding: 0.75rem 1.25rem;
+            color: var(--text-primary);
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+            min-width: 140px;
+        }
+
+        .user-profile-btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(124, 58, 237, 0.1), transparent);
+            transition: left 0.6s;
+        }
+
+        .user-profile-btn:hover::before {
+            left: 100%;
+        }
+
+        .user-profile-btn:hover {
+            border-color: var(--accent-primary);
+            background: var(--bg-hover);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(124, 58, 237, 0.15);
+        }
+
+        .user-avatar {
+            width: 36px;
+            height: 36px;
+            background: var(--accent-gradient);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 16px;
+            font-weight: 700;
+            box-shadow: 0 4px 12px rgba(124, 58, 237, 0.3);
+            position: relative;
+        }
+
+        .user-avatar::after {
+            content: '';
+            position: absolute;
+            top: -2px;
+            right: -2px;
+            width: 12px;
+            height: 12px;
+            background: var(--success);
+            border: 2px solid var(--bg-card);
+            border-radius: 50%;
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.1); opacity: 0.8; }
+        }
+
+        .user-info {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            flex: 1;
+        }
+
+        .user-name {
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            line-height: 1.2;
+        }
+
+        .user-status {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+        }
+
+        .status-dot {
+            width: 6px;
+            height: 6px;
+            background: var(--success);
+            border-radius: 50%;
+            animation: blink 2s ease-in-out infinite;
+        }
+
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .dropdown-arrow {
+            font-size: 12px;
+            color: var(--text-muted);
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .user-profile-btn.active .dropdown-arrow {
+            transform: rotate(180deg);
+        }
+
+        /* Enhanced Dropdown Menu */
+        .user-dropdown-menu {
+            position: absolute;
+            top: calc(100% + 8px);
+            right: 0;
+            min-width: 280px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.1), 0 8px 32px rgba(124, 58, 237, 0.1);
+            padding: 1rem;
+            z-index: 1000;
+            opacity: 0;
+            visibility: hidden;
+            transform: translateY(-10px) scale(0.95);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            backdrop-filter: blur(20px);
+        }
+
+        .user-dropdown-menu.active {
+            opacity: 1;
+            visibility: visible;
+            transform: translateY(0) scale(1);
+        }
+
+        .user-dropdown-menu::before {
+            content: '';
+            position: absolute;
+            top: -6px;
+            right: 20px;
+            width: 12px;
+            height: 12px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-bottom: none;
+            border-right: none;
+            transform: rotate(45deg);
+        }
+
+        .dropdown-header {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 1rem;
+            border-bottom: 1px solid var(--border-color);
+            margin: -1rem -1rem 1rem -1rem;
+            background: var(--bg-hover);
+            border-radius: 20px 20px 0 0;
+        }
+
+        .dropdown-avatar {
+            width: 48px;
+            height: 48px;
+            background: var(--accent-gradient);
+            border-radius: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 20px;
+            font-weight: 700;
+            box-shadow: 0 6px 20px rgba(124, 58, 237, 0.4);
+        }
+
+        .dropdown-user-info h4 {
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 0.25rem;
+        }
+
+        .dropdown-user-info p {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            margin: 0;
+        }
+
+        .dropdown-section {
+            margin-bottom: 1.5rem;
+        }
+
+        .dropdown-section:last-child {
+            margin-bottom: 0;
+        }
+
+        .dropdown-section-title {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            margin-bottom: 0.75rem;
+            padding-left: 0.5rem;
+        }
+
+        .dropdown-item {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.75rem;
+            border-radius: 12px;
+            color: var(--text-primary);
+            text-decoration: none;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .dropdown-item::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(124, 58, 237, 0.05), transparent);
+            transition: left 0.4s;
+        }
+
+        .dropdown-item:hover::before {
+            left: 100%;
+        }
+
+        .dropdown-item:hover {
+            background: var(--bg-hover);
+            color: var(--accent-primary);
+            transform: translateX(4px);
+        }
+
+        .dropdown-item i {
+            width: 20px;
+            text-align: center;
+            font-size: 16px;
+            color: var(--text-muted);
+            transition: color 0.2s;
+        }
+
+        .dropdown-item:hover i {
+            color: var(--accent-primary);
+        }
+
+        .dropdown-item span {
+            font-weight: 500;
+        }
+
+        .dropdown-item.danger:hover {
+            background: rgba(239, 68, 68, 0.1);
+            color: var(--danger);
+        }
+
+        .dropdown-item.danger:hover i {
+            color: var(--danger);
+        }
+
+        .dropdown-divider {
+            height: 1px;
+            background: var(--border-color);
+            margin: 0.75rem 0;
+        }
+
+        .quick-stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.75rem;
+            margin-bottom: 1rem;
+        }
+
+        .quick-stat {
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            padding: 0.75rem;
+            text-align: center;
+            border: 1px solid var(--border-color);
+        }
+
+        .quick-stat-value {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: var(--accent-primary);
+            margin-bottom: 0.25rem;
+        }
+
+        .quick-stat-label {
+            font-size: 0.7rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .user-profile-btn {
+                padding: 0.5rem 1rem;
+                min-width: 120px;
+            }
+
+            .user-dropdown-menu {
+                min-width: 260px;
+                right: -20px;
+            }
+
+            .dropdown-header {
+                padding: 0.75rem;
+                margin: -1rem -1rem 0.75rem -1rem;
+            }
+
+            .dropdown-avatar {
+                width: 40px;
+                height: 40px;
+                font-size: 18px;
+            }
+        }
+
+        /* Animation for mobile menu */
+        @media (max-width: 640px) {
+            .user-dropdown-menu {
+                position: fixed;
+                top: auto;
+                bottom: 0;
+                left: 0;
+                right: 0;
+                min-width: 100%;
+                border-radius: 20px 20px 0 0;
+                transform: translateY(100%);
+            }
+
+            .user-dropdown-menu.active {
+                transform: translateY(0);
+            }
+
+            .user-dropdown-menu::before {
+                display: none;
+            }
+        }
+    </style>
 </head>
 <body class="{% block body_class %}{% endblock %}">
     
@@ -51,18 +414,84 @@
                     History
                 </a>
                 
-                <!-- User Profile (Dashboard only) -->
-                {% if request.url.path == '/' %}
-                <span class="user-profile" data-tooltip="Click for profile options">
-                    <i class="fas fa-user-circle"></i>
-                    {{ current_user }}
-                </span>
-                {% else %}
-                <span class="nav-link user-display" data-tooltip="Logged in user: {{ current_user }}">
-                    <i class="fas fa-user-circle"></i>
-                    {{ current_user }}
-                </span>
-                {% endif %}
+                <!-- Enhanced Universal User Profile Dropdown -->
+                <div class="user-profile-wrapper">
+                    <button class="user-profile-btn" id="userProfileBtn">
+                        <div class="user-avatar">
+                            {{ current_user[0]|upper }}
+                        </div>
+                        <div class="user-info">
+                            <span class="user-name">{{ current_user }}</span>
+                            <span class="user-status">
+                                <span class="status-dot"></span>
+                                Online
+                            </span>
+                        </div>
+                        <i class="fas fa-chevron-down dropdown-arrow"></i>
+                    </button>
+                    
+                    <div class="user-dropdown-menu" id="userDropdownMenu">
+                        <div class="dropdown-header">
+                            <div class="dropdown-avatar">
+                                {{ current_user[0]|upper }}
+                            </div>
+                            <div class="dropdown-user-info">
+                                <h4>{{ current_user }}</h4>
+                                <p>Premium User</p>
+                            </div>
+                        </div>
+                        
+                        <div class="quick-stats">
+                            <div class="quick-stat">
+                                <div class="quick-stat-value" id="userSearchCount">-</div>
+                                <div class="quick-stat-label">Searches</div>
+                            </div>
+                            <div class="quick-stat">
+                                <div class="quick-stat-value" id="userAvgScore">-</div>
+                                <div class="quick-stat-label">Avg Score</div>
+                            </div>
+                        </div>
+                        
+                        <div class="dropdown-section">
+                            <div class="dropdown-section-title">Account</div>
+                            <div class="dropdown-item" onclick="openProfileModal()">
+                                <i class="fas fa-user-edit"></i>
+                                <span>Edit Profile</span>
+                            </div>
+                            <div class="dropdown-item" onclick="openPasswordModal()">
+                                <i class="fas fa-key"></i>
+                                <span>Change Password</span>
+                            </div>
+                            <div class="dropdown-item" onclick="openSettingsModal()">
+                                <i class="fas fa-cog"></i>
+                                <span>Settings</span>
+                            </div>
+                        </div>
+                        
+                        <div class="dropdown-section">
+                            <div class="dropdown-section-title">Quick Actions</div>
+                            <div class="dropdown-item" onclick="window.location.href='/history'">
+                                <i class="fas fa-history"></i>
+                                <span>View History</span>
+                            </div>
+                            <div class="dropdown-item" onclick="window.location.href='/analytics'">
+                                <i class="fas fa-chart-bar"></i>
+                                <span>Analytics</span>
+                            </div>
+                            <div class="dropdown-item" onclick="exportUserData()">
+                                <i class="fas fa-download"></i>
+                                <span>Export Data</span>
+                            </div>
+                        </div>
+                        
+                        <div class="dropdown-divider"></div>
+                        
+                        <div class="dropdown-item danger" onclick="window.location.href='/logout'">
+                            <i class="fas fa-sign-out-alt"></i>
+                            <span>Logout</span>
+                        </div>
+                    </div>
+                </div>
                 
                 <!-- Theme Toggle -->
                 <div class="theme-toggle" onclick="toggleTheme()">
@@ -72,11 +501,6 @@
                         <i class="fas fa-moon" id="theme-indicator-icon"></i>
                     </div>
                 </div>
-                
-                <a href="/logout" class="logout-btn">
-                    <i class="fas fa-sign-out-alt"></i>
-                    Logout
-                </a>
             </nav>
             {% endif %}
         </div>
@@ -91,6 +515,118 @@
     <!-- Scripts -->
     <script src="/static/common-scripts.js"></script>
     {% block extra_js %}{% endblock %}
+    
+    <!-- Enhanced User Profile Script -->
+    <script>
+        // Enhanced User Profile Functionality
+        document.addEventListener('DOMContentLoaded', function() {
+            const userProfileBtn = document.getElementById('userProfileBtn');
+            const userDropdownMenu = document.getElementById('userDropdownMenu');
+            
+            if (userProfileBtn && userDropdownMenu) {
+                // Toggle dropdown
+                userProfileBtn.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    toggleUserDropdown();
+                });
+                
+                // Close on outside click
+                document.addEventListener('click', function(e) {
+                    if (!e.target.closest('.user-profile-wrapper')) {
+                        closeUserDropdown();
+                    }
+                });
+                
+                // Load user stats
+                loadUserStats();
+            }
+        });
+        
+        function toggleUserDropdown() {
+            const btn = document.getElementById('userProfileBtn');
+            const menu = document.getElementById('userDropdownMenu');
+            
+            const isActive = btn.classList.contains('active');
+            
+            if (isActive) {
+                closeUserDropdown();
+            } else {
+                openUserDropdown();
+            }
+        }
+        
+        function openUserDropdown() {
+            const btn = document.getElementById('userProfileBtn');
+            const menu = document.getElementById('userDropdownMenu');
+            
+            btn.classList.add('active');
+            menu.classList.add('active');
+            
+            // Add animation delay for better UX
+            setTimeout(() => {
+                loadUserStats();
+            }, 150);
+        }
+        
+        function closeUserDropdown() {
+            const btn = document.getElementById('userProfileBtn');
+            const menu = document.getElementById('userDropdownMenu');
+            
+            btn.classList.remove('active');
+            menu.classList.remove('active');
+        }
+        
+        async function loadUserStats() {
+            try {
+                // This would typically fetch from your API
+                // For now, using placeholder logic
+                const searchCountEl = document.getElementById('userSearchCount');
+                const avgScoreEl = document.getElementById('userAvgScore');
+                
+                if (searchCountEl && avgScoreEl) {
+                    // Animate numbers
+                    animateNumber(searchCountEl, 0, 23, 800);
+                    animateNumber(avgScoreEl, 0, 78, 1000, '%');
+                }
+            } catch (error) {
+                console.error('Error loading user stats:', error);
+            }
+        }
+        
+        function animateNumber(element, start, end, duration, suffix = '') {
+            const startTime = performance.now();
+            const difference = end - start;
+            
+            function step(currentTime) {
+                const elapsed = currentTime - startTime;
+                const progress = Math.min(elapsed / duration, 1);
+                const current = Math.floor(start + (difference * progress));
+                
+                element.textContent = current + suffix;
+                
+                if (progress < 1) {
+                    requestAnimationFrame(step);
+                }
+            }
+            
+            requestAnimationFrame(step);
+        }
+        
+        function exportUserData() {
+            window.location.href = '/export/history';
+            if (typeof notificationManager !== 'undefined') {
+                notificationManager.showToast('Exporting your data...', 'info');
+            }
+            closeUserDropdown();
+        }
+        
+        // Keyboard navigation
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                closeUserDropdown();
+            }
+        });
+    </script>
     
     <!-- Page-specific inline scripts -->
     {% block inline_js %}{% endblock %}
