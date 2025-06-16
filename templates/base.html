@@ -1,689 +1,670 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}GST Intelligence Platform{% endblock %}</title>
     
     <!-- Meta Tags -->
-    <link rel="manifest" href="/static/manifest.json">
+    <meta name="description" content="Advanced GST Compliance Analytics Platform with AI-powered insights">
     <meta name="theme-color" content="#7c3aed">
-    <meta name="description" content="Advanced GST Compliance Analytics Platform">
+    <link rel="canonical" href="{{ request.url }}">
+    
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="/static/manifest.json">
+    
+    <!-- Icons -->
+    <link rel="icon" type="image/svg+xml" href="/static/icons/favicon.svg">
+    <link rel="icon" type="image/png" href="/static/icons/favicon.png">
+    <link rel="apple-touch-icon" href="/static/icons/apple-touch-icon.png">
     
     <!-- External CSS -->
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     
-    <!-- Internal CSS - Load in order -->
-    <link rel="stylesheet" href="/static/common-styles.css">
-    <link rel="stylesheet" href="/static/style.css">
-    <script src="/static/user-dashboard.js" defer></script>
+    <!-- Internal CSS - Proper Order -->
+    <link rel="stylesheet" href="/static/css/base.css">
+    <link rel="stylesheet" href="/static/css/components.css">
+    <link rel="stylesheet" href="/static/css/layouts.css">
     
     <!-- Page-specific CSS -->
     {% block extra_css %}{% endblock %}
     
-    <!-- Enhanced User Profile Styles -->
+    <!-- Preload critical resources -->
+    <link rel="preload" href="/static/js/app.js" as="script">
+    
+    <!-- Critical CSS for above-the-fold content -->
     <style>
-        /* Unified User Profile Dropdown */
-        .user-profile-wrapper {
-            position: relative;
-            display: inline-block;
-        }
-
-        .user-profile-btn {
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-            background: var(--bg-card);
-            border: 2px solid var(--border-color);
-            border-radius: 16px;
-            padding: 0.75rem 1.25rem;
-            color: var(--text-primary);
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            position: relative;
-            overflow: hidden;
-            min-width: 140px;
-        }
-
-        .user-profile-btn::before {
-            content: '';
-            position: absolute;
+        /* Critical CSS - Above the fold */
+        .header {
+            position: sticky;
             top: 0;
-            left: -100%;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(124, 58, 237, 0.1), transparent);
-            transition: left 0.6s;
+            z-index: var(--z-sticky);
+            background: var(--surface-primary);
+            border-bottom: 1px solid var(--border-primary);
+            backdrop-filter: blur(10px);
         }
-
-        .user-profile-btn:hover::before {
-            left: 100%;
-        }
-
-        .user-profile-btn:hover {
-            border-color: var(--accent-primary);
-            background: var(--bg-hover);
-            transform: translateY(-2px);
-            box-shadow: 0 8px 25px rgba(124, 58, 237, 0.15);
-        }
-
-        .user-avatar {
-            width: 36px;
-            height: 36px;
-            background: var(--accent-gradient);
-            border-radius: 12px;
+        
+        .header__container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 0 var(--space-4);
+            height: 64px;
             display: flex;
             align-items: center;
-            justify-content: center;
-            color: white;
-            font-size: 16px;
-            font-weight: 700;
-            box-shadow: 0 4px 12px rgba(124, 58, 237, 0.3);
-            position: relative;
+            justify-content: space-between;
+            gap: var(--space-4);
+        }
+        
+        .main-content {
+            min-height: calc(100vh - 64px);
+            background: var(--bg-primary);
+        }
+        
+        /* Loading state */
+        .loading-skeleton {
+            background: linear-gradient(90deg, var(--bg-tertiary) 25%, var(--bg-accent) 50%, var(--bg-tertiary) 75%);
+            background-size: 200% 100%;
+            animation: shimmer 1.5s infinite;
+        }
+        
+        @keyframes shimmer {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+    </style>
+</head>
+
+<body class="{% block body_class %}{% endblock %}" data-page="{{ request.url.path.split('/')[-1] or 'home' }}">
+    <!-- Skip to main content for accessibility -->
+    <a href="#main-content" class="sr-only focus:not-sr-only">Skip to main content</a>
+    
+    <!-- Header Component -->
+    {% block header %}
+    <header class="header" role="banner">
+        <div class="header__container">
+            <!-- Logo -->
+            <a href="/" class="header__logo" aria-label="GST Intelligence Platform Home">
+                <div class="header__logo-icon">
+                    <i class="fas fa-chart-line" aria-hidden="true"></i>
+                </div>
+                <span class="header__logo-text">GST Intelligence</span>
+            </a>
+
+            <!-- Navigation -->
+            {% if current_user %}
+            <nav class="header__nav" role="navigation" aria-label="Main navigation">
+                <a href="/" 
+                   class="nav__link {% if request.url.path == '/' %}nav__link--active{% endif %}"
+                   {% if request.url.path == '/' %}aria-current="page"{% endif %}>
+                    <i class="fas fa-home" aria-hidden="true"></i>
+                    <span>Dashboard</span>
+                </a>
+                <a href="/analytics" class="mobile-nav__link">
+                    <i class="fas fa-chart-bar"></i>
+                    <span>Analytics</span>
+                </a>
+                <a href="/history" class="mobile-nav__link">
+                    <i class="fas fa-history"></i>
+                    <span>History</span>
+                </a>
+            </nav>
+        </div>
+        {% endif %}
+    </header>
+    {% endblock %}
+
+    <!-- Main Content -->
+    <main id="main-content" class="main-content" role="main">
+        <!-- Breadcrumb Navigation -->
+        {% block breadcrumbs %}
+        {% if breadcrumbs %}
+        <nav class="breadcrumbs" aria-label="Breadcrumb">
+            <div class="container">
+                <ol class="breadcrumbs__list">
+                    {% for crumb in breadcrumbs %}
+                    <li class="breadcrumbs__item">
+                        {% if crumb.url and not loop.last %}
+                        <a href="{{ crumb.url }}" class="breadcrumbs__link">{{ crumb.name }}</a>
+                        {% else %}
+                        <span class="breadcrumbs__current" aria-current="page">{{ crumb.name }}</span>
+                        {% endif %}
+                        {% if not loop.last %}
+                        <i class="fas fa-chevron-right breadcrumbs__separator" aria-hidden="true"></i>
+                        {% endif %}
+                    </li>
+                    {% endfor %}
+                </ol>
+            </div>
+        </nav>
+        {% endif %}
+        {% endblock %}
+
+        <!-- Flash Messages -->
+        {% block messages %}
+        {% if messages %}
+        <div class="messages-container">
+            <div class="container">
+                {% for message in messages %}
+                <div class="alert alert--{{ message.type }}" role="alert">
+                    <div class="alert__icon">
+                        {% if message.type == 'success' %}
+                        <i class="fas fa-check-circle" aria-hidden="true"></i>
+                        {% elif message.type == 'error' %}
+                        <i class="fas fa-exclamation-circle" aria-hidden="true"></i>
+                        {% elif message.type == 'warning' %}
+                        <i class="fas fa-exclamation-triangle" aria-hidden="true"></i>
+                        {% else %}
+                        <i class="fas fa-info-circle" aria-hidden="true"></i>
+                        {% endif %}
+                    </div>
+                    <div class="alert__content">
+                        <div class="alert__message">{{ message.content }}</div>
+                    </div>
+                    <button class="alert__close" aria-label="Close message">
+                        <i class="fas fa-times" aria-hidden="true"></i>
+                    </button>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+        {% endblock %}
+
+        <!-- Page Content -->
+        <div class="{% block container_class %}container{% endblock %}">
+            {% block content %}{% endblock %}
+        </div>
+    </main>
+
+    <!-- Footer -->
+    {% block footer %}
+    <footer class="footer" role="contentinfo">
+        <div class="container">
+            <div class="footer__content">
+                <div class="footer__section">
+                    <h3 class="footer__title">GST Intelligence</h3>
+                    <p class="footer__description">
+                        Advanced GST compliance analytics platform powered by AI
+                    </p>
+                </div>
+                <div class="footer__section">
+                    <h4 class="footer__subtitle">Quick Links</h4>
+                    <ul class="footer__links">
+                        <li><a href="/" class="footer__link">Dashboard</a></li>
+                        <li><a href="/analytics" class="footer__link">Analytics</a></li>
+                        <li><a href="/history" class="footer__link">History</a></li>
+                    </ul>
+                </div>
+                <div class="footer__section">
+                    <h4 class="footer__subtitle">Support</h4>
+                    <ul class="footer__links">
+                        <li><a href="/help" class="footer__link">Help Center</a></li>
+                        <li><a href="/contact" class="footer__link">Contact Us</a></li>
+                        <li><a href="/privacy" class="footer__link">Privacy Policy</a></li>
+                    </ul>
+                </div>
+            </div>
+            <div class="footer__bottom">
+                <p class="footer__copyright">
+                    &copy; {{ current_year or 2024 }} GST Intelligence Platform. All rights reserved.
+                </p>
+                <div class="footer__meta">
+                    <span class="footer__version">v2.0.0</span>
+                    <button class="footer__theme-toggle" 
+                            aria-label="Toggle theme"
+                            onclick="app.toggleTheme()">
+                        <i class="fas fa-palette" aria-hidden="true"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </footer>
+    {% endblock %}
+
+    <!-- Modal Container -->
+    <div id="modal-container" class="modal-container"></div>
+
+    <!-- Notification Container -->
+    <div id="notification-container" class="notification-container" aria-live="polite"></div>
+
+    <!-- Scripts -->
+    <script>
+        // Critical inline script for theme loading
+        (function() {
+            const savedTheme = localStorage.getItem('theme') || 'dark';
+            document.documentElement.setAttribute('data-theme', savedTheme === 'light' ? 'light' : null);
+        })();
+    </script>
+
+    <!-- Main JavaScript -->
+    <script src="/static/js/app.js" defer></script>
+    
+    <!-- Page-specific JavaScript -->
+    {% block extra_js %}{% endblock %}
+
+    <!-- Analytics (if needed) -->
+    {% if analytics_enabled %}
+    <script defer>
+        // Analytics initialization
+        console.log('Analytics enabled');
+    </script>
+    {% endif %}
+
+    <!-- Service Worker Registration -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js')
+                    .then(registration => {
+                        console.log('SW registered: ', registration);
+                    })
+                    .catch(registrationError => {
+                        console.log('SW registration failed: ', registrationError);
+                    });
+            });
+        }
+    </script>
+
+    <!-- Enhanced CSS for components -->
+    <style>
+        /* Additional component styles */
+        .dropdown__link--danger {
+            color: var(--error);
         }
 
-        .user-avatar::after {
-            content: '';
-            position: absolute;
-            top: -2px;
-            right: -2px;
-            width: 12px;
-            height: 12px;
-            background: var(--success);
-            border: 2px solid var(--bg-card);
-            border-radius: 50%;
-            animation: pulse 2s ease-in-out infinite;
+        .dropdown__link--danger:hover {
+            background: rgba(239, 68, 68, 0.1);
+            color: var(--error);
         }
 
-        @keyframes pulse {
-            0%, 100% { transform: scale(1); opacity: 1; }
-            50% { transform: scale(1.1); opacity: 0.8; }
-        }
-
-        .user-info {
-            display: flex;
-            flex-direction: column;
-            align-items: flex-start;
-            flex: 1;
-        }
-
-        .user-name {
-            font-size: 0.9rem;
-            font-weight: 600;
-            color: var(--text-primary);
-            line-height: 1.2;
-        }
-
-        .user-status {
-            font-size: 0.75rem;
-            color: var(--text-secondary);
-            display: flex;
-            align-items: center;
-            gap: 0.25rem;
-        }
-
-        .status-dot {
+        .status-indicator {
+            display: inline-block;
             width: 6px;
             height: 6px;
             background: var(--success);
             border-radius: 50%;
-            animation: blink 2s ease-in-out infinite;
+            animation: pulse 2s infinite;
         }
 
-        @keyframes blink {
+        @keyframes pulse {
             0%, 100% { opacity: 1; }
             50% { opacity: 0.5; }
         }
 
-        .dropdown-arrow {
-            font-size: 12px;
-            color: var(--text-muted);
-            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-
-        .user-profile-btn.active .dropdown-arrow {
-            transform: rotate(180deg);
-        }
-
-        /* Enhanced Dropdown Menu */
-        .user-dropdown-menu {
+        .mobile-menu {
             position: absolute;
-            top: calc(100% + 8px);
+            top: 100%;
+            left: 0;
             right: 0;
-            min-width: 280px;
-            background: var(--bg-card);
-            border: 1px solid var(--border-color);
-            border-radius: 20px;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.1), 0 8px 32px rgba(124, 58, 237, 0.1);
-            padding: 1rem;
-            z-index: 1000;
+            background: var(--surface-primary);
+            border-top: 1px solid var(--border-primary);
+            box-shadow: var(--shadow-lg);
             opacity: 0;
             visibility: hidden;
-            transform: translateY(-10px) scale(0.95);
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            backdrop-filter: blur(20px);
+            transform: translateY(-10px);
+            transition: all var(--transition-base);
         }
 
-        .user-dropdown-menu.active {
+        .mobile-menu.dropdown--open {
             opacity: 1;
             visibility: visible;
-            transform: translateY(0) scale(1);
+            transform: translateY(0);
         }
 
-        .user-dropdown-menu::before {
-            content: '';
-            position: absolute;
-            top: -6px;
-            right: 20px;
-            width: 12px;
-            height: 12px;
-            background: var(--bg-card);
-            border: 1px solid var(--border-color);
-            border-bottom: none;
-            border-right: none;
-            transform: rotate(45deg);
+        .mobile-nav {
+            padding: var(--space-4);
         }
 
-        /* Dropdown Header Styles */
-        .dropdown-header {
+        .mobile-nav__link {
             display: flex;
             align-items: center;
-            gap: 1rem;
-            padding: 1rem;
-            border-bottom: 1px solid var(--border-color);
-            margin: -1rem -1rem 1rem -1rem;
-            background: var(--bg-hover);
-            border-radius: 16px 16px 0 0;
-        }
-
-        .dropdown-avatar {
-            width: 40px;
-            height: 40px;
-            background: var(--accent-gradient);
-            border-radius: 10px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-size: 16px;
-            font-weight: 700;
-            box-shadow: 0 4px 15px rgba(124, 58, 237, 0.4);
-        }
-
-        .dropdown-user-info h4 {
-            font-size: 1rem;
-            font-weight: 600;
-            color: var(--text-primary);
-            margin-bottom: 0.25rem;
-            margin-top: 0;
-        }
-
-        .dropdown-user-info p {
-            font-size: 0.8rem;
+            gap: var(--space-3);
+            padding: var(--space-3);
+            border-radius: var(--radius-lg);
             color: var(--text-secondary);
-            margin: 0;
-        }
-
-        .quick-stats {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 0.75rem;
-            margin-bottom: 1rem;
-        }
-
-        .quick-stat {
-            background: var(--bg-secondary);
-            border-radius: 8px;
-            padding: 0.75rem;
-            text-align: center;
-            border: 1px solid var(--border-color);
-        }
-
-        .quick-stat-value {
-            font-size: 1.2rem;
-            font-weight: 700;
-            color: var(--accent-primary);
-            margin-bottom: 0.25rem;
-        }
-
-        .quick-stat-label {
-            font-size: 0.7rem;
-            color: var(--text-secondary);
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-
-        .dropdown-section {
-            margin-bottom: 1rem;
-        }
-
-        .dropdown-section:last-child {
-            margin-bottom: 0;
-        }
-
-        .dropdown-section-title {
-            font-size: 0.7rem;
-            color: var(--text-muted);
-            text-transform: uppercase;
-            font-weight: 600;
-            letter-spacing: 0.5px;
-            margin-bottom: 0.5rem;
-            padding-left: 0.5rem;
-        }
-
-        .dropdown-item {
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-            padding: 0.75rem;
-            border-radius: 8px;
-            color: var(--text-primary);
             text-decoration: none;
-            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            transition: all var(--transition-fast);
+        }
+
+        .mobile-nav__link:hover {
+            background: var(--surface-hover);
+            color: var(--text-primary);
+        }
+
+        .breadcrumbs {
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border-primary);
+            padding: var(--space-3) 0;
+        }
+
+        .breadcrumbs__list {
+            display: flex;
+            align-items: center;
+            gap: var(--space-2);
+            list-style: none;
+            margin: 0;
+            padding: 0;
+        }
+
+        .breadcrumbs__item {
+            display: flex;
+            align-items: center;
+            gap: var(--space-2);
+        }
+
+        .breadcrumbs__link {
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-size: var(--text-sm);
+            transition: color var(--transition-fast);
+        }
+
+        .breadcrumbs__link:hover {
+            color: var(--primary-500);
+        }
+
+        .breadcrumbs__current {
+            color: var(--text-primary);
+            font-size: var(--text-sm);
+            font-weight: var(--font-medium);
+        }
+
+        .breadcrumbs__separator {
+            color: var(--text-tertiary);
+            font-size: var(--text-xs);
+        }
+
+        .messages-container {
+            background: var(--bg-secondary);
+            padding: var(--space-4) 0;
+        }
+
+        .alert__close {
+            background: none;
+            border: none;
+            color: currentColor;
             cursor: pointer;
-            position: relative;
-            overflow: hidden;
+            padding: var(--space-1);
+            border-radius: var(--radius-sm);
+            transition: background-color var(--transition-fast);
         }
 
-        .dropdown-item::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: -100%;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(124, 58, 237, 0.05), transparent);
-            transition: left 0.4s;
+        .alert__close:hover {
+            background: rgba(0, 0, 0, 0.1);
         }
 
-        .dropdown-item:hover::before {
-            left: 100%;
+        .footer {
+            background: var(--surface-secondary);
+            border-top: 1px solid var(--border-primary);
+            padding: var(--space-12) 0 var(--space-6);
+            margin-top: auto;
         }
 
-        .dropdown-item:hover {
-            background: var(--bg-hover);
-            color: var(--accent-primary);
-            transform: translateX(4px);
+        .footer__content {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: var(--space-8);
+            margin-bottom: var(--space-8);
         }
 
-        .dropdown-item i {
-            width: 16px;
-            text-align: center;
-            font-size: 14px;
-            color: var(--text-muted);
-            transition: color 0.2s;
+        .footer__title {
+            font-size: var(--text-lg);
+            font-weight: var(--font-bold);
+            color: var(--text-primary);
+            margin-bottom: var(--space-3);
         }
 
-        .dropdown-item:hover i {
-            color: var(--accent-primary);
+        .footer__subtitle {
+            font-size: var(--text-base);
+            font-weight: var(--font-semibold);
+            color: var(--text-primary);
+            margin-bottom: var(--space-3);
         }
 
-        .dropdown-item span {
-            font-weight: 500;
-            font-size: 0.9rem;
+        .footer__description {
+            color: var(--text-secondary);
+            line-height: var(--leading-relaxed);
         }
 
-        .dropdown-item.danger:hover {
-            background: rgba(239, 68, 68, 0.1);
-            color: var(--danger);
+        .footer__links {
+            list-style: none;
+            margin: 0;
+            padding: 0;
         }
 
-        .dropdown-item.danger:hover i {
-            color: var(--danger);
+        .footer__links li {
+            margin-bottom: var(--space-2);
         }
 
-        .dropdown-divider {
-            height: 1px;
-            background: var(--border-color);
-            margin: 0.75rem 0;
+        .footer__link {
+            color: var(--text-secondary);
+            text-decoration: none;
+            transition: color var(--transition-fast);
         }
 
-        /* Responsive Design */
+        .footer__link:hover {
+            color: var(--primary-500);
+        }
+
+        .footer__bottom {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-top: var(--space-6);
+            border-top: 1px solid var(--border-primary);
+            flex-wrap: wrap;
+            gap: var(--space-4);
+        }
+
+        .footer__copyright {
+            color: var(--text-tertiary);
+            font-size: var(--text-sm);
+        }
+
+        .footer__meta {
+            display: flex;
+            align-items: center;
+            gap: var(--space-4);
+        }
+
+        .footer__version {
+            color: var(--text-tertiary);
+            font-size: var(--text-xs);
+            font-family: monospace;
+        }
+
+        .footer__theme-toggle {
+            background: none;
+            border: none;
+            color: var(--text-tertiary);
+            cursor: pointer;
+            padding: var(--space-2);
+            border-radius: var(--radius-md);
+            transition: all var(--transition-fast);
+        }
+
+        .footer__theme-toggle:hover {
+            background: var(--surface-hover);
+            color: var(--primary-500);
+        }
+
+        /* Responsive adjustments */
         @media (max-width: 768px) {
-            .user-profile-btn {
-                padding: 0.5rem 1rem;
-                min-width: 120px;
+            .footer__bottom {
+                flex-direction: column;
+                text-align: center;
             }
 
-            .user-dropdown-menu {
-                min-width: 260px;
-                right: -20px;
-            }
-
-            .dropdown-header {
-                padding: 0.75rem;
-                margin: -1rem -1rem 0.75rem -1rem;
-            }
-
-            .dropdown-avatar {
-                width: 40px;
-                height: 40px;
-                font-size: 18px;
-            }
-        }
-
-        /* Animation for mobile menu */
-        @media (max-width: 640px) {
-            .user-dropdown-menu {
-                position: fixed;
-                top: auto;
-                bottom: 0;
-                left: 0;
-                right: 0;
-                min-width: 100%;
-                border-radius: 20px 20px 0 0;
-                transform: translateY(100%);
-            }
-
-            .user-dropdown-menu.active {
-                transform: translateY(0);
-            }
-
-            .user-dropdown-menu::before {
+            .header__nav {
                 display: none;
             }
         }
+
+        /* Print styles */
+        @media print {
+            .header,
+            .footer,
+            .mobile-menu,
+            .notification-container {
+                display: none;
+            }
+
+            .main-content {
+                margin: 0;
+                padding: 0;
+            }
+        }
+
+        /* High contrast mode */
+        @media (prefers-contrast: high) {
+            :root {
+                --border-primary: #000;
+                --text-secondary: #000;
+            }
+
+            [data-theme="light"] {
+                --border-primary: #000;
+                --text-secondary: #000;
+            }
+        }
+
+        /* Reduced motion */
+        @media (prefers-reduced-motion: reduce) {
+            *,
+            *::before,
+            *::after {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
+            }
+        }
     </style>
-</head>
-<body class="{% block body_class %}{% endblock %}">
-    
-    {% block header %}
-    <!-- Header -->
-    <!-- Replace the entire header section with this enhanced version -->
-<header class="header">
-    <div class="header-content">
-        <!-- Logo Section -->
-        <div class="logo">
-            <div class="logo-icon">
-                <i class="fas fa-chart-line"></i>
-            </div>
-            <div class="logo-text">
-                <h1 class="logo-title">GST Intelligence</h1>
-                <p class="logo-subtitle">Advanced Business Analytics Platform</p>
-            </div>
-        </div>
-        
-        {% if current_user %}
-        <!-- Navigation Items -->
-        <nav class="nav-items">
-            <a href="/" class="nav-link {% if request.url.path == '/' %}active{% endif %}">
-                <i class="fas fa-tachometer-alt"></i>
-                <span>Dashboard</span>
-            </a>
-            <a href="/analytics" class="nav-link {% if request.url.path == '/analytics' %}active{% endif %}">
-                <i class="fas fa-chart-pie"></i>
-                <span>Live Analytics</span>
-            </a>
-            <a href="/history" class="nav-link {% if request.url.path == '/history' %}active{% endif %}">
-                <i class="fas fa-history"></i>
-                <span>History</span>
-            </a>
-            
-            <!-- Theme Toggle -->
-            <div class="theme-toggle" onclick="toggleTheme()" data-tooltip="Toggle theme">
-                <div class="theme-icon">
-                    <i class="fas fa-moon"></i>
-                </div>
-                <div class="theme-icon">
-                    <i class="fas fa-sun"></i>
-                </div>
-                <div class="theme-toggle-indicator">
-                    <i class="fas fa-moon" id="theme-indicator-icon"></i>
-                </div>
-            </div>
-            
-            <!-- Enhanced User Profile Dropdown -->
-            <div class="user-profile-wrapper">
-                <button class="user-profile-btn" id="userProfileBtn" data-tooltip="User menu">
-                    <div class="user-avatar">
+</body>
+</html> 
+                   class="nav__link {% if request.url.path == '/analytics' %}nav__link--active{% endif %}"
+                   {% if request.url.path == '/analytics' %}aria-current="page"{% endif %}>
+                    <i class="fas fa-chart-bar" aria-hidden="true"></i>
+                    <span>Analytics</span>
+                </a>
+                <a href="/history" 
+                   class="nav__link {% if request.url.path == '/history' %}nav__link--active{% endif %}"
+                   {% if request.url.path == '/history' %}aria-current="page"{% endif %}>
+                    <i class="fas fa-history" aria-hidden="true"></i>
+                    <span>History</span>
+                </a>
+            </nav>
+
+            <!-- Mobile Menu Toggle -->
+            <button class="header__mobile-toggle md:hidden" 
+                    aria-label="Toggle mobile menu"
+                    data-dropdown="#mobile-menu">
+                <i class="fas fa-bars" aria-hidden="true"></i>
+            </button>
+
+            <!-- User Menu -->
+            <div class="header__user">
+                <button class="user__trigger" 
+                        aria-expanded="false"
+                        aria-haspopup="true"
+                        aria-label="User menu"
+                        data-dropdown="#user-dropdown">
+                    <div class="user__avatar" aria-hidden="true">
                         {{ current_user[0]|upper }}
                     </div>
-                    <div class="user-info">
-                        <span class="user-name">{{ current_user }}</span>
-                        <span class="user-status">
-                            <span class="status-dot"></span>
+                    <div class="user__info">
+                        <div class="user__name">{{ current_user }}</div>
+                        <div class="user__status">
+                            <span class="status-indicator" aria-label="Online"></span>
                             Online
-                        </span>
+                        </div>
                     </div>
-                    <i class="fas fa-chevron-down dropdown-arrow"></i>
+                    <i class="fas fa-chevron-down user__chevron" aria-hidden="true"></i>
                 </button>
-                
-                <div class="user-dropdown-menu" id="userDropdownMenu">
-                    <div class="dropdown-header">
-                        <div class="dropdown-avatar">
+
+                <!-- User Dropdown -->
+                <div id="user-dropdown" class="user__dropdown" role="menu">
+                    <div class="dropdown__header">
+                        <div class="dropdown__avatar" aria-hidden="true">
                             {{ current_user[0]|upper }}
                         </div>
-                        <div class="dropdown-user-info">
+                        <div class="dropdown__user-info">
                             <h4>{{ current_user }}</h4>
                             <p>Premium User</p>
                         </div>
                     </div>
-                    
-                    <div class="quick-stats">
-                        <div class="quick-stat">
-                            <div class="quick-stat-value" id="userSearchCount">-</div>
-                            <div class="quick-stat-label">Searches</div>
+
+                    <!-- Quick Stats -->
+                    <div class="dropdown__stats" role="group" aria-label="User statistics">
+                        <div class="stat">
+                            <div class="stat__value" data-user-stat="total-searches">-</div>
+                            <div class="stat__label">Searches</div>
                         </div>
-                        <div class="quick-stat">
-                            <div class="quick-stat-value" id="userAvgScore">-</div>
-                            <div class="quick-stat-label">Avg Score</div>
-                        </div>
-                    </div>
-                    
-                    <div class="dropdown-section">
-                        <div class="dropdown-section-title">Account</div>
-                        <div class="dropdown-item" onclick="openProfileModal()">
-                            <i class="fas fa-user-edit"></i>
-                            <span>Edit Profile</span>
-                        </div>
-                        <div class="dropdown-item" onclick="openPasswordModal()">
-                            <i class="fas fa-key"></i>
-                            <span>Change Password</span>
-                        </div>
-                        <div class="dropdown-item" onclick="openSettingsModal()">
-                            <i class="fas fa-cog"></i>
-                            <span>Settings</span>
+                        <div class="stat">
+                            <div class="stat__value" data-user-stat="avg-compliance">-</div>
+                            <div class="stat__label">Avg Score</div>
                         </div>
                     </div>
-                    
-                    <div class="dropdown-section">
-                        <div class="dropdown-section-title">Quick Actions</div>
-                        <div class="dropdown-item" onclick="window.location.href='/history'">
-                            <i class="fas fa-history"></i>
-                            <span>View History</span>
-                        </div>
-                        <div class="dropdown-item" onclick="window.location.href='/analytics'">
-                            <i class="fas fa-chart-bar"></i>
-                            <span>Analytics</span>
-                        </div>
-                        <div class="dropdown-item" onclick="exportUserData()">
-                            <i class="fas fa-download"></i>
-                            <span>Export Data</span>
-                        </div>
+
+                    <!-- Theme Toggle -->
+                    <div class="dropdown__theme">
+                        <span>Dark Mode</span>
+                        <button class="theme-toggle" 
+                                aria-label="Toggle dark mode"
+                                onclick="app.toggleTheme()">
+                            <div class="theme-toggle__indicator">
+                                <i class="fas fa-moon" aria-hidden="true"></i>
+                            </div>
+                        </button>
                     </div>
-                    
-                    <div class="dropdown-divider"></div>
-                    
-                    <div class="dropdown-item danger" onclick="window.location.href='/logout'">
-                        <i class="fas fa-sign-out-alt"></i>
-                        <span>Logout</span>
-                    </div>
+
+                    <!-- Menu Items -->
+                    <ul class="dropdown__menu" role="none">
+                        <li role="none">
+                            <a href="/profile" class="dropdown__link" role="menuitem">
+                                <i class="fas fa-user" aria-hidden="true"></i>
+                                <span>Edit Profile</span>
+                            </a>
+                        </li>
+                        <li role="none">
+                            <a href="/settings" class="dropdown__link" role="menuitem">
+                                <i class="fas fa-cog" aria-hidden="true"></i>
+                                <span>Settings</span>
+                            </a>
+                        </li>
+                        <li role="none">
+                            <a href="/export/history" class="dropdown__link" role="menuitem">
+                                <i class="fas fa-download" aria-hidden="true"></i>
+                                <span>Export Data</span>
+                            </a>
+                        </li>
+                        <li role="none">
+                            <hr class="dropdown__divider" role="separator">
+                        </li>
+                        <li role="none">
+                            <a href="/logout" class="dropdown__link dropdown__link--danger" role="menuitem">
+                                <i class="fas fa-sign-out-alt" aria-hidden="true"></i>
+                                <span>Logout</span>
+                            </a>
+                        </li>
+                    </ul>
                 </div>
             </div>
-        </nav>
-        
-        <!-- Mobile Menu Toggle (for responsive design) -->
-        <button class="mobile-menu-toggle" id="mobileMenuToggle" onclick="toggleMobileMenu()">
-            <i class="fas fa-bars"></i>
-        </button>
-        
-        {% else %}
-        <!-- Login/Signup buttons for non-authenticated users -->
-        <div class="auth-buttons">
-            <a href="/login" class="btn btn-secondary">Login</a>
-            <a href="/signup" class="btn btn-primary">Sign Up</a>
+
+            {% else %}
+            <!-- Authentication Links -->
+            <div class="auth-links">
+                <a href="/login" class="btn btn--ghost">Login</a>
+                <a href="/signup" class="btn btn--primary">Sign Up</a>
+            </div>
+            {% endif %}
         </div>
-        {% endif %}
-    </div>
-</header>
-    {% endblock %}
 
-    <!-- Main Content -->
-    <main class="{% block main_class %}container{% endblock %}">
-        {% block content %}{% endblock %}
-    </main>
-
-    <!-- Enhanced User Profile Functionality -->
-    <script>
-        // Enhanced User Profile Functionality
-        document.addEventListener('DOMContentLoaded', function() {
-            const userProfileBtn = document.getElementById('userProfileBtn');
-            const userDropdownMenu = document.getElementById('userDropdownMenu');
-            
-            if (userProfileBtn && userDropdownMenu) {
-                // Toggle dropdown
-                userProfileBtn.addEventListener('click', function(e) {
-                    e.stopPropagation();
-                    toggleUserDropdown();
-                });
-                
-                // Close on outside click
-                document.addEventListener('click', function(e) {
-                    if (!e.target.closest('.user-profile-wrapper')) {
-                        closeUserDropdown();
-                    }
-                });
-                
-                // Keyboard navigation
-                document.addEventListener('keydown', function(e) {
-                    if (e.key === 'Escape') {
-                        closeUserDropdown();
-                    }
-                });
-                
-                // Load user stats
-                loadUserStats();
-            }
-        });
-        
-        function toggleUserDropdown() {
-            const btn = document.getElementById('userProfileBtn');
-            const menu = document.getElementById('userDropdownMenu');
-            
-            const isActive = btn.classList.contains('active');
-            
-            if (isActive) {
-                closeUserDropdown();
-            } else {
-                openUserDropdown();
-            }
-        }
-        
-        function openUserDropdown() {
-            const btn = document.getElementById('userProfileBtn');
-            const menu = document.getElementById('userDropdownMenu');
-            
-            btn.classList.add('active');
-            menu.classList.add('active');
-            
-            // Load fresh stats
-            setTimeout(() => {
-                loadUserStats();
-            }, 150);
-        }
-        
-        function closeUserDropdown() {
-            const btn = document.getElementById('userProfileBtn');
-            const menu = document.getElementById('userDropdownMenu');
-            
-            if (btn) btn.classList.remove('active');
-            if (menu) menu.classList.remove('active');
-        }
-        
-        async function loadUserStats() {
-            try {
-                const response = await fetch('/api/user/stats');
-                const data = await response.json();
-                
-                const searchCountEl = document.getElementById('userSearchCount');
-                const avgScoreEl = document.getElementById('userAvgScore');
-                const uniqueCompaniesEl = document.getElementById('userUniqueCompanies');
-                
-                if (data.success && data.data) {
-                    if (searchCountEl) {
-                        animateNumber(searchCountEl, 0, data.data.total_searches || 0, 800);
-                    }
-                    if (avgScoreEl) {
-                        animateNumber(avgScoreEl, 0, data.data.avg_compliance || 0, 1000, '%');
-                    }
-                    if (uniqueCompaniesEl) {
-                        animateNumber(uniqueCompaniesEl, 0, data.data.unique_companies || 0, 600);
-                    }
-                } else {
-                    // Fallback to demo data
-                    if (searchCountEl) animateNumber(searchCountEl, 0, 23, 800);
-                    if (avgScoreEl) animateNumber(avgScoreEl, 0, 78, 1000, '%');
-                    if (uniqueCompaniesEl) animateNumber(uniqueCompaniesEl, 0, 12, 600);
-                }
-            } catch (error) {
-                console.error('Error loading user stats:', error);
-                // Fallback to demo data
-                const searchCountEl = document.getElementById('userSearchCount');
-                const avgScoreEl = document.getElementById('userAvgScore');
-                const uniqueCompaniesEl = document.getElementById('userUniqueCompanies');
-                
-                if (searchCountEl) animateNumber(searchCountEl, 0, 23, 800);
-                if (avgScoreEl) animateNumber(avgScoreEl, 0, 78, 1000, '%');
-                if (uniqueCompaniesEl) animateNumber(uniqueCompaniesEl, 0, 12, 600);
-            }
-        }
-
-        function animateNumber(element, start, end, duration, suffix = '') {
-            const startTime = performance.now();
-            const difference = end - start;
-            
-            function step(currentTime) {
-                const elapsed = currentTime - startTime;
-                const progress = Math.min(elapsed / duration, 1);
-                const current = Math.floor(start + (difference * progress));
-                
-                element.textContent = current + suffix;
-                
-                if (progress < 1) {
-                    requestAnimationFrame(step);
-                }
-            }
-            
-            requestAnimationFrame(step);
-        }
-
-        function exportUserData() {
-            window.location.href = '/export/history';
-            if (typeof notificationManager !== 'undefined') {
-                notificationManager.showToast('Exporting your data...', 'info');
-            }
-            closeUserDropdown();
-        }
-
-        // Mobile menu toggle
-        function toggleMobileMenu() {
-            const navItems = document.querySelector('.nav-items');
-            if (navItems) {
-                navItems.style.display = navItems.style.display === 'none' ? 'flex' : 'none';
-            }
-        }
-
-        // Global function for theme toggle compatibility
-        window.toggleUserDropdown = toggleUserDropdown;
-        window.exportUserData = exportUserData;
-        window.toggleMobileMenu = toggleMobileMenu;
-    </script>
-
-    <!-- Main Scripts -->
-    <script src="/static/common-scripts.js"></script>
-    
-    <!-- Page-specific inline scripts -->
-    {% block inline_js %}{% endblock %}
-</body>
-</html>
+        <!-- Mobile Menu -->
+        {% if current_user %}
+        <div id="mobile-menu" class="mobile-menu md:hidden">
+            <nav class="mobile-nav" role="navigation" aria-label="Mobile navigation">
+                <a href="/" class="mobile-nav__link">
+                    <i class="fas fa-home"></i>
+                    <span>Dashboard</span>
+                </a>
+                <a href="/analytics"

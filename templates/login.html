@@ -1,12 +1,7 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login - GST Intelligence Platform</title>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="/static/common-styles.css">
-    <link rel="stylesheet" href="/static/style.css">
+{% extends "base.html" %}
+{% block header %}{% endblock %} <!-- Remove header for auth pages -->
+{% block content %}
+<!-- Your login/signup content -->
     <style>
         body {
             display: flex;
@@ -440,6 +435,6 @@
         </div>
     </div>
 
-    <script src="/static/common-scripts.js"></script>
 </body>
 </html>
+{% endblock %}

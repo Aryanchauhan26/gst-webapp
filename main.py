@@ -706,6 +706,13 @@ async def health_check():
             content={"status": "unhealthy", "error": str(e), "timestamp": datetime.now()}
         )
 
+@app.context_processor
+def utility_processor():
+    return dict(
+        current_year=datetime.now().year,
+        app_version="2.0.0"
+    )
+
 @app.get("/", response_class=HTMLResponse)
 async def home(request: Request, current_user: str = Depends(require_auth)):
     history = await db.get_search_history(current_user)
