@@ -171,13 +171,7 @@ class PostgresDB:
                 "SELECT gstin, company_name, searched_at, compliance_score FROM search_history WHERE mobile=$1 ORDER BY searched_at DESC",
                 mobile
             )
-            return [dict(row) for row in rows]
-        
-    async def require_auth(request: Request) -> str:
-        user = await get_current_user(request)
-        if not user:
-            raise HTTPException(status_code=status.HTTP_303_SEE_OTHER, headers={"Location": "/login"})
-        return user    
+            return [dict(row) for row in rows]  
 
 db = PostgresDB()
 
@@ -212,7 +206,7 @@ api_client = GSAPIClient(RAPIDAPI_KEY, RAPIDAPI_HOST) if RAPIDAPI_KEY else None
 # Add these new API endpoints to your main.py file
 
 @app.get("/api/user/stats")
-async def get_user_stats(current_user: str = Depends(require_auth)):
+async def get_user_stats(request: Request, current_user: str = Depends(require_auth)):
     """Get user statistics for profile display"""
     try:
         await db.connect()
