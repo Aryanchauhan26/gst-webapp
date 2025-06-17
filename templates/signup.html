@@ -1,622 +1,709 @@
 {% extends "base.html" %}
-{% block header %}{% endblock %} <!-- Remove header for auth pages -->
+
+{% block title %}Sign Up - GST Intelligence Platform{% endblock %}
+{% block body_class %}page-signup{% endblock %}
+
 {% block content %}
-<!-- Your login/signup content -->
-    <style>
-        /* CSS Variables for Theme */
-        :root {
-            --transition-speed: 0.3s;
-        }
+<style>
+    /* CSS Variables for Theme */
+    :root {
+        --transition-speed: 0.3s;
+    }
 
-        /* Dark Theme (Default) */
-        body {
-        }
+    body {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 100vh;
+        position: relative;
+        overflow: hidden;
+    }
 
-        /* Light Theme */
-        body.light-theme {
-        }
+    /* Animated Background */
+    .bg-animation {
+        position: fixed;
+        width: 100%;
+        height: 100%;
+        top: 0;
+        left: 0;
+        z-index: -1;
+        opacity: 0.5;
+    }
 
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+    .bg-animation::before {
+        content: '';
+        position: absolute;
+        width: 150%;
+        height: 150%;
+        top: -25%;
+        left: -25%;
+        background: radial-gradient(circle at 20% 50%, rgba(124, 58, 237, 0.3) 0%, transparent 50%),
+                    radial-gradient(circle at 80% 80%, rgba(37, 99, 235, 0.3) 0%, transparent 50%),
+                    radial-gradient(circle at 40% 20%, rgba(167, 139, 250, 0.2) 0%, transparent 50%);
+        animation: bgRotate 20s linear infinite;
+    }
 
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Inter', sans-serif;
-            background: var(--bg-primary);
-            color: var(--text-primary);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            min-height: 100vh;
-            transition: background-color var(--transition-speed), color var(--transition-speed);
-            position: relative;
-            overflow: hidden;
-        }
+    @keyframes bgRotate {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
+    }
 
-        /* Animated Background */
-        .bg-animation {
-            position: fixed;
-            width: 100%;
-            height: 100%;
-            top: 0;
-            left: 0;
-            z-index: -1;
+    /* Floating Particles */
+    .particles {
+        position: fixed;
+        width: 100%;
+        height: 100%;
+        top: 0;
+        left: 0;
+        z-index: -1;
+        pointer-events: none;
+    }
+
+    .particle {
+        position: absolute;
+        width: 4px;
+        height: 4px;
+        background: var(--accent-primary);
+        border-radius: 50%;
+        opacity: 0.5;
+        animation: float 15s infinite;
+    }
+
+    @keyframes float {
+        0%, 100% {
+            transform: translateY(100vh) translateX(0);
+            opacity: 0;
+        }
+        10% {
             opacity: 0.5;
         }
-
-        .bg-animation::before {
-            content: '';
-            position: absolute;
-            width: 150%;
-            height: 150%;
-            top: -25%;
-            left: -25%;
-            background: radial-gradient(circle at 20% 50%, rgba(124, 58, 237, 0.3) 0%, transparent 50%),
-                        radial-gradient(circle at 80% 80%, rgba(37, 99, 235, 0.3) 0%, transparent 50%),
-                        radial-gradient(circle at 40% 20%, rgba(167, 139, 250, 0.2) 0%, transparent 50%);
-            animation: bgRotate 20s linear infinite;
-        }
-
-        @keyframes bgRotate {
-            from { transform: rotate(0deg); }
-            to { transform: rotate(360deg); }
-        }
-
-        /* Floating Particles */
-        .particles {
-            position: fixed;
-            width: 100%;
-            height: 100%;
-            top: 0;
-            left: 0;
-            z-index: -1;
-            pointer-events: none;
-        }
-
-        .particle {
-            position: absolute;
-            width: 4px;
-            height: 4px;
-            background: var(--accent-primary);
-            border-radius: 50%;
+        90% {
             opacity: 0.5;
-            animation: float 15s infinite;
         }
+    }
 
-        @keyframes float {
-            0%, 100% {
-                transform: translateY(100vh) translateX(0);
-                opacity: 0;
-            }
-            10% {
-                opacity: 0.5;
-            }
-            90% {
-                opacity: 0.5;
-            }
+    /* Theme Toggle */
+    .theme-toggle-wrapper {
+        position: fixed;
+        top: 2rem;
+        right: 2rem;
+        z-index: 100;
+    }
+
+    .theme-toggle {
+        background: var(--bg-card);
+        border: 1px solid var(--border-color);
+        border-radius: 50px;
+        padding: 4px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        position: relative;
+        width: 72px;
+        height: 36px;
+        transition: all var(--transition-speed);
+        box-shadow: var(--card-shadow);
+    }
+
+    .theme-toggle:hover {
+        border-color: var(--accent-primary);
+        box-shadow: 0 0 20px rgba(124, 58, 237, 0.3);
+    }
+
+    .theme-toggle-indicator {
+        position: absolute;
+        width: 28px;
+        height: 28px;
+        background: var(--accent-gradient);
+        border-radius: 50%;
+        transition: transform var(--transition-speed);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 14px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+        left: 4px;
+    }
+
+    [data-theme="light"] .theme-toggle-indicator {
+        transform: translateX(36px);
+    }
+
+    .theme-icon {
+        font-size: 14px;
+        color: var(--text-muted);
+        flex: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 1;
+    }
+
+    /* Signup Container */
+    .signup-container {
+        width: 100%;
+        max-width: 420px;
+        padding: 2rem;
+        position: relative;
+        z-index: 1;
+    }
+
+    /* Signup Card with Glassmorphism */
+    .signup-card {
+        background: var(--bg-card);
+        backdrop-filter: blur(20px);
+        border: 1px solid var(--border-color);
+        border-radius: 24px;
+        padding: 3rem;
+        box-shadow: var(--card-shadow);
+        position: relative;
+        overflow: hidden;
+        animation: cardAppear 0.6s ease-out;
+    }
+
+    @keyframes cardAppear {
+        from {
+            opacity: 0;
+            transform: translateY(30px);
         }
-
-        /* Theme Toggle */
-        .theme-toggle-wrapper {
-            position: fixed;
-            top: 2rem;
-            right: 2rem;
-            z-index: 100;
+        to {
+            opacity: 1;
+            transform: translateY(0);
         }
+    }
 
-        .theme-toggle {
-            background: var(--bg-card);
-            border: 1px solid var(--border-color);
-            border-radius: 50px;
-            padding: 4px;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            position: relative;
-            width: 72px;
-            height: 36px;
-            transition: all var(--transition-speed);
-            box-shadow: var(--card-shadow);
+    .signup-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 5px;
+        background: var(--accent-gradient);
+        animation: shimmer 2s ease-in-out infinite;
+    }
+
+    @keyframes shimmer {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.7; }
+    }
+
+    /* Logo Section */
+    .signup-logo {
+        text-align: center;
+        margin-bottom: 2.5rem;
+        animation: logoFadeIn 0.8s ease-out 0.2s both;
+    }
+
+    @keyframes logoFadeIn {
+        from {
+            opacity: 0;
+            transform: scale(0.9);
         }
-
-        .theme-toggle:hover {
-            border-color: var(--accent-primary);
-            box-shadow: 0 0 20px rgba(124, 58, 237, 0.3);
+        to {
+            opacity: 1;
+            transform: scale(1);
         }
+    }
 
-        .theme-toggle-indicator {
-            position: absolute;
-            width: 28px;
-            height: 28px;
-            background: var(--accent-gradient);
-            border-radius: 50%;
-            transition: transform var(--transition-speed);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-size: 14px;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
-            left: 4px;
-        }
+    .signup-logo-icon {
+        width: 90px;
+        height: 90px;
+        background: var(--accent-gradient);
+        border-radius: 24px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 45px;
+        color: white;
+        margin-bottom: 1.5rem;
+        box-shadow: 0 12px 40px rgba(124, 58, 237, 0.4);
+        position: relative;
+        animation: iconPulse 3s ease-in-out infinite;
+    }
 
-        body.light-theme .theme-toggle-indicator {
-            transform: translateX(36px);
-        }
-
-        .theme-icon {
-            font-size: 14px;
-            color: var(--text-muted);
-            flex: 1;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 1;
-        }
-
-        /* Signup Container */
-        .signup-container {
-            width: 100%;
-            max-width: 420px;
-            padding: 2rem;
-            position: relative;
-            z-index: 1;
-        }
-
-        /* Signup Card with Glassmorphism */
-        .signup-card {
-            background: var(--bg-card);
-            backdrop-filter: blur(20px);
-            border: 1px solid var(--border-color);
-            border-radius: 24px;
-            padding: 3rem;
-            box-shadow: var(--card-shadow);
-            position: relative;
-            overflow: hidden;
-            animation: cardAppear 0.6s ease-out;
-        }
-
-        @keyframes cardAppear {
-            from {
-                opacity: 0;
-                transform: translateY(30px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        .signup-card::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 5px;
-            background: var(--accent-gradient);
-            animation: shimmer 2s ease-in-out infinite;
-        }
-
-        @keyframes shimmer {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.7; }
-        }
-
-        /* Logo Section */
-        .signup-logo {
-            text-align: center;
-            margin-bottom: 2.5rem;
-            animation: logoFadeIn 0.8s ease-out 0.2s both;
-        }
-
-        @keyframes logoFadeIn {
-            from {
-                opacity: 0;
-                transform: scale(0.9);
-            }
-            to {
-                opacity: 1;
-                transform: scale(1);
-            }
-        }
-
-        .signup-logo-icon {
-            width: 90px;
-            height: 90px;
-            background: var(--accent-gradient);
-            border-radius: 24px;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 45px;
-            color: white;
-            margin-bottom: 1.5rem;
+    @keyframes iconPulse {
+        0%, 100% {
+            transform: scale(1);
             box-shadow: 0 12px 40px rgba(124, 58, 237, 0.4);
-            position: relative;
-            animation: iconPulse 3s ease-in-out infinite;
         }
-
-        @keyframes iconPulse {
-            0%, 100% {
-                transform: scale(1);
-                box-shadow: 0 12px 40px rgba(124, 58, 237, 0.4);
-            }
-            50% {
-                transform: scale(1.05);
-                box-shadow: 0 16px 50px rgba(124, 58, 237, 0.6);
-            }
+        50% {
+            transform: scale(1.05);
+            box-shadow: 0 16px 50px rgba(124, 58, 237, 0.6);
         }
+    }
 
-        .signup-logo-icon::after {
-            content: '';
-            position: absolute;
-            width: 100%;
-            height: 100%;
-            border-radius: 24px;
-            border: 2px solid rgba(255, 255, 255, 0.2);
-            animation: iconRing 3s ease-in-out infinite;
+    .signup-logo-icon::after {
+        content: '';
+        position: absolute;
+        width: 100%;
+        height: 100%;
+        border-radius: 24px;
+        border: 2px solid rgba(255, 255, 255, 0.2);
+        animation: iconRing 3s ease-in-out infinite;
+    }
+
+    @keyframes iconRing {
+        0%, 100% {
+            transform: scale(1);
+            opacity: 1;
         }
-
-        @keyframes iconRing {
-            0%, 100% {
-                transform: scale(1);
-                opacity: 1;
-            }
-            50% {
-                transform: scale(1.15);
-                opacity: 0;
-            }
+        50% {
+            transform: scale(1.15);
+            opacity: 0;
         }
+    }
 
+    .signup-title {
+        font-size: 2rem;
+        font-weight: 800;
+        background: var(--accent-gradient);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        margin-bottom: 0.5rem;
+        letter-spacing: -0.5px;
+    }
+
+    .signup-subtitle {
+        color: var(--text-secondary);
+        font-size: 1.1rem;
+        font-weight: 400;
+    }
+
+    /* Form Styling */
+    .signup-form {
+        margin-top: 2rem;
+        animation: formFadeIn 0.8s ease-out 0.4s both;
+    }
+
+    @keyframes formFadeIn {
+        from {
+            opacity: 0;
+            transform: translateY(20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    .form-group {
+        margin-bottom: 1.5rem;
+        position: relative;
+    }
+
+    .form-input {
+        width: 100%;
+        padding: 1.2rem 1.5rem 1.2rem 3.5rem;
+        background: var(--bg-input);
+        border: 2px solid var(--border-color);
+        border-radius: 14px;
+        color: var(--text-primary);
+        font-size: 1rem;
+        transition: all var(--transition-speed);
+    }
+
+    .form-input:focus {
+        outline: none;
+        border-color: var(--accent-primary);
+        box-shadow: 0 0 0 4px rgba(124, 58, 237, 0.1);
+        background: var(--bg-secondary);
+        transform: translateY(-2px);
+    }
+
+    .form-input::placeholder {
+        color: var(--text-muted);
+    }
+
+    /* Input Icons */
+    .input-icon {
+        position: absolute;
+        left: 1.2rem;
+        top: 50%;
+        transform: translateY(-50%);
+        color: var(--text-muted);
+        font-size: 1.1rem;
+        transition: color var(--transition-speed);
+    }
+
+    .form-input:focus + .input-icon {
+        color: var(--accent-primary);
+    }
+
+    /* Password Toggle */
+    .password-toggle {
+        position: absolute;
+        right: 1.2rem;
+        top: 50%;
+        transform: translateY(-50%);
+        color: var(--text-muted);
+        cursor: pointer;
+        font-size: 1.1rem;
+        transition: color var(--transition-speed);
+    }
+
+    .password-toggle:hover {
+        color: var(--accent-primary);
+    }
+
+    /* Password Strength Indicator */
+    .password-strength {
+        margin-top: 0.5rem;
+        height: 4px;
+        background: var(--bg-hover);
+        border-radius: 2px;
+        overflow: hidden;
+        position: relative;
+    }
+
+    .password-strength-bar {
+        height: 100%;
+        width: 0;
+        background: var(--accent-gradient);
+        transition: width var(--transition-speed);
+    }
+
+    .password-strength-text {
+        font-size: 0.85rem;
+        margin-top: 0.5rem;
+        color: var(--text-secondary);
+    }
+
+    /* Submit Button */
+    .signup-btn {
+        width: 100%;
+        padding: 1.2rem;
+        background: var(--accent-gradient);
+        border: none;
+        border-radius: 14px;
+        color: white;
+        font-weight: 600;
+        font-size: 1.1rem;
+        cursor: pointer;
+        transition: all var(--transition-speed);
+        box-shadow: 0 6px 30px rgba(124, 58, 237, 0.4);
+        position: relative;
+        overflow: hidden;
+    }
+
+    .signup-btn::before {
+        content: '';
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        width: 0;
+        height: 0;
+        background: rgba(255, 255, 255, 0.2);
+        border-radius: 50%;
+        transform: translate(-50%, -50%);
+        transition: width 0.6s, height 0.6s;
+    }
+
+    .signup-btn:hover::before {
+        width: 300px;
+        height: 300px;
+    }
+
+    .signup-btn:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 8px 40px rgba(124, 58, 237, 0.6);
+    }
+
+    .signup-btn:active {
+        transform: translateY(-1px);
+    }
+
+    /* Messages */
+    .message {
+        margin-top: 1.5rem;
+        padding: 1rem 1.5rem;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        animation: messageSlide 0.5s ease-out;
+    }
+
+    @keyframes messageSlide {
+        from {
+            opacity: 0;
+            transform: translateX(-20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateX(0);
+        }
+    }
+
+    .error-message {
+        background: rgba(239, 68, 68, 0.1);
+        border: 1px solid rgba(239, 68, 68, 0.3);
+        color: var(--error);
+    }
+
+    .success-message {
+        background: rgba(16, 185, 129, 0.1);
+        border: 1px solid rgba(16, 185, 129, 0.3);
+        color: var(--success);
+    }
+
+    /* Footer */
+    .signup-footer {
+        text-align: center;
+        margin-top: 2rem;
+        color: var(--text-secondary);
+        animation: formFadeIn 0.8s ease-out 0.6s both;
+    }
+
+    .signup-footer a {
+        color: var(--accent-secondary);
+        text-decoration: none;
+        font-weight: 600;
+        position: relative;
+    }
+
+    .signup-footer a::after {
+        content: '';
+        position: absolute;
+        width: 0;
+        height: 2px;
+        bottom: -2px;
+        left: 0;
+        background: var(--accent-gradient);
+        transition: width 0.3s;
+    }
+
+    .signup-footer a:hover::after {
+        width: 100%;
+    }
+
+    /* Loading State */
+    .signup-btn.loading {
+        pointer-events: none;
+        opacity: 0.8;
+    }
+
+    .signup-btn.loading::after {
+        content: '';
+        position: absolute;
+        width: 20px;
+        height: 20px;
+        top: 50%;
+        left: 50%;
+        margin-left: -10px;
+        margin-top: -10px;
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        border-radius: 50%;
+        border-top-color: white;
+        animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin {
+        to { transform: rotate(360deg); }
+    }
+
+    /* Responsive */
+    @media (max-width: 480px) {
+        .signup-container {
+            padding: 1rem;
+        }
+        
+        .signup-card {
+            padding: 2rem;
+        }
+        
         .signup-title {
-            font-size: 2rem;
-            font-weight: 800;
-            background: var(--accent-gradient);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            margin-bottom: 0.5rem;
-            letter-spacing: -0.5px;
+            font-size: 1.6rem;
         }
-
-        .signup-subtitle {
-            color: var(--text-secondary);
-            font-size: 1.1rem;
-            font-weight: 400;
+        
+        .theme-toggle-wrapper {
+            top: 1rem;
+            right: 1rem;
         }
+    }
+</style>
 
-        /* Form Styling */
-        .signup-form {
-            margin-top: 2rem;
-            animation: formFadeIn 0.8s ease-out 0.4s both;
-        }
+<!-- Animated Background -->
+<div class="bg-animation"></div>
+<div class="particles" id="particles"></div>
 
-        @keyframes formFadeIn {
-            from {
-                opacity: 0;
-                transform: translateY(20px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        .form-group {
-            margin-bottom: 1.5rem;
-            position: relative;
-        }
-
-        .form-input {
-            width: 100%;
-            padding: 1.2rem 1.5rem 1.2rem 3.5rem;
-            background: var(--bg-input);
-            border: 2px solid var(--border-color);
-            border-radius: 14px;
-            color: var(--text-primary);
-            font-size: 1rem;
-            transition: all var(--transition-speed);
-        }
-
-        .form-input:focus {
-            outline: none;
-            border-color: var(--accent-primary);
-            box-shadow: 0 0 0 4px rgba(124, 58, 237, 0.1);
-            background: var(--bg-secondary);
-            transform: translateY(-2px);
-        }
-
-        .form-input::placeholder {
-            color: var(--text-muted);
-        }
-
-        /* Input Icons */
-        .input-icon {
-            position: absolute;
-            left: 1.2rem;
-            top: 50%;
-            transform: translateY(-50%);
-            color: var(--text-muted);
-            font-size: 1.1rem;
-            transition: color var(--transition-speed);
-        }
-
-        .form-input:focus + .input-icon {
-            color: var(--accent-primary);
-        }
-
-        /* Password Toggle */
-        .password-toggle {
-            position: absolute;
-            right: 1.2rem;
-            top: 50%;
-            transform: translateY(-50%);
-            color: var(--text-muted);
-            cursor: pointer;
-            font-size: 1.1rem;
-            transition: color var(--transition-speed);
-        }
-
-        .password-toggle:hover {
-            color: var(--accent-primary);
-        }
-
-        /* Password Strength Indicator */
-        .password-strength {
-            margin-top: 0.5rem;
-            height: 4px;
-            background: var(--bg-hover);
-            border-radius: 2px;
-            overflow: hidden;
-            position: relative;
-        }
-
-        .password-strength-bar {
-            height: 100%;
-            width: 0;
-            background: var(--accent-gradient);
-            transition: width var(--transition-speed);
-        }
-
-        .password-strength-text {
-            font-size: 0.85rem;
-            margin-top: 0.5rem;
-            color: var(--text-secondary);
-        }
-
-        /* Submit Button */
-        .signup-btn {
-            width: 100%;
-            padding: 1.2rem;
-            background: var(--accent-gradient);
-            border: none;
-            border-radius: 14px;
-            color: white;
-            font-weight: 600;
-            font-size: 1.1rem;
-            cursor: pointer;
-            transition: all var(--transition-speed);
-            box-shadow: 0 6px 30px rgba(124, 58, 237, 0.4);
-            position: relative;
-            overflow: hidden;
-        }
-
-        .signup-btn::before {
-            content: '';
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            width: 0;
-            height: 0;
-            background: rgba(255, 255, 255, 0.2);
-            border-radius: 50%;
-            transform: translate(-50%, -50%);
-            transition: width 0.6s, height 0.6s;
-        }
-
-        .signup-btn:hover::before {
-            width: 300px;
-            height: 300px;
-        }
-
-        .signup-btn:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 8px 40px rgba(124, 58, 237, 0.6);
-        }
-
-        .signup-btn:active {
-            transform: translateY(-1px);
-        }
-
-        /* Messages */
-        .message {
-            margin-top: 1.5rem;
-            padding: 1rem 1.5rem;
-            border-radius: 12px;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            animation: messageSlide 0.5s ease-out;
-        }
-
-        @keyframes messageSlide {
-            from {
-                opacity: 0;
-                transform: translateX(-20px);
-            }
-            to {
-                opacity: 1;
-                transform: translateX(0);
-            }
-        }
-
-        .error-message {
-            background: rgba(239, 68, 68, 0.1);
-            border: 1px solid rgba(239, 68, 68, 0.3);
-            color: var(--danger);
-        }
-
-        .success-message {
-            background: rgba(16, 185, 129, 0.1);
-            border: 1px solid rgba(16, 185, 129, 0.3);
-            color: var(--success);
-        }
-
-        /* Footer */
-        .signup-footer {
-            text-align: center;
-            margin-top: 2rem;
-            color: var(--text-secondary);
-            animation: formFadeIn 0.8s ease-out 0.6s both;
-        }
-
-        .signup-footer a {
-            color: var(--accent-secondary);
-            text-decoration: none;
-            font-weight: 600;
-            position: relative;
-        }
-
-        .signup-footer a::after {
-            content: '';
-            position: absolute;
-            width: 0;
-            height: 2px;
-            bottom: -2px;
-            left: 0;
-            background: var(--accent-gradient);
-            transition: width 0.3s;
-        }
-
-        .signup-footer a:hover::after {
-            width: 100%;
-        }
-
-        /* Loading State */
-        .signup-btn.loading {
-            pointer-events: none;
-            opacity: 0.8;
-        }
-
-        .signup-btn.loading::after {
-            content: '';
-            position: absolute;
-            width: 20px;
-            height: 20px;
-            top: 50%;
-            left: 50%;
-            margin-left: -10px;
-            margin-top: -10px;
-            border: 2px solid rgba(255, 255, 255, 0.3);
-            border-radius: 50%;
-            border-top-color: white;
-            animation: spin 0.8s linear infinite;
-        }
-
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
-
-        /* Responsive */
-        @media (max-width: 480px) {
-            .signup-container {
-                padding: 1rem;
-            }
-            
-            .signup-card {
-                padding: 2rem;
-            }
-            
-            .signup-title {
-                font-size: 1.6rem;
-            }
-            
-            .theme-toggle-wrapper {
-                top: 1rem;
-                right: 1rem;
-            }
-        }
-    </style>
-</head>
-<body>
-    <!-- Animated Background -->
-    <div class="bg-animation"></div>
-    <div class="particles" id="particles"></div>
-
-    <!-- Theme Toggle -->
-    <div class="theme-toggle-wrapper">
-        <div class="theme-toggle" onclick="toggleTheme()">
-            <div class="theme-icon"><i class="fas fa-moon"></i></div>
-            <div class="theme-icon"><i class="fas fa-sun"></i></div>
-            <div class="theme-toggle-indicator">
-                <i class="fas fa-moon" id="theme-indicator-icon"></i>
-            </div>
+<!-- Theme Toggle -->
+<div class="theme-toggle-wrapper">
+    <div class="theme-toggle" onclick="toggleTheme()">
+        <div class="theme-icon"><i class="fas fa-moon"></i></div>
+        <div class="theme-icon"><i class="fas fa-sun"></i></div>
+        <div class="theme-toggle-indicator">
+            <i class="fas fa-moon" id="theme-indicator-icon"></i>
         </div>
     </div>
+</div>
 
-    <div class="signup-container">
-        <div class="signup-card">
-            <div class="signup-logo">
-                <div class="signup-logo-icon">
-                    <i class="fas fa-user-plus"></i>
-                </div>
-                <h1 class="signup-title">Create Account</h1>
-                <p class="signup-subtitle">Join GST Intelligence Platform</p>
+<div class="signup-container">
+    <div class="signup-card">
+        <div class="signup-logo">
+            <div class="signup-logo-icon">
+                <i class="fas fa-user-plus"></i>
             </div>
-            
-            <form method="post" action="/signup" class="signup-form" id="signupForm">
-                <div class="form-group">
-                    <input type="text" 
-                           name="mobile" 
-                           class="form-input" 
-                           placeholder="Enter your mobile number" 
-                           required 
-                           maxlength="10" 
-                           pattern="[6-9][0-9]{9}"
-                           id="mobileInput">
-                    <i class="fas fa-phone input-icon"></i>
-                </div>
-                <div class="form-group">
-                    <input type="password" 
-                           name="password" 
-                           class="form-input" 
-                           placeholder="Create a password" 
-                           required
-                           id="passwordInput">
-                    <i class="fas fa-lock input-icon"></i>
-                    <i class="fas fa-eye password-toggle" id="passwordToggle"></i>
-                    <div class="password-strength">
-                        <div class="password-strength-bar" id="strengthBar"></div>
-                    </div>
-                    <div class="password-strength-text" id="strengthText"></div>
-                </div>
-                <div class="form-group">
-                    <input type="password" 
-                           name="confirm_password" 
-                           class="form-input" 
-                           placeholder="Confirm your password" 
-                           required
-                           id="confirmPasswordInput">
-                    <i class="fas fa-lock input-icon"></i>
-                    <i class="fas fa-eye password-toggle" id="confirmPasswordToggle"></i>
-                </div>
-                <button type="submit" class="signup-btn" id="signupBtn">
-                    <i class="fas fa-user-plus"></i> Register
-                </button>
-            </form>
-            
-            {% if error %}
-            <div class="error-message message">
-                <i class="fas fa-exclamation-circle"></i>
-                {{ error }}
+            <h1 class="signup-title">Create Account</h1>
+            <p class="signup-subtitle">Join GST Intelligence Platform</p>
+        </div>
+        
+        <form method="post" action="/signup" class="signup-form" id="signupForm">
+            <div class="form-group">
+                <input type="text" 
+                       name="mobile" 
+                       class="form-input" 
+                       placeholder="Enter your mobile number" 
+                       required 
+                       maxlength="10" 
+                       pattern="[6-9][0-9]{9}"
+                       id="mobileInput">
+                <i class="fas fa-phone input-icon"></i>
             </div>
-            {% endif %}
-            
-            <div class="signup-footer">
-                <p>Already have an account? <a href="/login">Login</a></p>
+            <div class="form-group">
+                <input type="password" 
+                       name="password" 
+                       class="form-input" 
+                       placeholder="Create a password" 
+                       required
+                       id="passwordInput">
+                <i class="fas fa-lock input-icon"></i>
+                <i class="fas fa-eye password-toggle" id="passwordToggle"></i>
+                <div class="password-strength">
+                    <div class="password-strength-bar" id="strengthBar"></div>
+                </div>
+                <div class="password-strength-text" id="strengthText"></div>
             </div>
+            <div class="form-group">
+                <input type="password" 
+                       name="confirm_password" 
+                       class="form-input" 
+                       placeholder="Confirm your password" 
+                       required
+                       id="confirmPasswordInput">
+                <i class="fas fa-lock input-icon"></i>
+                <i class="fas fa-eye password-toggle" id="confirmPasswordToggle"></i>
+            </div>
+            <button type="submit" class="signup-btn" id="signupBtn">
+                <i class="fas fa-user-plus"></i> Register
+            </button>
+        </form>
+        
+        {% if error %}
+        <div class="error-message message">
+            <i class="fas fa-exclamation-circle"></i>
+            {{ error }}
+        </div>
+        {% endif %}
+        
+        <div class="signup-footer">
+            <p>Already have an account? <a href="/login">Login</a></p>
         </div>
     </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Password toggle functionality
+    const passwordToggle = document.getElementById('passwordToggle');
+    const passwordInput = document.getElementById('passwordInput');
+    const confirmPasswordToggle = document.getElementById('confirmPasswordToggle');
+    const confirmPasswordInput = document.getElementById('confirmPasswordInput');
+    const strengthBar = document.getElementById('strengthBar');
+    const strengthText = document.getElementById('strengthText');
+    
+    // Password visibility toggles
+    if (passwordToggle && passwordInput) {
+        passwordToggle.addEventListener('click', function() {
+            const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
+            passwordInput.setAttribute('type', type);
+            this.classList.toggle('fa-eye');
+            this.classList.toggle('fa-eye-slash');
+        });
+    }
+    
+    if (confirmPasswordToggle && confirmPasswordInput) {
+        confirmPasswordToggle.addEventListener('click', function() {
+            const type = confirmPasswordInput.getAttribute('type') === 'password' ? 'text' : 'password';
+            confirmPasswordInput.setAttribute('type', type);
+            this.classList.toggle('fa-eye');
+            this.classList.toggle('fa-eye-slash');
+        });
+    }
+    
+    // Password strength indicator
+    if (passwordInput && strengthBar && strengthText) {
+        passwordInput.addEventListener('input', function() {
+            const password = this.value;
+            const strength = calculatePasswordStrength(password);
+            
+            strengthBar.style.width = (strength.score * 25) + '%';
+            strengthText.textContent = strength.text;
+            
+            // Change color based on strength
+            if (strength.score < 2) {
+                strengthBar.style.background = '#ef4444';
+            } else if (strength.score < 3) {
+                strengthBar.style.background = '#f59e0b';
+            } else if (strength.score < 4) {
+                strengthBar.style.background = '#10b981';
+            } else {
+                strengthBar.style.background = 'var(--accent-gradient)';
+            }
+        });
+    }
+    
+    function calculatePasswordStrength(password) {
+        let score = 0;
+        let text = 'Very Weak';
+        
+        if (password.length >= 6) score++;
+        if (password.length >= 8) score++;
+        if (/[A-Z]/.test(password)) score++;
+        if (/[0-9]/.test(password)) score++;
+        if (/[^A-Za-z0-9]/.test(password)) score++;
+        
+        switch (score) {
+            case 0:
+            case 1:
+                text = 'Very Weak';
+                break;
+            case 2:
+                text = 'Weak';
+                break;
+            case 3:
+                text = 'Fair';
+                break;
+            case 4:
+                text = 'Good';
+                break;
+            case 5:
+                text = 'Strong';
+                break;
+        }
+        
+        return { score, text };
+    }
+    
+    // Create floating particles
+    function createParticles() {
+        const particlesContainer = document.getElementById('particles');
+        if (!particlesContainer) return;
+        
+        for (let i = 0; i < 50; i++) {
+            const particle = document.createElement('div');
+            particle.className = 'particle';
+            particle.style.left = Math.random() * 100 + '%';
+            particle.style.animationDelay = Math.random() * 15 + 's';
+            particle.style.animationDuration = (Math.random() * 10 + 10) + 's';
+            particlesContainer.appendChild(particle);
+        }
+    }
+    
+    createParticles();
+});
+</script>
 {% endblock %}

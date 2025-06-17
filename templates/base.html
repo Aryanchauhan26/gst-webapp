@@ -596,7 +596,8 @@
     <!-- Skip to main content for accessibility -->
     <a href="#main-content" class="sr-only">Skip to main content</a>
     
-    <!-- Header Component -->
+    <!-- Header Component - Only show if not overridden by child templates -->
+    {% if not request.url.path in ['/login', '/signup'] %}
     {% block header %}
     <header class="header" role="banner">
         <div class="header__container">
@@ -729,6 +730,8 @@
             {% endif %}
         </div>
     </header>
+    {% endblock %}
+    {% endif %}
 
     <!-- Main Content -->
     <main id="main-content" class="main-content" role="main">
@@ -773,21 +776,21 @@
     <script>
         // Critical inline script for theme loading
         function toggleTheme() {
-    const html = document.documentElement;
-    const currentTheme = html.getAttribute('data-theme');
-    const newTheme = currentTheme === 'light' ? null : 'light';
-    
-    // Add transition class
-    document.body.classList.add('theme-transitioning');
-    
-    html.setAttribute('data-theme', newTheme);
-    localStorage.setItem('theme', newTheme || 'dark');
-    
-    // Remove transition class after animation
-    setTimeout(() => {
-        document.body.classList.remove('theme-transitioning');
-    }, 300);
-}
+            const html = document.documentElement;
+            const currentTheme = html.getAttribute('data-theme');
+            const newTheme = currentTheme === 'light' ? null : 'light';
+            
+            // Add transition class
+            document.body.classList.add('theme-transitioning');
+            
+            html.setAttribute('data-theme', newTheme);
+            localStorage.setItem('theme', newTheme || 'dark');
+            
+            // Remove transition class after animation
+            setTimeout(() => {
+                document.body.classList.remove('theme-transitioning');
+            }, 300);
+        }
 
         // Load saved theme
         (function() {
@@ -797,30 +800,30 @@
 
         // Enhanced dropdown functionality
         document.addEventListener('DOMContentLoaded', function() {
-    const userBtn = document.getElementById('userProfileBtn');
-    const dropdown = document.getElementById('userDropdownMenu');
-    
-    if (userBtn && dropdown) {
-        userBtn.addEventListener('click', function(e) {
-            e.stopPropagation();
+            const userBtn = document.getElementById('userProfileBtn');
+            const dropdown = document.getElementById('userDropdownMenu');
             
-            const isOpen = dropdown.classList.contains('active');
-            
-            if (isOpen) {
-                dropdown.classList.remove('active');
-                userBtn.classList.remove('active');
-            } else {
-                dropdown.classList.add('active');
-                userBtn.classList.add('active');
-            }
-        });
-        
-        document.addEventListener('click', function(e) {
-            if (!userBtn.contains(e.target) && !dropdown.contains(e.target)) {
-                dropdown.classList.remove('active');
-                userBtn.classList.remove('active');
-            }
-        });
+            if (userBtn && dropdown) {
+                userBtn.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    
+                    const isOpen = dropdown.classList.contains('active');
+                    
+                    if (isOpen) {
+                        dropdown.classList.remove('active');
+                        userBtn.classList.remove('active');
+                    } else {
+                        dropdown.classList.add('active');
+                        userBtn.classList.add('active');
+                    }
+                });
+                
+                document.addEventListener('click', function(e) {
+                    if (!userBtn.contains(e.target) && !dropdown.contains(e.target)) {
+                        dropdown.classList.remove('active');
+                        userBtn.classList.remove('active');
+                    }
+                });
                 
                 // Load user stats
                 loadUserStats();

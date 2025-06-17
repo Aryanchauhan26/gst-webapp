@@ -4,829 +4,856 @@
 {% block body_class %}page-analytics{% endblock %}
 
 {% block content %}
-<!-- Your existing results content stays here -->
-    <main class="container">
-        <!-- Live Indicator -->
-        <div class="live-indicator">
-            <div class="live-dot"></div>
-            <span>Live Analytics Dashboard</span>
-            <span class="last-updated" data-tooltip="Data refreshed in real-time">
-                Last updated: <span id="lastUpdated">Just now</span>
-            </span>
+<main class="container">
+    <!-- Live Indicator -->
+    <div class="live-indicator">
+        <div class="live-dot"></div>
+        <span>Live Analytics Dashboard</span>
+        <span class="last-updated" data-tooltip="Data refreshed in real-time">
+            Last updated: <span id="lastUpdated">Just now</span>
+        </span>
+    </div>
+
+    <!-- Stats Overview -->
+    <div class="stats-grid">
+        <div class="stat-card glow-sm transition-all" data-tooltip="Total number of GSTIN searches performed">
+            <div class="stat-icon">
+                <i class="fas fa-search"></i>
+            </div>
+            <div class="stat-value">{{ total_searches }}</div>
+            <div class="stat-label">Total Searches</div>
+            <div class="stat-change positive">
+                <i class="fas fa-arrow-up"></i>
+                <span>+12% this week</span>
+            </div>
         </div>
-
-        <!-- Stats Overview -->
-        <div class="stats-grid">
-            <div class="stat-card glow-sm transition-all">
-" data-tooltip="Total number of GSTIN searches performed">
-                <div class="stat-icon">
-                    <i class="fas fa-search"></i>
-                </div>
-                <div class="stat-value">{{ total_searches }}</div>
-                <div class="stat-label">Total Searches</div>
-                <div class="stat-change positive">
-                    <i class="fas fa-arrow-up"></i>
-                    <span>+12% this week</span>
-                </div>
+        
+        <div class="stat-card glow-sm transition-all" data-tooltip="Unique companies analyzed for compliance">
+            <div class="stat-icon">
+                <i class="fas fa-building"></i>
             </div>
-            
-            <div class="stat-card glow-sm transition-all">
-" data-tooltip="Unique companies analyzed for compliance">
-                <div class="stat-icon">
-                    <i class="fas fa-building"></i>
-                </div>
-                <div class="stat-value">{{ unique_companies }}</div>
-                <div class="stat-label">Companies Analyzed</div>
-                <div class="stat-change positive">
-                    <i class="fas fa-plus"></i>
-                    <span>Growing database</span>
-                </div>
+            <div class="stat-value">{{ unique_companies }}</div>
+            <div class="stat-label">Companies Analyzed</div>
+            <div class="stat-change positive">
+                <i class="fas fa-plus"></i>
+                <span>Growing database</span>
             </div>
-            
-            <div class="stat-card glow-sm transition-all">
-" data-tooltip="Average compliance score across all analyzed companies">
-                <div class="stat-icon">
-                    <i class="fas fa-percentage"></i>
-                </div>
-                <div class="stat-value">{{ avg_compliance }}%</div>
-                <div class="stat-label">Avg Compliance Score</div>
-                <div class="stat-change {% if avg_compliance >= 75 %}positive{% else %}neutral{% endif %}">
-                    <i class="fas {% if avg_compliance >= 75 %}fa-arrow-up{% else %}fa-minus{% endif %}"></i>
-                    <span>{% if avg_compliance >= 75 %}Good trend{% else %}Stable{% endif %}</span>
-                </div>
+        </div>
+        
+        <div class="stat-card glow-sm transition-all" data-tooltip="Average compliance score across all analyzed companies">
+            <div class="stat-icon">
+                <i class="fas fa-percentage"></i>
             </div>
-
-            <div class="stat-card glow-sm transition-all">
-" data-tooltip="AI-powered insights and recommendations">
-                <div class="stat-icon">
-                    <i class="fas fa-robot"></i>
-                </div>
-                <div class="stat-value">AI</div>
-                <div class="stat-label">Powered Analytics</div>
-                <div class="stat-change positive">
-                    <i class="fas fa-sparkles"></i>
-                    <span>Active</span>
-                </div>
+            <div class="stat-value">{{ avg_compliance }}%</div>
+            <div class="stat-label">Avg Compliance Score</div>
+            <div class="stat-change {% if avg_compliance >= 75 %}positive{% else %}neutral{% endif %}">
+                <i class="fas {% if avg_compliance >= 75 %}fa-arrow-up{% else %}fa-minus{% endif %}"></i>
+                <span>{% if avg_compliance >= 75 %}Good trend{% else %}Stable{% endif %}</span>
             </div>
         </div>
 
-        <!-- Charts Section -->
-        <div class="charts-grid">
-            <!-- Search Trends Chart -->
-            <div class="chart-card card--glass glow-md">
-                <div class="chart-header">
-                    <h3 class="chart-title">Search Trends (Last 7 Days)</h3>
-                    <div class="chart-controls">
-                        <button class="chart-btn active" data-tooltip="View daily trends">Daily</button>
-                        <button class="chart-btn" data-tooltip="View weekly trends">Weekly</button>
-                    </div>
-                </div>
-                <div class="chart-container">
-                    <canvas id="trendsChart"></canvas>
-                </div>
+        <div class="stat-card glow-sm transition-all" data-tooltip="AI-powered insights and recommendations">
+            <div class="stat-icon">
+                <i class="fas fa-robot"></i>
             </div>
-            
-            <!-- Score Distribution Chart -->
-            <div class="chart-card card--glass glow-md">
-                <div class="chart-header">
-                    <h3 class="chart-title">Compliance Score Distribution</h3>
-                    <div class="chart-legend">
-                        <span class="legend-item excellent">Excellent (90+)</span>
-                        <span class="legend-item good">Good (70-89)</span>
-                        <span class="legend-item average">Average (50-69)</span>
-                        <span class="legend-item poor">Poor (<50)</span>
-                    </div>
-                </div>
-                <div class="chart-container">
-                    <canvas id="distributionChart"></canvas>
-                </div>
+            <div class="stat-value">AI</div>
+            <div class="stat-label">Powered Analytics</div>
+            <div class="stat-change positive">
+                <i class="fas fa-sparkles"></i>
+                <span>Active</span>
             </div>
         </div>
+    </div>
 
-        <!-- Top Companies Section -->
+    <!-- Charts Section -->
+    <div class="charts-grid">
+        <!-- Search Trends Chart -->
         <div class="chart-card card--glass glow-md">
             <div class="chart-header">
-                <h3 class="chart-title">Most Searched Companies</h3>
-                <div class="filter-controls">
-                    <select class="filter-select" data-tooltip="Filter by time period">
-                        <option value="week">This Week</option>
-                        <option value="month" selected>This Month</option>
-                        <option value="quarter">This Quarter</option>
-                    </select>
+                <h3 class="chart-title">Search Trends (Last 7 Days)</h3>
+                <div class="chart-controls">
+                    <button class="chart-btn active" data-tooltip="View daily trends">Daily</button>
+                    <button class="chart-btn" data-tooltip="View weekly trends">Weekly</button>
                 </div>
             </div>
-            
-            <div class="companies-table-container">
-                {% if top_companies %}
-                <table class="companies-table">
-                    <thead>
-                        <tr>
-                            <th>Rank</th>
-                            <th>Company Name</th>
-                            <th>GSTIN</th>
-                            <th>Searches</th>
-                            <th>Latest Score</th>
-                            <th>Trend</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for company in top_companies %}
-                        <tr class="company-row" data-tooltip="Click to view detailed analysis">
-                            <td class="rank-cell">
-                                <span class="rank-badge">{{ loop.index }}</span>
-                            </td>
-                            <td class="company-cell">
-                                <div class="company-name">{{ company.company_name }}</div>
-                            </td>
-                            <td class="gstin-cell">
-                                <code class="gstin-code">{{ company.gstin }}</code>
-                            </td>
-                            <td class="searches-cell">
-                                <span class="search-count">{{ company.search_count }}</span>
-                                <span class="search-label">searches</span>
-                            </td>
-                            <td class="score-cell">
-                                {% if company.latest_score %}
-                                    {% if company.latest_score >= 80 %}
-                                        <span class="score-badge score-high">{{ "%.0f"|format(company.latest_score) }}%</span>
-                                    {% elif company.latest_score >= 60 %}
-                                        <span class="score-badge score-medium">{{ "%.0f"|format(company.latest_score) }}%</span>
-                                    {% else %}
-                                        <span class="score-badge score-low">{{ "%.0f"|format(company.latest_score) }}%</span>
-                                    {% endif %}
+            <div class="chart-container">
+                <canvas id="trendsChart"></canvas>
+            </div>
+        </div>
+        
+        <!-- Score Distribution Chart -->
+        <div class="chart-card card--glass glow-md">
+            <div class="chart-header">
+                <h3 class="chart-title">Compliance Score Distribution</h3>
+                <div class="chart-legend">
+                    <span class="legend-item excellent">Excellent (90+)</span>
+                    <span class="legend-item good">Good (70-89)</span>
+                    <span class="legend-item average">Average (50-69)</span>
+                    <span class="legend-item poor">Poor (<50)</span>
+                </div>
+            </div>
+            <div class="chart-container">
+                <canvas id="distributionChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Top Companies Section -->
+    <div class="chart-card card--glass glow-md">
+        <div class="chart-header">
+            <h3 class="chart-title">Most Searched Companies</h3>
+            <div class="filter-controls">
+                <select class="filter-select" data-tooltip="Filter by time period">
+                    <option value="week">This Week</option>
+                    <option value="month" selected>This Month</option>
+                    <option value="quarter">This Quarter</option>
+                </select>
+            </div>
+        </div>
+        
+        <div class="companies-table-container">
+            {% if top_companies %}
+            <table class="companies-table">
+                <thead>
+                    <tr>
+                        <th>Rank</th>
+                        <th>Company Name</th>
+                        <th>GSTIN</th>
+                        <th>Searches</th>
+                        <th>Latest Score</th>
+                        <th>Trend</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for company in top_companies %}
+                    <tr class="company-row" data-tooltip="Click to view detailed analysis">
+                        <td class="rank-cell">
+                            <span class="rank-badge">{{ loop.index }}</span>
+                        </td>
+                        <td class="company-cell">
+                            <div class="company-name">{{ company.company_name }}</div>
+                        </td>
+                        <td class="gstin-cell">
+                            <code class="gstin-code">{{ company.gstin }}</code>
+                        </td>
+                        <td class="searches-cell">
+                            <span class="search-count">{{ company.search_count }}</span>
+                            <span class="search-label">searches</span>
+                        </td>
+                        <td class="score-cell">
+                            {% if company.latest_score %}
+                                {% if company.latest_score >= 80 %}
+                                    <span class="score-badge score-high">{{ "%.0f"|format(company.latest_score) }}%</span>
+                                {% elif company.latest_score >= 60 %}
+                                    <span class="score-badge score-medium">{{ "%.0f"|format(company.latest_score) }}%</span>
                                 {% else %}
-                                    <span class="score-badge">N/A</span>
+                                    <span class="score-badge score-low">{{ "%.0f"|format(company.latest_score) }}%</span>
                                 {% endif %}
-                            </td>
-                            <td class="trend-cell">
-                                <i class="fas fa-arrow-up trend-icon positive" data-tooltip="Improving compliance"></i>
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-                {% else %}
-                <div class="empty-state">
-                    <div class="empty-icon">
-                        <i class="fas fa-chart-bar"></i>
-                    </div>
-                    <h4>No data available yet</h4>
-                    <p>Start searching companies to see analytics here</p>
-                    <a href="/" class="btn btn-primary">Start Searching</a>
+                            {% else %}
+                                <span class="score-badge">N/A</span>
+                            {% endif %}
+                        </td>
+                        <td class="trend-cell">
+                            <i class="fas fa-arrow-up trend-icon positive" data-tooltip="Improving compliance"></i>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <div class="empty-state">
+                <div class="empty-icon">
+                    <i class="fas fa-chart-bar"></i>
                 </div>
-                {% endif %}
+                <h4>No data available yet</h4>
+                <p>Start searching companies to see analytics here</p>
+                <a href="/" class="btn btn-primary">Start Searching</a>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Insights Panel -->
+    <div class="insights-panel">
+        <div class="panel-header">
+            <h3>
+                <i class="fas fa-lightbulb"></i>
+                AI Insights & Recommendations
+            </h3>
+            <span class="ai-badge" data-tooltip="Powered by advanced AI algorithms">AI</span>
+        </div>
+        
+        <div class="insights-grid">
+            <div class="insight-card trend">
+                <div class="insight-icon">
+                    <i class="fas fa-trending-up"></i>
+                </div>
+                <div class="insight-content">
+                    <h4>Compliance Trend</h4>
+                    <p>Companies in your searches show a positive compliance trend with 78% maintaining scores above 70%.</p>
+                </div>
+            </div>
+            
+            <div class="insight-card warning">
+                <div class="insight-icon">
+                    <i class="fas fa-exclamation-triangle"></i>
+                </div>
+                <div class="insight-content">
+                    <h4>Filing Patterns</h4>
+                    <p>{{ (top_companies|length * 0.15)|round|int }} companies show irregular filing patterns. Consider deeper analysis.</p>
+                </div>
+            </div>
+            
+            <div class="insight-card success">
+                <div class="insight-icon">
+                    <i class="fas fa-check-circle"></i>
+                </div>
+                <div class="insight-content">
+                    <h4>High Performers</h4>
+                    <p>{{ (top_companies|selectattr('latest_score', '>=', 90)|list|length) }} companies maintain excellent compliance scores above 90%.</p>
+                </div>
             </div>
         </div>
+    </div>
+</main>
+{% endblock %}
 
-        <!-- Insights Panel -->
-        <div class="insights-panel">
-            <div class="panel-header">
-                <h3>
-                    <i class="fas fa-lightbulb"></i>
-                    AI Insights & Recommendations
-                </h3>
-                <span class="ai-badge" data-tooltip="Powered by advanced AI algorithms">AI</span>
-            </div>
-            
-            <div class="insights-grid">
-                <div class="insight-card trend">
-                    <div class="insight-icon">
-                        <i class="fas fa-trending-up"></i>
-                    </div>
-                    <div class="insight-content">
-                        <h4>Compliance Trend</h4>
-                        <p>Companies in your searches show a positive compliance trend with 78% maintaining scores above 70%.</p>
-                    </div>
-                </div>
-                
-                <div class="insight-card warning">
-                    <div class="insight-icon">
-                        <i class="fas fa-exclamation-triangle"></i>
-                    </div>
-                    <div class="insight-content">
-                        <h4>Filing Patterns</h4>
-                        <p>{{ (top_companies|length * 0.15)|round|int }} companies show irregular filing patterns. Consider deeper analysis.</p>
-                    </div>
-                </div>
-                
-                <div class="insight-card success">
-                    <div class="insight-icon">
-                        <i class="fas fa-check-circle"></i>
-                    </div>
-                    <div class="insight-content">
-                        <h4>High Performers</h4>
-                        <p>{{ (top_companies|selectattr('latest_score', '>=', 90)|list|length) }} companies maintain excellent compliance scores above 90%.</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </main>
+{% block extra_js %}
+<!-- Chart.js CDN -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
 
-    <!-- Enhanced JavaScript for Analytics -->
-    <script>
-        // Chart.js configuration and initialization
-        document.addEventListener('DOMContentLoaded', function() {
-            // Set Chart.js defaults for dark theme
-            Chart.defaults.color = '#a1a1aa';
-            Chart.defaults.borderColor = '#27272a';
-            Chart.defaults.backgroundColor = 'rgba(124, 58, 237, 0.1)';
-            
-            // Initialize Search Trends Chart
-            initializeTrendsChart();
-            
-            // Initialize Distribution Chart
-            initializeDistributionChart();
-            
-            // Update timestamps
-            updateTimestamps();
-            
-            // Auto-refresh data every 30 seconds
-            setInterval(updateTimestamps, 30000);
-            
-            console.log('📊 Analytics dashboard initialized');
-        });
+<script>
+// Chart.js configuration and initialization
+document.addEventListener('DOMContentLoaded', function() {
+    // Set Chart.js defaults for dark theme
+    Chart.defaults.color = '#a1a1aa';
+    Chart.defaults.borderColor = '#27272a';
+    Chart.defaults.backgroundColor = 'rgba(124, 58, 237, 0.1)';
+    
+    // Initialize Search Trends Chart
+    initializeTrendsChart();
+    
+    // Initialize Distribution Chart
+    initializeDistributionChart();
+    
+    // Update timestamps
+    updateTimestamps();
+    
+    // Auto-refresh data every 30 seconds
+    setInterval(updateTimestamps, 30000);
+    
+    console.log('📊 Analytics dashboard initialized');
+});
 
-        function initializeTrendsChart() {
-            const trendsData = {{ daily_searches | tojson | safe }};
-            const trendsCtx = document.getElementById('trendsChart');
-            
-            if (trendsCtx && trendsData) {
-                new Chart(trendsCtx, {
-                    type: 'line',
-                    data: {
-                        labels: trendsData.map(d => {
-                            const date = new Date(d.date);
-                            return date.toLocaleDateString('en-IN', { 
-                                day: 'numeric',
-                                month: 'short'
-                            });
-                        }),
-                        datasets: [{
-                            label: 'Daily Searches',
-                            data: trendsData.map(d => d.search_count || 0),
-                            borderColor: '#7c3aed',
-                            backgroundColor: 'rgba(124, 58, 237, 0.1)',
-                            tension: 0.4,
-                            fill: true,
-                            pointBackgroundColor: '#7c3aed',
-                            pointBorderColor: '#ffffff',
-                            pointBorderWidth: 2,
-                            pointRadius: 4
-                        }]
+function initializeTrendsChart() {
+    const trendsData = {{ daily_searches | tojson | safe }};
+    const trendsCtx = document.getElementById('trendsChart');
+    
+    if (trendsCtx && trendsData) {
+        new Chart(trendsCtx, {
+            type: 'line',
+            data: {
+                labels: trendsData.map(d => {
+                    const date = new Date(d.date);
+                    return date.toLocaleDateString('en-IN', { 
+                        day: 'numeric',
+                        month: 'short'
+                    });
+                }),
+                datasets: [{
+                    label: 'Daily Searches',
+                    data: trendsData.map(d => d.search_count || 0),
+                    borderColor: '#7c3aed',
+                    backgroundColor: 'rgba(124, 58, 237, 0.1)',
+                    tension: 0.4,
+                    fill: true,
+                    pointBackgroundColor: '#7c3aed',
+                    pointBorderColor: '#ffffff',
+                    pointBorderWidth: 2,
+                    pointRadius: 4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false
                     },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: {
-                            legend: {
-                                display: false
-                            },
-                            tooltip: {
-                                mode: 'index',
-                                intersect: false,
-                                backgroundColor: 'rgba(26, 26, 26, 0.9)',
-                                titleColor: '#ffffff',
-                                bodyColor: '#a1a1aa',
-                                borderColor: '#7c3aed',
-                                borderWidth: 1
-                            }
+                    tooltip: {
+                        mode: 'index',
+                        intersect: false,
+                        backgroundColor: 'rgba(26, 26, 26, 0.9)',
+                        titleColor: '#ffffff',
+                        bodyColor: '#a1a1aa',
+                        borderColor: '#7c3aed',
+                        borderWidth: 1
+                    }
+                },
+                scales: {
+                    x: {
+                        grid: {
+                            color: 'rgba(39, 39, 42, 0.5)'
+                        }
+                    },
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            stepSize: 1
                         },
-                        scales: {
-                            x: {
-                                grid: {
-                                    color: 'rgba(39, 39, 42, 0.5)'
-                                }
-                            },
-                            y: {
-                                beginAtZero: true,
-                                ticks: {
-                                    stepSize: 1
-                                },
-                                grid: {
-                                    color: 'rgba(39, 39, 42, 0.5)'
-                                }
-                            }
-                        },
-                        interaction: {
-                            mode: 'nearest',
-                            axis: 'x',
-                            intersect: false
+                        grid: {
+                            color: 'rgba(39, 39, 42, 0.5)'
                         }
                     }
-                });
-            }
-        }
-
-        function initializeDistributionChart() {
-            const distributionData = {{ score_distribution | tojson | safe }};
-            const distributionCtx = document.getElementById('distributionChart');
-            
-            if (distributionCtx && distributionData) {
-                new Chart(distributionCtx, {
-                    type: 'doughnut',
-                    data: {
-                        labels: distributionData.map(d => d.range || 'Unknown'),
-                        datasets: [{
-                            data: distributionData.map(d => d.count || 0),
-                            backgroundColor: [
-                                '#10b981', // Excellent - Green
-                                '#3b82f6', // Very Good - Blue  
-                                '#f59e0b', // Good - Yellow
-                                '#8b5cf6', // Average - Purple
-                                '#ef4444'  // Poor - Red
-                            ],
-                            borderWidth: 0,
-                            hoverOffset: 4
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: {
-                            legend: {
-                                display: false // We have custom legend
-                            },
-                            tooltip: {
-                                backgroundColor: 'rgba(26, 26, 26, 0.9)',
-                                titleColor: '#ffffff',
-                                bodyColor: '#a1a1aa',
-                                borderColor: '#7c3aed',
-                                borderWidth: 1,
-                                callbacks: {
-                                    label: function(context) {
-                                        const total = context.dataset.data.reduce((a, b) => a + b, 0);
-                                        const percentage = ((context.parsed / total) * 100).toFixed(1);
-                                        return `${context.label}: ${context.parsed} (${percentage}%)`;
-                                    }
-                                }
-                            }
-                        },
-                        cutout: '60%'
-                    }
-                });
-            }
-        }
-
-        function updateTimestamps() {
-            const now = new Date();
-            const timeString = now.toLocaleTimeString('en-IN', { 
-                hour: '2-digit', 
-                minute: '2-digit'
-            });
-            
-            const lastUpdatedElement = document.getElementById('lastUpdated');
-            if (lastUpdatedElement) {
-                lastUpdatedElement.textContent = timeString;
-            }
-        }
-
-        // Company row click handler
-        document.querySelectorAll('.company-row').forEach(row => {
-            row.addEventListener('click', function() {
-                const gstin = this.querySelector('.gstin-code').textContent;
-                if (gstin) {
-                    window.location.href = `/search?gstin=${gstin}`;
+                },
+                interaction: {
+                    mode: 'nearest',
+                    axis: 'x',
+                    intersect: false
                 }
-            });
+            }
         });
+    }
+}
 
-        // Chart control buttons
-        document.querySelectorAll('.chart-btn').forEach(btn => {
-            btn.addEventListener('click', function() {
-                // Remove active class from siblings
-                this.parentNode.querySelectorAll('.chart-btn').forEach(b => b.classList.remove('active'));
-                // Add active class to clicked button
-                this.classList.add('active');
-                
-                // Here you would typically update the chart data
-                console.log('Chart period changed to:', this.textContent);
-            });
+function initializeDistributionChart() {
+    const distributionData = {{ score_distribution | tojson | safe }};
+    const distributionCtx = document.getElementById('distributionChart');
+    
+    if (distributionCtx && distributionData) {
+        new Chart(distributionCtx, {
+            type: 'doughnut',
+            data: {
+                labels: distributionData.map(d => d.range || 'Unknown'),
+                datasets: [{
+                    data: distributionData.map(d => d.count || 0),
+                    backgroundColor: [
+                        '#10b981', // Excellent - Green
+                        '#3b82f6', // Very Good - Blue  
+                        '#f59e0b', // Good - Yellow
+                        '#8b5cf6', // Average - Purple
+                        '#ef4444'  // Poor - Red
+                    ],
+                    borderWidth: 0,
+                    hoverOffset: 4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false // We have custom legend
+                    },
+                    tooltip: {
+                        backgroundColor: 'rgba(26, 26, 26, 0.9)',
+                        titleColor: '#ffffff',
+                        bodyColor: '#a1a1aa',
+                        borderColor: '#7c3aed',
+                        borderWidth: 1,
+                        callbacks: {
+                            label: function(context) {
+                                const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                const percentage = ((context.parsed / total) * 100).toFixed(1);
+                                return `${context.label}: ${context.parsed} (${percentage}%)`;
+                            }
+                        }
+                    }
+                },
+                cutout: '60%'
+            }
         });
-    </script>
+    }
+}
 
-    <!-- Analytics-specific styles -->
-    <style>
+function updateTimestamps() {
+    const now = new Date();
+    const timeString = now.toLocaleTimeString('en-IN', { 
+        hour: '2-digit', 
+        minute: '2-digit'
+    });
+    
+    const lastUpdatedElement = document.getElementById('lastUpdated');
+    if (lastUpdatedElement) {
+        lastUpdatedElement.textContent = timeString;
+    }
+}
 
-        .live-dot {
-            width: 8px;
-            height: 8px;
-            background: var(--success);
-            border-radius: 50%;
-            animation: blink 1.5s ease-in-out infinite;
+// Company row click handler
+document.querySelectorAll('.company-row').forEach(row => {
+    row.addEventListener('click', function() {
+        const gstin = this.querySelector('.gstin-code').textContent;
+        if (gstin) {
+            window.location.href = `/search?gstin=${gstin}`;
         }
+    });
+});
 
-        .last-updated {
-            margin-left: 1rem;
-            opacity: 0.8;
-            font-weight: 400;
-        }
+// Chart control buttons
+document.querySelectorAll('.chart-btn').forEach(btn => {
+    btn.addEventListener('click', function() {
+        // Remove active class from siblings
+        this.parentNode.querySelectorAll('.chart-btn').forEach(b => b.classList.remove('active'));
+        // Add active class to clicked button
+        this.classList.add('active');
+        
+        // Here you would typically update the chart data
+        console.log('Chart period changed to:', this.textContent);
+    });
+});
+</script>
 
-        @keyframes blink {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.5; }
-        }
+<!-- Analytics-specific styles -->
+<style>
+    .live-indicator {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        margin-bottom: 2rem;
+        color: var(--text-secondary);
+        font-size: 0.9rem;
+    }
 
-        .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 1.5rem;
-            margin-bottom: 2rem;
-        }
+    .live-dot {
+        width: 8px;
+        height: 8px;
+        background: var(--success);
+        border-radius: 50%;
+        animation: blink 1.5s ease-in-out infinite;
+    }
 
-        .stat-card {
-            background: var(--bg-card);
-            border: 1px solid var(--border-color);
-            border-radius: 16px;
-            padding: 2rem;
-            text-align: center;
-            transition: all 0.3s;
-            position: relative;
-            overflow: hidden;
-        }
+    .last-updated {
+        margin-left: 1rem;
+        opacity: 0.8;
+        font-weight: 400;
+    }
 
-        .stat-card::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 4px;
-            background: var(--accent-gradient);
-        }
+    @keyframes blink {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.5; }
+    }
 
-        .stat-card:hover {
-            transform: translateY(-5px);
-            box-shadow: var(--hover-shadow);
-        }
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 1.5rem;
+        margin-bottom: 2rem;
+    }
 
-        .stat-icon {
-            font-size: 3rem;
-            margin-bottom: 1rem;
-            background: var(--accent-gradient);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-        }
+    .stat-card {
+        background: var(--bg-card);
+        border: 1px solid var(--border-color);
+        border-radius: 16px;
+        padding: 2rem;
+        text-align: center;
+        transition: all 0.3s;
+        position: relative;
+        overflow: hidden;
+    }
 
-        .stat-value {
-            font-size: 2.5rem;
-            font-weight: 800;
-            color: var(--text-primary);
-            margin-bottom: 0.5rem;
-        }
+    .stat-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 4px;
+        background: var(--accent-gradient);
+    }
 
-        .stat-label {
-            color: var(--text-secondary);
-            font-size: 1rem;
-            margin-bottom: 0.5rem;
-        }
+    .stat-card:hover {
+        transform: translateY(-5px);
+        box-shadow: var(--hover-shadow);
+    }
 
-        .stat-change {
-            font-size: 0.875rem;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 0.25rem;
-        }
+    .stat-icon {
+        font-size: 3rem;
+        margin-bottom: 1rem;
+        background: var(--accent-gradient);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+    }
 
-        .stat-change.positive {
-            color: var(--success);
-        }
+    .stat-value {
+        font-size: 2.5rem;
+        font-weight: 800;
+        color: var(--text-primary);
+        margin-bottom: 0.5rem;
+    }
 
-        .stat-change.neutral {
-            color: var(--text-muted);
-        }
+    .stat-label {
+        color: var(--text-secondary);
+        font-size: 1rem;
+        margin-bottom: 0.5rem;
+    }
 
+    .stat-change {
+        font-size: 0.875rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.25rem;
+    }
+
+    .stat-change.positive {
+        color: var(--success);
+    }
+
+    .stat-change.neutral {
+        color: var(--text-muted);
+    }
+
+    .charts-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
+        gap: 1.5rem;
+        margin-bottom: 2rem;
+    }
+
+    .chart-card {
+        background: var(--bg-card);
+        border: 1px solid var(--border-color);
+        border-radius: 16px;
+        padding: 2rem;
+        box-shadow: var(--card-shadow);
+    }
+
+    .chart-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1.5rem;
+        flex-wrap: wrap;
+        gap: 1rem;
+    }
+
+    .chart-title {
+        font-size: 1.25rem;
+        font-weight: 600;
+        margin: 0;
+        color: var(--text-primary);
+    }
+
+    .chart-controls {
+        display: flex;
+        gap: 0.5rem;
+    }
+
+    .chart-btn {
+        background: var(--bg-hover);
+        border: 1px solid var(--border-color);
+        color: var(--text-primary);
+        padding: 0.5rem 1rem;
+        border-radius: 6px;
+        cursor: pointer;
+        transition: all 0.3s;
+        font-size: 0.875rem;
+    }
+
+    .chart-btn.active,
+    .chart-btn:hover {
+        background: var(--accent-primary);
+        color: white;
+        border-color: var(--accent-primary);
+    }
+
+    .chart-container {
+        position: relative;
+        height: 300px;
+        width: 100%;
+    }
+
+    .chart-legend {
+        display: flex;
+        gap: 1rem;
+        flex-wrap: wrap;
+    }
+
+    .legend-item {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-size: 0.875rem;
+    }
+
+    .legend-item::before {
+        content: '';
+        width: 12px;
+        height: 12px;
+        border-radius: 2px;
+    }
+
+    .legend-item.excellent::before { background: #10b981; }
+    .legend-item.good::before { background: #3b82f6; }
+    .legend-item.average::before { background: #f59e0b; }
+    .legend-item.poor::before { background: #ef4444; }
+
+    .companies-table-container {
+        overflow-x: auto;
+    }
+
+    .companies-table {
+        width: 100%;
+        border-collapse: collapse;
+        background: var(--bg-secondary);
+        border-radius: 12px;
+        overflow: hidden;
+        table-layout: fixed;
+    }
+
+    .companies-table th:nth-child(1),
+    .companies-table td:nth-child(1) { width: 8%; }
+    .companies-table th:nth-child(2),
+    .companies-table td:nth-child(2) { width: 30%; }
+    .companies-table th:nth-child(3),
+    .companies-table td:nth-child(3) { width: 25%; }
+    .companies-table th:nth-child(4),
+    .companies-table td:nth-child(4) { width: 12%; }
+    .companies-table th:nth-child(5),
+    .companies-table td:nth-child(5) { width: 15%; }
+    .companies-table th:nth-child(6),
+    .companies-table td:nth-child(6) { width: 10%; }
+
+    .company-name {
+        font-weight: 600;
+        color: var(--text-primary);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        max-width: 100%;
+    }
+
+    .companies-table td {
+        padding: 0.75rem 0.5rem;
+        border-bottom: 1px solid var(--border-color);
+        color: var(--text-primary);
+        vertical-align: middle;
+        overflow: hidden;
+    }
+
+    .companies-table th {
+        background: var(--bg-hover);
+        padding: 0.75rem 0.5rem;
+        text-align: left;
+        font-weight: 600;
+        color: var(--text-primary);
+        border-bottom: 2px solid var(--border-color);
+        font-size: 0.9rem;
+    }
+
+    .company-row {
+        cursor: pointer;
+        transition: all 0.3s;
+    }
+
+    .company-row:hover {
+        background: var(--bg-hover);
+    }
+
+    .rank-badge {
+        background: var(--accent-gradient);
+        color: white;
+        padding: 0.25rem 0.75rem;
+        border-radius: 15px;
+        font-size: 0.875rem;
+        font-weight: 600;
+    }
+
+    .gstin-code {
+        background: var(--bg-hover);
+        padding: 0.25rem 0.5rem;
+        border-radius: 4px;
+        font-family: monospace;
+        font-size: 0.875rem;
+        color: var(--accent-primary);
+    }
+
+    .search-count {
+        font-weight: 600;
+        color: var(--accent-primary);
+    }
+
+    .search-label {
+        color: var(--text-muted);
+        font-size: 0.875rem;
+    }
+
+    .score-badge {
+        display: inline-block;
+        padding: 0.25rem 0.75rem;
+        border-radius: 15px;
+        font-size: 0.85rem;
+        font-weight: 600;
+        position: relative;
+        cursor: help;
+        transition: all 0.3s ease;
+    }
+
+    .score-high {
+        background: rgba(16, 185, 129, 0.2);
+        color: var(--success);
+        border: 1px solid rgba(16, 185, 129, 0.3);
+    }
+
+    .score-medium {
+        background: rgba(245, 158, 11, 0.2);
+        color: var(--warning);
+        border: 1px solid rgba(245, 158, 11, 0.3);
+    }
+
+    .score-low {
+        background: rgba(239, 68, 68, 0.2);
+        color: var(--error);
+        border: 1px solid rgba(239, 68, 68, 0.3);
+    }
+
+    .trend-icon {
+        color: var(--success);
+    }
+
+    .filter-controls {
+        display: flex;
+        gap: 0.5rem;
+    }
+
+    .filter-select {
+        background: var(--bg-input);
+        border: 1px solid var(--border-color);
+        color: var(--text-primary);
+        padding: 0.5rem 1rem;
+        border-radius: 6px;
+        font-size: 0.875rem;
+    }
+
+    .empty-state {
+        text-align: center;
+        padding: 3rem;
+        color: var(--text-secondary);
+    }
+
+    .empty-icon {
+        font-size: 4rem;
+        margin-bottom: 1rem;
+        opacity: 0.3;
+    }
+
+    .insights-panel {
+        background: var(--bg-card);
+        border: 1px solid var(--border-color);
+        border-radius: 16px;
+        padding: 2rem;
+        box-shadow: var(--card-shadow);
+    }
+
+    .panel-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1.5rem;
+    }
+
+    .panel-header h3 {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        margin: 0;
+        color: var(--text-primary);
+    }
+
+    .ai-badge {
+        background: var(--accent-gradient);
+        color: white;
+        padding: 0.25rem 0.75rem;
+        border-radius: 15px;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+
+    .insights-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 1rem;
+    }
+
+    .insight-card {
+        background: var(--bg-hover);
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+        padding: 1.5rem;
+        display: flex;
+        gap: 1rem;
+        transition: all 0.3s;
+    }
+
+    .insight-card:hover {
+        transform: translateY(-2px);
+        box-shadow: var(--hover-shadow);
+    }
+
+    .insight-icon {
+        flex-shrink: 0;
+        width: 40px;
+        height: 40px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 8px;
+        font-size: 1.2rem;
+    }
+
+    .insight-card.trend .insight-icon {
+        background: rgba(16, 185, 129, 0.2);
+        color: var(--success);
+    }
+
+    .insight-card.warning .insight-icon {
+        background: rgba(245, 158, 11, 0.2);
+        color: var(--warning);
+    }
+
+    .insight-card.success .insight-icon {
+        background: rgba(59, 130, 246, 0.2);
+        color: var(--info);
+    }
+
+    .insight-content h4 {
+        margin: 0 0 0.5rem 0;
+        color: var(--text-primary);
+        font-size: 1rem;
+    }
+
+    .insight-content p {
+        margin: 0;
+        color: var(--text-secondary);
+        font-size: 0.9rem;
+        line-height: 1.4;
+    }
+
+    @media (max-width: 768px) {
         .charts-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
-            gap: 1.5rem;
-            margin-bottom: 2rem;
+            grid-template-columns: 1fr;
         }
-
-        .chart-card {
-            background: var(--bg-card);
-            border: 1px solid var(--border-color);
-            border-radius: 16px;
-            padding: 2rem;
-            box-shadow: var(--card-shadow);
-        }
-
-        .chart-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 1.5rem;
-            flex-wrap: wrap;
-            gap: 1rem;
-        }
-
-        .chart-title {
-            font-size: 1.25rem;
-            font-weight: 600;
-            margin: 0;
-            color: var(--text-primary);
-        }
-
-        .chart-controls {
-            display: flex;
-            gap: 0.5rem;
-        }
-
-        .chart-btn {
-            background: var(--bg-hover);
-            border: 1px solid var(--border-color);
-            color: var(--text-primary);
-            padding: 0.5rem 1rem;
-            border-radius: 6px;
-            cursor: pointer;
-            transition: all 0.3s;
-            font-size: 0.875rem;
-        }
-
-        .chart-btn.active,
-        .chart-btn:hover {
-            background: var(--accent-primary);
-            color: white;
-            border-color: var(--accent-primary);
-        }
-
+        
         .chart-container {
-            position: relative;
-            height: 300px;
-            width: 100%;
+            height: 250px;
         }
-
-        .chart-legend {
-            display: flex;
-            gap: 1rem;
-            flex-wrap: wrap;
-        }
-
-        .legend-item {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            font-size: 0.875rem;
-        }
-
-        .legend-item::before {
-            content: '';
-            width: 12px;
-            height: 12px;
-            border-radius: 2px;
-        }
-
-        .legend-item.excellent::before { background: #10b981; }
-        .legend-item.good::before { background: #3b82f6; }
-        .legend-item.average::before { background: #f59e0b; }
-        .legend-item.poor::before { background: #ef4444; }
-
-        .companies-table-container {
-            overflow-x: auto;
-        }
-
+        
         .companies-table {
-            width: 100%;
-            border-collapse: collapse;
-            background: var(--bg-secondary);
-            border-radius: 12px;
-            overflow: hidden;
-            table-layout: fixed; /* CRITICAL: Forces fixed column widths */
-        }
-
-        /* Fixed column widths */
-        .companies-table th:nth-child(1),
-        .companies-table td:nth-child(1) { width: 8%; }   /* Rank */
-        .companies-table th:nth-child(2),
-        .companies-table td:nth-child(2) { width: 30%; }  /* Company Name */
-        .companies-table th:nth-child(3),
-        .companies-table td:nth-child(3) { width: 25%; }  /* GSTIN */
-        .companies-table th:nth-child(4),
-        .companies-table td:nth-child(4) { width: 12%; }  /* Searches */
-        .companies-table th:nth-child(5),
-        .companies-table td:nth-child(5) { width: 15%; }  /* Score */
-        .companies-table th:nth-child(6),
-        .companies-table td:nth-child(6) { width: 10%; }  /* Trend */
-
-        /* Truncate long company names */
-        .company-name {
-            font-weight: 600;
-            color: var(--text-primary);
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-            max-width: 100%;
-        }
-
-        .companies-table td {
-            padding: 0.75rem 0.5rem; /* Reduced padding */
-            border-bottom: 1px solid var(--border-color);
-            color: var(--text-primary);
-            vertical-align: middle;
-            overflow: hidden;
-        }
-
-        .companies-table th {
-            background: var(--bg-hover);
-            padding: 0.75rem 0.5rem; /* Reduced padding */
-            text-align: left;
-            font-weight: 600;
-            color: var(--text-primary);
-            border-bottom: 2px solid var(--border-color);
-            font-size: 0.9rem;
-        }
-
-        .company-row {
-            cursor: pointer;
-            transition: all 0.3s;
-        }
-
-        .company-row:hover {
-            background: var(--bg-hover);
-        }
-
-        .rank-badge {
-            background: var(--accent-gradient);
-            color: white;
-            padding: 0.25rem 0.75rem;
-            border-radius: 15px;
-            font-size: 0.875rem;
-            font-weight: 600;
-        }
-
-        .company-name {
-            font-weight: 600;
-            color: var(--text-primary);
-        }
-
-        .gstin-code {
-            background: var(--bg-hover);
-            padding: 0.25rem 0.5rem;
-            border-radius: 4px;
-            font-family: monospace;
-            font-size: 0.875rem;
-            color: var(--accent-primary);
-        }
-
-        .search-count {
-            font-weight: 600;
-            color: var(--accent-primary);
-        }
-
-        .search-label {
-            color: var(--text-muted);
             font-size: 0.875rem;
         }
-
-        .trend-icon {
-            color: var(--success);
-        }
-
-        .filter-controls {
-            display: flex;
-            gap: 0.5rem;
-        }
-
-        .filter-select {
-            background: var(--bg-input);
-            border: 1px solid var(--border-color);
-            color: var(--text-primary);
-            padding: 0.5rem 1rem;
-            border-radius: 6px;
-            font-size: 0.875rem;
-        }
-
-        .empty-state {
-            text-align: center;
-            padding: 3rem;
-            color: var(--text-secondary);
-        }
-
-        .empty-icon {
-            font-size: 4rem;
-            margin-bottom: 1rem;
-            opacity: 0.3;
-        }
-
-        .insights-panel {
-            background: var(--bg-card);
-            border: 1px solid var(--border-color);
-            border-radius: 16px;
-            padding: 2rem;
-            box-shadow: var(--card-shadow);
-        }
-
-        .panel-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 1.5rem;
-        }
-
-        .panel-header h3 {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            margin: 0;
-            color: var(--text-primary);
-        }
-
-        .ai-badge {
-            background: var(--accent-gradient);
-            color: white;
-            padding: 0.25rem 0.75rem;
-            border-radius: 15px;
-            font-size: 0.75rem;
-            font-weight: 600;
-        }
-
+        
         .insights-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 1rem;
+            grid-template-columns: 1fr;
         }
-
-        .insight-card {
-            background: var(--bg-hover);
-            border: 1px solid var(--border-color);
-            border-radius: 12px;
+        
+        .stat-card {
             padding: 1.5rem;
-            display: flex;
-            gap: 1rem;
-            transition: all 0.3s;
         }
-
-        .insight-card:hover {
-            transform: translateY(-2px);
-            box-shadow: var(--hover-shadow);
+        
+        .chart-header {
+            flex-direction: column;
+            align-items: flex-start;
         }
-
-        .insight-icon {
-            flex-shrink: 0;
-            width: 40px;
-            height: 40px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            border-radius: 8px;
-            font-size: 1.2rem;
-        }
-
-        .insight-card.trend .insight-icon {
-            background: rgba(16, 185, 129, 0.2);
-            color: var(--success);
-        }
-
-        .insight-card.warning .insight-icon {
-            background: rgba(245, 158, 11, 0.2);
-            color: var(--warning);
-        }
-
-        .insight-card.success .insight-icon {
-            background: rgba(59, 130, 246, 0.2);
-            color: var(--info);
-        }
-
-        .insight-content h4 {
-            margin: 0 0 0.5rem 0;
-            color: var(--text-primary);
-            font-size: 1rem;
-        }
-
-        .insight-content p {
-            margin: 0;
-            color: var(--text-secondary);
-            font-size: 0.9rem;
-            line-height: 1.4;
-        }
-
-        @media (max-width: 768px) {
-            .charts-grid {
-                grid-template-columns: 1fr;
-            }
-            
-            .chart-container {
-                height: 250px;
-            }
-            
-            .companies-table {
-                font-size: 0.875rem;
-            }
-            
-            .insights-grid {
-                grid-template-columns: 1fr;
-            }
-            
-            .stat-card {
-                padding: 1.5rem;
-            }
-            
-            .chart-header {
-                flex-direction: column;
-                align-items: flex-start;
-            }
-        }
-    </style>
-</body>
-</html>
+    }
+</style>
 {% endblock %}
