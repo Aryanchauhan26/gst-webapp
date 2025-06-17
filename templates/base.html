@@ -773,17 +773,21 @@
     <script>
         // Critical inline script for theme loading
         function toggleTheme() {
-            const currentTheme = document.documentElement.getAttribute('data-theme');
-            const newTheme = currentTheme === 'light' ? null : 'light';
-            document.documentElement.setAttribute('data-theme', newTheme);
-            localStorage.setItem('theme', newTheme || 'dark');
-            
-            // Update theme toggle indicators
-            const indicators = document.querySelectorAll('.theme-toggle__indicator i');
-            indicators.forEach(indicator => {
-                indicator.className = newTheme === 'light' ? 'fas fa-sun' : 'fas fa-moon';
-            });
-        }
+    const html = document.documentElement;
+    const currentTheme = html.getAttribute('data-theme');
+    const newTheme = currentTheme === 'light' ? null : 'light';
+    
+    // Add transition class
+    document.body.classList.add('theme-transitioning');
+    
+    html.setAttribute('data-theme', newTheme);
+    localStorage.setItem('theme', newTheme || 'dark');
+    
+    // Remove transition class after animation
+    setTimeout(() => {
+        document.body.classList.remove('theme-transitioning');
+    }, 300);
+}
 
         // Load saved theme
         (function() {

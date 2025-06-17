@@ -726,7 +726,7 @@ window.openEnhancedProfileModal = function() {
                     </div>
                     
                     <div style="display: flex; gap: 1rem; margin-top: 2rem;">
-                        <button type="submit" class="btn btn-primary" style="flex: 1; padding: 0.75rem; background: var(--accent-gradient); color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer;">Save Profile</button>
+                        <button type="submit" class="btn btn--primary glow-md" style="flex: 1; padding: 0.75rem; background: var(--accent-gradient); color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer;">Save Profile</button>
                         <button type="button" onclick="window.userProfileManager.clearUserData(); modalManager.closeAllModals();" class="btn btn-danger" style="padding: 0.75rem 1rem; background: var(--danger); color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer;">Clear Data</button>
                     </div>
                 </form>

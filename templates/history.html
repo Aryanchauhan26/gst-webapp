@@ -82,6 +82,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 </script>
+{% endblock %}
 
 {% block content %}
 <style>
@@ -480,7 +481,7 @@ document.addEventListener('DOMContentLoaded', function() {
 </style>
 
 <!-- Page Header -->
-<section class="page-header">
+<section class="page-header gradient-animate glow-xl">
     <h1 class="page-title">Search History</h1>
     <p class="page-subtitle">View and manage your GST compliance search history</p>
 </section>
@@ -488,15 +489,18 @@ document.addEventListener('DOMContentLoaded', function() {
 <!-- History Statistics -->
 {% if history %}
 <div class="history-stats">
-    <div class="stat-card" data-tooltip="Total number of companies searched">
+    <div class="stat-card glow-sm transition-all">
+ glow-sm transition-all" data-tooltip="Total number of companies searched">
         <div class="stat-value">{{ history|length }}</div>
         <div class="stat-label">Total Searches</div>
     </div>
-    <div class="stat-card" data-tooltip="Companies with good compliance scores (80%+)">
+    <div class="stat-card glow-sm transition-all">
+ glow-sm transition-all" data-tooltip="Companies with good compliance scores (80%+)">
         <div class="stat-value">{{ history|selectattr('compliance_score', '>=', 80)|list|length if history[0].compliance_score else 0 }}</div>
         <div class="stat-label">High Compliance</div>
     </div>
-    <div class="stat-card" data-tooltip="Average compliance score across all searches">
+    <div class="stat-card glow-sm transition-all">
+ glow-sm transition-all" data-tooltip="Average compliance score across all searches">
         <div class="stat-value">
             {% if history and history[0].compliance_score %}
                 {{ "%.0f"|format((history|map(attribute='compliance_score')|sum) / (history|length)) }}%
@@ -506,7 +510,8 @@ document.addEventListener('DOMContentLoaded', function() {
         </div>
         <div class="stat-label">Avg Score</div>
     </div>
-    <div class="stat-card" data-tooltip="Searches performed this month">
+    <div class="stat-card glow-sm transition-all">
+ glow-sm transition-all" data-tooltip="Searches performed this month">
         <div class="stat-value">{{ searches_this_month }}</div>
         <div class="stat-label">This Month</div>
     </div>

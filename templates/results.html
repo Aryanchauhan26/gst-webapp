@@ -97,7 +97,7 @@
         max-width: none;
     }
 
-    .compliance-section {
+    .compliance-section card--elevated glow-pulse {
         background: var(--bg-card);
         border: 1px solid var(--border-color);
         border-radius: 20px;
@@ -243,7 +243,7 @@
         margin-bottom: 2rem;
     }
 
-    .info-card {
+    .info-card card--glass transition-all{
         background: var(--bg-card);
         border: 1px solid var(--border-color);
         border-radius: 16px;
@@ -678,7 +678,6 @@
         }
     }
 </style>
-{% endblock %}
 <!-- Back Navigation -->
 <a href="/" class="back-btn">
     <i class="fas fa-arrow-left"></i>
@@ -686,7 +685,7 @@
 </a>
 
 <!-- Company Header -->
-<div class="company-header">
+<div class="company-header gradient-animate glow-lg">
     <h1 class="company-name">{{ company_data.lgnm }}</h1>
     <p class="company-gstin">GSTIN: {{ company_data.gstin }}</p>
 </div>
@@ -714,7 +713,7 @@
 {% endif %}
 
 <!-- Compliance Score Section -->
-<div class="compliance-section">
+<div class="compliance-section card--elevated glow-pulse">
     <div class="compliance-header">
         <h2 class="compliance-title">Compliance Score Analysis</h2>
         <p class="compliance-subtitle">Based on multiple compliance factors and filing history</p>
@@ -773,7 +772,7 @@
 <!-- Info Grid -->
 <div class="info-grid">
     <!-- Basic Information -->
-    <div class="info-card">
+    <div class="info-card card--glass transition-all">
         <h3 class="info-card-title">
             <i class="fas fa-building"></i>
             Basic Information
@@ -811,7 +810,7 @@
     </div>
 
     <!-- Address Information -->
-    <div class="info-card">
+    <div class="info-card card--glass transition-all">
         <h3 class="info-card-title">
             <i class="fas fa-map-marker-alt"></i>
             Address Details
@@ -839,7 +838,7 @@
     </div>
 
     <!-- Additional Information -->
-    <div class="info-card">
+    <div class="info-card card--glass transition-all">
         <h3 class="info-card-title">
             <i class="fas fa-info-circle"></i>
             Additional Details
@@ -1088,7 +1087,6 @@
         Print Report
     </button>
 </div>
-{% endblock %}
 
 {% block inline_js %}
 <script>

@@ -803,7 +803,7 @@ def generate_pdf_report(company_data: dict, compliance_score: float, synopsis: s
             <div>GSTIN: {gstin}</div>
         </div>
         
-        <div class="compliance-section">
+        <div class="compliance-section card--elevated glow-pulse">
             <h2 style="margin-bottom: 15px;">Overall Compliance Score</h2>
             <div class="score-value">{int(compliance_score)}%</div>
             <div class="score-grade">{grade} ({grade_text})</div>

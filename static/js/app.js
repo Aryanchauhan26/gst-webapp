@@ -347,7 +347,7 @@ window.openEnhancedProfileModal = function() {
                 </div>
                 
                 <div style="display: flex; gap: 1rem; margin-top: 1rem;">
-                    <button type="submit" class="btn btn-primary" style="flex: 1; padding: 0.75rem; background: var(--accent-gradient); color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer;">
+                    <button type="submit" class="btn btn--primary glow-md" style="flex: 1; padding: 0.75rem; background: var(--accent-gradient); color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer;">
                         💾 Save Profile
                     </button>
                     <button type="button" onclick="clearUserData()" class="btn btn-danger" style="padding: 0.75rem 1rem; background: var(--error); color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer;">
@@ -407,7 +407,7 @@ window.openSettingsModal = function() {
                     </div>
                 </div>
                 
-                <button type="submit" class="btn btn-primary" style="padding: 0.75rem; background: var(--accent-gradient); color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer;">
+                <button type="submit" class="btn btn--primary glow-md" style="padding: 0.75rem; background: var(--accent-gradient); color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer;">
                     💾 Save Settings
                 </button>
             </form>
@@ -702,7 +702,7 @@ document.addEventListener('DOMContentLoaded', function() {
             box-shadow: 0 0 25px rgba(16, 185, 129, 0.5);
         }
         
-        .stat-card:hover {
+        .info-card card--glass transition-all:hover {
             box-shadow: var(--hover-shadow), 0 0 30px rgba(124, 58, 237, 0.3);
         }
         
