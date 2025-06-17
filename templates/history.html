@@ -490,17 +490,17 @@ document.addEventListener('DOMContentLoaded', function() {
 {% if history %}
 <div class="history-stats">
     <div class="stat-card glow-sm transition-all">
- glow-sm transition-all" data-tooltip="Total number of companies searched">
+        <data-tooltip="Total number of companies searched">
         <div class="stat-value">{{ history|length }}</div>
         <div class="stat-label">Total Searches</div>
     </div>
     <div class="stat-card glow-sm transition-all">
- glow-sm transition-all" data-tooltip="Companies with good compliance scores (80%+)">
+        <data-tooltip="Companies with good compliance scores (80%+)">
         <div class="stat-value">{{ history|selectattr('compliance_score', '>=', 80)|list|length if history[0].compliance_score else 0 }}</div>
         <div class="stat-label">High Compliance</div>
     </div>
     <div class="stat-card glow-sm transition-all">
- glow-sm transition-all" data-tooltip="Average compliance score across all searches">
+        <data-tooltip="Average compliance score across all searches">
         <div class="stat-value">
             {% if history and history[0].compliance_score %}
                 {{ "%.0f"|format((history|map(attribute='compliance_score')|sum) / (history|length)) }}%
