@@ -21,14 +21,8 @@
     <!-- External CSS -->
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     
-    <!-- Internal CSS - Proper Order -->
+    <!-- Internal CSS -->
     <link rel="stylesheet" href="/static/css/base.css">
-    
-    <!-- Page-specific CSS -->
-    {% block extra_css %}{% endblock %}
-    
-    <!-- Preload critical resources -->
-    <link rel="preload" href="/static/js/app.js" as="script">
     
     <!-- Critical CSS for above-the-fold content -->
     <style>
@@ -97,7 +91,7 @@
             --border-primary: #e2e8f0;
         }
 
-        /* Critical CSS - Above the fold */
+        /* Header Styles */
         .header {
             position: sticky;
             top: 0;
@@ -138,6 +132,12 @@
             justify-content: center;
             color: white;
             font-size: 1.25rem;
+            animation: logoGlow 3s ease-in-out infinite;
+        }
+
+        @keyframes logoGlow {
+            0%, 100% { box-shadow: 0 0 20px rgba(124, 58, 237, 0.3); }
+            50% { box-shadow: 0 0 30px rgba(124, 58, 237, 0.6); }
         }
 
         .header__nav {
@@ -155,16 +155,44 @@
             text-decoration: none;
             transition: all var(--transition-fast);
             font-weight: 500;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .nav__link::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: var(--accent-gradient);
+            transition: left 0.3s ease;
+            z-index: -1;
+            border-radius: 8px;
+        }
+
+        .nav__link:hover::before {
+            left: 0;
         }
 
         .nav__link:hover {
             background: var(--bg-hover);
-            color: var(--text-primary);
+            color: white;
+            transform: translateY(-2px);
         }
 
         .nav__link--active {
             background: var(--accent-primary);
             color: white;
+            box-shadow: 0 4px 20px rgba(124, 58, 237, 0.4);
+        }
+
+        /* User Profile Section */
+        .user-profile-wrapper {
+            position: relative;
+            display: flex;
+            align-items: center;
         }
 
         .user__trigger {
@@ -178,10 +206,22 @@
             cursor: pointer;
             transition: all var(--transition-fast);
             position: relative;
+            background: linear-gradient(45deg, rgba(124, 58, 237, 0.1), rgba(167, 139, 250, 0.1));
+            border: 1px solid rgba(124, 58, 237, 0.3);
         }
 
         .user__trigger:hover {
             background: var(--bg-hover);
+            border-color: var(--accent-primary);
+            box-shadow: 0 8px 25px rgba(124, 58, 237, 0.2);
+            transform: translateY(-2px);
+        }
+
+        .user__trigger.active {
+            background: var(--accent-primary);
+            color: white;
+            border-color: var(--accent-primary);
+            box-shadow: 0 8px 25px rgba(124, 58, 237, 0.4);
         }
 
         .user__avatar {
@@ -194,6 +234,24 @@
             justify-content: center;
             color: white;
             font-weight: 600;
+            transition: all var(--transition-fast);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .user__avatar::before {
+            content: '';
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            animation: avatarPulse 2s infinite;
+        }
+
+        @keyframes avatarPulse {
+            0%, 100% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.1); opacity: 0.7; }
         }
 
         .user__info {
@@ -222,32 +280,49 @@
             transition: transform var(--transition-fast);
         }
 
-        .user__trigger[aria-expanded="true"] .user__chevron {
+        .user__trigger.active .user__chevron {
             transform: rotate(180deg);
         }
 
+        /* Enhanced Dropdown */
         .user__dropdown {
             position: absolute;
-            top: 100%;
+            top: calc(100% + 0.5rem);
             right: 0;
-            margin-top: 0.5rem;
             background: var(--bg-card);
             border: 1px solid var(--border-primary);
             border-radius: 16px;
             box-shadow: var(--hover-shadow);
-            padding: 1rem;
-            min-width: 280px;
+            padding: 1.5rem;
+            min-width: 320px;
             opacity: 0;
             visibility: hidden;
-            transform: translateY(-10px);
+            transform: translateY(-10px) scale(0.95);
             transition: all var(--transition-base);
             z-index: var(--z-dropdown);
+            backdrop-filter: blur(20px);
+            background: linear-gradient(135deg, var(--bg-card) 0%, rgba(124, 58, 237, 0.05) 100%);
+            border: 1px solid rgba(124, 58, 237, 0.2);
         }
 
-        .user__dropdown.dropdown--open {
+        .user__dropdown.active {
             opacity: 1;
             visibility: visible;
-            transform: translateY(0);
+            transform: translateY(0) scale(1);
+        }
+
+        .user__dropdown::before {
+            content: '';
+            position: absolute;
+            top: -8px;
+            right: 20px;
+            width: 16px;
+            height: 16px;
+            background: var(--bg-card);
+            border: 1px solid rgba(124, 58, 237, 0.2);
+            border-bottom: none;
+            border-right: none;
+            transform: rotate(45deg);
         }
 
         .dropdown__header {
@@ -296,6 +371,7 @@
             padding: 0.75rem;
             background: var(--bg-hover);
             border-radius: 8px;
+            border: 1px solid rgba(124, 58, 237, 0.1);
         }
 
         .stat__value {
@@ -344,6 +420,7 @@
             justify-content: center;
             color: white;
             font-size: 10px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
         }
 
         [data-theme="light"] .theme-toggle__indicator {
@@ -365,11 +442,30 @@
             color: var(--text-secondary);
             text-decoration: none;
             transition: all var(--transition-fast);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .dropdown__link::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: var(--accent-gradient);
+            transition: left 0.3s ease;
+            z-index: -1;
+        }
+
+        .dropdown__link:hover::before {
+            left: 0;
         }
 
         .dropdown__link:hover {
             background: var(--bg-hover);
-            color: var(--text-primary);
+            color: white;
+            transform: translateX(5px);
         }
 
         .dropdown__divider {
@@ -472,18 +568,26 @@
             .container {
                 padding: 1rem;
             }
+
+            .user__dropdown {
+                right: -1rem;
+                left: -1rem;
+                min-width: auto;
+                width: auto;
+            }
         }
 
-        /* Loading skeleton */
-        .loading-skeleton {
-            background: linear-gradient(90deg, var(--bg-hover) 25%, var(--bg-card) 50%, var(--bg-hover) 75%);
-            background-size: 200% 100%;
-            animation: shimmer 1.5s infinite;
-        }
-        
-        @keyframes shimmer {
-            0% { background-position: 200% 0; }
-            100% { background-position: -200% 0; }
+        /* Screen reader only */
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
         }
     </style>
 </head>
@@ -528,12 +632,12 @@
             </nav>
 
             <!-- User Menu -->
-            <div class="header__user">
+            <div class="user-profile-wrapper">
                 <button class="user__trigger" 
+                        id="userProfileBtn"
                         aria-expanded="false"
                         aria-haspopup="true"
-                        aria-label="User menu"
-                        data-dropdown="#user-dropdown">
+                        aria-label="User menu">
                     <div class="user__avatar" aria-hidden="true">
                         {{ current_user[0]|upper }}
                     </div>
@@ -548,7 +652,7 @@
                 </button>
 
                 <!-- User Dropdown -->
-                <div id="user-dropdown" class="user__dropdown" role="menu">
+                <div id="userDropdownMenu" class="user__dropdown" role="menu">
                     <div class="dropdown__header">
                         <div class="dropdown__avatar" aria-hidden="true">
                             {{ current_user[0]|upper }}
@@ -586,13 +690,13 @@
                     <!-- Menu Items -->
                     <ul class="dropdown__menu" role="none">
                         <li role="none">
-                            <a href="/profile" class="dropdown__link" role="menuitem">
+                            <a href="#" onclick="openEnhancedProfileModal(); return false;" class="dropdown__link" role="menuitem">
                                 <i class="fas fa-user" aria-hidden="true"></i>
                                 <span>Edit Profile</span>
                             </a>
                         </li>
                         <li role="none">
-                            <a href="/settings" class="dropdown__link" role="menuitem">
+                            <a href="#" onclick="openSettingsModal(); return false;" class="dropdown__link" role="menuitem">
                                 <i class="fas fa-cog" aria-hidden="true"></i>
                                 <span>Settings</span>
                             </a>
@@ -666,51 +770,6 @@
         </div>
     </main>
 
-    <!-- Footer -->
-    {% block footer %}
-    <footer class="footer" role="contentinfo">
-        <div class="container">
-            <div class="footer__content">
-                <div class="footer__section">
-                    <h3 class="footer__title">GST Intelligence</h3>
-                    <p class="footer__description">
-                        Advanced GST compliance analytics platform powered by AI
-                    </p>
-                </div>
-                <div class="footer__section">
-                    <h4 class="footer__subtitle">Quick Links</h4>
-                    <ul class="footer__links">
-                        <li><a href="/" class="footer__link">Dashboard</a></li>
-                        <li><a href="/analytics" class="footer__link">Analytics</a></li>
-                        <li><a href="/history" class="footer__link">History</a></li>
-                    </ul>
-                </div>
-                <div class="footer__section">
-                    <h4 class="footer__subtitle">Support</h4>
-                    <ul class="footer__links">
-                        <li><a href="/help" class="footer__link">Help Center</a></li>
-                        <li><a href="/contact" class="footer__link">Contact Us</a></li>
-                        <li><a href="/privacy" class="footer__link">Privacy Policy</a></li>
-                    </ul>
-                </div>
-            </div>
-            <div class="footer__bottom">
-                <p class="footer__copyright">
-                    &copy; 2024 GST Intelligence Platform. All rights reserved.
-                </p>
-                <div class="footer__meta">
-                    <span class="footer__version">v2.0.0</span>
-                    <button class="footer__theme-toggle" 
-                            aria-label="Toggle theme"
-                            onclick="toggleTheme()">
-                        <i class="fas fa-palette" aria-hidden="true"></i>
-                    </button>
-                </div>
-            </div>
-        </div>
-    </footer>
-    {% endblock %}
-
     <!-- Scripts -->
     <script>
         // Critical inline script for theme loading
@@ -733,42 +792,125 @@
             document.documentElement.setAttribute('data-theme', savedTheme === 'light' ? 'light' : null);
         })();
 
-        // Dropdown functionality
+        // Enhanced dropdown functionality
         document.addEventListener('DOMContentLoaded', function() {
-            const dropdownTriggers = document.querySelectorAll('[data-dropdown]');
+    const userBtn = document.getElementById('userProfileBtn');
+    const dropdown = document.getElementById('userDropdownMenu');
+    
+    if (userBtn && dropdown) {
+        userBtn.addEventListener('click', function(e) {
+            e.stopPropagation();
             
-            dropdownTriggers.forEach(trigger => {
-                const dropdownId = trigger.getAttribute('data-dropdown');
-                const dropdown = document.querySelector(dropdownId);
-                
-                if (dropdown) {
-                    trigger.addEventListener('click', function(e) {
-                        e.stopPropagation();
-                        
-                        // Close other dropdowns
-                        document.querySelectorAll('.user__dropdown').forEach(d => {
-                            if (d !== dropdown) {
-                                d.classList.remove('dropdown--open');
-                                d.previousElementSibling.setAttribute('aria-expanded', 'false');
-                            }
-                        });
-                        
-                        // Toggle current dropdown
-                        const isOpen = dropdown.classList.contains('dropdown--open');
-                        dropdown.classList.toggle('dropdown--open');
-                        trigger.setAttribute('aria-expanded', !isOpen);
-                    });
-                }
-            });
+            const isOpen = dropdown.classList.contains('active');
             
-            // Close dropdowns when clicking outside
-            document.addEventListener('click', function() {
-                document.querySelectorAll('.user__dropdown').forEach(dropdown => {
-                    dropdown.classList.remove('dropdown--open');
-                    dropdown.previousElementSibling.setAttribute('aria-expanded', 'false');
-                });
-            });
+            if (isOpen) {
+                dropdown.classList.remove('active');
+                userBtn.classList.remove('active');
+            } else {
+                dropdown.classList.add('active');
+                userBtn.classList.add('active');
+            }
         });
+        
+        document.addEventListener('click', function(e) {
+            if (!userBtn.contains(e.target) && !dropdown.contains(e.target)) {
+                dropdown.classList.remove('active');
+                userBtn.classList.remove('active');
+            }
+        });
+                
+                // Load user stats
+                loadUserStats();
+            }
+        });
+
+        function openUserDropdown() {
+            const userBtn = document.getElementById('userProfileBtn');
+            const dropdown = document.getElementById('userDropdownMenu');
+            
+            userBtn.classList.add('active');
+            dropdown.classList.add('active');
+            userBtn.setAttribute('aria-expanded', 'true');
+            
+            // Focus first focusable element
+            setTimeout(() => {
+                const firstFocusable = dropdown.querySelector('a, button');
+                if (firstFocusable) {
+                    firstFocusable.focus();
+                }
+            }, 100);
+        }
+
+        function closeUserDropdown() {
+            const userBtn = document.getElementById('userProfileBtn');
+            const dropdown = document.getElementById('userDropdownMenu');
+            
+            userBtn.classList.remove('active');
+            dropdown.classList.remove('active');
+            userBtn.setAttribute('aria-expanded', 'false');
+            
+            // Return focus to button
+            userBtn.focus();
+        }
+
+        // Load user statistics
+        async function loadUserStats() {
+            try {
+                const response = await fetch('/api/user/stats');
+                const result = await response.json();
+                
+                if (result.success) {
+                    const totalSearches = document.querySelector('[data-user-stat="total-searches"]');
+                    const avgCompliance = document.querySelector('[data-user-stat="avg-compliance"]');
+                    
+                    if (totalSearches) {
+                        animateNumber(totalSearches, 0, result.data.total_searches, 800);
+                    }
+                    
+                    if (avgCompliance) {
+                        animateNumber(avgCompliance, 0, Math.round(result.data.avg_compliance), 1000, '%');
+                    }
+                }
+            } catch (error) {
+                console.error('Error loading user stats:', error);
+            }
+        }
+
+        function animateNumber(element, start, end, duration, suffix = '') {
+            const startTime = performance.now();
+            const difference = end - start;
+            
+            function step(currentTime) {
+                const elapsed = currentTime - startTime;
+                const progress = Math.min(elapsed / duration, 1);
+                const current = Math.floor(start + (difference * progress));
+                
+                element.textContent = current + suffix;
+                
+                if (progress < 1) {
+                    requestAnimationFrame(step);
+                }
+            }
+            
+            requestAnimationFrame(step);
+        }
+
+        // Global modal functions (placeholders - will be enhanced by common-scripts.js)
+        function openEnhancedProfileModal() {
+            if (typeof window.openEnhancedProfileModal !== 'undefined') {
+                window.openEnhancedProfileModal();
+            } else {
+                alert('Profile modal will open here');
+            }
+        }
+
+        function openSettingsModal() {
+            if (typeof window.openSettingsModal !== 'undefined') {
+                window.openSettingsModal();
+            } else {
+                alert('Settings modal will open here');
+            }
+        }
     </script>
 
     <!-- Main JavaScript -->
@@ -777,118 +919,8 @@
     <!-- Page-specific JavaScript -->
     {% block extra_js %}{% endblock %}
 
-    <!-- Service Worker Registration -->
-    <script>
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('/sw.js')
-                    .then(registration => {
-                        console.log('SW registered: ', registration);
-                    })
-                    .catch(registrationError => {
-                        console.log('SW registration failed: ', registrationError);
-                    });
-            });
-        }
-    </script>
-
-    <!-- Additional styles for components -->
+    <!-- Additional Component Styles -->
     <style>
-        .footer {
-            background: var(--bg-secondary);
-            border-top: 1px solid var(--border-primary);
-            padding: 3rem 0 1.5rem;
-            margin-top: auto;
-        }
-
-        .footer__content {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 2rem;
-            margin-bottom: 2rem;
-        }
-
-        .footer__title {
-            font-size: 1.125rem;
-            font-weight: 700;
-            color: var(--text-primary);
-            margin-bottom: 0.75rem;
-        }
-
-        .footer__subtitle {
-            font-size: 1rem;
-            font-weight: 600;
-            color: var(--text-primary);
-            margin-bottom: 0.75rem;
-        }
-
-        .footer__description {
-            color: var(--text-secondary);
-            line-height: 1.6;
-        }
-
-        .footer__links {
-            list-style: none;
-            margin: 0;
-            padding: 0;
-        }
-
-        .footer__links li {
-            margin-bottom: 0.5rem;
-        }
-
-        .footer__link {
-            color: var(--text-secondary);
-            text-decoration: none;
-            transition: color var(--transition-fast);
-        }
-
-        .footer__link:hover {
-            color: var(--accent-primary);
-        }
-
-        .footer__bottom {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding-top: 1.5rem;
-            border-top: 1px solid var(--border-primary);
-            flex-wrap: wrap;
-            gap: 1rem;
-        }
-
-        .footer__copyright {
-            color: var(--text-tertiary);
-            font-size: 0.875rem;
-        }
-
-        .footer__meta {
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-        }
-
-        .footer__version {
-            color: var(--text-tertiary);
-            font-size: 0.75rem;
-            font-family: monospace;
-        }
-
-        .footer__theme-toggle {
-            background: none;
-            border: none;
-            color: var(--text-tertiary);
-            cursor: pointer;
-            padding: 0.5rem;
-            border-radius: 6px;
-            transition: all var(--transition-fast);
-        }
-
-        .footer__theme-toggle:hover {
-            background: var(--bg-hover);
-            color: var(--accent-primary);
-        }
-
         .messages-container {
             background: var(--bg-secondary);
             padding: 1rem 0;
@@ -957,77 +989,6 @@
 
         .alert__close:hover {
             background: rgba(0, 0, 0, 0.1);
-        }
-
-        /* Screen reader only */
-        .sr-only {
-            position: absolute;
-            width: 1px;
-            height: 1px;
-            padding: 0;
-            margin: -1px;
-            overflow: hidden;
-            clip: rect(0, 0, 0, 0);
-            white-space: nowrap;
-            border: 0;
-        }
-
-        /* Responsive adjustments */
-        @media (max-width: 768px) {
-            .footer__bottom {
-                flex-direction: column;
-                text-align: center;
-            }
-
-            .dropdown__stats {
-                grid-template-columns: 1fr;
-            }
-
-            .user__dropdown {
-                right: -1rem;
-                left: -1rem;
-                min-width: auto;
-                width: auto;
-            }
-        }
-
-        /* Print styles */
-        @media print {
-            .header,
-            .footer,
-            .user__dropdown,
-            .messages-container {
-                display: none;
-            }
-
-            .main-content {
-                margin: 0;
-                padding: 0;
-            }
-        }
-
-        /* High contrast mode */
-        @media (prefers-contrast: high) {
-            :root {
-                --border-primary: #000;
-                --text-secondary: #000;
-            }
-
-            [data-theme="light"] {
-                --border-primary: #000;
-                --text-secondary: #000;
-            }
-        }
-
-        /* Reduced motion */
-        @media (prefers-reduced-motion: reduce) {
-            *,
-            *::before,
-            *::after {
-                animation-duration: 0.01ms !important;
-                animation-iteration-count: 1 !important;
-                transition-duration: 0.01ms !important;
-            }
         }
     </style>
 </body>

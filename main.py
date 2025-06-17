@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-GST Intelligence Platform - Main Application (Complete Fixed Version)
+GST Intelligence Platform - Main Application (Fixed Version)
 Enhanced with PostgreSQL database and AI-powered insights
 """
 
@@ -23,7 +23,6 @@ from io import BytesIO
 from weasyprint import HTML
 from dotenv import load_dotenv
 from anthro_ai import get_anthropic_synopsis
-from fastapi import Response
 
 # Load environment variables
 load_dotenv()
@@ -43,7 +42,7 @@ app = FastAPI(title="GST Intelligence Platform", version="2.0.0")
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 
-# Add template globals - FIXED: Use add_global instead of context_processor
+# Add template globals
 def setup_template_globals():
     """Setup global template variables"""
     templates.env.globals.update({
@@ -51,7 +50,7 @@ def setup_template_globals():
         'app_version': "2.0.0"
     })
 
-# Authentication functions (MUST be defined before routes)
+# Authentication functions
 async def get_current_user(request: Request) -> Optional[str]:
     """Get current user from session"""
     session_token = request.cookies.get("session_token")
@@ -234,7 +233,7 @@ class PostgresDB:
                 "SELECT gstin, company_name, searched_at, compliance_score FROM search_history WHERE mobile=$1 ORDER BY searched_at DESC",
                 mobile
             )
-            return [dict(row) for row in rows]  
+            return [dict(row) for row in rows]
 
 db = PostgresDB()
 
@@ -265,276 +264,6 @@ class GSAPIClient:
             raise HTTPException(status_code=404, detail="GSTIN not found or API error")
 
 api_client = GSAPIClient(RAPIDAPI_KEY, RAPIDAPI_HOST) if RAPIDAPI_KEY else None
-
-# API endpoints
-
-@app.get("/api/user/stats")
-async def get_user_stats(request: Request, current_user: str = Depends(require_auth)):
-    """Get user statistics for profile display"""
-    try:
-        await db.connect()
-        async with db.pool.acquire() as conn:
-            # Get basic stats
-            total_searches = await conn.fetchval(
-                "SELECT COUNT(*) FROM search_history WHERE mobile = $1", 
-                current_user
-            )
-            
-            unique_companies = await conn.fetchval(
-                "SELECT COUNT(DISTINCT gstin) FROM search_history WHERE mobile = $1", 
-                current_user
-            )
-            
-            avg_compliance = await conn.fetchval(
-                "SELECT ROUND(AVG(compliance_score), 1) FROM search_history WHERE mobile = $1 AND compliance_score IS NOT NULL", 
-                current_user
-            )
-            
-            # Get recent activity (last 30 days)
-            recent_searches = await conn.fetchval("""
-                SELECT COUNT(*) FROM search_history 
-                WHERE mobile = $1 AND searched_at >= CURRENT_DATE - INTERVAL '30 days'
-            """, current_user)
-            
-            # Get last search date
-            last_search = await conn.fetchval(
-                "SELECT MAX(searched_at) FROM search_history WHERE mobile = $1", 
-                current_user
-            )
-            
-            # Get compliance score distribution
-            score_distribution = await conn.fetch("""
-                SELECT 
-                    CASE 
-                        WHEN compliance_score >= 90 THEN 'excellent'
-                        WHEN compliance_score >= 80 THEN 'very_good'
-                        WHEN compliance_score >= 70 THEN 'good'
-                        WHEN compliance_score >= 60 THEN 'average'
-                        ELSE 'poor'
-                    END as category,
-                    COUNT(*) as count
-                FROM search_history 
-                WHERE mobile = $1 AND compliance_score IS NOT NULL
-                GROUP BY category
-            """, current_user)
-            
-            # Get top searched companies
-            top_companies = await conn.fetch("""
-                SELECT company_name, gstin, COUNT(*) as search_count,
-                       MAX(compliance_score) as latest_score,
-                       MAX(searched_at) as last_searched
-                FROM search_history 
-                WHERE mobile = $1
-                GROUP BY company_name, gstin
-                ORDER BY search_count DESC, last_searched DESC
-                LIMIT 5
-            """, current_user)
-            
-            return {
-                "success": True,
-                "data": {
-                    "total_searches": total_searches or 0,
-                    "unique_companies": unique_companies or 0,
-                    "avg_compliance": float(avg_compliance) if avg_compliance else 0,
-                    "recent_searches": recent_searches or 0,
-                    "last_search": last_search.isoformat() if last_search else None,
-                    "score_distribution": [dict(row) for row in score_distribution],
-                    "top_companies": [dict(row) for row in top_companies],
-                    "user_level": get_user_level(total_searches or 0),
-                    "achievements": get_user_achievements(total_searches or 0, avg_compliance or 0)
-                }
-            }
-            
-    except Exception as e:
-        logger.error(f"Error fetching user stats: {e}")
-        return {"success": False, "error": "Failed to fetch user statistics"}
-
-@app.get("/api/user/activity")
-async def get_user_activity(current_user: str = Depends(require_auth), days: int = 30):
-    """Get user activity data for charts"""
-    try:
-        await db.connect()
-        async with db.pool.acquire() as conn:
-            # Daily search activity
-            daily_activity = await conn.fetch(f"""
-                SELECT 
-                    DATE(searched_at) as date,
-                    COUNT(*) as searches,
-                    AVG(compliance_score) as avg_score
-                FROM search_history 
-                WHERE mobile = $1 AND searched_at >= CURRENT_DATE - INTERVAL '{days} days'
-                GROUP BY DATE(searched_at)
-                ORDER BY date
-            """, current_user)
-            
-            # Hourly distribution
-            hourly_activity = await conn.fetch("""
-                SELECT 
-                    EXTRACT(HOUR FROM searched_at) as hour,
-                    COUNT(*) as searches
-                FROM search_history 
-                WHERE mobile = $1 AND searched_at >= CURRENT_DATE - INTERVAL '30 days'
-                GROUP BY hour
-                ORDER BY hour
-            """, current_user)
-            
-            return {
-                "success": True,
-                "data": {
-                    "daily_activity": [
-                        {
-                            "date": row["date"].isoformat(),
-                            "searches": row["searches"],
-                            "avg_score": float(row["avg_score"]) if row["avg_score"] else 0
-                        }
-                        for row in daily_activity
-                    ],
-                    "hourly_activity": [dict(row) for row in hourly_activity]
-                }
-            }
-            
-    except Exception as e:
-        logger.error(f"Error fetching user activity: {e}")
-        return {"success": False, "error": "Failed to fetch user activity"}
-
-@app.post("/api/user/preferences")
-async def update_user_preferences(
-    request: Request,
-    preferences: dict,
-    current_user: str = Depends(require_auth)
-):
-    """Update user preferences"""
-    try:
-        await db.connect()
-        async with db.pool.acquire() as conn:
-            # Store preferences in database
-            await conn.execute("""
-                INSERT INTO user_preferences (mobile, preferences, updated_at)
-                VALUES ($1, $2, $3)
-                ON CONFLICT (mobile) 
-                DO UPDATE SET preferences = $2, updated_at = $3
-            """, current_user, json.dumps(preferences), datetime.now())
-            
-            return {"success": True, "message": "Preferences updated successfully"}
-            
-    except Exception as e:
-        logger.error(f"Error updating preferences: {e}")
-        return {"success": False, "error": "Failed to update preferences"}
-
-@app.get("/api/user/preferences")
-async def get_user_preferences(current_user: str = Depends(require_auth)):
-    """Get user preferences"""
-    try:
-        await db.connect()
-        async with db.pool.acquire() as conn:
-            preferences = await conn.fetchval(
-                "SELECT preferences FROM user_preferences WHERE mobile = $1",
-                current_user
-            )
-            
-            if preferences:
-                return {"success": True, "data": json.loads(preferences)}
-            else:
-                # Return default preferences
-                return {
-                    "success": True,
-                    "data": {
-                        "theme": "dark",
-                        "emailNotifications": True,
-                        "autoSearch": True,
-                        "compactMode": False,
-                        "dataRetention": "365"
-                    }
-                }
-                
-    except Exception as e:
-        logger.error(f"Error fetching preferences: {e}")
-        return {"success": False, "error": "Failed to fetch preferences"}
-
-@app.delete("/api/user/data")
-async def clear_user_data(current_user: str = Depends(require_auth)):
-    """Clear all user search history"""
-    try:
-        await db.connect()
-        async with db.pool.acquire() as conn:
-            result = await conn.execute(
-                "DELETE FROM search_history WHERE mobile = $1",
-                current_user
-            )
-            # Extract count from result string like "DELETE 5"
-            deleted_count = int(result.split()[-1]) if result.split()[-1].isdigit() else 0
-            
-            return {
-                "success": True,
-                "message": f"Deleted {deleted_count} search records",
-                "deleted_count": deleted_count
-            }
-            
-    except Exception as e:
-        logger.error(f"Error clearing user data: {e}")
-        return {"success": False, "error": "Failed to clear user data"}
-
-def get_user_level(total_searches: int) -> dict:
-    """Determine user level based on activity"""
-    if total_searches >= 100:
-        return {"level": "Expert", "icon": "fas fa-crown", "color": "#f59e0b"}
-    elif total_searches >= 50:
-        return {"level": "Advanced", "icon": "fas fa-star", "color": "#3b82f6"}
-    elif total_searches >= 20:
-        return {"level": "Intermediate", "icon": "fas fa-chart-line", "color": "#10b981"}
-    elif total_searches >= 5:
-        return {"level": "Beginner", "icon": "fas fa-seedling", "color": "#8b5cf6"}
-    else:
-        return {"level": "New User", "icon": "fas fa-user-plus", "color": "#6b7280"}
-
-def get_user_achievements(total_searches: int, avg_compliance: float) -> list:
-    """Get user achievements based on activity"""
-    achievements = []
-    
-    if total_searches >= 1:
-        achievements.append({
-            "title": "First Search",
-            "description": "Completed your first GST search",
-            "icon": "fas fa-search",
-            "unlocked": True
-        })
-    
-    if total_searches >= 10:
-        achievements.append({
-            "title": "Research Enthusiast",
-            "description": "Completed 10 searches",
-            "icon": "fas fa-chart-bar",
-            "unlocked": True
-        })
-    
-    if total_searches >= 50:
-        achievements.append({
-            "title": "Compliance Expert",
-            "description": "Completed 50 searches",
-            "icon": "fas fa-medal",
-            "unlocked": True
-        })
-    
-    if avg_compliance >= 80:
-        achievements.append({
-            "title": "Quality Finder",
-            "description": "Average compliance score above 80%",
-            "icon": "fas fa-trophy",
-            "unlocked": True
-        })
-    
-    # Add locked achievements
-    if total_searches < 100:
-        achievements.append({
-            "title": "Master Analyst",
-            "description": "Complete 100 searches",
-            "icon": "fas fa-crown",
-            "unlocked": False,
-            "progress": total_searches,
-            "target": 100
-        })
-    
-    return achievements
 
 # Validation functions
 def validate_mobile(mobile: str) -> tuple[bool, str]:
@@ -1111,6 +840,109 @@ def generate_pdf_report(company_data: dict, compliance_score: float, synopsis: s
     pdf_file.seek(0)
     return pdf_file
 
+# API endpoints for enhanced user features
+@app.get("/api/user/stats")
+async def get_user_stats(request: Request, current_user: str = Depends(require_auth)):
+    """Get user statistics for profile display"""
+    try:
+        await db.connect()
+        async with db.pool.acquire() as conn:
+            # Get basic stats
+            total_searches = await conn.fetchval(
+                "SELECT COUNT(*) FROM search_history WHERE mobile = $1", 
+                current_user
+            )
+            
+            unique_companies = await conn.fetchval(
+                "SELECT COUNT(DISTINCT gstin) FROM search_history WHERE mobile = $1", 
+                current_user
+            )
+            
+            avg_compliance = await conn.fetchval(
+                "SELECT ROUND(AVG(compliance_score), 1) FROM search_history WHERE mobile = $1 AND compliance_score IS NOT NULL", 
+                current_user
+            )
+            
+            # Get recent activity (last 30 days)
+            recent_searches = await conn.fetchval("""
+                SELECT COUNT(*) FROM search_history 
+                WHERE mobile = $1 AND searched_at >= CURRENT_DATE - INTERVAL '30 days'
+            """, current_user)
+            
+            # Get last search date
+            last_search = await conn.fetchval(
+                "SELECT MAX(searched_at) FROM search_history WHERE mobile = $1", 
+                current_user
+            )
+            
+            return {
+                "success": True,
+                "data": {
+                    "total_searches": total_searches or 0,
+                    "unique_companies": unique_companies or 0,
+                    "avg_compliance": float(avg_compliance) if avg_compliance else 0,
+                    "recent_searches": recent_searches or 0,
+                    "last_search": last_search.isoformat() if last_search else None,
+                    "user_level": get_user_level(total_searches or 0),
+                    "achievements": get_user_achievements(total_searches or 0, avg_compliance or 0)
+                }
+            }
+            
+    except Exception as e:
+        logger.error(f"Error fetching user stats: {e}")
+        return {"success": False, "error": "Failed to fetch user statistics"}
+
+def get_user_level(total_searches: int) -> dict:
+    """Determine user level based on activity"""
+    if total_searches >= 100:
+        return {"level": "Expert", "icon": "fas fa-crown", "color": "#f59e0b"}
+    elif total_searches >= 50:
+        return {"level": "Advanced", "icon": "fas fa-star", "color": "#3b82f6"}
+    elif total_searches >= 20:
+        return {"level": "Intermediate", "icon": "fas fa-chart-line", "color": "#10b981"}
+    elif total_searches >= 5:
+        return {"level": "Beginner", "icon": "fas fa-seedling", "color": "#8b5cf6"}
+    else:
+        return {"level": "New User", "icon": "fas fa-user-plus", "color": "#6b7280"}
+
+def get_user_achievements(total_searches: int, avg_compliance: float) -> list:
+    """Get user achievements based on activity"""
+    achievements = []
+    
+    if total_searches >= 1:
+        achievements.append({
+            "title": "First Search",
+            "description": "Completed your first GST search",
+            "icon": "fas fa-search",
+            "unlocked": True
+        })
+    
+    if total_searches >= 10:
+        achievements.append({
+            "title": "Research Enthusiast",
+            "description": "Completed 10 searches",
+            "icon": "fas fa-chart-bar",
+            "unlocked": True
+        })
+    
+    if total_searches >= 50:
+        achievements.append({
+            "title": "Compliance Expert",
+            "description": "Completed 50 searches",
+            "icon": "fas fa-medal",
+            "unlocked": True
+        })
+    
+    if avg_compliance >= 80:
+        achievements.append({
+            "title": "Quality Finder",
+            "description": "Average compliance score above 80%",
+            "icon": "fas fa-trophy",
+            "unlocked": True
+        })
+    
+    return achievements
+
 @app.get("/favicon.ico")
 async def favicon():
     favicon_bytes = b'\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\rIDATx\x9cc\xf8\x0f\x00\x00\x01\x01\x00\x05\x00\x01\x8d\xc8\x02\x00\x00\x00\x00IEND\xaeB`\x82'
@@ -1132,8 +964,8 @@ async def general_exception_handler(request: Request, exc: Exception):
 @app.on_event("startup")
 async def startup_event():
     logger.info("GST Intelligence Platform starting up...")
-    await db.ensure_tables()  # Create tables if they don't exist
-    setup_template_globals()  # Setup template globals
+    await db.ensure_tables()
+    setup_template_globals()
     await db.connect()
     async with db.pool.acquire() as conn:
         await conn.execute('DELETE FROM sessions WHERE expires_at < $1', datetime.now())

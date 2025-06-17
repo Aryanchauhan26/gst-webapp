@@ -3,19 +3,106 @@
 {% block title %}History - GST Intelligence Platform{% endblock %}
 {% block body_class %}page-history{% endblock %}
 
+{% block extra_js %}
+<!-- Enhanced Common Scripts -->
+<script src="/static/common-scripts.js" defer></script>
+<script>
+// History-specific functionality
+function exportToExcel() {
+    window.location.href = '/export/history';
+    if (typeof notificationManager !== 'undefined') {
+        notificationManager.showToast('Exporting data to Excel...', 'info');
+    }
+}
+
+// Filter functionality
+document.addEventListener('DOMContentLoaded', function() {
+    const companyFilter = document.getElementById('companyFilter');
+    const gstinFilter = document.getElementById('gstinFilter');
+    const scoreFilter = document.getElementById('scoreFilter');
+    const sortFilter = document.getElementById('sortFilter');
+    const table = document.getElementById('historyTable');
+    
+    if (!table) return;
+    
+    function filterTable() {
+        const rows = table.querySelectorAll('tbody tr');
+        const companyTerm = companyFilter?.value.toLowerCase() || '';
+        const gstinTerm = gstinFilter?.value.toLowerCase() || '';
+        const scoreValue = scoreFilter?.value || '';
+        
+        rows.forEach(row => {
+            const company = row.dataset.company || '';
+            const gstin = row.dataset.gstin.toLowerCase() || '';
+            const score = parseFloat(row.dataset.score) || 0;
+            
+            let showRow = true;
+            
+            if (companyTerm && !company.includes(companyTerm)) showRow = false;
+            if (gstinTerm && !gstin.includes(gstinTerm)) showRow = false;
+            
+            if (scoreValue) {
+                if (scoreValue === 'high' && score < 80) showRow = false;
+                if (scoreValue === 'medium' && (score < 60 || score >= 80)) showRow = false;
+                if (scoreValue === 'low' && score >= 60) showRow = false;
+            }
+            
+            row.style.display = showRow ? '' : 'none';
+        });
+    }
+    
+    // Bind filter events
+    [companyFilter, gstinFilter, scoreFilter].forEach(filter => {
+        if (filter) {
+            filter.addEventListener('input', filterTable);
+        }
+    });
+    
+    // Sort functionality
+    if (sortFilter) {
+        sortFilter.addEventListener('change', function() {
+            const tbody = table.querySelector('tbody');
+            const rows = Array.from(tbody.querySelectorAll('tr'));
+            
+            rows.sort((a, b) => {
+                const sortBy = this.value;
+                
+                if (sortBy === 'date') {
+                    return new Date(b.dataset.date) - new Date(a.dataset.date);
+                } else if (sortBy === 'score') {
+                    return parseFloat(b.dataset.score) - parseFloat(a.dataset.score);
+                } else if (sortBy === 'company') {
+                    return a.dataset.company.localeCompare(b.dataset.company);
+                }
+                return 0;
+            });
+            
+            rows.forEach(row => tbody.appendChild(row));
+        });
+    }
+});
+</script>
+{% endblock %}
+
 {% block content %}
 <style>
     /* History-specific styles */
     .page-header {
-        background: var(--bg-card);
-        border: 1px solid var(--border-color);
+        background: linear-gradient(135deg, var(--bg-card) 0%, rgba(124, 58, 237, 0.05) 100%);
+        border: 1px solid rgba(124, 58, 237, 0.2);
         border-radius: 20px;
         padding: 3rem;
         margin-bottom: 2rem;
-        box-shadow: var(--card-shadow);
+        box-shadow: var(--card-shadow), 0 0 40px rgba(124, 58, 237, 0.1);
         text-align: center;
         position: relative;
         overflow: hidden;
+        animation: headerGlow 3s ease-in-out infinite;
+    }
+
+    @keyframes headerGlow {
+        0%, 100% { box-shadow: var(--card-shadow), 0 0 40px rgba(124, 58, 237, 0.1); }
+        50% { box-shadow: var(--card-shadow), 0 0 60px rgba(124, 58, 237, 0.3); }
     }
 
     .page-header::before {
@@ -63,17 +150,35 @@
     }
 
     .stat-card {
-        background: var(--bg-hover);
-        border: 1px solid var(--border-color);
+        background: var(--bg-card);
+        border: 1px solid rgba(124, 58, 237, 0.2);
         border-radius: 12px;
         padding: 1.5rem;
         text-align: center;
-        transition: all var(--transition-speed);
+        transition: all 0.3s ease;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .stat-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 3px;
+        background: var(--accent-gradient);
+        transform: scaleX(0);
+        transition: transform 0.3s;
+    }
+
+    .stat-card:hover::before {
+        transform: scaleX(1);
     }
 
     .stat-card:hover {
-        transform: translateY(-3px);
-        box-shadow: var(--hover-shadow);
+        transform: translateY(-5px);
+        box-shadow: var(--hover-shadow), 0 0 30px rgba(124, 58, 237, 0.3);
     }
 
     .stat-value {
@@ -81,6 +186,7 @@
         font-weight: 800;
         color: var(--accent-primary);
         margin-bottom: 0.5rem;
+        text-shadow: 0 0 10px rgba(124, 58, 237, 0.3);
     }
 
     .stat-label {
@@ -89,7 +195,8 @@
     }
 
     .search-filters {
-        background: var(--bg-hover);
+        background: var(--bg-card);
+        border: 1px solid var(--border-color);
         border-radius: 12px;
         padding: 1.5rem;
         margin-bottom: 2rem;
@@ -97,6 +204,7 @@
         gap: 1rem;
         flex-wrap: wrap;
         align-items: center;
+        box-shadow: var(--card-shadow);
     }
 
     .filter-group {
@@ -113,18 +221,19 @@
 
     .filter-input {
         padding: 0.5rem 1rem;
-        background: var(--bg-card);
+        background: var(--bg-input);
         border: 1px solid var(--border-color);
         border-radius: 8px;
         color: var(--text-primary);
         font-size: 0.9rem;
-        transition: all var(--transition-speed);
+        transition: all 0.3s ease;
     }
 
     .filter-input:focus {
         outline: none;
         border-color: var(--accent-primary);
-        box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.1);
+        box-shadow: 0 0 20px rgba(124, 58, 237, 0.3);
+        transform: translateY(-1px);
     }
 
     .history-section {
@@ -240,7 +349,7 @@
         padding: 1rem;
         color: var(--text-primary);
         border-bottom: 1px solid var(--border-color);
-        transition: all var(--transition-speed);
+        transition: all 0.3s ease;
         vertical-align: middle;
         word-wrap: break-word;
         overflow: hidden;
@@ -254,6 +363,8 @@
 
     .history-table tbody tr:hover {
         background: var(--bg-hover);
+        transform: translateX(5px);
+        box-shadow: 0 0 20px rgba(124, 58, 237, 0.2);
     }
 
     .view-btn {
@@ -287,7 +398,7 @@
         font-weight: 600;
         position: relative;
         cursor: help;
-        transition: all var(--transition-speed);
+        transition: all 0.3s ease;
     }
 
     .score-high {
@@ -306,6 +417,20 @@
         background: rgba(239, 68, 68, 0.2);
         color: var(--danger);
         border: 1px solid rgba(239, 68, 68, 0.3);
+    }
+
+    .score-badge:hover {
+        transform: scale(1.1);
+        box-shadow: 0 0 15px rgba(124, 58, 237, 0.3);
+    }
+
+    .company-name {
+        font-weight: 600;
+        color: var(--text-primary);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        max-width: 100%;
     }
 
     .empty-state {
@@ -449,10 +574,10 @@
             </thead>
             <tbody>
                 {% for item in history %}
-                <tr data-gstin="{{ item.gstin }}" data-company="{{ item.company_name|lower }}" data-score="{{ item.compliance_score or 0 }}" data-date="{{ item.searched_at }}">
+                <tr class="company-row" data-gstin="{{ item.gstin }}" data-company="{{ item.company_name|lower }}" data-score="{{ item.compliance_score or 0 }}" data-date="{{ item.searched_at }}">
                     <td>{{ item.searched_at.strftime('%d %b %Y, %I:%M %p') if item.searched_at else 'N/A' }}</td>
                     <td><code style="background: var(--bg-hover); padding: 0.25rem 0.5rem; border-radius: 4px;">{{ item.gstin }}</code></td>
-                    <td style="font-weight: 600;">{{ item.company_name }}</td>
+                    <td class="company-name">{{ item.company_name }}</td>
                     <td class="hide-mobile">
                         {% if item.compliance_score is not none and item.compliance_score > 0 %}
                             {% if item.compliance_score >= 80 %}
@@ -494,83 +619,4 @@
     </div>
     {% endif %}
 </section>
-{% endblock %}
-
-{% block inline_js %}
-<script>
-// History-specific functionality
-function exportToExcel() {
-    window.location.href = '/export/history';
-    if (typeof notificationManager !== 'undefined') {
-        notificationManager.showToast('Exporting data to Excel...', 'info');
-    }
-}
-
-// Filter functionality
-document.addEventListener('DOMContentLoaded', function() {
-    const companyFilter = document.getElementById('companyFilter');
-    const gstinFilter = document.getElementById('gstinFilter');
-    const scoreFilter = document.getElementById('scoreFilter');
-    const sortFilter = document.getElementById('sortFilter');
-    const table = document.getElementById('historyTable');
-    
-    if (!table) return;
-    
-    function filterTable() {
-        const rows = table.querySelectorAll('tbody tr');
-        const companyTerm = companyFilter?.value.toLowerCase() || '';
-        const gstinTerm = gstinFilter?.value.toLowerCase() || '';
-        const scoreValue = scoreFilter?.value || '';
-        
-        rows.forEach(row => {
-            const company = row.dataset.company || '';
-            const gstin = row.dataset.gstin.toLowerCase() || '';
-            const score = parseFloat(row.dataset.score) || 0;
-            
-            let showRow = true;
-            
-            if (companyTerm && !company.includes(companyTerm)) showRow = false;
-            if (gstinTerm && !gstin.includes(gstinTerm)) showRow = false;
-            
-            if (scoreValue) {
-                if (scoreValue === 'high' && score < 80) showRow = false;
-                if (scoreValue === 'medium' && (score < 60 || score >= 80)) showRow = false;
-                if (scoreValue === 'low' && score >= 60) showRow = false;
-            }
-            
-            row.style.display = showRow ? '' : 'none';
-        });
-    }
-    
-    // Bind filter events
-    [companyFilter, gstinFilter, scoreFilter].forEach(filter => {
-        if (filter) {
-            filter.addEventListener('input', filterTable);
-        }
-    });
-    
-    // Sort functionality
-    if (sortFilter) {
-        sortFilter.addEventListener('change', function() {
-            const tbody = table.querySelector('tbody');
-            const rows = Array.from(tbody.querySelectorAll('tr'));
-            
-            rows.sort((a, b) => {
-                const sortBy = this.value;
-                
-                if (sortBy === 'date') {
-                    return new Date(b.dataset.date) - new Date(a.dataset.date);
-                } else if (sortBy === 'score') {
-                    return parseFloat(b.dataset.score) - parseFloat(a.dataset.score);
-                } else if (sortBy === 'company') {
-                    return a.dataset.company.localeCompare(b.dataset.company);
-                }
-                return 0;
-            });
-            
-            rows.forEach(row => tbody.appendChild(row));
-        });
-    }
-});
-</script>
 {% endblock %}

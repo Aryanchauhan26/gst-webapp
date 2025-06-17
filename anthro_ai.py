@@ -121,7 +121,6 @@ async def get_company_info_from_web(company_name: str, gstin: str = None, locati
         
         all_content = []
         for url in urls[:3]:
-            content
             if content:
                 all_content.append(f"Source: {url}\n{content}")
                 info['sources'].append(url)
