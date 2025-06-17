@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-GST Intelligence Platform - Main Application (Fixed Version)
-Enhanced with PostgreSQL database and AI-powered insights
+GST Intelligence Platform - Enhanced Main Application
+Enhanced with PostgreSQL database, AI-powered insights, and user management
 """
 
 import os
@@ -23,6 +23,7 @@ from io import BytesIO
 from weasyprint import HTML
 from dotenv import load_dotenv
 from anthro_ai import get_anthropic_synopsis
+from pydantic import BaseModel
 
 # Load environment variables
 load_dotenv()
@@ -41,6 +42,20 @@ POSTGRES_DSN = "postgresql://neondb_owner:npg_i3m7wqMeHXaW@ep-fragrant-cell-a10j
 app = FastAPI(title="GST Intelligence Platform", version="2.0.0")
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
+
+# Pydantic models for API requests
+class ChangePasswordRequest(BaseModel):
+    currentPassword: str
+    newPassword: str
+
+class UserPreferencesRequest(BaseModel):
+    emailNotifications: Optional[bool] = False
+    pushNotifications: Optional[bool] = False
+    autoSearch: Optional[bool] = True
+    animations: Optional[bool] = True
+    compactMode: Optional[bool] = False
+    saveHistory: Optional[bool] = True
+    analytics: Optional[bool] = True
 
 # Add template globals
 def setup_template_globals():
@@ -173,6 +188,26 @@ class PostgresDB:
                 return False
             return check_password(password, row['password_hash'], row['salt'])
 
+    async def change_password(self, mobile: str, old_password: str, new_password: str) -> bool:
+        """Change user password after verifying old password"""
+        await self.connect()
+        async with self.pool.acquire() as conn:
+            # Verify old password
+            row = await conn.fetchrow("SELECT password_hash, salt FROM users WHERE mobile=$1", mobile)
+            if not row or not check_password(old_password, row['password_hash'], row['salt']):
+                return False
+            
+            # Generate new salt and hash
+            new_salt = secrets.token_hex(16)
+            new_hash = hashlib.pbkdf2_hmac('sha256', new_password.encode('utf-8'), new_salt.encode('utf-8'), 100000, dklen=64).hex()
+            
+            # Update password
+            await conn.execute(
+                "UPDATE users SET password_hash=$1, salt=$2 WHERE mobile=$3",
+                new_hash, new_salt, mobile
+            )
+            return True
+
     async def create_session(self, mobile: str) -> Optional[str]:
         session_token = secrets.token_urlsafe(32)
         expires_at = datetime.now() + timedelta(days=7)
@@ -235,6 +270,117 @@ class PostgresDB:
             )
             return [dict(row) for row in rows]
 
+    async def get_user_stats(self, mobile: str) -> Dict:
+        """Get comprehensive user statistics"""
+        await self.connect()
+        async with self.pool.acquire() as conn:
+            # Basic stats
+            total_searches = await conn.fetchval(
+                "SELECT COUNT(*) FROM search_history WHERE mobile = $1", mobile
+            )
+            
+            unique_companies = await conn.fetchval(
+                "SELECT COUNT(DISTINCT gstin) FROM search_history WHERE mobile = $1", mobile
+            )
+            
+            avg_compliance = await conn.fetchval(
+                "SELECT AVG(compliance_score) FROM search_history WHERE mobile = $1 AND compliance_score IS NOT NULL", mobile
+            )
+            
+            # Recent activity (last 30 days)
+            recent_searches = await conn.fetchval("""
+                SELECT COUNT(*) FROM search_history 
+                WHERE mobile = $1 AND searched_at >= CURRENT_DATE - INTERVAL '30 days'
+            """, mobile)
+            
+            # Last search date
+            last_search = await conn.fetchval(
+                "SELECT MAX(searched_at) FROM search_history WHERE mobile = $1", mobile
+            )
+            
+            # User level and achievements
+            user_level = self._get_user_level(total_searches or 0)
+            achievements = self._get_user_achievements(total_searches or 0, avg_compliance or 0)
+            
+            return {
+                "total_searches": total_searches or 0,
+                "unique_companies": unique_companies or 0,
+                "avg_compliance": float(avg_compliance) if avg_compliance else 0,
+                "recent_searches": recent_searches or 0,
+                "last_search": last_search.isoformat() if last_search else None,
+                "user_level": user_level,
+                "achievements": achievements
+            }
+
+    def _get_user_level(self, total_searches: int) -> dict:
+        """Determine user level based on activity"""
+        if total_searches >= 100:
+            return {"level": "Expert", "icon": "fas fa-crown", "color": "#f59e0b"}
+        elif total_searches >= 50:
+            return {"level": "Advanced", "icon": "fas fa-star", "color": "#3b82f6"}
+        elif total_searches >= 20:
+            return {"level": "Intermediate", "icon": "fas fa-chart-line", "color": "#10b981"}
+        elif total_searches >= 5:
+            return {"level": "Beginner", "icon": "fas fa-seedling", "color": "#8b5cf6"}
+        else:
+            return {"level": "New User", "icon": "fas fa-user-plus", "color": "#6b7280"}
+
+    def _get_user_achievements(self, total_searches: int, avg_compliance: float) -> list:
+        """Get user achievements based on activity"""
+        achievements = []
+        
+        if total_searches >= 1:
+            achievements.append({
+                "title": "First Search",
+                "description": "Completed your first GST search",
+                "icon": "fas fa-search",
+                "unlocked": True
+            })
+        
+        if total_searches >= 10:
+            achievements.append({
+                "title": "Research Enthusiast",
+                "description": "Completed 10 searches",
+                "icon": "fas fa-chart-bar",
+                "unlocked": True
+            })
+        
+        if total_searches >= 50:
+            achievements.append({
+                "title": "Compliance Expert",
+                "description": "Completed 50 searches",
+                "icon": "fas fa-medal",
+                "unlocked": True
+            })
+        
+        if avg_compliance >= 80:
+            achievements.append({
+                "title": "Quality Finder",
+                "description": "Average compliance score above 80%",
+                "icon": "fas fa-trophy",
+                "unlocked": True
+            })
+        
+        return achievements
+
+    async def save_user_preferences(self, mobile: str, preferences: dict):
+        """Save user preferences"""
+        await self.connect()
+        async with self.pool.acquire() as conn:
+            await conn.execute("""
+                INSERT INTO user_preferences (mobile, preferences, updated_at) 
+                VALUES ($1, $2, $3)
+                ON CONFLICT (mobile) 
+                DO UPDATE SET preferences = $2, updated_at = $3
+            """, mobile, json.dumps(preferences), datetime.now())
+
+    async def get_user_preferences(self, mobile: str) -> dict:
+        """Get user preferences"""
+        await self.connect()
+        async with self.pool.acquire() as conn:
+            row = await conn.fetchrow("SELECT preferences FROM user_preferences WHERE mobile = $1", mobile)
+            return json.loads(row['preferences']) if row else {}
+
 db = PostgresDB()
 
 # GST API Client
@@ -275,6 +421,25 @@ def validate_mobile(mobile: str) -> tuple[bool, str]:
 def validate_gstin(gstin: str) -> bool:
     pattern = r'^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$'
     return bool(re.match(pattern, gstin.upper()))
+
+def validate_password_strength(password: str) -> tuple[bool, str]:
+    """Validate password strength"""
+    if len(password) < 8:
+        return False, "Password must be at least 8 characters long"
+    
+    if not re.search(r'[A-Z]', password):
+        return False, "Password must contain at least one uppercase letter"
+    
+    if not re.search(r'[a-z]', password):
+        return False, "Password must contain at least one lowercase letter"
+    
+    if not re.search(r'\d', password):
+        return False, "Password must contain at least one number"
+    
+    if not re.search(r'[!@#$%^&*(),.?":{}|<>]', password):
+        return False, "Password must contain at least one special character"
+    
+    return True, "Password is strong"
 
 def calculate_return_due_date(return_type: str, tax_period: str, fy: str) -> datetime:
     try:
@@ -692,6 +857,71 @@ async def analytics_dashboard(request: Request, current_user: str = Depends(requ
         "avg_compliance": round(avg_compliance or 0, 1)
     })
 
+# API Endpoints for User Management
+@app.get("/api/user/stats")
+async def get_user_stats(current_user: str = Depends(require_auth)):
+    """Get user statistics for profile display"""
+    try:
+        stats = await db.get_user_stats(current_user)
+        return {"success": True, "data": stats}
+    except Exception as e:
+        logger.error(f"Error fetching user stats: {e}")
+        return {"success": False, "error": "Failed to fetch user statistics"}
+
+@app.post("/api/user/change-password")
+async def change_password(request: ChangePasswordRequest, current_user: str = Depends(require_auth)):
+    """Change user password"""
+    try:
+        # Validate new password strength
+        is_strong, message = validate_password_strength(request.newPassword)
+        if not is_strong:
+            return {"success": False, "message": message}
+        
+        # Change password
+        success = await db.change_password(current_user, request.currentPassword, request.newPassword)
+        
+        if success:
+            return {"success": True, "message": "Password changed successfully"}
+        else:
+            return {"success": False, "message": "Current password is incorrect"}
+    
+    except Exception as e:
+        logger.error(f"Error changing password: {e}")
+        return {"success": False, "message": "Failed to change password"}
+
+@app.get("/api/user/preferences")
+async def get_user_preferences(current_user: str = Depends(require_auth)):
+    """Get user preferences"""
+    try:
+        preferences = await db.get_user_preferences(current_user)
+        return {"success": True, "data": preferences}
+    except Exception as e:
+        logger.error(f"Error fetching preferences: {e}")
+        return {"success": False, "error": "Failed to fetch preferences"}
+
+@app.post("/api/user/preferences")
+async def save_user_preferences(request: UserPreferencesRequest, current_user: str = Depends(require_auth)):
+    """Save user preferences"""
+    try:
+        preferences = request.dict()
+        await db.save_user_preferences(current_user, preferences)
+        return {"success": True, "message": "Preferences saved successfully"}
+    except Exception as e:
+        logger.error(f"Error saving preferences: {e}")
+        return {"success": False, "error": "Failed to save preferences"}
+
+@app.delete("/api/user/data")
+async def clear_user_data(current_user: str = Depends(require_auth)):
+    """Clear user search history"""
+    try:
+        await db.connect()
+        async with db.pool.acquire() as conn:
+            result = await conn.fetchval("DELETE FROM search_history WHERE mobile = $1 RETURNING COUNT(*)", current_user)
+            return {"success": True, "deleted_count": result or 0}
+    except Exception as e:
+        logger.error(f"Error clearing user data: {e}")
+        return {"success": False, "error": "Failed to clear user data"}
+
 @app.get("/export/history")
 async def export_history(current_user: str = Depends(require_auth)):
     from io import StringIO
@@ -839,109 +1069,6 @@ def generate_pdf_report(company_data: dict, compliance_score: float, synopsis: s
     HTML(string=html_content).write_pdf(target=pdf_file)
     pdf_file.seek(0)
     return pdf_file
-
-# API endpoints for enhanced user features
-@app.get("/api/user/stats")
-async def get_user_stats(request: Request, current_user: str = Depends(require_auth)):
-    """Get user statistics for profile display"""
-    try:
-        await db.connect()
-        async with db.pool.acquire() as conn:
-            # Get basic stats
-            total_searches = await conn.fetchval(
-                "SELECT COUNT(*) FROM search_history WHERE mobile = $1", 
-                current_user
-            )
-            
-            unique_companies = await conn.fetchval(
-                "SELECT COUNT(DISTINCT gstin) FROM search_history WHERE mobile = $1", 
-                current_user
-            )
-            
-            avg_compliance = await conn.fetchval(
-                "SELECT ROUND(AVG(compliance_score), 1) FROM search_history WHERE mobile = $1 AND compliance_score IS NOT NULL", 
-                current_user
-            )
-            
-            # Get recent activity (last 30 days)
-            recent_searches = await conn.fetchval("""
-                SELECT COUNT(*) FROM search_history 
-                WHERE mobile = $1 AND searched_at >= CURRENT_DATE - INTERVAL '30 days'
-            """, current_user)
-            
-            # Get last search date
-            last_search = await conn.fetchval(
-                "SELECT MAX(searched_at) FROM search_history WHERE mobile = $1", 
-                current_user
-            )
-            
-            return {
-                "success": True,
-                "data": {
-                    "total_searches": total_searches or 0,
-                    "unique_companies": unique_companies or 0,
-                    "avg_compliance": float(avg_compliance) if avg_compliance else 0,
-                    "recent_searches": recent_searches or 0,
-                    "last_search": last_search.isoformat() if last_search else None,
-                    "user_level": get_user_level(total_searches or 0),
-                    "achievements": get_user_achievements(total_searches or 0, avg_compliance or 0)
-                }
-            }
-            
-    except Exception as e:
-        logger.error(f"Error fetching user stats: {e}")
-        return {"success": False, "error": "Failed to fetch user statistics"}
-
-def get_user_level(total_searches: int) -> dict:
-    """Determine user level based on activity"""
-    if total_searches >= 100:
-        return {"level": "Expert", "icon": "fas fa-crown", "color": "#f59e0b"}
-    elif total_searches >= 50:
-        return {"level": "Advanced", "icon": "fas fa-star", "color": "#3b82f6"}
-    elif total_searches >= 20:
-        return {"level": "Intermediate", "icon": "fas fa-chart-line", "color": "#10b981"}
-    elif total_searches >= 5:
-        return {"level": "Beginner", "icon": "fas fa-seedling", "color": "#8b5cf6"}
-    else:
-        return {"level": "New User", "icon": "fas fa-user-plus", "color": "#6b7280"}
-
-def get_user_achievements(total_searches: int, avg_compliance: float) -> list:
-    """Get user achievements based on activity"""
-    achievements = []
-    
-    if total_searches >= 1:
-        achievements.append({
-            "title": "First Search",
-            "description": "Completed your first GST search",
-            "icon": "fas fa-search",
-            "unlocked": True
-        })
-    
-    if total_searches >= 10:
-        achievements.append({
-            "title": "Research Enthusiast",
-            "description": "Completed 10 searches",
-            "icon": "fas fa-chart-bar",
-            "unlocked": True
-        })
-    
-    if total_searches >= 50:
-        achievements.append({
-            "title": "Compliance Expert",
-            "description": "Completed 50 searches",
-            "icon": "fas fa-medal",
-            "unlocked": True
-        })
-    
-    if avg_compliance >= 80:
-        achievements.append({
-            "title": "Quality Finder",
-            "description": "Average compliance score above 80%",
-            "icon": "fas fa-trophy",
-            "unlocked": True
-        })
-    
-    return achievements
 
 @app.get("/favicon.ico")
 async def favicon():
