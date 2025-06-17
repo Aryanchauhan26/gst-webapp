@@ -4,21 +4,312 @@
 {% block body_class %}page-dashboard{% endblock %}
 
 {% block content %}
+<!-- Enhanced Dashboard with Modern UI -->
 <style>
-    /* Dashboard-specific styles */
-    .welcome-section {
-        background: var(--bg-card);
-        border: 1px solid var(--border-color);
-        border-radius: 20px;
-        padding: 3rem;
-        margin-bottom: 2rem;
-        box-shadow: var(--card-shadow);
+    /* Dashboard-specific modern styles */
+    .hero-section {
+        background: var(--dark-gradient);
+        border-radius: 32px;
+        padding: 4rem 3rem;
+        margin-bottom: 3rem;
         text-align: center;
+        position: relative;
+        overflow: hidden;
+        border: 1px solid rgba(124, 58, 237, 0.2);
+    }
+
+    .hero-section::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 6px;
+        background: var(--accent-gradient);
+        animation: progressBar 3s ease-in-out infinite;
+    }
+
+    .hero-title {
+        font-size: 3.5rem;
+        font-weight: 900;
+        background: var(--accent-gradient);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        margin-bottom: 1rem;
+        line-height: 1.1;
+        animation: fadeInUp 0.8s ease-out;
+    }
+
+    .hero-subtitle {
+        font-size: 1.4rem;
+        color: var(--text-secondary);
+        margin-bottom: 2rem;
+        animation: fadeInUp 0.8s ease-out 0.2s both;
+    }
+
+    /* Enhanced Search Section */
+    .search-section {
+        background: var(--bg-card);
+        border: 1px solid var(--border-primary);
+        border-radius: 32px;
+        padding: 3rem;
+        margin-bottom: 3rem;
+        box-shadow: var(--card-shadow);
         position: relative;
         overflow: hidden;
     }
 
-    .welcome-section::before {
+    .search-section::after {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: 
+            radial-gradient(circle at 20% 20%, rgba(124, 58, 237, 0.1) 0%, transparent 50%),
+            radial-gradient(circle at 80% 80%, rgba(37, 99, 235, 0.05) 0%, transparent 50%);
+        pointer-events: none;
+        z-index: 0;
+    }
+
+    .search-content {
+        position: relative;
+        z-index: 1;
+    }
+
+    .search-form-enhanced {
+        display: flex;
+        gap: 1rem;
+        align-items: flex-end;
+        max-width: 800px;
+        margin: 2rem auto 0;
+        flex-wrap: wrap;
+    }
+
+    .gstin-input-group {
+        flex: 1;
+        min-width: 300px;
+        position: relative;
+    }
+
+    .gstin-input {
+        width: 100%;
+        padding: 1.5rem 1.5rem 1.5rem 4rem;
+        background: var(--bg-input);
+        border: 3px solid var(--border-primary);
+        border-radius: 20px;
+        font-size: 1.1rem;
+        color: var(--text-primary);
+        font-family: 'JetBrains Mono', monospace;
+        letter-spacing: 0.1em;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+    }
+
+    .gstin-input:focus {
+        outline: none;
+        border-color: var(--primary-500);
+        box-shadow: 
+            0 8px 32px rgba(124, 58, 237, 0.2),
+            0 0 0 4px rgba(124, 58, 237, 0.1);
+        transform: translateY(-3px);
+    }
+
+    .gstin-icon {
+        position: absolute;
+        left: 1.5rem;
+        top: 50%;
+        transform: translateY(-50%);
+        color: var(--text-muted);
+        font-size: 1.3rem;
+        transition: all 0.3s ease;
+    }
+
+    .gstin-input:focus + .gstin-icon {
+        color: var(--primary-500);
+        transform: translateY(-50%) scale(1.1);
+    }
+
+    .search-btn-enhanced {
+        background: var(--accent-gradient);
+        border: none;
+        border-radius: 20px;
+        padding: 1.5rem 2.5rem;
+        color: white;
+        font-weight: 700;
+        font-size: 1.1rem;
+        cursor: pointer;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        box-shadow: 0 8px 30px rgba(124, 58, 237, 0.4);
+        position: relative;
+        overflow: hidden;
+    }
+
+    .search-btn-enhanced::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+        transition: left 0.5s;
+    }
+
+    .search-btn-enhanced:hover::before {
+        left: 100%;
+    }
+
+    .search-btn-enhanced:hover {
+        transform: translateY(-4px) scale(1.05);
+        box-shadow: 0 12px 40px rgba(124, 58, 237, 0.6);
+    }
+
+    /* Enhanced Stats Grid */
+    .stats-grid-enhanced {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 2rem;
+        margin-bottom: 3rem;
+    }
+
+    .stat-card-enhanced {
+        background: var(--bg-card);
+        border: 1px solid var(--border-primary);
+        border-radius: 24px;
+        padding: 2.5rem;
+        text-align: center;
+        transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        position: relative;
+        overflow: hidden;
+        cursor: pointer;
+    }
+
+    .stat-card-enhanced::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        left: -50%;
+        width: 200%;
+        height: 200%;
+        background: conic-gradient(
+            from 0deg,
+            transparent,
+            rgba(124, 58, 237, 0.1),
+            transparent
+        );
+        animation: rotate 8s linear infinite;
+        opacity: 0;
+        transition: opacity 0.3s ease;
+    }
+
+    .stat-card-enhanced:hover::before {
+        opacity: 1;
+    }
+
+    .stat-card-enhanced:hover {
+        transform: translateY(-12px) scale(1.03);
+        box-shadow: 0 25px 50px rgba(124, 58, 237, 0.25);
+        border-color: var(--primary-500);
+    }
+
+    .stat-icon-enhanced {
+        width: 80px;
+        height: 80px;
+        background: var(--accent-gradient);
+        border-radius: 20px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 2.5rem;
+        color: white;
+        margin: 0 auto 1.5rem;
+        position: relative;
+        z-index: 2;
+        box-shadow: 0 8px 32px rgba(124, 58, 237, 0.4);
+    }
+
+    .stat-value-enhanced {
+        font-size: 3.5rem;
+        font-weight: 900;
+        background: var(--accent-gradient);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        margin-bottom: 0.5rem;
+        line-height: 1;
+        position: relative;
+        z-index: 2;
+    }
+
+    .stat-label-enhanced {
+        color: var(--text-secondary);
+        font-size: 1.1rem;
+        font-weight: 600;
+        position: relative;
+        z-index: 2;
+    }
+
+    .stat-trend {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        margin-top: 1rem;
+        font-size: 0.9rem;
+        position: relative;
+        z-index: 2;
+    }
+
+    .stat-trend.positive {
+        color: var(--success);
+    }
+
+    .stat-trend.neutral {
+        color: var(--warning);
+    }
+
+    /* Quick Actions Panel */
+    .quick-actions-panel {
+        background: var(--bg-card);
+        border: 1px solid var(--border-primary);
+        border-radius: 32px;
+        padding: 3rem;
+        margin-bottom: 3rem;
+        box-shadow: var(--card-shadow);
+    }
+
+    .quick-actions-title {
+        font-size: 2rem;
+        font-weight: 700;
+        color: var(--text-primary);
+        margin-bottom: 2rem;
+        text-align: center;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 1rem;
+    }
+
+    .quick-actions-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 1.5rem;
+    }
+
+    .quick-action-card {
+        background: var(--bg-hover);
+        border: 1px solid var(--border-primary);
+        border-radius: 20px;
+        padding: 2rem;
+        text-align: center;
+        transition: all 0.3s ease;
+        cursor: pointer;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .quick-action-card::before {
         content: '';
         position: absolute;
         top: 0;
@@ -26,7 +317,106 @@
         right: 0;
         height: 4px;
         background: var(--accent-gradient);
-        animation: progressBar 3s ease-in-out infinite;
+        transform: scaleX(0);
+        transition: transform 0.3s ease;
+    }
+
+    .quick-action-card:hover::before {
+        transform: scaleX(1);
+    }
+
+    .quick-action-card:hover {
+        transform: translateY(-8px);
+        box-shadow: 0 20px 40px rgba(124, 58, 237, 0.2);
+        border-color: var(--primary-500);
+    }
+
+    .quick-action-icon {
+        width: 60px;
+        height: 60px;
+        background: var(--accent-gradient);
+        border-radius: 16px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.8rem;
+        color: white;
+        margin: 0 auto 1rem;
+        box-shadow: 0 8px 24px rgba(124, 58, 237, 0.3);
+    }
+
+    .quick-action-title {
+        font-size: 1.2rem;
+        font-weight: 600;
+        color: var(--text-primary);
+        margin-bottom: 0.5rem;
+    }
+
+    .quick-action-desc {
+        font-size: 0.9rem;
+        color: var(--text-secondary);
+        line-height: 1.5;
+    }
+
+    /* Tips Section */
+    .tips-section {
+        background: linear-gradient(135deg, rgba(124, 58, 237, 0.1) 0%, rgba(37, 99, 235, 0.1) 100%);
+        border: 1px solid rgba(124, 58, 237, 0.2);
+        border-radius: 24px;
+        padding: 2.5rem;
+        margin-top: 3rem;
+    }
+
+    .tip-card-enhanced {
+        background: var(--bg-card);
+        border: 1px solid rgba(124, 58, 237, 0.2);
+        border-radius: 16px;
+        padding: 2rem;
+        display: flex;
+        align-items: flex-start;
+        gap: 1.5rem;
+        box-shadow: 0 8px 32px rgba(124, 58, 237, 0.1);
+    }
+
+    .tip-icon {
+        width: 50px;
+        height: 50px;
+        background: var(--accent-gradient);
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.5rem;
+        color: white;
+        flex-shrink: 0;
+    }
+
+    .tip-content {
+        flex: 1;
+    }
+
+    .tip-title {
+        font-size: 1.1rem;
+        font-weight: 600;
+        color: var(--text-primary);
+        margin-bottom: 0.5rem;
+    }
+
+    .tip-text {
+        color: var(--text-secondary);
+        line-height: 1.6;
+    }
+
+    /* Animations */
+    @keyframes fadeInUp {
+        from {
+            opacity: 0;
+            transform: translateY(30px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
     }
 
     @keyframes progressBar {
@@ -35,457 +425,407 @@
         100% { transform: scaleX(0); }
     }
 
-    .welcome-title {
-        font-size: 2.5rem;
-        background: var(--accent-gradient);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        margin-bottom: 0.5rem;
-        font-weight: 800;
-        position: relative;
-        z-index: 1;
+    @keyframes rotate {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
     }
 
-    .welcome-subtitle {
-        color: var(--text-secondary);
-        font-size: 1.2rem;
-        position: relative;
-        z-index: 1;
-    }
-
-    .search-section {
-        background: var(--bg-card);
-        border: 1px solid var(--border-color);
-        border-radius: 20px;
-        padding: 3rem;
-        margin-bottom: 2rem;
-        box-shadow: var(--card-shadow);
-        text-align: center;
-        transition: all var(--transition-speed);
-        position: relative;
-        overflow: hidden;
-    }
-
-    .search-section:hover {
-        border-color: var(--accent-primary);
-        transform: translateY(-2px);
-        box-shadow: var(--hover-shadow);
-    }
-
-    .search-title {
-        font-size: 3rem;
-        font-weight: 800;
-        margin-bottom: 1rem;
-        background: var(--accent-gradient);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        line-height: 1.2;
-    }
-
-    .search-form {
-        display: flex;
-        gap: 1rem;
-        flex-wrap: wrap;
-        align-items: flex-end;
-        justify-content: center;
-        margin-top: 2rem;
-    }
-
-    .form-group {
-        flex: 1;
-        min-width: 300px;
-        max-width: 500px;
-        position: relative;
-    }
-
-    .form-label {
-        display: block;
-        margin-bottom: 0.5rem;
-        color: var(--text-secondary);
-        font-weight: 500;
-        text-align: left;
-    }
-
-    .form-input {
-        width: 100%;
-        padding: 1rem 1.5rem;
-        background: var(--bg-input);
-        border: 2px solid var(--border-color);
-        border-radius: 12px;
-        color: var(--text-primary);
-        font-size: 1rem;
-        transition: all var(--transition-speed);
-    }
-
-    .form-input:focus {
-        outline: none;
-        border-color: var(--accent-primary);
-        box-shadow: 0 0 0 4px rgba(124, 58, 237, 0.1);
-        background: var(--bg-secondary);
-        transform: translateY(-2px);
-    }
-
-    .search-btn {
-        background: var(--accent-gradient);
-        color: white;
-        border: none;
-        padding: 1rem 2rem;
-        border-radius: 12px;
-        font-size: 1rem;
-        font-weight: 600;
-        cursor: pointer;
-        transition: all var(--transition-speed);
-        display: inline-flex;
-        align-items: center;
-        gap: 0.5rem;
-        box-shadow: 0 4px 20px rgba(124, 58, 237, 0.3);
-        position: relative;
-        overflow: hidden;
-    }
-
-    .search-btn:hover {
-        background: var(--accent-gradient-hover);
-        transform: translateY(-3px);
-        box-shadow: 0 6px 30px rgba(124, 58, 237, 0.5);
-    }
-
-    /* Quick Stats Section */
-    .quick-stats-section {
-        background: var(--bg-card);
-        border: 1px solid var(--border-color);
-        border-radius: 20px;
-        padding: 2rem;
-        box-shadow: var(--card-shadow);
-        position: relative;
-        overflow: hidden;
-    }
-
-    .stats-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 2rem;
-        flex-wrap: wrap;
-        gap: 1rem;
-    }
-
-    .stats-title {
-        font-size: 1.5rem;
-        color: var(--text-primary);
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-        font-weight: 600;
-    }
-
-    .view-all-btn {
-        background: var(--accent-gradient);
-        color: white;
-        padding: 0.5rem 1rem;
-        border-radius: 8px;
-        text-decoration: none;
-        font-weight: 500;
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-        transition: all 0.3s;
-    }
-
-    .view-all-btn:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 4px 20px rgba(124, 58, 237, 0.4);
-    }
-
-    .stats-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-        gap: 1.5rem;
-        margin-bottom: 2rem;
-    }
-
-    .stat-card {
-        background: var(--bg-hover);
-        border: 1px solid var(--border-color);
-        border-radius: 16px;
-        padding: 1.5rem;
-        text-align: center;
-        transition: all 0.3s;
-        position: relative;
-        overflow: hidden;
-    }
-
-    .stat-card::before {
-        content: '';
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        height: 3px;
-        background: var(--accent-gradient);
-        transform: scaleX(0);
-        transition: transform 0.3s;
-    }
-
-    .stat-card:hover::before {
-        transform: scaleX(1);
-    }
-
-    .stat-card:hover {
-        transform: translateY(-5px);
-        box-shadow: var(--hover-shadow);
-    }
-
-    .stat-icon {
-        font-size: 2.5rem;
-        color: var(--accent-primary);
-        margin-bottom: 1rem;
-    }
-
-    .stat-value {
-        font-size: 2rem;
-        font-weight: 800;
-        color: var(--text-primary);
-        margin-bottom: 0.5rem;
-        animation: countUp 0.6s ease-out;
-    }
-
-    @keyframes countUp {
-        from { opacity: 0; transform: scale(0.5); }
-        to { opacity: 1; transform: scale(1); }
-    }
-
-    .stat-label {
-        color: var(--text-secondary);
-        font-size: 0.9rem;
-        margin-bottom: 0.5rem;
-    }
-
-    .stat-trend {
-        font-size: 0.8rem;
-        color: var(--text-muted);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 0.3rem;
-    }
-
-    .stat-trend.positive {
-        color: var(--success);
-    }
-
-    .action-card {
-        background: var(--accent-gradient);
-        color: white;
-    }
-
-    .quick-actions h4 {
-        margin-bottom: 1rem;
-        font-size: 1.1rem;
-    }
-
-    .quick-action-btn {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-        background: rgba(255, 255, 255, 0.2);
-        color: white;
-        padding: 0.5rem 1rem;
-        border-radius: 8px;
-        border: 1px solid rgba(255, 255, 255, 0.3);
-        text-decoration: none;
-        margin-bottom: 0.5rem;
-        transition: all 0.3s;
-        cursor: pointer;
-        width: 100%;
-        justify-content: center;
-    }
-
-    .quick-action-btn:hover {
-        background: rgba(255, 255, 255, 0.3);
-        transform: translateX(5px);
-    }
-
-    .tips-section {
-        margin-top: 1.5rem;
-    }
-
-    .tip-card {
-        background: linear-gradient(135deg, rgba(124, 58, 237, 0.1) 0%, rgba(37, 99, 235, 0.1) 100%);
-        border: 1px solid var(--accent-primary);
-        border-radius: 12px;
-        padding: 1rem 1.5rem;
-        display: flex;
-        align-items: center;
-        gap: 1rem;
-    }
-
-    .tip-card i {
-        font-size: 1.5rem;
-        color: var(--accent-primary);
-    }
-
-    .tip-content {
-        flex: 1;
-        color: var(--text-primary);
-        line-height: 1.5;
+    @keyframes pulse {
+        0%, 100% { opacity: 1; transform: scale(1); }
+        50% { opacity: 0.8; transform: scale(1.05); }
     }
 
     /* Mobile Responsive */
     @media (max-width: 768px) {
-        .welcome-title {
-            font-size: 1.8rem;
+        .hero-title {
+            font-size: 2.5rem;
         }
         
-        .search-title {
-            font-size: 2rem;
+        .hero-subtitle {
+            font-size: 1.1rem;
         }
         
-        .form-group {
+        .search-form-enhanced {
+            flex-direction: column;
+            align-items: stretch;
+        }
+        
+        .gstin-input-group {
             min-width: 100%;
         }
         
-        .stats-header {
-            flex-direction: column;
-            text-align: center;
+        .stats-grid-enhanced {
+            grid-template-columns: 1fr;
+            gap: 1.5rem;
+        }
+        
+        .stat-card-enhanced {
+            padding: 2rem;
+        }
+        
+        .stat-value-enhanced {
+            font-size: 2.5rem;
         }
     }
 </style>
-<!-- Welcome Section -->
-<section class="welcome-section">
-    <h1 class="welcome-title">Welcome to GST Intelligence Platform</h1>
-    <p class="welcome-subtitle">Search and analyze GST compliance data with AI-powered insights</p>
+
+<!-- Hero Section -->
+<section class="hero-section">
+    <h1 class="hero-title">GST Intelligence Platform</h1>
+    <p class="hero-subtitle">Advanced compliance analytics with AI-powered insights</p>
+    
+    <!-- Live Status Indicator -->
+    <div style="display: flex; align-items: center; justify-content: center; gap: 1rem; margin-top: 2rem;">
+        <div style="width: 12px; height: 12px; background: var(--success); border-radius: 50%; animation: pulse 2s infinite;"></div>
+        <span style="color: var(--text-secondary); font-size: 1rem;">System Online & Ready</span>
+    </div>
 </section>
 
-<!-- Search Section -->
+<!-- Enhanced Search Section -->
 <section class="search-section">
-    <h2 class="search-title">Search Company by GSTIN</h2>
-    
-    <form class="search-form" id="searchForm" action="/search" method="POST">
-        <div class="form-group">
-            <label for="gstin" class="form-label">Enter GSTIN Number</label>
-            <input type="text" 
-                   id="gstin" 
-                   name="gstin" 
-                   class="form-input" 
-                   data-tooltip="Enter 15-digit GSTIN (e.g., 27AADCB2230M1Z8)"
-                   placeholder="e.g., 27AADCB2230M1Z8"
-                   pattern="[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}"
-                   maxlength="15"
-                   required>
+    <div class="search-content">
+        <h2 style="font-size: 2.5rem; font-weight: 700; text-align: center; margin-bottom: 1rem; background: var(--accent-gradient); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+            Search Company by GSTIN
+        </h2>
+        <p style="text-align: center; color: var(--text-secondary); font-size: 1.1rem; margin-bottom: 2rem;">
+            Enter a 15-digit GSTIN to get comprehensive compliance analysis
+        </p>
+        
+        <form class="search-form-enhanced" id="enhancedSearchForm" action="/search" method="POST">
+            <div class="gstin-input-group">
+                <input type="text" 
+                       id="gstinEnhanced" 
+                       name="gstin" 
+                       class="gstin-input" 
+                       placeholder="e.g., 27AADCB2230M1Z8"
+                       pattern="[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}"
+                       maxlength="15"
+                       required>
+                <i class="fas fa-search gstin-icon"></i>
+            </div>
+            <button type="submit" class="search-btn-enhanced">
+                <i class="fas fa-chart-line" style="margin-right: 0.5rem;"></i>
+                Analyze
+            </button>
+        </form>
+        
+        <!-- Error Messages -->
+        {% if error %}
+        <div style="background: rgba(239, 68, 68, 0.1); border: 1px solid var(--error); border-radius: 16px; padding: 1.5rem; margin-top: 2rem; display: flex; align-items: center; gap: 1rem;">
+            <i class="fas fa-exclamation-circle" style="color: var(--error); font-size: 1.5rem;"></i>
+            <span style="color: var(--error); font-weight: 500;">{{ error }}</span>
         </div>
-        <button type="submit" class="search-btn">
-            <i class="fas fa-search"></i>
-            Search
-        </button>
-    </form>
-    
-    <!-- Error Messages -->
-    {% if error %}
-    <div class="error-message">
-        <i class="fas fa-exclamation-circle"></i>
-        {{ error }}
+        {% endif %}
     </div>
-    {% endif %}
 </section>
 
-<!-- Quick Stats Dashboard -->
-<section class="quick-stats-section">
-    <div class="stats-header">
-        <div class="stats-title">
-            <i class="fas fa-chart-pie"></i>
-            <span>Quick Analytics</span>
-        </div>
-        <a href="/analytics" class="view-all-btn" data-tooltip="View detailed analytics">
-            <i class="fas fa-chart-line"></i>
-            View Live Dashboard
-        </a>
+<!-- Enhanced Stats Dashboard -->
+<section>
+    <div style="text-align: center; margin-bottom: 3rem;">
+        <h2 style="font-size: 2.5rem; font-weight: 700; color: var(--text-primary); margin-bottom: 1rem;">
+            <i class="fas fa-chart-pie" style="margin-right: 1rem; color: var(--primary-500);"></i>
+            Quick Analytics
+        </h2>
+        <p style="color: var(--text-secondary); font-size: 1.1rem;">
+            Your search activity and compliance insights at a glance
+        </p>
     </div>
     
-    <div class="stats-grid">
+    <div class="stats-grid-enhanced">
         <!-- Total Companies Searched -->
-        <div class="stat-card glow-sm transition-all">
-            <div class="stat-icon">
+        <div class="stat-card-enhanced" onclick="window.location.href='/analytics'">
+            <div class="stat-icon-enhanced">
                 <i class="fas fa-building"></i>
             </div>
-            <div class="stat-value" id="totalCompanies">{{ history | length if history else 0 }}</div>
-            <div class="stat-label">Companies Analyzed</div>
-            <div class="stat-trend">
+            <div class="stat-value-enhanced" id="totalCompaniesEnhanced">{{ history | length if history else 0 }}</div>
+            <div class="stat-label-enhanced">Companies Analyzed</div>
+            <div class="stat-trend positive">
                 <i class="fas fa-arrow-up"></i>
                 <span>+12% this month</span>
             </div>
         </div>
         
         <!-- Average Compliance Score -->
-        <div class="stat-card glow-sm transition-all">
-            <div class="stat-icon">
+        <div class="stat-card-enhanced" onclick="window.location.href='/analytics'">
+            <div class="stat-icon-enhanced">
                 <i class="fas fa-percentage"></i>
             </div>
-            <div class="stat-value">
+            <div class="stat-value-enhanced">
                 {% if history and history[0].compliance_score %}
                     {{ "%.0f"|format((history|map(attribute='compliance_score')|sum) / (history|length)) }}%
                 {% else %}
                     N/A
                 {% endif %}
             </div>
-            <div class="stat-label">Avg Compliance Score</div>
-            <div class="stat-trend positive">
-                <i class="fas fa-arrow-up"></i>
-                <span>Good standing</span>
+            <div class="stat-label-enhanced">Avg Compliance Score</div>
+            <div class="stat-trend {% if history and (history|map(attribute='compliance_score')|sum) / (history|length) >= 75 %}positive{% else %}neutral{% endif %}">
+                <i class="fas {% if history and (history|map(attribute='compliance_score')|sum) / (history|length) >= 75 %}fa-arrow-up{% else %}fa-minus{% endif %}"></i>
+                <span>{% if history and (history|map(attribute='compliance_score')|sum) / (history|length) >= 75 %}Good trend{% else %}Stable{% endif %}</span>
             </div>
         </div>
         
         <!-- This Month's Activity -->
-        <div class="stat-card glow-sm transition-all">
-            <div class="stat-icon">
+        <div class="stat-card-enhanced" onclick="window.location.href='/history'">
+            <div class="stat-icon-enhanced">
                 <i class="fas fa-calendar-check"></i>
             </div>
-            <div class="stat-value">{{ searches_this_month if searches_this_month is defined else history|length if history else 0 }}</div>
-            <div class="stat-label">Searches This Month</div>
-            <div class="stat-trend">
+            <div class="stat-value-enhanced">{{ searches_this_month if searches_this_month is defined else history|length if history else 0 }}</div>
+            <div class="stat-label-enhanced">Searches This Month</div>
+            <div class="stat-trend positive">
                 <i class="fas fa-clock"></i>
                 <span>Active user</span>
             </div>
         </div>
         
-        <!-- Quick Actions -->
-        <div class="stat-card glow-sm transition-all">
-            <div class="quick-actions">
-                <h4>Quick Actions</h4>
-                <a href="/history" class="quick-action-btn">
-                    <i class="fas fa-history"></i>
-                    View History
-                </a>
-                <a href="/analytics" class="quick-action-btn">
-                    <i class="fas fa-chart-bar"></i>
-                    Analytics
-                </a>
-                <button onclick="exportToExcel()" class="quick-action-btn">
-                    <i class="fas fa-download"></i>
-                    Export Data
-                </button>
+        <!-- AI Insights -->
+        <div class="stat-card-enhanced" onclick="openEnhancedProfileModal()">
+            <div class="stat-icon-enhanced">
+                <i class="fas fa-robot"></i>
             </div>
-        </div>
-    </div>
-    
-    <!-- Compliance Tips -->
-    <div class="tips-section">
-        <div class="tip-card">
-            <i class="fas fa-lightbulb"></i>
-            <div class="tip-content">
-                <strong>Pro Tip:</strong> Companies with compliance scores above 80% typically have consistent filing patterns and rarely face penalties.
+            <div class="stat-value-enhanced">AI</div>
+            <div class="stat-label-enhanced">Powered Analytics</div>
+            <div class="stat-trend positive">
+                <i class="fas fa-sparkles"></i>
+                <span>Active</span>
             </div>
         </div>
     </div>
 </section>
 
+<!-- Quick Actions Panel -->
+<section class="quick-actions-panel">
+    <h3 class="quick-actions-title">
+        <i class="fas fa-bolt"></i>
+        Quick Actions
+    </h3>
+    
+    <div class="quick-actions-grid">
+        <div class="quick-action-card" onclick="window.location.href='/history'">
+            <div class="quick-action-icon">
+                <i class="fas fa-history"></i>
+            </div>
+            <div class="quick-action-title">View History</div>
+            <div class="quick-action-desc">Browse your previous searches and compliance reports</div>
+        </div>
+        
+        <div class="quick-action-card" onclick="window.location.href='/analytics'">
+            <div class="quick-action-icon">
+                <i class="fas fa-chart-bar"></i>
+            </div>
+            <div class="quick-action-title">Live Analytics</div>
+            <div class="quick-action-desc">Detailed insights and trends from your search data</div>
+        </div>
+        
+        <div class="quick-action-card" onclick="exportToExcel()">
+            <div class="quick-action-icon">
+                <i class="fas fa-download"></i>
+            </div>
+            <div class="quick-action-title">Export Data</div>
+            <div class="quick-action-desc">Download your search history as Excel spreadsheet</div>
+        </div>
+        
+        <div class="quick-action-card" onclick="openEnhancedProfileModal()">
+            <div class="quick-action-icon">
+                <i class="fas fa-user-cog"></i>
+            </div>
+            <div class="quick-action-title">Profile Settings</div>
+            <div class="quick-action-desc">Manage your account preferences and settings</div>
+        </div>
+    </div>
+</section>
+
+<!-- Enhanced Tips Section -->
+<section class="tips-section">
+    <h3 style="font-size: 1.8rem; font-weight: 700; color: var(--text-primary); margin-bottom: 2rem; text-align: center;">
+        <i class="fas fa-lightbulb" style="color: var(--primary-500); margin-right: 0.5rem;"></i>
+        Pro Tips & Insights
+    </h3>
+    
+    <div class="tip-card-enhanced">
+        <div class="tip-icon">
+            <i class="fas fa-shield-alt"></i>
+        </div>
+        <div class="tip-content">
+            <div class="tip-title">Compliance Best Practices</div>
+            <div class="tip-text">
+                Companies with compliance scores above 80% typically have consistent filing patterns, maintain proper documentation, and rarely face penalties. Our AI identifies these patterns to help you make informed business decisions.
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Floating Action Button -->
+<button class="fab" onclick="document.getElementById('gstinEnhanced').focus()" title="Quick Search">
+    <i class="fas fa-search"></i>
+</button>
+
 <script>
-// Dashboard-specific functionality
+// Enhanced Dashboard functionality
+document.addEventListener('DOMContentLoaded', function() {
+    // Enhanced GSTIN input formatting
+    const gstinInput = document.getElementById('gstinEnhanced');
+    if (gstinInput) {
+        gstinInput.addEventListener('input', function(e) {
+            let value = e.target.value.toUpperCase();
+            
+            // Format GSTIN with visual groups: 12ABC12345A1Z1
+            if (value.length > 2 && value.length <= 7) {
+                // Add space after state code
+                value = value.slice(0, 2) + ' ' + value.slice(2);
+            } else if (value.length > 7 && value.length <= 11) {
+                // Add space after PAN
+                value = value.slice(0, 2) + ' ' + value.slice(2, 7) + ' ' + value.slice(7);
+            } else if (value.length > 11) {
+                // Add space after entity number
+                value = value.slice(0, 2) + ' ' + value.slice(2, 7) + ' ' + value.slice(7, 11) + ' ' + value.slice(11);
+            }
+            
+            // Remove spaces for actual value
+            const cleanValue = value.replace(/\s/g, '');
+            e.target.value = cleanValue;
+            
+            // Visual feedback
+            if (cleanValue.length === 15 && isValidGSTIN(cleanValue)) {
+                e.target.style.borderColor = 'var(--success)';
+                e.target.style.boxShadow = '0 8px 32px rgba(16, 185, 129, 0.2), 0 0 0 4px rgba(16, 185, 129, 0.1)';
+            } else if (cleanValue.length === 15) {
+                e.target.style.borderColor = 'var(--error)';
+                e.target.style.boxShadow = '0 8px 32px rgba(239, 68, 68, 0.2), 0 0 0 4px rgba(239, 68, 68, 0.1)';
+            } else {
+                e.target.style.borderColor = 'var(--border-primary)';
+                e.target.style.boxShadow = '0 4px 20px rgba(0, 0, 0, 0.1)';
+            }
+        });
+        
+        // Enhanced paste handling
+        gstinInput.addEventListener('paste', function(e) {
+            setTimeout(() => {
+                const value = e.target.value.trim().toUpperCase();
+                if (value.length === 15 && isValidGSTIN(value)) {
+                    // Success animation
+                    e.target.style.transform = 'scale(1.02)';
+                    setTimeout(() => e.target.style.transform = '', 200);
+                    
+                    if (typeof notificationManager !== 'undefined') {
+                        notificationManager.showSuccess('✅ Valid GSTIN detected!', 2000);
+                    }
+                    
+                    // Auto-search if enabled
+                    const autoSearch = localStorage.getItem('autoSearch');
+                    if (autoSearch === 'true' || autoSearch === null) {
+                        setTimeout(() => {
+                            document.getElementById('enhancedSearchForm').submit();
+                        }, 500);
+                    }
+                }
+            }, 100);
+        });
+    }
+    
+    // Animate stats on load
+    animateStats();
+    
+    // Add ripple effect to stat cards
+    addRippleEffect();
+});
+
+function animateStats() {
+    const statValues = document.querySelectorAll('.stat-value-enhanced');
+    statValues.forEach((stat, index) => {
+        const targetValue = parseInt(stat.textContent) || 0;
+        if (targetValue > 0) {
+            let currentValue = 0;
+            const increment = targetValue / 50;
+            const timer = setInterval(() => {
+                currentValue += increment;
+                if (currentValue >= targetValue) {
+                    currentValue = targetValue;
+                    clearInterval(timer);
+                }
+                stat.textContent = Math.floor(currentValue) + (stat.textContent.includes('%') ? '%' : '');
+            }, 30);
+        }
+    });
+}
+
+function addRippleEffect() {
+    const cards = document.querySelectorAll('.stat-card-enhanced, .quick-action-card');
+    cards.forEach(card => {
+        card.addEventListener('click', function(e) {
+            const ripple = document.createElement('span');
+            const rect = this.getBoundingClientRect();
+            const size = Math.max(rect.width, rect.height);
+            const x = e.clientX - rect.left - size / 2;
+            const y = e.clientY - rect.top - size / 2;
+            
+            ripple.style.cssText = `
+                position: absolute;
+                width: ${size}px;
+                height: ${size}px;
+                left: ${x}px;
+                top: ${y}px;
+                background: radial-gradient(circle, rgba(124, 58, 237, 0.3) 0%, transparent 70%);
+                border-radius: 50%;
+                transform: scale(0);
+                animation: ripple 0.6s ease-out;
+                pointer-events: none;
+                z-index: 10;
+            `;
+            
+            if (!document.getElementById('rippleStyle')) {
+                const style = document.createElement('style');
+                style.id = 'rippleStyle';
+                style.textContent = `
+                    @keyframes ripple {
+                        to {
+                            transform: scale(2);
+                            opacity: 0;
+                        }
+                    }
+                `;
+                document.head.appendChild(style);
+            }
+            
+            this.style.position = 'relative';
+            this.appendChild(ripple);
+            
+            setTimeout(() => {
+                ripple.remove();
+            }, 600);
+        });
+    });
+}
+
+function isValidGSTIN(gstin) {
+    return /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/.test(gstin);
+}
+
 function exportToExcel() {
     window.location.href = '/export/history';
-    // Using global notification manager from common-scripts.js
     if (typeof notificationManager !== 'undefined') {
-        notificationManager.showToast('Exporting data to Excel...', 'info');
+        notificationManager.showInfo('📊 Preparing Excel export...', 3000);
     }
 }
+
+// Keyboard shortcuts
+document.addEventListener('keydown', function(e) {
+    // Ctrl/Cmd + K for quick search focus
+    if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+        e.preventDefault();
+        document.getElementById('gstinEnhanced').focus();
+    }
+    
+    // Ctrl/Cmd + H for history
+    if ((e.ctrlKey || e.metaKey) && e.key === 'h') {
+        e.preventDefault();
+        window.location.href = '/history';
+    }
+    
+    // Ctrl/Cmd + A for analytics
+    if ((e.ctrlKey || e.metaKey) && e.key === 'a') {
+        e.preventDefault();
+        window.location.href = '/analytics';
+    }
+});
 </script>
 {% endblock %}
