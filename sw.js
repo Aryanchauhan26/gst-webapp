@@ -8,9 +8,7 @@ const STATIC_FILES = [
     '/',
     '/login',
     '/signup',
-    '/static/style.css',
     '/static/common-styles.css',
-    '/static/common-scripts.js',
     'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css',
     // Add your critical assets here
 ];
