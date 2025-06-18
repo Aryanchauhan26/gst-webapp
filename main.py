@@ -476,6 +476,18 @@ def validate_password_strength(password: str) -> tuple[bool, str]:
     
     return True, "Password is strong"
 
+async def get_user_display_name(mobile: str) -> str:
+    """Get user display name or fallback to mobile"""
+    try:
+        profile = await db.get_user_profile(mobile)
+        display_name = profile.get('display_name')
+        if display_name:
+            return display_name
+        # Create a friendly name from mobile number
+        return f"User {mobile[-4:]}"
+    except:
+        return f"User {mobile[-4:]}"
+
 def calculate_return_due_date(return_type: str, tax_period: str, fy: str) -> datetime:
     try:
         months = {
@@ -700,12 +712,21 @@ async def home(request: Request, current_user: str = Depends(require_auth)):
     user_profile = await db.get_user_profile(current_user)
     user_display_name = await get_user_display_name(current_user)
     
+    # Calculate searches this month
+    now = datetime.now()
+    last_30_days = now - timedelta(days=30)
+    searches_this_month = sum(
+        1 for item in history
+        if item.get('searched_at') and item['searched_at'] >= last_30_days
+    )
+    
     return templates.TemplateResponse("index.html", {
         "request": request, 
         "current_user": current_user,
         "user_display_name": user_display_name,
         "user_profile": user_profile,
-        "history": history
+        "history": history,
+        "searches_this_month": searches_this_month
     })
 
 @app.get("/login", response_class=HTMLResponse)
