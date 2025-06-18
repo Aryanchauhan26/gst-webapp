@@ -64,33 +64,92 @@ class GSTINSuggestions {
             this.hideSuggestions(suggestionsEl);
         }
     }
-
+    
     showSuggestions(suggestionsEl, suggestions, input) {
-        suggestionsEl.innerHTML = suggestions.map((item, index) => `
-            <div class="suggestion-item" data-gstin="${item.gstin}" data-index="${index}">
-                <div class="suggestion-icon">
-                    <i class="fas ${this.getTypeIcon(item.type)}"></i>
-                </div>
-                <div class="suggestion-content">
-                    <div class="suggestion-title">${item.company}</div>
-                    <div class="suggestion-subtitle">${item.gstin}</div>
-                </div>
-            </div>
-        `).join('');
-
-        suggestionsEl.classList.add('show');
-
-        // Add click handlers
-        suggestionsEl.querySelectorAll('.suggestion-item').forEach(item => {
-            item.addEventListener('click', () => {
-                input.value = item.dataset.gstin;
-                this.hideSuggestions(suggestionsEl);
-                input.focus();
-                
-                // Trigger validation
-                input.dispatchEvent(new Event('input'));
-            });
+        const DEBUG_MODE = localStorage.getItem('gst_debug') === 'true';
+        const log = DEBUG_MODE ? console.log : () => {};
+        const warn = DEBUG_MODE ? console.warn : () => {};
+        const error = console.error; // Always show errors
+        
+        if (DEBUG_MODE) console.group('🔍 GSTIN Suggestions Debug');
+        
+        // Basic validation logging
+        log('📊 Suggestions data:', {
+            count: suggestions?.length || 0,
+            isArray: Array.isArray(suggestions),
+            hasElement: !!suggestionsEl,
+            inputValue: input?.value
         });
+        
+        // Quick validation
+        if (!suggestionsEl || !suggestions || !Array.isArray(suggestions)) {
+            error('❌ Invalid parameters:', { suggestionsEl: !!suggestionsEl, suggestions: !!suggestions, isArray: Array.isArray(suggestions) });
+            if (DEBUG_MODE) console.groupEnd();
+            return;
+        }
+        
+        if (suggestions.length === 0) {
+            warn('⚠️ Empty suggestions array');
+            if (DEBUG_MODE) console.groupEnd();
+            return;
+        }
+        
+        // Detailed logging for each suggestion (only in debug mode)
+        if (DEBUG_MODE) {
+            suggestions.forEach((item, index) => {
+                log(`📋 Suggestion ${index + 1}:`, {
+                    gstin: item?.gstin || 'MISSING',
+                    company: item?.company || 'MISSING', 
+                    type: item?.type || 'MISSING',
+                    isValid: !!(item?.gstin && item?.company)
+                });
+            });
+        }
+        
+        try {
+            // Generate HTML
+            const validSuggestions = suggestions.filter(item => item?.gstin && item?.company);
+            log(`✅ Valid suggestions: ${validSuggestions.length}/${suggestions.length}`);
+            
+            suggestionsEl.innerHTML = validSuggestions.map((item, index) => `
+                <div class="suggestion-item" data-gstin="${item.gstin}" data-index="${index}">
+                    <div class="suggestion-icon">
+                        <i class="fas ${this.getTypeIcon(item.type)}"></i>
+                    </div>
+                    <div class="suggestion-content">
+                        <div class="suggestion-title">${item.company}</div>
+                        <div class="suggestion-subtitle">${item.gstin}</div>
+                    </div>
+                </div>
+            `).join('');
+
+            suggestionsEl.classList.add('show');
+            
+            // Add click handlers
+            const suggestionItems = suggestionsEl.querySelectorAll('.suggestion-item');
+            log(`🖱️ Adding ${suggestionItems.length} click handlers`);
+            
+            suggestionItems.forEach((item) => {
+                item.addEventListener('click', () => {
+                    const gstin = item.dataset.gstin;
+                    log('🎯 Suggestion clicked:', gstin);
+                    
+                    input.value = gstin;
+                    this.hideSuggestions(suggestionsEl);
+                    input.focus();
+                    input.dispatchEvent(new Event('input'));
+                });
+            });
+            
+            log('✅ Suggestions displayed successfully');
+            
+        } catch (err) {
+            error('💥 Error in showSuggestions:', err);
+            suggestionsEl.innerHTML = '<div class="suggestion-error">Error loading suggestions</div>';
+            suggestionsEl.classList.add('show');
+        }
+        
+        if (DEBUG_MODE) console.groupEnd();
     }
 
     hideSuggestions(suggestionsEl) {
