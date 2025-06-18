@@ -57,6 +57,12 @@ class UserPreferencesRequest(BaseModel):
     saveHistory: Optional[bool] = True
     analytics: Optional[bool] = True
 
+class UserProfileRequest(BaseModel):
+    display_name: Optional[str] = None
+    company: Optional[str] = None
+    email: Optional[str] = None
+    designation: Optional[str] = None
+
 # Add template globals
 def setup_template_globals():
     """Setup global template variables"""
@@ -381,6 +387,35 @@ class PostgresDB:
             row = await conn.fetchrow("SELECT preferences FROM user_preferences WHERE mobile = $1", mobile)
             return json.loads(row['preferences']) if row else {}
 
+    async def save_user_profile(self, mobile: str, profile_data: dict):
+        """Save user profile information"""
+        await self.connect()
+        async with self.pool.acquire() as conn:
+            # Update or insert user profile
+            await conn.execute("""
+                INSERT INTO user_preferences (mobile, preferences, updated_at) 
+                VALUES ($1, $2, $3)
+                ON CONFLICT (mobile) 
+                DO UPDATE SET 
+                    preferences = user_preferences.preferences || $2::jsonb,
+                    updated_at = $3
+            """, mobile, json.dumps(profile_data), datetime.now())
+
+    async def get_user_profile(self, mobile: str) -> dict:
+        """Get user profile information"""
+        await self.connect()
+        async with self.pool.acquire() as conn:
+            row = await conn.fetchrow("SELECT preferences FROM user_preferences WHERE mobile = $1", mobile)
+            if row:
+                prefs = json.loads(row['preferences'])
+                return {
+                    'display_name': prefs.get('display_name'),
+                    'company': prefs.get('company'),
+                    'email': prefs.get('email'),
+                    'designation': prefs.get('designation')
+                }
+            return {}
+
 db = PostgresDB()
 
 # GST API Client
@@ -662,9 +697,14 @@ async def health_check():
 @app.get("/", response_class=HTMLResponse)
 async def home(request: Request, current_user: str = Depends(require_auth)):
     history = await db.get_search_history(current_user)
+    user_profile = await db.get_user_profile(current_user)
+    user_display_name = await get_user_display_name(current_user)
+    
     return templates.TemplateResponse("index.html", {
         "request": request, 
-        "current_user": current_user, 
+        "current_user": current_user,
+        "user_display_name": user_display_name,
+        "user_profile": user_profile,
         "history": history
     })
 
@@ -799,6 +839,8 @@ async def process_search(request: Request, gstin: str, current_user: str):
 @app.get("/history", response_class=HTMLResponse)
 async def view_history(request: Request, current_user: str = Depends(require_auth)):
     history = await db.get_all_searches(current_user)
+    user_profile = await db.get_user_profile(current_user)
+    user_display_name = await get_user_display_name(current_user)
     now = datetime.now()
     last_30_days = now - timedelta(days=30)
     searches_this_month = sum(
@@ -807,13 +849,18 @@ async def view_history(request: Request, current_user: str = Depends(require_aut
     )
     return templates.TemplateResponse("history.html", {
         "request": request, 
-        "current_user": current_user, 
+        "current_user": current_user,
+        "user_display_name": user_display_name,
+        "user_profile": user_profile,
         "history": history,
         "searches_this_month": searches_this_month
     })
 
 @app.get("/analytics", response_class=HTMLResponse)
 async def analytics_dashboard(request: Request, current_user: str = Depends(require_auth)):
+    user_profile = await db.get_user_profile(current_user)
+    user_display_name = await get_user_display_name(current_user)
+    
     await db.connect()
     async with db.pool.acquire() as conn:
         daily_searches = await conn.fetch("""
@@ -848,7 +895,9 @@ async def analytics_dashboard(request: Request, current_user: str = Depends(requ
     
     return templates.TemplateResponse("analytics.html", {
         "request": request, 
-        "current_user": current_user, 
+        "current_user": current_user,
+        "user_display_name": user_display_name,
+        "user_profile": user_profile,
         "daily_searches": daily_searches,
         "score_distribution": [dict(row) for row in score_distribution],
         "top_companies": [dict(row) for row in top_companies],
@@ -909,6 +958,27 @@ async def save_user_preferences(request: UserPreferencesRequest, current_user: s
     except Exception as e:
         logger.error(f"Error saving preferences: {e}")
         return {"success": False, "error": "Failed to save preferences"}
+
+@app.get("/api/user/profile")
+async def get_user_profile_api(current_user: str = Depends(require_auth)):
+    """Get user profile data"""
+    try:
+        profile = await db.get_user_profile(current_user)
+        return {"success": True, "data": profile}
+    except Exception as e:
+        logger.error(f"Error fetching user profile: {e}")
+        return {"success": False, "error": "Failed to fetch user profile"}
+
+@app.post("/api/user/profile")
+async def save_user_profile_api(request: UserProfileRequest, current_user: str = Depends(require_auth)):
+    """Save user profile data"""
+    try:
+        profile_data = {k: v for k, v in request.dict().items() if v is not None}
+        await db.save_user_profile(current_user, profile_data)
+        return {"success": True, "message": "Profile saved successfully"}
+    except Exception as e:
+        logger.error(f"Error saving user profile: {e}")
+        return {"success": False, "error": "Failed to save user profile"}
 
 @app.delete("/api/user/data")
 async def clear_user_data(current_user: str = Depends(require_auth)):

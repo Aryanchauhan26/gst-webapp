@@ -639,48 +639,66 @@
                         aria-expanded="false"
                         aria-haspopup="true"
                         aria-label="User menu">
-                    <div class="user__avatar" aria-hidden="true">
-                        {{ current_user[0]|upper }}
+                    <div class="user__avatar" aria-hidden="true" data-tooltip="Your Profile">
+                        {{ (user_display_name or current_user)[0]|upper if user_display_name else current_user[0]|upper }}
                     </div>
                     <div class="user__info">
-                        <div class="user__name">{{ current_user }}</div>
+                        <div class="user__name" id="userDisplayName">
+                            {{ user_display_name or ("User " + current_user[-4:]) if current_user else "User" }}
+                        </div>
                         <div class="user__status">
-                            <span class="status-indicator" aria-label="Online"></span>
-                            Online
+                            <span class="status-indicator" aria-label="Online" data-tooltip="Online"></span>
+                            <span id="userRole">{{ user_profile.designation or "Member" if user_profile else "Member" }}</span>
                         </div>
                     </div>
                     <i class="fas fa-chevron-down user__chevron" aria-hidden="true"></i>
                 </button>
 
-                <!-- User Dropdown -->
+                <!-- Enhanced User Dropdown -->
                 <div id="userDropdownMenu" class="user__dropdown" role="menu">
                     <div class="dropdown__header">
                         <div class="dropdown__avatar" aria-hidden="true">
-                            {{ current_user[0]|upper }}
+                            {{ (user_display_name or current_user)[0]|upper if user_display_name else current_user[0]|upper }}
                         </div>
                         <div class="dropdown__user-info">
-                            <h4>{{ current_user }}</h4>
-                            <p>Premium User</p>
+                            <h4 id="dropdownUserName">{{ user_display_name or ("User " + current_user[-4:]) if current_user else "User" }}</h4>
+                            <p id="dropdownUserCompany">{{ user_profile.company or "GST Intelligence Platform" if user_profile else "GST Intelligence Platform" }}</p>
                         </div>
                     </div>
 
                     <!-- Quick Stats -->
                     <div class="dropdown__stats" role="group" aria-label="User statistics">
-                        <div class="stat">
+                        <div class="stat" data-tooltip="Total companies searched">
                             <div class="stat__value" data-user-stat="total-searches">-</div>
                             <div class="stat__label">Searches</div>
                         </div>
-                        <div class="stat">
+                        <div class="stat" data-tooltip="Average compliance score">
                             <div class="stat__value" data-user-stat="avg-compliance">-</div>
                             <div class="stat__label">Avg Score</div>
                         </div>
                     </div>
 
+                    <!-- User Level Badge -->
+                    <div class="user-level-badge" data-tooltip="Your user level based on activity">
+                        <div class="level-icon">
+                            <i class="fas fa-user" id="userLevelIcon"></i>
+                        </div>
+                        <div class="level-info">
+                            <div class="level-name" id="userLevelName">New User</div>
+                            <div class="level-progress">
+                                <div class="progress-bar">
+                                    <div class="progress-fill" id="userLevelProgress" style="width: 0%"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- Theme Toggle -->
                     <div class="dropdown__theme">
-                        <span>Dark Mode</span>
+                        <span data-tooltip="Switch between light and dark themes">Theme</span>
                         <button class="theme-toggle" 
                                 aria-label="Toggle dark mode"
+                                data-tooltip="Click to toggle theme"
                                 onclick="toggleTheme()">
                             <div class="theme-toggle__indicator">
                                 <i class="fas fa-moon" aria-hidden="true"></i>
@@ -691,28 +709,44 @@
                     <!-- Menu Items -->
                     <ul class="dropdown__menu" role="none">
                         <li role="none">
-                            <a href="#" onclick="openEnhancedProfileModal(); return false;" class="dropdown__link" role="menuitem">
-                                <i class="fas fa-user" aria-hidden="true"></i>
+                            <a href="#" onclick="openEnhancedProfileModal(); return false;" 
+                               class="dropdown__link" role="menuitem" 
+                               data-tooltip="Edit your profile information">
+                                <i class="fas fa-user-edit" aria-hidden="true"></i>
                                 <span>Edit Profile</span>
                             </a>
                         </li>
                         <li role="none">
-                            <a href="#" onclick="openSettingsModal(); return false;" class="dropdown__link" role="menuitem">
+                            <a href="#" onclick="openSettingsModal(); return false;" 
+                               class="dropdown__link" role="menuitem"
+                               data-tooltip="Manage your preferences">
                                 <i class="fas fa-cog" aria-hidden="true"></i>
                                 <span>Settings</span>
                             </a>
                         </li>
                         <li role="none">
-                            <a href="/export/history" class="dropdown__link" role="menuitem">
+                            <a href="/export/history" 
+                               class="dropdown__link" role="menuitem"
+                               data-tooltip="Download your search history">
                                 <i class="fas fa-download" aria-hidden="true"></i>
                                 <span>Export Data</span>
+                            </a>
+                        </li>
+                        <li role="none">
+                            <a href="/analytics" 
+                               class="dropdown__link" role="menuitem"
+                               data-tooltip="View detailed analytics">
+                                <i class="fas fa-chart-line" aria-hidden="true"></i>
+                                <span>Analytics</span>
                             </a>
                         </li>
                         <li role="none">
                             <hr class="dropdown__divider" role="separator">
                         </li>
                         <li role="none">
-                            <a href="/logout" class="dropdown__link dropdown__link--danger" role="menuitem">
+                            <a href="/logout" 
+                               class="dropdown__link dropdown__link--danger" role="menuitem"
+                               data-tooltip="Sign out of your account">
                                 <i class="fas fa-sign-out-alt" aria-hidden="true"></i>
                                 <span>Logout</span>
                             </a>
@@ -798,7 +832,7 @@
             document.documentElement.setAttribute('data-theme', savedTheme === 'light' ? 'light' : null);
         })();
 
-        // Enhanced dropdown functionality
+        // Enhanced user profile management
         document.addEventListener('DOMContentLoaded', function() {
             const userBtn = document.getElementById('userProfileBtn');
             const dropdown = document.getElementById('userDropdownMenu');
@@ -825,96 +859,217 @@
                     }
                 });
                 
-                // Load user stats
+                // Load user data
                 loadUserStats();
+                loadUserProfile();
+                loadUserLevel();
             }
         });
 
-        function openUserDropdown() {
-            const userBtn = document.getElementById('userProfileBtn');
-            const dropdown = document.getElementById('userDropdownMenu');
-            
-            userBtn.classList.add('active');
-            dropdown.classList.add('active');
-            userBtn.setAttribute('aria-expanded', 'true');
-            
-            // Focus first focusable element
-            setTimeout(() => {
-                const firstFocusable = dropdown.querySelector('a, button');
-                if (firstFocusable) {
-                    firstFocusable.focus();
+        async function loadUserProfile() {
+            try {
+                const response = await fetch('/api/user/profile');
+                const result = await response.json();
+                
+                if (result.success && result.data) {
+                    const profile = result.data;
+                    
+                    // Update display name if available
+                    if (profile.display_name) {
+                        const nameElements = document.querySelectorAll('#userDisplayName, #dropdownUserName');
+                        nameElements.forEach(el => {
+                            if (el) el.textContent = profile.display_name;
+                        });
+                        
+                        // Update avatar with first letter of name
+                        const avatarElements = document.querySelectorAll('.user__avatar, .dropdown__avatar');
+                        avatarElements.forEach(el => {
+                            if (el) el.textContent = profile.display_name[0].toUpperCase();
+                        });
+                    }
+                    
+                    // Update company if available
+                    if (profile.company) {
+                        const companyElement = document.getElementById('dropdownUserCompany');
+                        if (companyElement) {
+                            companyElement.textContent = profile.company;
+                        }
+                    }
+                    
+                    // Update role/designation
+                    if (profile.designation) {
+                        const roleElement = document.getElementById('userRole');
+                        if (roleElement) {
+                            roleElement.textContent = profile.designation;
+                        }
+                    }
                 }
-            }, 100);
+            } catch (error) {
+                console.error('Error loading user profile:', error);
+            }
         }
 
-        function closeUserDropdown() {
-            const userBtn = document.getElementById('userProfileBtn');
-            const dropdown = document.getElementById('userDropdownMenu');
-            
-            userBtn.classList.remove('active');
-            dropdown.classList.remove('active');
-            userBtn.setAttribute('aria-expanded', 'false');
-            
-            // Return focus to button
-            userBtn.focus();
-        }
-
-        // Load user statistics
-        async function loadUserStats() {
+        async function loadUserLevel() {
             try {
                 const response = await fetch('/api/user/stats');
                 const result = await response.json();
                 
-                if (result.success) {
-                    const totalSearches = document.querySelector('[data-user-stat="total-searches"]');
-                    const avgCompliance = document.querySelector('[data-user-stat="avg-compliance"]');
+                if (result.success && result.data) {
+                    const stats = result.data;
+                    const userLevel = stats.user_level;
                     
-                    if (totalSearches) {
-                        animateNumber(totalSearches, 0, result.data.total_searches, 800);
-                    }
-                    
-                    if (avgCompliance) {
-                        animateNumber(avgCompliance, 0, Math.round(result.data.avg_compliance), 1000, '%');
+                    if (userLevel) {
+                        // Update level display
+                        const levelNameEl = document.getElementById('userLevelName');
+                        const levelIconEl = document.getElementById('userLevelIcon');
+                        const levelProgressEl = document.getElementById('userLevelProgress');
+                        
+                        if (levelNameEl) levelNameEl.textContent = userLevel.level;
+                        
+                        if (levelIconEl) {
+                            levelIconEl.className = userLevel.icon;
+                            levelIconEl.parentElement.style.background = userLevel.color;
+                        }
+                        
+                        // Calculate progress to next level
+                        const totalSearches = stats.total_searches || 0;
+                        let nextMilestone = 5;
+                        if (totalSearches >= 5) nextMilestone = 20;
+                        if (totalSearches >= 20) nextMilestone = 50;
+                        if (totalSearches >= 50) nextMilestone = 100;
+                        if (totalSearches >= 100) nextMilestone = 200;
+                        
+                        const progress = Math.min((totalSearches / nextMilestone) * 100, 100);
+                        if (levelProgressEl) {
+                            levelProgressEl.style.width = progress + '%';
+                        }
                     }
                 }
             } catch (error) {
-                console.error('Error loading user stats:', error);
+                console.error('Error loading user level:', error);
             }
         }
 
-        function animateNumber(element, start, end, duration, suffix = '') {
-            const startTime = performance.now();
-            const difference = end - start;
-            
-            function step(currentTime) {
-                const elapsed = currentTime - startTime;
-                const progress = Math.min(elapsed / duration, 1);
-                const current = Math.floor(start + (difference * progress));
-                
-                element.textContent = current + suffix;
-                
-                if (progress < 1) {
-                    requestAnimationFrame(step);
-                }
-            }
-            
-            requestAnimationFrame(step);
-        }
-
-        // Global modal functions (placeholders - will be enhanced by common-scripts.js)
+        // Enhanced profile modal
         function openEnhancedProfileModal() {
-            if (typeof window.openEnhancedProfileModal !== 'undefined') {
-                window.openEnhancedProfileModal();
-            } else {
-                alert('Profile modal will open here');
+            if (typeof modalManager === 'undefined') {
+                // Fallback modal creation
+                const modalHTML = `
+                    <div id="profileModal" style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 10000; display: flex; align-items: center; justify-content: center;">
+                        <div style="background: var(--bg-card); border-radius: 16px; padding: 2rem; max-width: 600px; width: 90%; max-height: 90vh; overflow-y: auto;">
+                            <h2 style="margin-bottom: 1.5rem; color: var(--text-primary);">✨ Edit Profile</h2>
+                            <form id="enhancedProfileForm" style="display: flex; flex-direction: column; gap: 1.5rem;">
+                                <div style="background: linear-gradient(135deg, rgba(124, 58, 237, 0.1) 0%, rgba(37, 99, 235, 0.1) 100%); border-radius: 12px; padding: 1.5rem; margin-bottom: 1rem;">
+                                    <h4 style="margin-bottom: 1rem; color: var(--text-primary);">👤 Personal Information</h4>
+                                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
+                                        <div>
+                                            <label style="display: block; margin-bottom: 0.5rem; color: var(--text-secondary); font-weight: 500;">Display Name *</label>
+                                            <input type="text" name="display_name" id="displayNameInput" placeholder="Your full name" style="width: 100%; padding: 0.75rem; background: var(--bg-input); border: 1px solid var(--border-color); border-radius: 8px; color: var(--text-primary);" required>
+                                        </div>
+                                        <div>
+                                            <label style="display: block; margin-bottom: 0.5rem; color: var(--text-secondary); font-weight: 500;">Designation</label>
+                                            <input type="text" name="designation" id="designationInput" placeholder="Your job title" style="width: 100%; padding: 0.75rem; background: var(--bg-input); border: 1px solid var(--border-color); border-radius: 8px; color: var(--text-primary);">
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div style="background: linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(5, 150, 105, 0.1) 100%); border-radius: 12px; padding: 1.5rem;">
+                                    <h4 style="margin-bottom: 1rem; color: var(--text-primary);">🏢 Company Information</h4>
+                                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
+                                        <div>
+                                            <label style="display: block; margin-bottom: 0.5rem; color: var(--text-secondary); font-weight: 500;">Company Name</label>
+                                            <input type="text" name="company" id="companyInput" placeholder="Your company name" style="width: 100%; padding: 0.75rem; background: var(--bg-input); border: 1px solid var(--border-color); border-radius: 8px; color: var(--text-primary);">
+                                        </div>
+                                        <div>
+                                            <label style="display: block; margin-bottom: 0.5rem; color: var(--text-secondary); font-weight: 500;">Email</label>
+                                            <input type="email" name="email" id="emailInput" placeholder="your.email@company.com" style="width: 100%; padding: 0.75rem; background: var(--bg-input); border: 1px solid var(--border-color); border-radius: 8px; color: var(--text-primary);">
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div style="display: flex; gap: 1rem; margin-top: 1rem;">
+                                    <button type="submit" style="flex: 1; padding: 0.75rem; background: var(--accent-gradient); color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer;">
+                                        💾 Save Profile
+                                    </button>
+                                    <button type="button" onclick="loadCurrentProfile()" style="padding: 0.75rem 1rem; background: var(--bg-hover); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 8px; font-weight: 600; cursor: pointer;">
+                                        🔄 Reload
+                                    </button>
+                                    <button type="button" onclick="closeProfileModal()" style="padding: 0.75rem 1rem; background: var(--bg-hover); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 8px; font-weight: 600; cursor: pointer;">
+                                        ✕ Close
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                `;
+                
+                document.body.insertAdjacentHTML('beforeend', modalHTML);
+                
+                // Add form submission handler
+                document.getElementById('enhancedProfileForm').addEventListener('submit', async function(e) {
+                    e.preventDefault();
+                    const formData = new FormData(this);
+                    const data = Object.fromEntries(formData.entries());
+                    
+                    try {
+                        const response = await fetch('/api/user/profile', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify(data)
+                        });
+                        
+                        const result = await response.json();
+                        
+                        if (result.success) {
+                            alert('✨ Profile updated successfully!');
+                            closeProfileModal();
+                            loadUserProfile();
+                            loadUserStats();
+                        } else {
+                            alert(result.error || 'Failed to save profile');
+                        }
+                    } catch (error) {
+                        console.error('Error saving profile:', error);
+                        alert('Failed to save profile');
+                    }
+                });
+                
+                // Load current profile data
+                setTimeout(loadCurrentProfile, 100);
+                return;
+            }
+            
+            // Use modalManager if available (implement your existing modal logic here)
+        }
+
+        function closeProfileModal() {
+            const modal = document.getElementById('profileModal');
+            if (modal) {
+                modal.remove();
             }
         }
 
-        function openSettingsModal() {
-            if (typeof window.openSettingsModal !== 'undefined') {
-                window.openSettingsModal();
-            } else {
-                alert('Settings modal will open here');
+        async function loadCurrentProfile() {
+            try {
+                const response = await fetch('/api/user/profile');
+                const result = await response.json();
+                
+                if (result.success && result.data) {
+                    const profile = result.data;
+                    
+                    // Fill form with current data
+                    const form = document.getElementById('enhancedProfileForm');
+                    if (form) {
+                        if (profile.display_name) document.getElementById('displayNameInput').value = profile.display_name;
+                        if (profile.designation) document.getElementById('designationInput').value = profile.designation;
+                        if (profile.company) document.getElementById('companyInput').value = profile.company;
+                        if (profile.email) document.getElementById('emailInput').value = profile.email;
+                    }
+                }
+            } catch (error) {
+                console.error('Error loading current profile:', error);
             }
         }
     </script>
@@ -927,75 +1082,744 @@
 
     <!-- Additional Component Styles -->
     <style>
-        .messages-container {
-            background: var(--bg-secondary);
-            padding: 1rem 0;
-        }
-
-        .alert {
+        /* Enhanced User Level Badge */
+        .user-level-badge {
             display: flex;
-            align-items: flex-start;
-            gap: 0.75rem;
+            align-items: center;
+            gap: 1rem;
             padding: 1rem;
+            background: linear-gradient(135deg, rgba(124, 58, 237, 0.1) 0%, rgba(37, 99, 235, 0.1) 100%);
+            border: 1px solid rgba(124, 58, 237, 0.2);
             border-radius: 12px;
-            border: 1px solid;
-            margin-bottom: 1rem;
+            margin: 1rem 0;
+            transition: all 0.3s ease;
         }
 
-        .alert__icon {
+        .level-icon {
+            width: 40px;
+            height: 40px;
+            background: var(--accent-gradient);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 1.2rem;
             flex-shrink: 0;
-            font-size: 1.125rem;
-            margin-top: 2px;
         }
 
-        .alert__content {
+        .level-info {
             flex: 1;
             min-width: 0;
         }
 
-        .alert__message {
+        .level-name {
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .progress-bar {
+            height: 6px;
+            background: var(--bg-hover);
+            border-radius: 3px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: var(--accent-gradient);
+            border-radius: 3px;
+            transition: width 1s ease;
+            position: relative;
+        }
+
+        .progress-fill::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
+            animation: progressShimmer 2s infinite;
+        }
+
+        @keyframes progressShimmer {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
+        }
+
+        /* Enhanced Tooltips */
+        [data-tooltip] {
+            position: relative;
+            cursor: help;
+        }
+
+        [data-tooltip]:before {
+            content: attr(data-tooltip);
+            position: absolute;
+            bottom: calc(100% + 8px);
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--bg-card);
+            color: var(--text-primary);
+            padding: 0.75rem 1rem;
+            border-radius: 8px;
             font-size: 0.875rem;
-            line-height: 1.5;
+            font-weight: 500;
+            white-space: nowrap;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            border: 1px solid var(--border-primary);
+            z-index: 10000;
+            pointer-events: none;
+            max-width: 200px;
+            white-space: normal;
+            text-align: center;
+            line-height: 1.4;
         }
 
-        .alert--success {
-            background: rgba(16, 185, 129, 0.05);
-            border-color: rgba(16, 185, 129, 0.2);
-            color: var(--success);
+        [data-tooltip]:after {
+            content: '';
+            position: absolute;
+            bottom: calc(100% + 2px);
+            left: 50%;
+            transform: translateX(-50%);
+            border: 6px solid transparent;
+            border-top-color: var(--bg-card);
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+            z-index: 10001;
+            pointer-events: none;
         }
 
-        .alert--warning {
-            background: rgba(245, 158, 11, 0.05);
-            border-color: rgba(245, 158, 11, 0.2);
-            color: var(--warning);
+        [data-tooltip]:hover:before,
+        [data-tooltip]:hover:after {
+            opacity: 1;
+            visibility: visible;
         }
 
-        .alert--error {
-            background: rgba(239, 68, 68, 0.05);
-            border-color: rgba(239, 68, 68, 0.2);
-            color: var(--error);
+        /* Tooltip positioning for different contexts */
+        .dropdown__menu [data-tooltip]:before {
+            bottom: auto;
+            top: calc(100% + 8px);
+            left: 0;
+            transform: none;
         }
 
-        .alert--info {
-            background: rgba(59, 130, 246, 0.05);
-            border-color: rgba(59, 130, 246, 0.2);
-            color: var(--info);
+        .dropdown__menu [data-tooltip]:after {
+            bottom: auto;
+            top: calc(100% + 2px);
+            left: 20px;
+            transform: none;
+            border-top-color: transparent;
+            border-bottom-color: var(--bg-card);
         }
 
-        .alert__close {
-            background: none;
-            border: none;
-            color: currentColor;
-            cursor: pointer;
-            padding: 0.25rem;
-            border-radius: 4px;
-            transition: background-color var(--transition-fast);
-            flex-shrink: 0;
+        /* Enhanced avatar with initials */
+        .user__avatar,
+        .dropdown__avatar {
+            background: var(--accent-gradient);
+            color: white;
+            font-weight: 700;
+            font-size: 1.1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            overflow: hidden;
         }
 
-        .alert__close:hover {
-            background: rgba(0, 0, 0, 0.1);
+        .user__avatar::before,
+        .dropdown__avatar::before {
+            content: '';
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(45deg, transparent, rgba(255,255,255,0.2), transparent);
+            transform: translateX(-100%);
+            transition: transform 0.6s;
+        }
+
+        .user__avatar:hover::before,
+        .dropdown__avatar:hover::before {
+            transform: translateX(100%);
+        }
+
+        /* Enhanced dropdown stats */
+        .stat {
+            background: var(--bg-hover);
+            border: 1px solid rgba(124, 58, 237, 0.1);
+            border-radius: 8px;
+            padding: 1rem;
+            text-align: center;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .stat:hover {
+            transform: translateY(-2px);
+            border-color: var(--accent-primary);
+            box-shadow: 0 8px 25px rgba(124, 58, 237, 0.2);
+        }
+
+        .stat::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: var(--accent-gradient);
+            transform: scaleX(0);
+            transition: transform 0.3s ease;
+        }
+
+        .stat:hover::before {
+            transform: scaleX(1);
+        }
+
+        .stat__value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--accent-primary);
+            margin-bottom: 0.25rem;
+            transition: all 0.3s ease;
+        }
+
+        .stat:hover .stat__value {
+            transform: scale(1.1);
+        }
+
+        .stat__label {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        /* Responsive tooltip adjustments */
+        @media (max-width: 768px) {
+            [data-tooltip]:before {
+                font-size: 0.8rem;
+                padding: 0.5rem 0.75rem;
+                max-width: 150px;
+            }
+            
+            .user__info {
+                display: none;
+            }
+        }
+
+        /* Enhanced loading animation for stats */
+        .stat__value.loading {
+            background: linear-gradient(90deg, transparent, var(--accent-primary), transparent);
+            background-size: 200% 100%;
+            animation: statLoading 1.5s infinite;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        @keyframes statLoading {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
         }
     </style>
+</head>
+
+<body class="{% block body_class %}{% endblock %}" data-page="{{ request.url.path.split('/')[-1] or 'home' }}">
+    <!-- Skip to main content for accessibility -->
+    <a href="#main-content" class="sr-only">Skip to main content</a>
+    
+    <!-- Header Component - Only show if not overridden by child templates -->
+    {% if not request.url.path in ['/login', '/signup'] %}
+    {% block header %}
+    <header class="header" role="banner">
+        <div class="header__container">
+            <!-- Logo -->
+            <a href="/" class="header__logo" aria-label="GST Intelligence Platform Home">
+                <div class="header__logo-icon">
+                    <i class="fas fa-chart-line" aria-hidden="true"></i>
+                </div>
+                <span class="header__logo-text">GST Intelligence</span>
+            </a>
+
+            <!-- Navigation -->
+            {% if current_user %}
+            <nav class="header__nav" role="navigation" aria-label="Main navigation">
+                <a href="/" 
+                   class="nav__link {% if request.url.path == '/' %}nav__link--active{% endif %}"
+                   {% if request.url.path == '/' %}aria-current="page"{% endif %}>
+                    <i class="fas fa-home" aria-hidden="true"></i>
+                    <span>Dashboard</span>
+                </a>
+                <a href="/analytics" 
+                   class="nav__link {% if request.url.path == '/analytics' %}nav__link--active{% endif %}"
+                   {% if request.url.path == '/analytics' %}aria-current="page"{% endif %}>
+                    <i class="fas fa-chart-bar" aria-hidden="true"></i>
+                    <span>Analytics</span>
+                </a>
+                <a href="/history" 
+                   class="nav__link {% if request.url.path == '/history' %}nav__link--active{% endif %}"
+                   {% if request.url.path == '/history' %}aria-current="page"{% endif %}>
+                    <i class="fas fa-history" aria-hidden="true"></i>
+                    <span>History</span>
+                </a>
+            </nav>
+
+            <!-- User Menu -->
+            <div class="user-profile-wrapper">
+                <button class="user__trigger" 
+                        id="userProfileBtn"
+                        aria-expanded="false"
+                        aria-haspopup="true"
+                        aria-label="User menu">
+                    <div class="user__avatar" aria-hidden="true" data-tooltip="Your Profile">
+                        {{ (user_display_name or current_user)[0]|upper if user_display_name else current_user[0]|upper }}
+                    </div>
+                    <div class="user__info">
+                        <div class="user__name" id="userDisplayName">
+                            {{ user_display_name or ("User " + current_user[-4:]) if current_user else "User" }}
+                        </div>
+                        <div class="user__status">
+                            <span class="status-indicator" aria-label="Online" data-tooltip="Online"></span>
+                            <span id="userRole">{{ user_profile.designation or "Member" if user_profile else "Member" }}</span>
+                        </div>
+                    </div>
+                    <i class="fas fa-chevron-down user__chevron" aria-hidden="true"></i>
+                </button>
+
+                <!-- Enhanced User Dropdown -->
+                <div id="userDropdownMenu" class="user__dropdown" role="menu">
+                    <div class="dropdown__header">
+                        <div class="dropdown__avatar" aria-hidden="true">
+                            {{ (user_display_name or current_user)[0]|upper if user_display_name else current_user[0]|upper }}
+                        </div>
+                        <div class="dropdown__user-info">
+                            <h4 id="dropdownUserName">{{ user_display_name or ("User " + current_user[-4:]) if current_user else "User" }}</h4>
+                            <p id="dropdownUserCompany">{{ user_profile.company or "GST Intelligence Platform" if user_profile else "GST Intelligence Platform" }}</p>
+                        </div>
+                    </div>
+
+                    <!-- Quick Stats -->
+                    <div class="dropdown__stats" role="group" aria-label="User statistics">
+                        <div class="stat" data-tooltip="Total companies searched">
+                            <div class="stat__value" data-user-stat="total-searches">-</div>
+                            <div class="stat__label">Searches</div>
+                        </div>
+                        <div class="stat" data-tooltip="Average compliance score">
+                            <div class="stat__value" data-user-stat="avg-compliance">-</div>
+                            <div class="stat__label">Avg Score</div>
+                        </div>
+                    </div>
+
+                    <!-- User Level Badge -->
+                    <div class="user-level-badge" data-tooltip="Your user level based on activity">
+                        <div class="level-icon">
+                            <i class="fas fa-user" id="userLevelIcon"></i>
+                        </div>
+                        <div class="level-info">
+                            <div class="level-name" id="userLevelName">New User</div>
+                            <div class="level-progress">
+                                <div class="progress-bar">
+                                    <div class="progress-fill" id="userLevelProgress" style="width: 0%"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Theme Toggle -->
+                    <div class="dropdown__theme">
+                        <span data-tooltip="Switch between light and dark themes">Theme</span>
+                        <button class="theme-toggle" 
+                                aria-label="Toggle dark mode"
+                                data-tooltip="Click to toggle theme"
+                                onclick="toggleTheme()">
+                            <div class="theme-toggle__indicator">
+                                <i class="fas fa-moon" aria-hidden="true"></i>
+                            </div>
+                        </button>
+                    </div>
+
+                    <!-- Menu Items -->
+                    <ul class="dropdown__menu" role="none">
+                        <li role="none">
+                            <a href="#" onclick="openEnhancedProfileModal(); return false;" 
+                               class="dropdown__link" role="menuitem" 
+                               data-tooltip="Edit your profile information">
+                                <i class="fas fa-user-edit" aria-hidden="true"></i>
+                                <span>Edit Profile</span>
+                            </a>
+                        </li>
+                        <li role="none">
+                            <a href="#" onclick="openSettingsModal(); return false;" 
+                               class="dropdown__link" role="menuitem"
+                               data-tooltip="Manage your preferences">
+                                <i class="fas fa-cog" aria-hidden="true"></i>
+                                <span>Settings</span>
+                            </a>
+                        </li>
+                        <li role="none">
+                            <a href="/export/history" 
+                               class="dropdown__link" role="menuitem"
+                               data-tooltip="Download your search history">
+                                <i class="fas fa-download" aria-hidden="true"></i>
+                                <span>Export Data</span>
+                            </a>
+                        </li>
+                        <li role="none">
+                            <a href="/analytics" 
+                               class="dropdown__link" role="menuitem"
+                               data-tooltip="View detailed analytics">
+                                <i class="fas fa-chart-line" aria-hidden="true"></i>
+                                <span>Analytics</span>
+                            </a>
+                        </li>
+                        <li role="none">
+                            <hr class="dropdown__divider" role="separator">
+                        </li>
+                        <li role="none">
+                            <a href="/logout" 
+                               class="dropdown__link dropdown__link--danger" role="menuitem"
+                               data-tooltip="Sign out of your account">
+                                <i class="fas fa-sign-out-alt" aria-hidden="true"></i>
+                                <span>Logout</span>
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+
+            {% else %}
+            <!-- Authentication Links -->
+            <div class="auth-links">
+                <a href="/login" class="btn btn--ghost">Login</a>
+                <a href="/signup" class="btn btn--primary">Sign Up</a>
+            </div>
+            {% endif %}
+        </div>
+    </header>
+    {% endblock %}
+    {% endif %}
+
+    <!-- Main Content -->
+    <main id="main-content" class="main-content" role="main">
+        <!-- Flash Messages -->
+        {% block messages %}
+        {% if messages %}
+        <div class="messages-container">
+            <div class="container">
+                {% for message in messages %}
+                <div class="alert alert--{{ message.type }}" role="alert">
+                    <div class="alert__icon">
+                        {% if message.type == 'success' %}
+                        <i class="fas fa-check-circle" aria-hidden="true"></i>
+                        {% elif message.type == 'error' %}
+                        <i class="fas fa-exclamation-circle" aria-hidden="true"></i>
+                        {% elif message.type == 'warning' %}
+                        <i class="fas fa-exclamation-triangle" aria-hidden="true"></i>
+                        {% else %}
+                        <i class="fas fa-info-circle" aria-hidden="true"></i>
+                        {% endif %}
+                    </div>
+                    <div class="alert__content">
+                        <div class="alert__message">{{ message.content }}</div>
+                    </div>
+                    <button class="alert__close" aria-label="Close message">
+                        <i class="fas fa-times" aria-hidden="true"></i>
+                    </button>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+        {% endblock %}
+
+        <!-- Page Content -->
+        <div class="{% block container_class %}container{% endblock %}">
+            {% block content %}{% endblock %}
+        </div>
+    </main>
+
+    <!-- Scripts -->
+    <script>
+        // Critical inline script for theme loading
+        function toggleTheme() {
+            const html = document.documentElement;
+            const currentTheme = html.getAttribute('data-theme');
+            const newTheme = currentTheme === 'light' ? null : 'light';
+            
+            // Add transition class
+            document.body.classList.add('theme-transitioning');
+            
+            html.setAttribute('data-theme', newTheme);
+            localStorage.setItem('theme', newTheme || 'dark');
+            
+            // Remove transition class after animation
+            setTimeout(() => {
+                document.body.classList.remove('theme-transitioning');
+            }, 300);
+        }
+
+        // Load saved theme
+        (function() {
+            const savedTheme = localStorage.getItem('theme') || 'dark';
+            document.documentElement.setAttribute('data-theme', savedTheme === 'light' ? 'light' : null);
+        })();
+
+        // Enhanced user profile management
+        document.addEventListener('DOMContentLoaded', function() {
+            const userBtn = document.getElementById('userProfileBtn');
+            const dropdown = document.getElementById('userDropdownMenu');
+            
+            if (userBtn && dropdown) {
+                userBtn.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    
+                    const isOpen = dropdown.classList.contains('active');
+                    
+                    if (isOpen) {
+                        dropdown.classList.remove('active');
+                        userBtn.classList.remove('active');
+                    } else {
+                        dropdown.classList.add('active');
+                        userBtn.classList.add('active');
+                    }
+                });
+                
+                document.addEventListener('click', function(e) {
+                    if (!userBtn.contains(e.target) && !dropdown.contains(e.target)) {
+                        dropdown.classList.remove('active');
+                        userBtn.classList.remove('active');
+                    }
+                });
+                
+                // Load user data
+                loadUserStats();
+                loadUserProfile();
+                loadUserLevel();
+            }
+        });
+
+        async function loadUserProfile() {
+            try {
+                const response = await fetch('/api/user/profile');
+                const result = await response.json();
+                
+                if (result.success && result.data) {
+                    const profile = result.data;
+                    
+                    // Update display name if available
+                    if (profile.display_name) {
+                        const nameElements = document.querySelectorAll('#userDisplayName, #dropdownUserName');
+                        nameElements.forEach(el => {
+                            if (el) el.textContent = profile.display_name;
+                        });
+                        
+                        // Update avatar with first letter of name
+                        const avatarElements = document.querySelectorAll('.user__avatar, .dropdown__avatar');
+                        avatarElements.forEach(el => {
+                            if (el) el.textContent = profile.display_name[0].toUpperCase();
+                        });
+                    }
+                    
+                    // Update company if available
+                    if (profile.company) {
+                        const companyElement = document.getElementById('dropdownUserCompany');
+                        if (companyElement) {
+                            companyElement.textContent = profile.company;
+                        }
+                    }
+                    
+                    // Update role/designation
+                    if (profile.designation) {
+                        const roleElement = document.getElementById('userRole');
+                        if (roleElement) {
+                            roleElement.textContent = profile.designation;
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error('Error loading user profile:', error);
+            }
+        }
+
+        async function loadUserLevel() {
+            try {
+                const response = await fetch('/api/user/stats');
+                const result = await response.json();
+                
+                if (result.success && result.data) {
+                    const stats = result.data;
+                    const userLevel = stats.user_level;
+                    
+                    if (userLevel) {
+                        // Update level display
+                        const levelNameEl = document.getElementById('userLevelName');
+                        const levelIconEl = document.getElementById('userLevelIcon');
+                        const levelProgressEl = document.getElementById('userLevelProgress');
+                        
+                        if (levelNameEl) levelNameEl.textContent = userLevel.level;
+                        
+                        if (levelIconEl) {
+                            levelIconEl.className = userLevel.icon;
+                            levelIconEl.parentElement.style.background = userLevel.color;
+                        }
+                        
+                        // Calculate progress to next level
+                        const totalSearches = stats.total_searches || 0;
+                        let nextMilestone = 5;
+                        if (totalSearches >= 5) nextMilestone = 20;
+                        if (totalSearches >= 20) nextMilestone = 50;
+                        if (totalSearches >= 50) nextMilestone = 100;
+                        if (totalSearches >= 100) nextMilestone = 200;
+                        
+                        const progress = Math.min((totalSearches / nextMilestone) * 100, 100);
+                        if (levelProgressEl) {
+                            levelProgressEl.style.width = progress + '%';
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error('Error loading user level:', error);
+            }
+        }
+
+        // Enhanced profile modal
+        function openEnhancedProfileModal() {
+            if (typeof modalManager === 'undefined') {
+                // Fallback modal creation
+                const modalHTML = `
+                    <div id="profileModal" style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 10000; display: flex; align-items: center; justify-content: center;">
+                        <div style="background: var(--bg-card); border-radius: 16px; padding: 2rem; max-width: 600px; width: 90%; max-height: 90vh; overflow-y: auto;">
+                            <h2 style="margin-bottom: 1.5rem; color: var(--text-primary);">✨ Edit Profile</h2>
+                            <form id="enhancedProfileForm" style="display: flex; flex-direction: column; gap: 1.5rem;">
+                                <div style="background: linear-gradient(135deg, rgba(124, 58, 237, 0.1) 0%, rgba(37, 99, 235, 0.1) 100%); border-radius: 12px; padding: 1.5rem; margin-bottom: 1rem;">
+                                    <h4 style="margin-bottom: 1rem; color: var(--text-primary);">👤 Personal Information</h4>
+                                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
+                                        <div>
+                                            <label style="display: block; margin-bottom: 0.5rem; color: var(--text-secondary); font-weight: 500;">Display Name *</label>
+                                            <input type="text" name="display_name" id="displayNameInput" placeholder="Your full name" style="width: 100%; padding: 0.75rem; background: var(--bg-input); border: 1px solid var(--border-color); border-radius: 8px; color: var(--text-primary);" required>
+                                        </div>
+                                        <div>
+                                            <label style="display: block; margin-bottom: 0.5rem; color: var(--text-secondary); font-weight: 500;">Designation</label>
+                                            <input type="text" name="designation" id="designationInput" placeholder="Your job title" style="width: 100%; padding: 0.75rem; background: var(--bg-input); border: 1px solid var(--border-color); border-radius: 8px; color: var(--text-primary);">
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div style="background: linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(5, 150, 105, 0.1) 100%); border-radius: 12px; padding: 1.5rem;">
+                                    <h4 style="margin-bottom: 1rem; color: var(--text-primary);">🏢 Company Information</h4>
+                                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
+                                        <div>
+                                            <label style="display: block; margin-bottom: 0.5rem; color: var(--text-secondary); font-weight: 500;">Company Name</label>
+                                            <input type="text" name="company" id="companyInput" placeholder="Your company name" style="width: 100%; padding: 0.75rem; background: var(--bg-input); border: 1px solid var(--border-color); border-radius: 8px; color: var(--text-primary);">
+                                        </div>
+                                        <div>
+                                            <label style="display: block; margin-bottom: 0.5rem; color: var(--text-secondary); font-weight: 500;">Email</label>
+                                            <input type="email" name="email" id="emailInput" placeholder="your.email@company.com" style="width: 100%; padding: 0.75rem; background: var(--bg-input); border: 1px solid var(--border-color); border-radius: 8px; color: var(--text-primary);">
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div style="display: flex; gap: 1rem; margin-top: 1rem;">
+                                    <button type="submit" style="flex: 1; padding: 0.75rem; background: var(--accent-gradient); color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer;">
+                                        💾 Save Profile
+                                    </button>
+                                    <button type="button" onclick="loadCurrentProfile()" style="padding: 0.75rem 1rem; background: var(--bg-hover); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 8px; font-weight: 600; cursor: pointer;">
+                                        🔄 Reload
+                                    </button>
+                                    <button type="button" onclick="closeProfileModal()" style="padding: 0.75rem 1rem; background: var(--bg-hover); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 8px; font-weight: 600; cursor: pointer;">
+                                        ✕ Close
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                `;
+                
+                document.body.insertAdjacentHTML('beforeend', modalHTML);
+                
+                // Add form submission handler
+                document.getElementById('enhancedProfileForm').addEventListener('submit', async function(e) {
+                    e.preventDefault();
+                    const formData = new FormData(this);
+                    const data = Object.fromEntries(formData.entries());
+                    
+                    try {
+                        const response = await fetch('/api/user/profile', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify(data)
+                        });
+                        
+                        const result = await response.json();
+                        
+                        if (result.success) {
+                            alert('✨ Profile updated successfully!');
+                            closeProfileModal();
+                            loadUserProfile();
+                            loadUserStats();
+                        } else {
+                            alert(result.error || 'Failed to save profile');
+                        }
+                    } catch (error) {
+                        console.error('Error saving profile:', error);
+                        alert('Failed to save profile');
+                    }
+                });
+                
+                // Load current profile data
+                setTimeout(loadCurrentProfile, 100);
+                return;
+            }
+            
+            // Use modalManager if available (implement your existing modal logic here)
+        }
+
+        function closeProfileModal() {
+            const modal = document.getElementById('profileModal');
+            if (modal) {
+                modal.remove();
+            }
+        }
+
+        async function loadCurrentProfile() {
+            try {
+                const response = await fetch('/api/user/profile');
+                const result = await response.json();
+                
+                if (result.success && result.data) {
+                    const profile = result.data;
+                    
+                    // Fill form with current data
+                    const form = document.getElementById('enhancedProfileForm');
+                    if (form) {
+                        if (profile.display_name) document.getElementById('displayNameInput').value = profile.display_name;
+                        if (profile.designation) document.getElementById('designationInput').value = profile.designation;
+                        if (profile.company) document.getElementById('companyInput').value = profile.company;
+                        if (profile.email) document.getElementById('emailInput').value = profile.email;
+                    }
+                }
+            } catch (error) {
+                console.error('Error loading current profile:', error);
+            }
+        }
+    </script>
+
+    <!-- Main JavaScript -->
+    <script src="/static/js/app.js" defer></script>
+    
+    <!-- Page-specific JavaScript -->
+    {% block extra_js %}{% endblock %}
 </body>
 </html>
