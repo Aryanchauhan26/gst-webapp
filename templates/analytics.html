@@ -246,7 +246,7 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 function initializeTrendsChart() {
-    const trendsData = { daily_searches};
+    const trendsData = {{ daily_searches | tojson | safe }};
     const trendsCtx = document.getElementById('trendsChart');
     
     if (trendsCtx && trendsData) {
@@ -317,7 +317,7 @@ function initializeTrendsChart() {
 }
 
 function initializeDistributionChart() {
-    const distributionData = { score_distribution  };
+    const distributionData = {{ score_distribution | tojson | safe }};
     const distributionCtx = document.getElementById('distributionChart');
     
     if (distributionCtx && distributionData) {
