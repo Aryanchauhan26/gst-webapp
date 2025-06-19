@@ -1,4 +1,4 @@
-# Enhanced anthro_ai.py - AI-powered company analysis
+# Enhanced anthro_ai.py - AI-powered company analysis and
 import os
 import httpx
 from bs4 import BeautifulSoup
