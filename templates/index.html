@@ -1,1350 +1,831 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GST Intelligence Platform - Dashboard</title>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <link rel="manifest" href="/static/manifest.json">
-    <meta name="theme-color" content="#7c3aed">
-    <style>
-        /* Enhanced CSS Variables and Theme System */
-        :root {
-            --transition-speed: 0.3s;
-            --animation-speed: 0.6s;
-        }
-
-        /* Dark Theme (Default) */
-        body {
-            --bg-primary: #0a0a0a;
-            --bg-secondary: #141414;
-            --bg-card: #1a1a1a;
-            --bg-hover: #252525;
-            --bg-input: #1f1f1f;
-            
-            --accent-primary: #7c3aed;
-            --accent-secondary: #a78bfa;
-            --accent-gradient: linear-gradient(135deg, #7c3aed 0%, #2563eb 100%);
-            --accent-gradient-hover: linear-gradient(135deg, #8b5cf6 0%, #3b82f6 100%);
-            
-            --success: #10b981;
-            --warning: #f59e0b;
-            --danger: #ef4444;
-            --info: #3b82f6;
-            
-            --text-primary: #ffffff;
-            --text-secondary: #a1a1aa;
-            --text-muted: #71717a;
-            
-            --border-color: #27272a;
-            --shadow-color: rgba(0, 0, 0, 0.3);
-            --glow-color: #7c3aed;
-            
-            --card-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-            --hover-shadow: 0 12px 40px rgba(124, 58, 237, 0.2);
-        }
-
-        /* Light Theme */
-        body.light-theme {
-            --bg-primary: #ffffff;
-            --bg-secondary: #f8f9fa;
-            --bg-card: #ffffff;
-            --bg-hover: #f1f3f5;
-            --bg-input: #f8f9fa;
-            
-            --accent-primary: #7c3aed;
-            --accent-secondary: #8b5cf6;
-            --accent-gradient: linear-gradient(135deg, #7c3aed 0%, #2563eb 100%);
-            --accent-gradient-hover: linear-gradient(135deg, #8b5cf6 0%, #3b82f6 100%);
-            
-            --success: #059669;
-            --warning: #d97706;
-            --danger: #dc2626;
-            --info: #2563eb;
-            
-            --text-primary: #1f2937;
-            --text-secondary: #6b7280;
-            --text-muted: #9ca3af;
-            
-            --border-color: #e5e7eb;
-            --shadow-color: rgba(0, 0, 0, 0.05);
-            --glow-color: #7c3aed;
-            
-            --card-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
-            --hover-shadow: 0 8px 24px rgba(124, 58, 237, 0.15);
-        }
-
-        /* Global Styles */
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        html {
-            font-size: 16px;
-            scroll-behavior: smooth;
-        }
-
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Inter', sans-serif;
-            background: var(--bg-primary);
-            color: var(--text-primary);
-            line-height: 1.6;
-            min-height: 100vh;
-            overflow-x: hidden;
-            transition: background-color var(--transition-speed), color var(--transition-speed);
-        }
-
-        /* Animated Background with Particles */
-        body::before {
-            content: '';
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: 
-                radial-gradient(circle at 20% 50%, rgba(124, 58, 237, 0.15) 0%, transparent 50%),
-                radial-gradient(circle at 80% 80%, rgba(37, 99, 235, 0.15) 0%, transparent 50%),
-                radial-gradient(circle at 40% 20%, rgba(167, 139, 250, 0.1) 0%, transparent 50%);
-            z-index: -1;
-            animation: backgroundShift 20s ease-in-out infinite;
-            pointer-events: none;
-        }
-
-        body.light-theme::before {
-            opacity: 0.3;
-        }
-
-        @keyframes backgroundShift {
-            0%, 100% { transform: rotate(0deg) scale(1); }
-            50% { transform: rotate(5deg) scale(1.1); }
-        }
-
-        /* Enhanced Header with Live Indicators */
-        .header {
-            background: var(--bg-secondary);
-            backdrop-filter: blur(20px);
-            border-bottom: 1px solid var(--border-color);
-            padding: 1rem 0;
-            position: sticky;
-            top: 0;
-            z-index: 100;
-            box-shadow: var(--card-shadow);
-            transition: all var(--transition-speed);
-        }
-
-        .header-content {
-            max-width: 1400px;
-            margin: 0 auto;
-            padding: 0 2rem;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            flex-wrap: wrap;
-            gap: 1rem;
-        }
-
-        .logo {
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-        }
-
-        .logo-icon {
-            width: 48px;
-            height: 48px;
-            background: var(--accent-gradient);
-            border-radius: 14px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 24px;
-            color: white;
-            box-shadow: 0 0 30px rgba(124, 58, 237, 0.5);
-            animation: pulse 2s ease-in-out infinite;
-            position: relative;
-        }
-
-        /* Live indicator dot */
-        .logo-icon::after {
-            content: '';
-            position: absolute;
-            top: -3px;
-            right: -3px;
-            width: 12px;
-            height: 12px;
-            background: var(--success);
-            border: 2px solid var(--bg-secondary);
-            border-radius: 50%;
-            animation: livePulse 2s ease-in-out infinite;
-        }
-
-        @keyframes pulse {
-            0%, 100% { 
-                transform: scale(1); 
-                box-shadow: 0 0 30px rgba(124, 58, 237, 0.5); 
-            }
-            50% { 
-                transform: scale(1.05); 
-                box-shadow: 0 0 40px rgba(124, 58, 237, 0.7); 
-            }
-        }
-
-        @keyframes livePulse {
-            0%, 100% { opacity: 1; transform: scale(1); }
-            50% { opacity: 0.7; transform: scale(1.2); }
-        }
-
-        .logo-text h1 {
-            font-size: 1.75rem;
-            font-weight: 700;
-            background: var(--accent-gradient);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            margin-bottom: 0.2rem;
-        }
-
-        .logo-text p {
-            font-size: 0.875rem;
-            color: var(--text-secondary);
-            font-weight: 400;
-            margin: 0;
-        }
-
-        /* Enhanced Navigation with Live Dashboard */
-        .nav-items {
-            display: flex;
-            gap: 1.5rem;
-            align-items: center;
-            flex-wrap: wrap;
-        }
-
-        .nav-link {
-            color: var(--text-primary);
-            text-decoration: none;
-            transition: all 0.3s;
-            font-weight: 500;
-            position: relative;
-            padding: 0.5rem 1rem;
-            border-radius: 8px;
-        }
-
-        .nav-link::after {
-            content: '';
-            position: absolute;
-            width: 0;
-            height: 2px;
-            bottom: 0;
-            left: 50%;
-            background: var(--accent-gradient);
-            transition: all 0.3s;
-            transform: translateX(-50%);
-        }
-
-        .nav-link:hover::after {
-            width: 80%;
-        }
-
-        .nav-link:hover,
-        .nav-link.active {
-            color: var(--accent-primary);
-            background: var(--bg-hover);
-        }
-
-        .live-dashboard-btn {
-            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-            color: white;
-            padding: 0.5rem 1rem;
-            border-radius: 8px;
-            text-decoration: none;
-            font-weight: 600;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            box-shadow: 0 4px 20px rgba(16, 185, 129, 0.3);
-            position: relative;
-            overflow: hidden;
-        }
-
-        .live-dashboard-btn::before {
-            content: '🔴';
-            animation: liveBlink 1.5s ease-in-out infinite;
-        }
-
-        .live-dashboard-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 30px rgba(16, 185, 129, 0.5);
-        }
-
-        @keyframes liveBlink {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.6; }
-        }
-
-        /* Theme Toggle with Enhanced Animation */
-        .theme-toggle {
-            background: var(--bg-card);
-            border: 1px solid var(--border-color);
-            border-radius: 50px;
-            padding: 4px;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            position: relative;
-            width: 72px;
-            height: 36px;
-            transition: all var(--transition-speed);
-        }
-
-        .theme-toggle:hover {
-            border-color: var(--accent-primary);
-            box-shadow: 0 0 20px rgba(124, 58, 237, 0.3);
-        }
-
-        .theme-toggle-indicator {
-            position: absolute;
-            width: 28px;
-            height: 28px;
-            background: var(--accent-gradient);
-            border-radius: 50%;
-            transition: transform var(--transition-speed);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-size: 14px;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
-            left: 4px;
-        }
-
-        body.light-theme .theme-toggle-indicator {
-            transform: translateX(36px);
-        }
-
-        .theme-icon {
-            font-size: 14px;
-            color: var(--text-muted);
-            flex: 1;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 1;
-        }
-
-        .logout-btn {
-            background: var(--accent-gradient);
-            color: white;
-            border: none;
-            padding: 0.5rem 1.5rem;
-            border-radius: 8px;
-            text-decoration: none;
-            transition: all 0.3s;
-            font-weight: 500;
-            box-shadow: 0 4px 20px rgba(124, 58, 237, 0.3);
-        }
-
-        .logout-btn:hover {
-            background: var(--accent-gradient-hover);
-            transform: translateY(-2px);
-            box-shadow: 0 6px 30px rgba(124, 58, 237, 0.5);
-        }
-
-        /* Container */
-        .container {
-            max-width: 1400px;
-            margin: 0 auto;
-            padding: 2rem;
-            background-color: transparent;
-            min-height: calc(100vh - 80px);
-        }
-
-        /* Welcome Section Enhanced */
-        .welcome-section {
-            background: var(--bg-card);
-            border: 1px solid var(--border-color);
-            border-radius: 20px;
-            padding: 3rem;
-            margin-bottom: 2rem;
-            box-shadow: var(--card-shadow);
-            text-align: center;
-            position: relative;
-            overflow: hidden;
-        }
-
-        .welcome-section::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 4px;
-            background: var(--accent-gradient);
-            animation: progressBar 3s ease-in-out infinite;
-        }
-
-        @keyframes progressBar {
-            0% { transform: scaleX(0); }
-            50% { transform: scaleX(1); }
-            100% { transform: scaleX(0); }
-        }
-
-        .welcome-title {
-            font-size: 2.5rem;
-            background: var(--accent-gradient);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            margin-bottom: 0.5rem;
-            font-weight: 800;
-            position: relative;
-            z-index: 1;
-        }
-
-        .welcome-subtitle {
-            color: var(--text-secondary);
-            font-size: 1.2rem;
-            position: relative;
-            z-index: 1;
-        }
-
-        /* Enhanced Search Section */
-        .search-section {
-            background: var(--bg-card);
-            border: 1px solid var(--border-color);
-            border-radius: 20px;
-            padding: 3rem;
-            margin-bottom: 2rem;
-            box-shadow: var(--card-shadow);
-            text-align: center;
-            transition: all var(--transition-speed);
-            position: relative;
-            overflow: hidden;
-        }
-
-        .search-section:hover {
-            border-color: var(--accent-primary);
-            transform: translateY(-2px);
-            box-shadow: var(--hover-shadow);
-        }
-
-        .search-title {
-            font-size: 3rem;
-            font-weight: 800;
-            margin-bottom: 1rem;
-            background: var(--accent-gradient);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            line-height: 1.2;
-        }
-
-        .search-form {
-            display: flex;
-            gap: 1rem;
-            flex-wrap: wrap;
-            align-items: flex-end;
-            justify-content: center;
-            margin-top: 2rem;
-        }
-
-        .form-group {
-            flex: 1;
-            min-width: 300px;
-            max-width: 500px;
-            position: relative;
-        }
-
-        .form-label {
-            display: block;
-            margin-bottom: 0.5rem;
-            color: var(--text-secondary);
-            font-weight: 500;
-            text-align: left;
-        }
-
-        .form-input {
-            width: 100%;
-            padding: 1rem 1.5rem;
-            background: var(--bg-input);
-            border: 2px solid var(--border-color);
-            border-radius: 12px;
-            color: var(--text-primary);
-            font-size: 1rem;
-            transition: all var(--transition-speed);
-            position: relative;
-        }
-
-        .form-input:focus {
-            outline: none;
-            border-color: var(--accent-primary);
-            box-shadow: 0 0 0 4px rgba(124, 58, 237, 0.1);
-            background: var(--bg-secondary);
-            transform: translateY(-2px);
-        }
-
-        .form-input::placeholder {
-            color: var(--text-muted);
-        }
-
-        /* Enhanced Search Button */
-        .search-btn {
-            background: var(--accent-gradient);
-            color: white;
-            border: none;
-            padding: 1rem 2rem;
-            border-radius: 12px;
-            font-size: 1rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all var(--transition-speed);
-            display: inline-flex;
-            align-items: center;
-            gap: 0.5rem;
-            box-shadow: 0 4px 20px rgba(124, 58, 237, 0.3);
-            position: relative;
-            overflow: hidden;
-        }
-
-        .search-btn::before {
-            content: '';
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            width: 0;
-            height: 0;
-            background: rgba(255, 255, 255, 0.2);
-            border-radius: 50%;
-            transform: translate(-50%, -50%);
-            transition: width 0.6s, height 0.6s;
-        }
-
-        .search-btn:hover::before {
-            width: 300px;
-            height: 300px;
-        }
-
-        .search-btn:hover {
-            background: var(--accent-gradient-hover);
-            transform: translateY(-3px);
-            box-shadow: 0 6px 30px rgba(124, 58, 237, 0.5);
-        }
-
-        /* Loading Animation */
-        .loading {
-            display: none;
-            text-align: center;
-            padding: 2rem;
-        }
-
-        .spinner {
-            width: 40px;
-            height: 40px;
-            border: 3px solid var(--bg-hover);
-            border-top: 3px solid var(--accent-primary);
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-            margin: 0 auto;
-        }
-
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-
-        /* Enhanced History Section */
-        .history-section {
-            background: var(--bg-card);
-            border: 1px solid var(--border-color);
-            border-radius: 20px;
-            padding: 2rem;
-            box-shadow: var(--card-shadow);
-            position: relative;
-            overflow: hidden;
-        }
-
-        .history-section::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: -100%;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(
-                90deg,
-                transparent,
-                rgba(124, 58, 237, 0.1),
-                transparent
-            );
-            transition: left 0.5s;
-        }
-
-        .history-section:hover::before {
-            left: 100%;
-        }
-
-        .history-title {
-            font-size: 1.5rem;
-            color: var(--text-primary);
-            margin-bottom: 1.5rem;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            flex-wrap: wrap;
-            gap: 1rem;
-            position: relative;
-            z-index: 1;
-        }
-
-        .history-header {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-
-        .history-header i {
-            font-size: 1.5rem;
-        }
-
-        .history-header span {
-            font-size: 1.5rem;
-            font-weight: 600;
-        }
-
-        .export-btn {
-            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-            color: white;
-            border: none;
-            padding: 0.5rem 1rem;
-            border-radius: 8px;
-            font-size: 0.9rem;
-            cursor: pointer;
-            transition: all 0.3s;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            box-shadow: 0 4px 20px rgba(16, 185, 129, 0.3);
-        }
-
-        .export-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 30px rgba(16, 185, 129, 0.5);
-        }
-
-        /* Enhanced Table Styles - Fixed Alignment */
-        .table-container {
-            overflow-x: auto;
-            margin-top: 1rem;
-            position: relative;
-            z-index: 1;
-        }
-
-        .history-table {
-            width: 100%;
-            border-collapse: collapse;
-            background: var(--bg-secondary);
-            border-radius: 12px;
-            overflow: hidden;
-        }
-
-        .history-table th {
-            background: var(--bg-hover);
-            color: var(--text-primary);
-            padding: 1rem;
-            text-align: left;
-            font-weight: 600;
-            border-bottom: 2px solid var(--border-color);
-            position: relative;
-            white-space: nowrap;
-        }
-
-        .history-table th:hover {
-            background: var(--accent-primary);
-            color: white;
-        }
-
-        .history-table td {
-            padding: 1rem;
-            color: var(--text-primary);
-            border-bottom: 1px solid var(--border-color);
-            transition: all var(--transition-speed);
-            vertical-align: middle;
-        }
-
-        /* Fix column widths for better alignment */
-        .history-table th:nth-child(1),
-        .history-table td:nth-child(1) {
-            width: 20%;
-            min-width: 180px;
-        }
-
-        .history-table th:nth-child(2),
-        .history-table td:nth-child(2) {
-            width: 20%;
-            min-width: 150px;
-        }
-
-        .history-table th:nth-child(3),
-        .history-table td:nth-child(3) {
-            width: 35%;
-            min-width: 200px;
-        }
-
-        .history-table th:nth-child(4),
-        .history-table td:nth-child(4) {
-            width: 15%;
-            min-width: 120px;
-            text-align: center;
-        }
-
-        .history-table th:nth-child(5),
-        .history-table td:nth-child(5) {
-            width: 10%;
-            min-width: 100px;
-            text-align: center;
-        }
-
-        .history-table tbody tr {
-            cursor: pointer;
-            transition: all 0.3s ease;
-            position: relative;
-        }
-
-        .history-table tbody tr:hover {
-            background: var(--bg-hover);
-            transform: translateX(5px);
-        }
-
-        .history-table tbody tr::before {
-            content: '';
-            position: absolute;
-            left: 0;
-            top: 0;
-            bottom: 0;
-            width: 4px;
-            background: var(--accent-gradient);
-            transform: scaleY(0);
-            transition: transform 0.3s;
-        }
-
-        .history-table tbody tr:hover::before {
-            transform: scaleY(1);
-        }
-
-        /* View Button */
-        .view-btn {
-            background: var(--accent-gradient);
-            color: white !important;
-            border: none;
-            padding: 0.5rem 1rem;
-            border-radius: 6px;
-            font-size: 0.85rem;
-            font-weight: 600;
-            cursor: pointer;
-            display: inline-flex;
-            align-items: center;
-            gap: 0.3rem;
-            white-space: nowrap;
-            transition: all 0.3s;
-            text-decoration: none;
-        }
-
-        .view-btn:hover {
-            background: var(--accent-gradient-hover);
-            transform: translateY(-2px);
-            box-shadow: 0 4px 20px rgba(124, 58, 237, 0.5);
-        }
-
-        /* Enhanced Score Badges with Tooltips */
-        .score-badge {
-            display: inline-block;
-            padding: 0.25rem 0.75rem;
-            border-radius: 15px;
-            font-size: 0.85rem;
-            font-weight: 600;
-            position: relative;
-            cursor: help;
-            transition: all var(--transition-speed);
-        }
-
-        .score-high {
-            background: rgba(16, 185, 129, 0.2);
-            color: var(--success);
-            border: 1px solid rgba(16, 185, 129, 0.3);
-        }
-
-        .score-medium {
-            background: rgba(245, 158, 11, 0.2);
-            color: var(--warning);
-            border: 1px solid rgba(245, 158, 11, 0.3);
-        }
-
-        .score-low {
-            background: rgba(239, 68, 68, 0.2);
-            color: var(--danger);
-            border: 1px solid rgba(239, 68, 68, 0.3);
-        }
-
-        /* Tooltip System */
-        .tooltip {
-            position: relative;
-        }
-
-        .tooltip::after {
-            content: attr(data-tooltip);
-            position: absolute;
-            bottom: 100%;
-            left: 50%;
-            transform: translateX(-50%) translateY(-8px);
-            background: var(--bg-hover);
-            color: var(--text-primary);
-            padding: 0.5rem 1rem;
-            border-radius: 8px;
-            font-size: 0.875rem;
-            white-space: nowrap;
+{% extends "base.html" %}
+
+{% block title %}Dashboard - GST Intelligence Platform{% endblock %}
+{% block body_class %}page-dashboard{% endblock %}
+
+{% block content %}
+<!-- Enhanced Dashboard with Modern UI -->
+<style>
+    /* Dashboard-specific modern styles */
+    .hero-section {
+        background: var(--dark-gradient);
+        border-radius: 32px;
+        padding: 4rem 3rem;
+        margin-bottom: 3rem;
+        text-align: center;
+        position: relative;
+        overflow: hidden;
+        border: 1px solid rgba(124, 58, 237, 0.2);
+    }
+
+    .hero-section::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 6px;
+        background: var(--accent-gradient);
+        animation: progressBar 3s ease-in-out infinite;
+    }
+
+    .hero-title {
+        font-size: 3.5rem;
+        font-weight: 900;
+        background: var(--accent-gradient);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        margin-bottom: 1rem;
+        line-height: 1.1;
+        animation: fadeInUp 0.8s ease-out;
+    }
+
+    .hero-subtitle {
+        font-size: 1.4rem;
+        color: var(--text-secondary);
+        margin-bottom: 2rem;
+        animation: fadeInUp 0.8s ease-out 0.2s both;
+    }
+
+    /* Enhanced Search Section */
+    .search-section {
+        background: var(--bg-card);
+        border: 1px solid var(--border-primary);
+        border-radius: 32px;
+        padding: 3rem;
+        margin-bottom: 3rem;
+        box-shadow: var(--card-shadow);
+        position: relative;
+        overflow: hidden;
+    }
+
+    .search-section::after {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: 
+            radial-gradient(circle at 20% 20%, rgba(124, 58, 237, 0.1) 0%, transparent 50%),
+            radial-gradient(circle at 80% 80%, rgba(37, 99, 235, 0.05) 0%, transparent 50%);
+        pointer-events: none;
+        z-index: 0;
+    }
+
+    .search-content {
+        position: relative;
+        z-index: 1;
+    }
+
+    .search-form-enhanced {
+        display: flex;
+        gap: 1rem;
+        align-items: flex-end;
+        max-width: 800px;
+        margin: 2rem auto 0;
+        flex-wrap: wrap;
+    }
+
+    .gstin-input-group {
+        flex: 1;
+        min-width: 300px;
+        position: relative;
+    }
+
+    .gstin-input {
+        width: 100%;
+        padding: 1.5rem 1.5rem 1.5rem 4rem;
+        background: var(--bg-input);
+        border: 3px solid var(--border-primary);
+        border-radius: 20px;
+        font-size: 1.1rem;
+        color: var(--text-primary);
+        font-family: 'JetBrains Mono', monospace;
+        letter-spacing: 0.1em;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+    }
+
+    .gstin-input:focus {
+        outline: none;
+        border-color: var(--primary-500);
+        box-shadow: 
+            0 8px 32px rgba(124, 58, 237, 0.2),
+            0 0 0 4px rgba(124, 58, 237, 0.1);
+        transform: translateY(-3px);
+    }
+
+    .gstin-icon {
+        position: absolute;
+        left: 1.5rem;
+        top: 50%;
+        transform: translateY(-50%);
+        color: var(--text-muted);
+        font-size: 1.3rem;
+        transition: all 0.3s ease;
+    }
+
+    .gstin-input:focus + .gstin-icon {
+        color: var(--primary-500);
+        transform: translateY(-50%) scale(1.1);
+    }
+
+    .search-btn-enhanced {
+        background: var(--accent-gradient);
+        border: none;
+        border-radius: 20px;
+        padding: 1.5rem 2.5rem;
+        color: white;
+        font-weight: 700;
+        font-size: 1.1rem;
+        cursor: pointer;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        box-shadow: 0 8px 30px rgba(124, 58, 237, 0.4);
+        position: relative;
+        overflow: hidden;
+    }
+
+    .search-btn-enhanced::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+        transition: left 0.5s;
+    }
+
+    .search-btn-enhanced:hover::before {
+        left: 100%;
+    }
+
+    .search-btn-enhanced:hover {
+        transform: translateY(-4px) scale(1.05);
+        box-shadow: 0 12px 40px rgba(124, 58, 237, 0.6);
+    }
+
+    /* Enhanced Stats Grid */
+    .stats-grid-enhanced {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 2rem;
+        margin-bottom: 3rem;
+    }
+
+    .stat-card-enhanced {
+        background: var(--bg-card);
+        border: 1px solid var(--border-primary);
+        border-radius: 24px;
+        padding: 2.5rem;
+        text-align: center;
+        transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        position: relative;
+        overflow: hidden;
+        cursor: pointer;
+    }
+
+    .stat-card-enhanced::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        left: -50%;
+        width: 200%;
+        height: 200%;
+        background: conic-gradient(
+            from 0deg,
+            transparent,
+            rgba(124, 58, 237, 0.1),
+            transparent
+        );
+        animation: rotate 8s linear infinite;
+        opacity: 0;
+        transition: opacity 0.3s ease;
+    }
+
+    .stat-card-enhanced:hover::before {
+        opacity: 1;
+    }
+
+    .stat-card-enhanced:hover {
+        transform: translateY(-12px) scale(1.03);
+        box-shadow: 0 25px 50px rgba(124, 58, 237, 0.25);
+        border-color: var(--primary-500);
+    }
+
+    .stat-icon-enhanced {
+        width: 80px;
+        height: 80px;
+        background: var(--accent-gradient);
+        border-radius: 20px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 2.5rem;
+        color: white;
+        margin: 0 auto 1.5rem;
+        position: relative;
+        z-index: 2;
+        box-shadow: 0 8px 32px rgba(124, 58, 237, 0.4);
+    }
+
+    .stat-value-enhanced {
+        font-size: 3.5rem;
+        font-weight: 900;
+        background: var(--accent-gradient);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        margin-bottom: 0.5rem;
+        line-height: 1;
+        position: relative;
+        z-index: 2;
+    }
+
+    .stat-label-enhanced {
+        color: var(--text-secondary);
+        font-size: 1.1rem;
+        font-weight: 600;
+        position: relative;
+        z-index: 2;
+    }
+
+    .stat-trend {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        margin-top: 1rem;
+        font-size: 0.9rem;
+        position: relative;
+        z-index: 2;
+    }
+
+    .stat-trend.positive {
+        color: var(--success);
+    }
+
+    .stat-trend.neutral {
+        color: var(--warning);
+    }
+
+    /* Quick Actions Panel */
+    .quick-actions-panel {
+        background: var(--bg-card);
+        border: 1px solid var(--border-primary);
+        border-radius: 32px;
+        padding: 3rem;
+        margin-bottom: 3rem;
+        box-shadow: var(--card-shadow);
+    }
+
+    .quick-actions-title {
+        font-size: 2rem;
+        font-weight: 700;
+        color: var(--text-primary);
+        margin-bottom: 2rem;
+        text-align: center;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 1rem;
+    }
+
+    .quick-actions-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 1.5rem;
+    }
+
+    .quick-action-card {
+        background: var(--bg-hover);
+        border: 1px solid var(--border-primary);
+        border-radius: 20px;
+        padding: 2rem;
+        text-align: center;
+        transition: all 0.3s ease;
+        cursor: pointer;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .quick-action-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 4px;
+        background: var(--accent-gradient);
+        transform: scaleX(0);
+        transition: transform 0.3s ease;
+    }
+
+    .quick-action-card:hover::before {
+        transform: scaleX(1);
+    }
+
+    .quick-action-card:hover {
+        transform: translateY(-8px);
+        box-shadow: 0 20px 40px rgba(124, 58, 237, 0.2);
+        border-color: var(--primary-500);
+    }
+
+    .quick-action-icon {
+        width: 60px;
+        height: 60px;
+        background: var(--accent-gradient);
+        border-radius: 16px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.8rem;
+        color: white;
+        margin: 0 auto 1rem;
+        box-shadow: 0 8px 24px rgba(124, 58, 237, 0.3);
+    }
+
+    .quick-action-title {
+        font-size: 1.2rem;
+        font-weight: 600;
+        color: var(--text-primary);
+        margin-bottom: 0.5rem;
+    }
+
+    .quick-action-desc {
+        font-size: 0.9rem;
+        color: var(--text-secondary);
+        line-height: 1.5;
+    }
+
+    /* Tips Section */
+    .tips-section {
+        background: linear-gradient(135deg, rgba(124, 58, 237, 0.1) 0%, rgba(37, 99, 235, 0.1) 100%);
+        border: 1px solid rgba(124, 58, 237, 0.2);
+        border-radius: 24px;
+        padding: 2.5rem;
+        margin-top: 3rem;
+    }
+
+    .tip-card-enhanced {
+        background: var(--bg-card);
+        border: 1px solid rgba(124, 58, 237, 0.2);
+        border-radius: 16px;
+        padding: 2rem;
+        display: flex;
+        align-items: flex-start;
+        gap: 1.5rem;
+        box-shadow: 0 8px 32px rgba(124, 58, 237, 0.1);
+    }
+
+    .tip-icon {
+        width: 50px;
+        height: 50px;
+        background: var(--accent-gradient);
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.5rem;
+        color: white;
+        flex-shrink: 0;
+    }
+
+    .tip-content {
+        flex: 1;
+    }
+
+    .tip-title {
+        font-size: 1.1rem;
+        font-weight: 600;
+        color: var(--text-primary);
+        margin-bottom: 0.5rem;
+    }
+
+    .tip-text {
+        color: var(--text-secondary);
+        line-height: 1.6;
+    }
+
+    /* Animations */
+    @keyframes fadeInUp {
+        from {
             opacity: 0;
-            pointer-events: none;
-            transition: opacity 0.3s;
-            z-index: 1000;
-            box-shadow: var(--card-shadow);
-            border: 1px solid var(--border-color);
+            transform: translateY(30px);
         }
-
-        .tooltip:hover::after {
+        to {
             opacity: 1;
+            transform: translateY(0);
         }
+    }
 
-        /* Enhanced Empty State */
-        .empty-state {
-            text-align: center;
-            padding: 3rem;
-            color: var(--text-secondary);
-            position: relative;
-        }
+    @keyframes progressBar {
+        0% { transform: scaleX(0); }
+        50% { transform: scaleX(1); }
+        100% { transform: scaleX(0); }
+    }
 
-        .empty-state svg {
-            width: 64px;
-            height: 64px;
-            margin-bottom: 1rem;
-            opacity: 0.3;
-            animation: float 3s ease-in-out infinite;
-        }
+    @keyframes rotate {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
+    }
 
-        @keyframes float {
-            0%, 100% { transform: translateY(0); }
-            50% { transform: translateY(-10px); }
-        }
+    @keyframes pulse {
+        0%, 100% { opacity: 1; transform: scale(1); }
+        50% { opacity: 0.8; transform: scale(1.05); }
+    }
 
-        /* Messages with Enhanced Animation */
-        .error-message,
-        .success-message {
-            padding: 1rem 1.5rem;
-            border-radius: 10px;
-            margin-bottom: 1.5rem;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            animation: slideInBounce 0.5s ease-out;
-            position: relative;
-            overflow: hidden;
+    /* Mobile Responsive */
+    @media (max-width: 768px) {
+        .hero-title {
+            font-size: 2.5rem;
         }
+        
+        .hero-subtitle {
+            font-size: 1.1rem;
+        }
+        
+        .search-form-enhanced {
+            flex-direction: column;
+            align-items: stretch;
+        }
+        
+        .gstin-input-group {
+            min-width: 100%;
+        }
+        
+        .stats-grid-enhanced {
+            grid-template-columns: 1fr;
+            gap: 1.5rem;
+        }
+        
+        .stat-card-enhanced {
+            padding: 2rem;
+        }
+        
+        .stat-value-enhanced {
+            font-size: 2.5rem;
+        }
+    }
+</style>
 
-        .error-message {
-            background: rgba(239, 68, 68, 0.1);
-            border: 1px solid rgba(239, 68, 68, 0.3);
-            color: var(--danger);
-        }
+<!-- Hero Section -->
+<section class="hero-section">
+    <h1 class="hero-title">GST Intelligence Platform</h1>
+    <p class="hero-subtitle">Advanced compliance analytics with AI-powered insights</p>
+    
+    <!-- Live Status Indicator -->
+    <div style="display: flex; align-items: center; justify-content: center; gap: 1rem; margin-top: 2rem;">
+        <div style="width: 12px; height: 12px; background: var(--success); border-radius: 50%; animation: pulse 2s infinite;"></div>
+        <span style="color: var(--text-secondary); font-size: 1rem;">System Online & Ready</span>
+    </div>
+</section>
 
-        .success-message {
-            background: rgba(16, 185, 129, 0.1);
-            border: 1px solid rgba(16, 185, 129, 0.3);
-            color: var(--success);
-        }
-
-        @keyframes slideInBounce {
-            0% {
-                transform: translateX(-100%);
-                opacity: 0;
-            }
-            60% {
-                transform: translateX(10px);
-                opacity: 1;
-            }
-            100% {
-                transform: translateX(0);
-                opacity: 1;
-            }
-        }
-
-        /* Mobile Responsive Enhancements */
-        @media (max-width: 768px) {
-            .container {
-                padding: 1rem;
-            }
-            
-            .header-content {
-                flex-direction: column;
-                text-align: center;
-            }
-            
-            .nav-items {
-                width: 100%;
-                justify-content: center;
-                gap: 1rem;
-            }
-            
-            .welcome-title {
-                font-size: 1.8rem;
-            }
-            
-            .search-title {
-                font-size: 2rem;
-            }
-            
-            .form-group {
-                min-width: 100%;
-            }
-            
-            .hide-mobile {
-                display: none;
-            }
-            
-            .nav-link {
-                padding: 0.4rem 0.8rem;
-                font-size: 0.9rem;
-            }
-        }
-
-        /* Performance Indicators */
-        .performance-indicator {
-            position: fixed;
-            bottom: 2rem;
-            right: 2rem;
-            background: var(--bg-card);
-            border: 1px solid var(--border-color);
-            border-radius: 12px;
-            padding: 1rem;
-            box-shadow: var(--card-shadow);
-            z-index: 1000;
-            display: none;
-        }
-
-        .performance-indicator.show {
-            display: block;
-            animation: slideUp 0.3s ease-out;
-        }
-
-        @keyframes slideUp {
-            from {
-                transform: translateY(100%);
-                opacity: 0;
-            }
-            to {
-                transform: translateY(0);
-                opacity: 1;
-            }
-        }
-    </style>
-</head>
-<body>
-    <!-- Header with Live Dashboard -->
-    <header class="header">
-        <div class="header-content">
-            <div class="logo">
-                <div class="logo-icon">
-                    <i class="fas fa-chart-line"></i>
-                </div>
-                <div class="logo-text">
-                    <h1>GST Intelligence</h1>
-                    <p>Advanced Business Analytics Platform</p>
-                </div>
+<!-- Enhanced Search Section -->
+<section class="search-section">
+    <div class="search-content">
+        <h2 style="font-size: 2.5rem; font-weight: 700; text-align: center; margin-bottom: 1rem; background: var(--accent-gradient); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+            Search Company by GSTIN
+        </h2>
+        <p style="text-align: center; color: var(--text-secondary); font-size: 1.1rem; margin-bottom: 2rem;">
+            Enter a 15-digit GSTIN to get comprehensive compliance analysis
+        </p>
+        
+        <form class="search-form-enhanced" id="enhancedSearchForm" action="/search" method="POST">
+            <div class="gstin-input-group">
+                <input type="text" 
+                       id="gstinEnhanced" 
+                       name="gstin" 
+                       class="gstin-input" 
+                       placeholder="e.g., 27AADCB2230M1Z8"
+                       pattern="[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}"
+                       maxlength="15"
+                       required>
+                <i class="fas fa-search gstin-icon"></i>
             </div>
-            <nav class="nav-items">
-                <a href="/" class="nav-link active">Dashboard</a>
-                <a href="/analytics" class="live-dashboard-btn">
-                    Live Analytics
-                </a>
-                <a href="/history" class="nav-link">History</a>
-                <span class="nav-link tooltip" data-tooltip="Logged in user">{{ mobile }}</span>
-                <!-- Enhanced Theme Toggle -->
-                <div class="theme-toggle" onclick="toggleTheme()">
-                    <div class="theme-icon"><i class="fas fa-moon"></i></div>
-                    <div class="theme-icon"><i class="fas fa-sun"></i></div>
-                    <div class="theme-toggle-indicator">
-                        <i class="fas fa-moon" id="theme-indicator-icon"></i>
-                    </div>
-                </div>
-                <a href="/logout" class="logout-btn">
-                    <i class="fas fa-sign-out-alt"></i>
-                    Logout
-                </a>
-            </nav>
+            <button type="submit" class="search-btn-enhanced">
+                <i class="fas fa-chart-line" style="margin-right: 0.5rem;"></i>
+                Analyze
+            </button>
+        </form>
+        
+        <!-- Error Messages -->
+        {% if error %}
+        <div style="background: rgba(239, 68, 68, 0.1); border: 1px solid var(--error); border-radius: 16px; padding: 1.5rem; margin-top: 2rem; display: flex; align-items: center; gap: 1rem;">
+            <i class="fas fa-exclamation-circle" style="color: var(--error); font-size: 1.5rem;"></i>
+            <span style="color: var(--error); font-weight: 500;">{{ error }}</span>
         </div>
-    </header>
+        {% endif %}
+    </div>
+</section>
 
-    <!-- Main Content -->
-    <main class="container">
-        <!-- Welcome Section -->
-        <section class="welcome-section">
-            <h1 class="welcome-title">Welcome to GST Intelligence Platform</h1>
-            <p class="welcome-subtitle">Search and analyze GST compliance data with AI-powered insights</p>
-        </section>
-
-        <!-- Search Section -->
-        <section class="search-section">
-            <h2 class="search-title">Search Company by GSTIN</h2>
-            
-            <form class="search-form" id="searchForm" action="/search" method="POST">
-                <div class="form-group">
-                    <label for="gstin" class="form-label">Enter GSTIN Number</label>
-                    <input type="text" 
-                           id="gstin" 
-                           name="gstin" 
-                           class="form-input tooltip" 
-                           data-tooltip="Enter 15-digit GSTIN (e.g., 27AADCB2230M1Z8)"
-                           placeholder="e.g., 27AADCB2230M1Z8"
-                           pattern="[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}"
-                           maxlength="15"
-                           required>
-                </div>
-                <button type="submit" class="search-btn">
-                    <i class="fas fa-search"></i>
-                    Search
-                </button>
-            </form>
-            
-            <!-- Loading Indicator -->
-            <div class="loading" id="loading">
-                <div class="spinner"></div>
-                <p style="margin-top: 1rem; color: var(--text-secondary);">Fetching GST data...</p>
+<!-- Enhanced Stats Dashboard -->
+<section>
+    <div style="text-align: center; margin-bottom: 3rem;">
+        <h2 style="font-size: 2.5rem; font-weight: 700; color: var(--text-primary); margin-bottom: 1rem;">
+            <i class="fas fa-chart-pie" style="margin-right: 1rem; color: var(--primary-500);"></i>
+            Quick Analytics
+        </h2>
+        <p style="color: var(--text-secondary); font-size: 1.1rem;">
+            Your search activity and compliance insights at a glance
+        </p>
+    </div>
+    
+    <div class="stats-grid-enhanced">
+        <!-- Total Companies Searched -->
+        <div class="stat-card-enhanced" onclick="window.location.href='/analytics'">
+            <div class="stat-icon-enhanced">
+                <i class="fas fa-building"></i>
             </div>
-            
-            <!-- Error Messages -->
-            {% if error %}
-            <div class="error-message">
-                <i class="fas fa-exclamation-circle"></i>
-                {{ error }}
+            <div class="stat-value-enhanced" id="totalCompaniesEnhanced">{{ history | length if history else 0 }}</div>
+            <div class="stat-label-enhanced">Companies Analyzed</div>
+            <div class="stat-trend positive">
+                <i class="fas fa-arrow-up"></i>
+                <span>+12% this month</span>
             </div>
-            {% endif %}
-        </section>
-
-        <!-- Recent Searches History -->
-        <section class="history-section">
-            <div class="history-title">
-                <div class="history-header">
-                    <i class="fas fa-history"></i>
-                    <span>Recent Searches</span>
-                </div>
-                {% if history %}
-                <button class="export-btn tooltip" data-tooltip="Export search history to Excel" onclick="exportToExcel()">
-                    <i class="fas fa-file-excel"></i>
-                    Export to Excel
-                </button>
+        </div>
+        
+        <!-- Average Compliance Score -->
+        <div class="stat-card-enhanced" onclick="window.location.href='/analytics'">
+            <div class="stat-icon-enhanced">
+                <i class="fas fa-percentage"></i>
+            </div>
+            <div class="stat-value-enhanced">
+                {% if history and history[0].compliance_score %}
+                    {{ "%.0f"|format((history|map(attribute='compliance_score')|sum) / (history|length)) }}%
+                {% else %}
+                    N/A
                 {% endif %}
             </div>
-            
-            {% if history %}
-            <div class="table-container">
-                <table class="history-table">
-                    <thead>
-                        <tr>
-                            <th class="tooltip" data-tooltip="When the search was performed">Date</th>
-                            <th class="tooltip" data-tooltip="Goods and Services Tax Identification Number">GSTIN</th>
-                            <th class="tooltip" data-tooltip="Registered company name">Company Name</th>
-                            <th class="hide-mobile tooltip" data-tooltip="Compliance score based on filing history">Compliance Score</th>
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for item in history %}
-                        <tr data-gstin="{{ item.gstin }}">
-                            <td>{{ item.searched_at.strftime('%d %b %Y, %I:%M %p') if item.searched_at else 'N/A' }}</td>
-                            <td>
-                                <code style="background: var(--bg-hover); padding: 0.25rem 0.5rem; border-radius: 4px;">
-                                    {{ item.gstin }}
-                                </code>
-                            </td>
-                            <td style="font-weight: 600;">{{ item.company_name }}</td>
-                            <td class="hide-mobile">
-                                {% if item.compliance_score is not none %}
-                                    {% if item.compliance_score >= 80 %}
-                                        <span class="score-badge score-high tooltip" data-tooltip="Excellent compliance - Green status">{{ "%.0f"|format(item.compliance_score) }}%</span>
-                                    {% elif item.compliance_score >= 60 %}
-                                        <span class="score-badge score-medium tooltip" data-tooltip="Average compliance - Yellow status">{{ "%.0f"|format(item.compliance_score) }}%</span>
-                                    {% else %}
-                                        <span class="score-badge score-low tooltip" data-tooltip="Poor compliance - Red status">{{ "%.0f"|format(item.compliance_score) }}%</span>
-                                    {% endif %}
-                                {% else %}
-                                    <span class="score-badge tooltip" data-tooltip="Score not available">N/A</span>
-                                {% endif %}
-                            </td>
-                            <td>
-                                <form action="/search" method="GET" style="display: inline;">
-                                    <input type="hidden" name="gstin" value="{{ item.gstin }}">
-                                    <button type="submit" class="view-btn tooltip" data-tooltip="View detailed compliance report">
-                                        <i class="fas fa-eye"></i> View
-                                    </button>
-                                </form>
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
+            <div class="stat-label-enhanced">Avg Compliance Score</div>
+            <div class="stat-trend {% if history and (history|map(attribute='compliance_score')|sum) / (history|length) >= 75 %}positive{% else %}neutral{% endif %}">
+                <i class="fas {% if history and (history|map(attribute='compliance_score')|sum) / (history|length) >= 75 %}fa-arrow-up{% else %}fa-minus{% endif %}"></i>
+                <span>{% if history and (history|map(attribute='compliance_score')|sum) / (history|length) >= 75 %}Good trend{% else %}Stable{% endif %}</span>
             </div>
-            {% else %}
-            <div class="empty-state">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                    <polyline points="14 2 14 8 20 8"></polyline>
-                    <line x1="16" y1="13" x2="8" y2="13"></line>
-                    <line x1="16" y1="17" x2="8" y2="17"></line>
-                    <polyline points="10 9 9 9 8 9"></polyline>
-                </svg>
-                <p>No search history yet</p>
-                <p style="color: var(--text-muted); font-size: 0.9rem;">Your recent searches will appear here</p>
+        </div>
+        
+        <!-- This Month's Activity -->
+        <div class="stat-card-enhanced" onclick="window.location.href='/history'">
+            <div class="stat-icon-enhanced">
+                <i class="fas fa-calendar-check"></i>
             </div>
-            {% endif %}
-        </section>
-    </main>
-
-    <!-- Performance Indicator -->
-    <div class="performance-indicator" id="performanceIndicator">
-        <div style="font-size: 0.8rem; color: var(--text-secondary);">
-            <i class="fas fa-tachometer-alt"></i> Page Load: <span id="loadTime">-</span>ms
+            <div class="stat-value-enhanced">{{ searches_this_month if searches_this_month is defined else history|length if history else 0 }}</div>
+            <div class="stat-label-enhanced">Searches This Month</div>
+            <div class="stat-trend positive">
+                <i class="fas fa-clock"></i>
+                <span>Active user</span>
+            </div>
+        </div>
+        
+        <!-- AI Insights -->
+        <div class="stat-card-enhanced" onclick="openEnhancedProfileModal()">
+            <div class="stat-icon-enhanced">
+                <i class="fas fa-robot"></i>
+            </div>
+            <div class="stat-value-enhanced">AI</div>
+            <div class="stat-label-enhanced">Powered Analytics</div>
+            <div class="stat-trend positive">
+                <i class="fas fa-sparkles"></i>
+                <span>Active</span>
+            </div>
         </div>
     </div>
+</section>
 
-    <!-- JavaScript with Enhanced Features -->
-    <script>
-        // Performance monitoring
-        const startTime = performance.now();
+<!-- Quick Actions Panel -->
+<section class="quick-actions-panel">
+    <h3 class="quick-actions-title">
+        <i class="fas fa-bolt"></i>
+        Quick Actions
+    </h3>
+    
+    <div class="quick-actions-grid">
+        <div class="quick-action-card" onclick="window.location.href='/history'">
+            <div class="quick-action-icon">
+                <i class="fas fa-history"></i>
+            </div>
+            <div class="quick-action-title">View History</div>
+            <div class="quick-action-desc">Browse your previous searches and compliance reports</div>
+        </div>
+        
+        <div class="quick-action-card" onclick="window.location.href='/analytics'">
+            <div class="quick-action-icon">
+                <i class="fas fa-chart-bar"></i>
+            </div>
+            <div class="quick-action-title">Live Analytics</div>
+            <div class="quick-action-desc">Detailed insights and trends from your search data</div>
+        </div>
+        
+        <div class="quick-action-card" onclick="exportToExcel()">
+            <div class="quick-action-icon">
+                <i class="fas fa-download"></i>
+            </div>
+            <div class="quick-action-title">Export Data</div>
+            <div class="quick-action-desc">Download your search history as Excel spreadsheet</div>
+        </div>
+        
+        <div class="quick-action-card" onclick="openEnhancedProfileModal()">
+            <div class="quick-action-icon">
+                <i class="fas fa-user-cog"></i>
+            </div>
+            <div class="quick-action-title">Profile Settings</div>
+            <div class="quick-action-desc">Manage your account preferences and settings</div>
+        </div>
+    </div>
+</section>
 
-        // Enhanced Theme Toggle Function
-        function toggleTheme() {
-            const body = document.body;
-            const themeIcon = document.getElementById('theme-indicator-icon');
+<!-- Enhanced Tips Section -->
+<section class="tips-section">
+    <h3 style="font-size: 1.8rem; font-weight: 700; color: var(--text-primary); margin-bottom: 2rem; text-align: center;">
+        <i class="fas fa-lightbulb" style="color: var(--primary-500); margin-right: 0.5rem;"></i>
+        Pro Tips & Insights
+    </h3>
+    
+    <div class="tip-card-enhanced">
+        <div class="tip-icon">
+            <i class="fas fa-shield-alt"></i>
+        </div>
+        <div class="tip-content">
+            <div class="tip-title">Compliance Best Practices</div>
+            <div class="tip-text">
+                Companies with compliance scores above 80% typically have consistent filing patterns, maintain proper documentation, and rarely face penalties. Our AI identifies these patterns to help you make informed business decisions.
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Floating Action Button -->
+<button class="fab" onclick="document.getElementById('gstinEnhanced').focus()" title="Quick Search">
+    <i class="fas fa-search"></i>
+</button>
+
+<script>
+// Enhanced Dashboard functionality
+document.addEventListener('DOMContentLoaded', function() {
+    // Enhanced GSTIN input formatting
+    const gstinInput = document.getElementById('gstinEnhanced');
+    if (gstinInput) {
+        gstinInput.addEventListener('input', function(e) {
+            let value = e.target.value.toUpperCase();
             
-            if (body.classList.contains('light-theme')) {
-                body.classList.remove('light-theme');
-                if (themeIcon) themeIcon.className = 'fas fa-moon';
-                localStorage.setItem('theme', 'dark');
-                document.documentElement.style.setProperty('--theme-transition', '0.3s');
-            } else {
-                body.classList.add('light-theme');
-                if (themeIcon) themeIcon.className = 'fas fa-sun';
-                localStorage.setItem('theme', 'light');
-                document.documentElement.style.setProperty('--theme-transition', '0.3s');
+            // Format GSTIN with visual groups: 12ABC12345A1Z1
+            if (value.length > 2 && value.length <= 7) {
+                // Add space after state code
+                value = value.slice(0, 2) + ' ' + value.slice(2);
+            } else if (value.length > 7 && value.length <= 11) {
+                // Add space after PAN
+                value = value.slice(0, 2) + ' ' + value.slice(2, 7) + ' ' + value.slice(7);
+            } else if (value.length > 11) {
+                // Add space after entity number
+                value = value.slice(0, 2) + ' ' + value.slice(2, 7) + ' ' + value.slice(7, 11) + ' ' + value.slice(11);
             }
             
-            // Broadcast theme change to other tabs
-            localStorage.setItem('theme-changed', Date.now());
-        }
-
-        // Listen for theme changes in other tabs
-        window.addEventListener('storage', function(e) {
-            if (e.key === 'theme-changed') {
-                const savedTheme = localStorage.getItem('theme');
-                const body = document.body;
-                const themeIcon = document.getElementById('theme-indicator-icon');
-                
-                if (savedTheme === 'light' && !body.classList.contains('light-theme')) {
-                    body.classList.add('light-theme');
-                    if (themeIcon) themeIcon.className = 'fas fa-sun';
-                } else if (savedTheme === 'dark' && body.classList.contains('light-theme')) {
-                    body.classList.remove('light-theme');
-                    if (themeIcon) themeIcon.className = 'fas fa-moon';
-                }
+            // Remove spaces for actual value
+            const cleanValue = value.replace(/\s/g, '');
+            e.target.value = cleanValue;
+            
+            // Visual feedback
+            if (cleanValue.length === 15 && isValidGSTIN(cleanValue)) {
+                e.target.style.borderColor = 'var(--success)';
+                e.target.style.boxShadow = '0 8px 32px rgba(16, 185, 129, 0.2), 0 0 0 4px rgba(16, 185, 129, 0.1)';
+            } else if (cleanValue.length === 15) {
+                e.target.style.borderColor = 'var(--error)';
+                e.target.style.boxShadow = '0 8px 32px rgba(239, 68, 68, 0.2), 0 0 0 4px rgba(239, 68, 68, 0.1)';
+            } else {
+                e.target.style.borderColor = 'var(--border-primary)';
+                e.target.style.boxShadow = '0 4px 20px rgba(0, 0, 0, 0.1)';
             }
         });
-
-        // Initialize theme and features on page load
-        document.addEventListener('DOMContentLoaded', function() {
-            // Apply saved theme
-            const savedTheme = localStorage.getItem('theme');
-            const themeIcon = document.getElementById('theme-indicator-icon');
-            
-            if (savedTheme === 'light') {
-                document.body.classList.add('light-theme');
-                if (themeIcon) themeIcon.className = 'fas fa-sun';
-            }
-
-            // Initialize PWA features
-            initializePWA();
-
-            // Enhanced form submission handler
-            const searchForm = document.getElementById('searchForm');
-            searchForm.addEventListener('submit', function(e) {
-                // Show loading indicator
-                document.getElementById('loading').style.display = 'block';
-                
-                // Format GSTIN to uppercase
-                const gstinInput = document.getElementById('gstin');
-                gstinInput.value = gstinInput.value.toUpperCase();
-                
-                // Performance tracking
-                performance.mark('search-start');
-            });
-            
-            // Enhanced GSTIN input formatter with validation
-            const gstinInput = document.getElementById('gstin');
-            gstinInput.addEventListener('input', function(e) {
-                let value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
-                e.target.value = value;
-                
-                // Visual feedback
-                if (value.length === 15) {
-                    const pattern = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/;
-                    if (pattern.test(value)) {
-                        e.target.style.borderColor = 'var(--success)';
-                        e.target.style.boxShadow = '0 0 0 4px rgba(16, 185, 129, 0.1)';
-                    } else {
-                        e.target.style.borderColor = 'var(--danger)';
-                        e.target.style.boxShadow = '0 0 0 4px rgba(239, 68, 68, 0.1)';
-                    }
-                } else {
-                    e.target.style.borderColor = 'var(--border-color)';
-                    e.target.style.boxShadow = '';
-                }
-            });
-            
-            // Export to Excel function
-            window.exportToExcel = function() {
-                const exportBtn = event.target.closest('button');
-                exportBtn.disabled = true;
-                const originalText = exportBtn.innerHTML;
-                exportBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Exporting...';
-                
-                window.location.href = '/export/history';
-                
-                setTimeout(function() {
-                    exportBtn.disabled = false;
-                    exportBtn.innerHTML = originalText;
-                }, 3000);
-            };
-            
-            // Enhanced table row click handler
-            const tableRows = document.querySelectorAll('.history-table tbody tr');
-            tableRows.forEach(function(row) {
-                row.addEventListener('click', function(e) {
-                    if (e.target.tagName === 'BUTTON' || e.target.closest('button')) {
-                        return;
+        
+        // Enhanced paste handling
+        gstinInput.addEventListener('paste', function(e) {
+            setTimeout(() => {
+                const value = e.target.value.trim().toUpperCase();
+                if (value.length === 15 && isValidGSTIN(value)) {
+                    // Success animation
+                    e.target.style.transform = 'scale(1.02)';
+                    setTimeout(() => e.target.style.transform = '', 200);
+                    
+                    if (typeof notificationManager !== 'undefined') {
+                        notificationManager.showSuccess('✅ Valid GSTIN detected!', 2000);
                     }
                     
-                    const gstin = row.dataset.gstin;
-                    if (gstin) {
-                        // Add loading effect
-                        row.style.opacity = '0.7';
-                        window.location.href = `/search?gstin=${gstin}`;
+                    // Auto-search if enabled
+                    const autoSearch = localStorage.getItem('autoSearch');
+                    if (autoSearch === 'true' || autoSearch === null) {
+                        setTimeout(() => {
+                            document.getElementById('enhancedSearchForm').submit();
+                        }, 500);
                     }
-                });
-            });
-            
-            // Auto-hide messages with enhanced animation
-            setTimeout(function() {
-                const messages = document.querySelectorAll('.error-message, .success-message');
-                messages.forEach(function(msg) {
-                    msg.style.transition = 'all 0.5s ease';
-                    msg.style.transform = 'translateX(100%)';
-                    msg.style.opacity = '0';
-                    setTimeout(function() {
-                        msg.style.display = 'none';
-                    }, 500);
-                });
-            }, 5000);
-
-            // Show performance indicator
-            const endTime = performance.now();
-            const loadTime = Math.round(endTime - startTime);
-            const performanceIndicator = document.getElementById('performanceIndicator');
-            const loadTimeElement = document.getElementById('loadTime');
-            
-            if (loadTimeElement) {
-                loadTimeElement.textContent = loadTime;
-                performanceIndicator.classList.add('show');
-                
-                // Hide after 3 seconds
-                setTimeout(() => {
-                    performanceIndicator.classList.remove('show');
-                }, 3000);
-            }
-        });
-
-        // PWA initialization
-        function initializePWA() {
-            // Register service worker
-            if ('serviceWorker' in navigator) {
-                navigator.serviceWorker.register('/sw.js')
-                    .then(registration => {
-                        console.log('SW registered:', registration);
-                    })
-                    .catch(error => {
-                        console.log('SW registration failed:', error);
-                    });
-            }
-
-            // Add to home screen prompt
-            let deferredPrompt;
-            window.addEventListener('beforeinstallprompt', (e) => {
-                e.preventDefault();
-                deferredPrompt = e;
-                
-                // Show install button if needed
-                const installBtn = document.getElementById('installBtn');
-                if (installBtn) {
-                    installBtn.style.display = 'block';
-                    installBtn.addEventListener('click', () => {
-                        deferredPrompt.prompt();
-                        deferredPrompt.userChoice.then((choiceResult) => {
-                            if (choiceResult.outcome === 'accepted') {
-                                console.log('User accepted the install prompt');
-                            }
-                            deferredPrompt = null;
-                        });
-                    });
                 }
-            });
+            }, 100);
+        });
+    }
+    
+    // Animate stats on load
+    animateStats();
+    
+    // Add ripple effect to stat cards
+    addRippleEffect();
+});
+
+function animateStats() {
+    const statValues = document.querySelectorAll('.stat-value-enhanced');
+    statValues.forEach((stat, index) => {
+        const targetValue = parseInt(stat.textContent) || 0;
+        if (targetValue > 0) {
+            let currentValue = 0;
+            const increment = targetValue / 50;
+            const timer = setInterval(() => {
+                currentValue += increment;
+                if (currentValue >= targetValue) {
+                    currentValue = targetValue;
+                    clearInterval(timer);
+                }
+                stat.textContent = Math.floor(currentValue) + (stat.textContent.includes('%') ? '%' : '');
+            }, 30);
         }
+    });
+}
 
-        // Enhanced keyboard shortcuts
-        document.addEventListener('keydown', function(e) {
-            // Ctrl/Cmd + K to focus search
-            if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
-                e.preventDefault();
-                const searchInput = document.getElementById('gstin');
-                if (searchInput) {
-                    searchInput.focus();
-                    searchInput.select();
-                }
+function addRippleEffect() {
+    const cards = document.querySelectorAll('.stat-card-enhanced, .quick-action-card');
+    cards.forEach(card => {
+        card.addEventListener('click', function(e) {
+            const ripple = document.createElement('span');
+            const rect = this.getBoundingClientRect();
+            const size = Math.max(rect.width, rect.height);
+            const x = e.clientX - rect.left - size / 2;
+            const y = e.clientY - rect.top - size / 2;
+            
+            ripple.style.cssText = `
+                position: absolute;
+                width: ${size}px;
+                height: ${size}px;
+                left: ${x}px;
+                top: ${y}px;
+                background: radial-gradient(circle, rgba(124, 58, 237, 0.3) 0%, transparent 70%);
+                border-radius: 50%;
+                transform: scale(0);
+                animation: ripple 0.6s ease-out;
+                pointer-events: none;
+                z-index: 10;
+            `;
+            
+            if (!document.getElementById('rippleStyle')) {
+                const style = document.createElement('style');
+                style.id = 'rippleStyle';
+                style.textContent = `
+                    @keyframes ripple {
+                        to {
+                            transform: scale(2);
+                            opacity: 0;
+                        }
+                    }
+                `;
+                document.head.appendChild(style);
             }
             
-            // Ctrl/Cmd + D for dark/light toggle
-            if ((e.ctrlKey || e.metaKey) && e.key === 'd') {
-                e.preventDefault();
-                toggleTheme();
-            }
+            this.style.position = 'relative';
+            this.appendChild(ripple);
             
-            // Escape to clear search
-            if (e.key === 'Escape') {
-                const searchInput = document.getElementById('gstin');
-                if (searchInput && searchInput === document.activeElement) {
-                    searchInput.value = '';
-                    searchInput.blur();
-                    searchInput.style.borderColor = 'var(--border-color)';
-                    searchInput.style.boxShadow = '';
-                }
-            }
+            setTimeout(() => {
+                ripple.remove();
+            }, 600);
         });
+    });
+}
 
-        // Add smooth scrolling for better UX
-        window.addEventListener('scroll', function() {
-            const header = document.querySelector('.header');
-            if (window.scrollY > 100) {
-                header.style.backdropFilter = 'blur(30px)';
-                header.style.background = 'rgba(20, 20, 20, 0.95)';
-            } else {
-                header.style.backdropFilter = 'blur(20px)';
-                header.style.background = 'var(--bg-secondary)';
-            }
-        });
-    </script>
-</body>
-</html>
+function isValidGSTIN(gstin) {
+    return /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/.test(gstin);
+}
+
+function exportToExcel() {
+    window.location.href = '/export/history';
+    if (typeof notificationManager !== 'undefined') {
+        notificationManager.showInfo('📊 Preparing Excel export...', 3000);
+    }
+}
+
+// Keyboard shortcuts
+document.addEventListener('keydown', function(e) {
+    // Ctrl/Cmd + K for quick search focus
+    if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+        e.preventDefault();
+        document.getElementById('gstinEnhanced').focus();
+    }
+    
+    // Ctrl/Cmd + H for history
+    if ((e.ctrlKey || e.metaKey) && e.key === 'h') {
+        e.preventDefault();
+        window.location.href = '/history';
+    }
+    
+    // Ctrl/Cmd + A for analytics
+    if ((e.ctrlKey || e.metaKey) && e.key === 'a') {
+        e.preventDefault();
+        window.location.href = '/analytics';
+    }
+});
+</script>
+{% endblock %}

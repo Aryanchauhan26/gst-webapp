@@ -1,0 +1,1344 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}GST Intelligence Platform{% endblock %}</title>
+    
+    <!-- Meta Tags -->
+    <meta name="description" content="Advanced GST Compliance Analytics Platform with AI-powered insights">
+    <meta name="theme-color" content="#7c3aed">
+    <link rel="canonical" href="{{ request.url }}">
+    
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="/static/manifest.json">
+    
+    <!-- Icons -->
+    <link rel="icon" type="image/svg+xml" href="/static/icons/favicon.svg">
+    <link rel="icon" type="image/png" href="/static/icons/favicon.png">
+    <link rel="apple-touch-icon" href="/static/icons/apple-touch-icon.png">
+    
+    <!-- External CSS -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    
+    <!-- Internal CSS -->
+    <link rel="stylesheet" href="/static/css/base.css">
+    
+    <!-- Critical CSS for above-the-fold content -->
+    <style>
+        /* CSS Variables */
+        :root {
+            /* Brand Colors */
+            --primary-500: #7c3aed;
+            --primary-600: #6d28d9;
+            --primary-700: #5b21b6;
+            
+            /* Semantic Colors */
+            --success: #10b981;
+            --warning: #f59e0b;
+            --error: #ef4444;
+            --info: #3b82f6;
+            
+            /* Z-Index Scale */
+            --z-dropdown: 1000;
+            --z-sticky: 1020;
+            --z-fixed: 1030;
+            --z-modal-backdrop: 1040;
+            --z-modal: 1050;
+            
+            /* Transitions */
+            --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
+            --transition-base: 200ms cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        /* Dark Theme (Default) */
+        :root {
+            --bg-primary: #0f172a;
+            --bg-secondary: #1e293b;
+            --bg-card: #1e293b;
+            --bg-hover: #334155;
+            --bg-input: #334155;
+            
+            --text-primary: #f8fafc;
+            --text-secondary: #cbd5e1;
+            --text-tertiary: #94a3b8;
+            --text-muted: #64748b;
+            
+            --border-color: #334155;
+            --border-primary: #334155;
+            
+            --accent-primary: #7c3aed;
+            --accent-secondary: #a855f7;
+            --accent-gradient: linear-gradient(135deg, #7c3aed 0%, #a855f7 100%);
+            
+            --card-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+            --hover-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+        }
+
+        [data-theme="light"] {
+            --bg-primary: #ffffff;
+            --bg-secondary: #f8fafc;
+            --bg-card: #ffffff;
+            --bg-hover: #f1f5f9;
+            --bg-input: #f8fafc;
+            
+            --text-primary: #0f172a;
+            --text-secondary: #475569;
+            --text-tertiary: #64748b;
+            --text-muted: #94a3b8;
+            
+            --border-color: #e2e8f0;
+            --border-primary: #e2e8f0;
+        }
+
+        /* Header Styles */
+        .header {
+            position: sticky;
+            top: 0;
+            z-index: var(--z-sticky);
+            background: var(--bg-card);
+            border-bottom: 1px solid var(--border-primary);
+            backdrop-filter: blur(10px);
+        }
+        
+        .header__container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 0 1rem;
+            height: 64px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .header__logo {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            color: var(--text-primary);
+            text-decoration: none;
+            font-weight: 700;
+            font-size: 1.125rem;
+        }
+
+        .header__logo-icon {
+            width: 40px;
+            height: 40px;
+            background: var(--accent-gradient);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 1.25rem;
+            animation: logoGlow 3s ease-in-out infinite;
+        }
+
+        @keyframes logoGlow {
+            0%, 100% { box-shadow: 0 0 20px rgba(124, 58, 237, 0.3); }
+            50% { box-shadow: 0 0 30px rgba(124, 58, 237, 0.6); }
+        }
+
+        .header__nav {
+            display: flex;
+            gap: 1rem;
+        }
+
+        .nav__link {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            color: var(--text-secondary);
+            text-decoration: none;
+            transition: all var(--transition-fast);
+            font-weight: 500;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .nav__link::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: var(--accent-gradient);
+            transition: left 0.3s ease;
+            z-index: -1;
+            border-radius: 8px;
+        }
+
+        .nav__link:hover::before {
+            left: 0;
+        }
+
+        .nav__link:hover {
+            background: var(--bg-hover);
+            color: white;
+            transform: translateY(-2px);
+        }
+
+        .nav__link--active {
+            background: var(--accent-primary);
+            color: white;
+            box-shadow: 0 4px 20px rgba(124, 58, 237, 0.4);
+        }
+
+        /* User Profile Section */
+        .user-profile-wrapper {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+
+        .user__trigger {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.5rem;
+            background: none;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all var(--transition-fast);
+            position: relative;
+            background: linear-gradient(45deg, rgba(124, 58, 237, 0.1), rgba(167, 139, 250, 0.1));
+            border: 1px solid rgba(124, 58, 237, 0.3);
+        }
+
+        .user__trigger:hover {
+            background: var(--bg-hover);
+            border-color: var(--accent-primary);
+            box-shadow: 0 8px 25px rgba(124, 58, 237, 0.2);
+            transform: translateY(-2px);
+        }
+
+        .user__trigger.active {
+            background: var(--accent-primary);
+            color: white;
+            border-color: var(--accent-primary);
+            box-shadow: 0 8px 25px rgba(124, 58, 237, 0.4);
+        }
+
+        .user__avatar {
+            width: 40px;
+            height: 40px;
+            background: var(--accent-gradient);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 600;
+            transition: all var(--transition-fast);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .user__avatar::before {
+            content: '';
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            animation: avatarPulse 2s infinite;
+        }
+
+        @keyframes avatarPulse {
+            0%, 100% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.1); opacity: 0.7; }
+        }
+
+        .user__info {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+        }
+
+        .user__name {
+            font-weight: 600;
+            color: var(--text-primary);
+            font-size: 0.875rem;
+        }
+
+        .user__status {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+        }
+
+        .user__chevron {
+            color: var(--text-secondary);
+            font-size: 0.75rem;
+            transition: transform var(--transition-fast);
+        }
+
+        .user__trigger.active .user__chevron {
+            transform: rotate(180deg);
+        }
+
+        /* Enhanced Dropdown */
+        .user__dropdown {
+            position: absolute;
+            top: calc(100% + 0.5rem);
+            right: 0;
+            background: var(--bg-card);
+            border: 1px solid var(--border-primary);
+            border-radius: 16px;
+            box-shadow: var(--hover-shadow);
+            padding: 1.5rem;
+            min-width: 320px;
+            opacity: 0;
+            visibility: hidden;
+            transform: translateY(-10px) scale(0.95);
+            transition: all var(--transition-base);
+            z-index: var(--z-dropdown);
+            backdrop-filter: blur(20px);
+            background: linear-gradient(135deg, var(--bg-card) 0%, rgba(124, 58, 237, 0.05) 100%);
+            border: 1px solid rgba(124, 58, 237, 0.2);
+        }
+
+        .user__dropdown.active {
+            opacity: 1;
+            visibility: visible;
+            transform: translateY(0) scale(1);
+        }
+
+        .user__dropdown::before {
+            content: '';
+            position: absolute;
+            top: -8px;
+            right: 20px;
+            width: 16px;
+            height: 16px;
+            background: var(--bg-card);
+            border: 1px solid rgba(124, 58, 237, 0.2);
+            border-bottom: none;
+            border-right: none;
+            transform: rotate(45deg);
+        }
+
+        .dropdown__header {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid var(--border-primary);
+            margin-bottom: 1rem;
+        }
+
+        .dropdown__avatar {
+            width: 48px;
+            height: 48px;
+            background: var(--accent-gradient);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 600;
+            font-size: 1.125rem;
+        }
+
+        .dropdown__user-info h4 {
+            margin: 0;
+            color: var(--text-primary);
+            font-size: 1rem;
+        }
+
+        .dropdown__user-info p {
+            margin: 0;
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+        }
+
+        .dropdown__stats {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 0.75rem;
+            margin-bottom: 1rem;
+        }
+
+        .stat {
+            text-align: center;
+            padding: 0.75rem;
+            background: var(--bg-hover);
+            border-radius: 8px;
+            border: 1px solid rgba(124, 58, 237, 0.1);
+        }
+
+        .stat__value {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: var(--accent-primary);
+        }
+
+        .stat__label {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+        }
+
+        .dropdown__theme {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.75rem 0;
+            border-bottom: 1px solid var(--border-primary);
+            margin-bottom: 1rem;
+        }
+
+        .theme-toggle {
+            background: var(--bg-hover);
+            border: 1px solid var(--border-primary);
+            border-radius: 20px;
+            padding: 2px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            position: relative;
+            width: 48px;
+            height: 24px;
+            transition: all var(--transition-base);
+        }
+
+        .theme-toggle__indicator {
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            background: var(--accent-primary);
+            border-radius: 50%;
+            transition: transform var(--transition-base);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 10px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+        }
+
+        [data-theme="light"] .theme-toggle__indicator {
+            transform: translateX(24px);
+        }
+
+        .dropdown__menu {
+            list-style: none;
+            margin: 0;
+            padding: 0;
+        }
+
+        .dropdown__link {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.75rem;
+            border-radius: 8px;
+            color: var(--text-secondary);
+            text-decoration: none;
+            transition: all var(--transition-fast);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .dropdown__link::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: var(--accent-gradient);
+            transition: left 0.3s ease;
+            z-index: -1;
+        }
+
+        .dropdown__link:hover::before {
+            left: 0;
+        }
+
+        .dropdown__link:hover {
+            background: var(--bg-hover);
+            color: white;
+            transform: translateX(5px);
+        }
+
+        .dropdown__divider {
+            border: none;
+            border-top: 1px solid var(--border-primary);
+            margin: 0.5rem 0;
+        }
+
+        .dropdown__link--danger {
+            color: var(--error);
+        }
+
+        .dropdown__link--danger:hover {
+            background: rgba(239, 68, 68, 0.1);
+            color: var(--error);
+        }
+
+        .auth-links {
+            display: flex;
+            gap: 0.75rem;
+            align-items: center;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            border: 1px solid transparent;
+            border-radius: 8px;
+            font-size: 0.875rem;
+            font-weight: 500;
+            text-decoration: none;
+            cursor: pointer;
+            transition: all var(--transition-fast);
+            white-space: nowrap;
+        }
+
+        .btn--ghost {
+            background: transparent;
+            color: var(--text-secondary);
+        }
+
+        .btn--ghost:hover {
+            background: var(--bg-hover);
+            color: var(--text-primary);
+        }
+
+        .btn--primary {
+            background: var(--accent-gradient);
+            color: white;
+        }
+
+        .btn--primary:hover {
+            transform: translateY(-1px);
+            box-shadow: var(--card-shadow);
+        }
+        
+        .main-content {
+            min-height: calc(100vh - 64px);
+            background: var(--bg-primary);
+        }
+
+        .container {
+            width: 100%;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem 1rem;
+        }
+
+        .status-indicator {
+            display: inline-block;
+            width: 6px;
+            height: 6px;
+            background: var(--success);
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        /* Mobile responsiveness */
+        @media (max-width: 768px) {
+            .header__nav {
+                display: none;
+            }
+            
+            .user__info {
+                display: none;
+            }
+            
+            .header__container {
+                padding: 0 1rem;
+            }
+            
+            .container {
+                padding: 1rem;
+            }
+
+            .user__dropdown {
+                right: -1rem;
+                left: -1rem;
+                min-width: auto;
+                width: auto;
+            }
+        }
+
+        /* Screen reader only */
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
+    </style>
+</head>
+
+<body class="{% block body_class %}{% endblock %}" data-page="{{ request.url.path.split('/')[-1] or 'home' }}">
+    <!-- Skip to main content for accessibility -->
+    <a href="#main-content" class="sr-only">Skip to main content</a>
+    
+    <!-- Header Component - Only show if not overridden by child templates -->
+    {% if not request.url.path in ['/login', '/signup'] %}
+    {% block header %}
+    <header class="header" role="banner">
+        <div class="header__container">
+            <!-- Logo -->
+            <a href="/" class="header__logo" aria-label="GST Intelligence Platform Home">
+                <div class="header__logo-icon">
+                    <i class="fas fa-chart-line" aria-hidden="true"></i>
+                </div>
+                <span class="header__logo-text">GST Intelligence</span>
+            </a>
+
+            <!-- Navigation -->
+            {% if current_user %}
+            <nav class="header__nav" role="navigation" aria-label="Main navigation">
+                <a href="/" 
+                   class="nav__link {% if request.url.path == '/' %}nav__link--active{% endif %}"
+                   {% if request.url.path == '/' %}aria-current="page"{% endif %}>
+                    <i class="fas fa-home" aria-hidden="true"></i>
+                    <span>Dashboard</span>
+                </a>
+                <a href="/analytics" 
+                   class="nav__link {% if request.url.path == '/analytics' %}nav__link--active{% endif %}"
+                   {% if request.url.path == '/analytics' %}aria-current="page"{% endif %}>
+                    <i class="fas fa-chart-bar" aria-hidden="true"></i>
+                    <span>Analytics</span>
+                </a>
+                <a href="/history" 
+                   class="nav__link {% if request.url.path == '/history' %}nav__link--active{% endif %}"
+                   {% if request.url.path == '/history' %}aria-current="page"{% endif %}>
+                    <i class="fas fa-history" aria-hidden="true"></i>
+                    <span>History</span>
+                </a>
+            </nav>
+
+            <!-- User Menu -->
+            <div class="user-profile-wrapper">
+                <button class="user__trigger" 
+                        id="userProfileBtn"
+                        aria-expanded="false"
+                        aria-haspopup="true"
+                        aria-label="User menu">
+                    <div class="user__avatar" aria-hidden="true" data-tooltip="Your Profile">
+                        {{ (user_display_name or current_user)[0]|upper if user_display_name else current_user[0]|upper }}
+                    </div>
+                    <div class="user__info">
+                        <div class="user__name" id="userDisplayName">
+                            {{ user_display_name or ("User " + current_user[-4:]) if current_user else "User" }}
+                        </div>
+                        <div class="user__status">
+                            <span class="status-indicator" aria-label="Online" data-tooltip="Online"></span>
+                            <span id="userRole">{{ user_profile.designation or "Member" if user_profile else "Member" }}</span>
+                        </div>
+                    </div>
+                    <i class="fas fa-chevron-down user__chevron" aria-hidden="true"></i>
+                </button>
+
+                <!-- Enhanced User Dropdown -->
+                <div id="userDropdownMenu" class="user__dropdown" role="menu">
+                    <div class="dropdown__header">
+                        <div class="dropdown__avatar" aria-hidden="true">
+                            {{ (user_display_name or current_user)[0]|upper if user_display_name else current_user[0]|upper }}
+                        </div>
+                        <div class="dropdown__user-info">
+                            <h4 id="dropdownUserName">{{ user_display_name or ("User " + current_user[-4:]) if current_user else "User" }}</h4>
+                            <p id="dropdownUserCompany">{{ user_profile.company or "GST Intelligence Platform" if user_profile else "GST Intelligence Platform" }}</p>
+                        </div>
+                    </div>
+
+                    <!-- Quick Stats -->
+                    <div class="dropdown__stats" role="group" aria-label="User statistics">
+                        <div class="stat" data-tooltip="Total companies searched">
+                            <div class="stat__value" data-user-stat="total-searches">-</div>
+                            <div class="stat__label">Searches</div>
+                        </div>
+                        <div class="stat" data-tooltip="Average compliance score">
+                            <div class="stat__value" data-user-stat="avg-compliance">-</div>
+                            <div class="stat__label">Avg Score</div>
+                        </div>
+                    </div>
+
+                    <!-- User Level Badge -->
+                    <div class="user-level-badge" data-tooltip="Your user level based on activity">
+                        <div class="level-icon">
+                            <i class="fas fa-user" id="userLevelIcon"></i>
+                        </div>
+                        <div class="level-info">
+                            <div class="level-name" id="userLevelName">New User</div>
+                            <div class="level-progress">
+                                <div class="progress-bar">
+                                    <div class="progress-fill" id="userLevelProgress" style="width: 0%"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Theme Toggle -->
+                    <div class="dropdown__theme">
+                        <span data-tooltip="Switch between light and dark themes">Theme</span>
+                        <button class="theme-toggle" 
+                                aria-label="Toggle dark mode"
+                                data-tooltip="Click to toggle theme"
+                                onclick="toggleTheme()">
+                            <div class="theme-toggle__indicator">
+                                <i class="fas fa-moon" aria-hidden="true"></i>
+                            </div>
+                        </button>
+                    </div>
+
+                    <!-- Menu Items -->
+                    <ul class="dropdown__menu" role="none">
+                        <li role="none">
+                            <a href="#" onclick="openEnhancedProfileModal(); return false;" 
+                               class="dropdown__link" role="menuitem" 
+                               data-tooltip="Edit your profile information">
+                                <i class="fas fa-user-edit" aria-hidden="true"></i>
+                                <span>Edit Profile</span>
+                            </a>
+                        </li>
+                        <li role="none">
+                            <a href="#" onclick="openSettingsModal(); return false;" 
+                               class="dropdown__link" role="menuitem"
+                               data-tooltip="Manage your preferences">
+                                <i class="fas fa-cog" aria-hidden="true"></i>
+                                <span>Settings</span>
+                            </a>
+                        </li>
+                        <li role="none">
+                            <a href="/export/history" 
+                               class="dropdown__link" role="menuitem"
+                               data-tooltip="Download your search history">
+                                <i class="fas fa-download" aria-hidden="true"></i>
+                                <span>Export Data</span>
+                            </a>
+                        </li>
+                        <li role="none">
+                            <a href="/analytics" 
+                               class="dropdown__link" role="menuitem"
+                               data-tooltip="View detailed analytics">
+                                <i class="fas fa-chart-line" aria-hidden="true"></i>
+                                <span>Analytics</span>
+                            </a>
+                        </li>
+                        <li role="none">
+                            <hr class="dropdown__divider" role="separator">
+                        </li>
+                        <li role="none">
+                            <a href="/logout" 
+                               class="dropdown__link dropdown__link--danger" role="menuitem"
+                               data-tooltip="Sign out of your account">
+                                <i class="fas fa-sign-out-alt" aria-hidden="true"></i>
+                                <span>Logout</span>
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+
+            {% else %}
+            <!-- Authentication Links -->
+            <div class="auth-links">
+                <a href="/login" class="btn btn--ghost">Login</a>
+                <a href="/signup" class="btn btn--primary">Sign Up</a>
+            </div>
+            {% endif %}
+        </div>
+    </header>
+    {% endblock %}
+    {% endif %}
+
+    <!-- Main Content -->
+    <main id="main-content" class="main-content" role="main">
+        <!-- Flash Messages -->
+        {% block messages %}
+        {% if messages %}
+        <div class="messages-container">
+            <div class="container">
+                {% for message in messages %}
+                <div class="alert alert--{{ message.type }}" role="alert">
+                    <div class="alert__icon">
+                        {% if message.type == 'success' %}
+                        <i class="fas fa-check-circle" aria-hidden="true"></i>
+                        {% elif message.type == 'error' %}
+                        <i class="fas fa-exclamation-circle" aria-hidden="true"></i>
+                        {% elif message.type == 'warning' %}
+                        <i class="fas fa-exclamation-triangle" aria-hidden="true"></i>
+                        {% else %}
+                        <i class="fas fa-info-circle" aria-hidden="true"></i>
+                        {% endif %}
+                    </div>
+                    <div class="alert__content">
+                        <div class="alert__message">{{ message.content }}</div>
+                    </div>
+                    <button class="alert__close" aria-label="Close message">
+                        <i class="fas fa-times" aria-hidden="true"></i>
+                    </button>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+        {% endblock %}
+
+        <!-- Page Content -->
+        <div class="{% block container_class %}container{% endblock %}">
+            {% block content %}{% endblock %}
+        </div>
+    </main>
+
+    <!-- Scripts -->
+    <script>
+        // Critical inline script for theme loading
+        function toggleTheme() {
+            const html = document.documentElement;
+            const currentTheme = html.getAttribute('data-theme');
+            const newTheme = currentTheme === 'light' ? null : 'light';
+            
+            // Add transition class
+            document.body.classList.add('theme-transitioning');
+            
+            html.setAttribute('data-theme', newTheme);
+            localStorage.setItem('theme', newTheme || 'dark');
+            
+            // Remove transition class after animation
+            setTimeout(() => {
+                document.body.classList.remove('theme-transitioning');
+            }, 300);
+        }
+
+        // Load saved theme
+        (function() {
+            const savedTheme = localStorage.getItem('theme') || 'dark';
+            document.documentElement.setAttribute('data-theme', savedTheme === 'light' ? 'light' : null);
+        })();
+
+        // Enhanced user profile management
+        document.addEventListener('DOMContentLoaded', function() {
+            const userBtn = document.getElementById('userProfileBtn');
+            const dropdown = document.getElementById('userDropdownMenu');
+            
+            if (userBtn && dropdown) {
+                userBtn.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    
+                    const isOpen = dropdown.classList.contains('active');
+                    
+                    if (isOpen) {
+                        dropdown.classList.remove('active');
+                        userBtn.classList.remove('active');
+                        userBtn.setAttribute('aria-expanded', 'false');
+                    } else {
+                        dropdown.classList.add('active');
+                        userBtn.classList.add('active');
+                        userBtn.setAttribute('aria-expanded', 'true');
+                    }
+                });
+                
+                document.addEventListener('click', function(e) {
+                    if (!userBtn.contains(e.target) && !dropdown.contains(e.target)) {
+                        dropdown.classList.remove('active');
+                        userBtn.classList.remove('active');
+                        userBtn.setAttribute('aria-expanded', 'false');
+                    }
+                });
+                
+                // Load user data
+                loadUserStats();
+                loadUserProfile();
+                loadUserLevel();
+            }
+        });
+
+        // Load user statistics
+        async function loadUserStats() {
+            try {
+                const response = await fetch('/api/user/stats');
+                const result = await response.json();
+                
+                if (result.success && result.data) {
+                    // Update the stat values in the dropdown
+                    const statElements = document.querySelectorAll('[data-user-stat]');
+                    statElements.forEach(element => {
+                        const statType = element.getAttribute('data-user-stat');
+                        let value = 0;
+                        
+                        switch (statType) {
+                            case 'total-searches':
+                                value = result.data.total_searches || 0;
+                                element.textContent = value;
+                                break;
+                            case 'avg-compliance':
+                                value = Math.round(result.data.avg_compliance || 0);
+                                element.textContent = value > 0 ? value + '%' : '-';
+                                break;
+                        }
+                        
+                        // Remove loading state
+                        element.classList.remove('loading');
+                    });
+                    
+                    // Store stats globally for other uses
+                    window.userStats = result.data;
+                }
+            } catch (error) {
+                console.error('Error loading user stats:', error);
+                
+                // Remove loading state and show fallback
+                document.querySelectorAll('[data-user-stat]').forEach(element => {
+                    element.classList.remove('loading');
+                    element.textContent = '-';
+                });
+            }
+        }
+
+        async function loadUserProfile() {
+            try {
+                const response = await fetch('/api/user/profile');
+                const result = await response.json();
+                
+                if (result.success && result.data) {
+                    const profile = result.data;
+                    
+                    // Update display name if available
+                    if (profile.display_name) {
+                        const nameElements = document.querySelectorAll('#userDisplayName, #dropdownUserName');
+                        nameElements.forEach(el => {
+                            if (el) el.textContent = profile.display_name;
+                        });
+                        
+                        // Update avatar with first letter of name
+                        const avatarElements = document.querySelectorAll('.user__avatar, .dropdown__avatar');
+                        avatarElements.forEach(el => {
+                            if (el) el.textContent = profile.display_name[0].toUpperCase();
+                        });
+                    }
+                    
+                    // Update company if available
+                    if (profile.company) {
+                        const companyElement = document.getElementById('dropdownUserCompany');
+                        if (companyElement) {
+                            companyElement.textContent = profile.company;
+                        }
+                    }
+                    
+                    // Update role/designation
+                    if (profile.designation) {
+                        const roleElement = document.getElementById('userRole');
+                        if (roleElement) {
+                            roleElement.textContent = profile.designation;
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error('Error loading user profile:', error);
+            }
+        }
+
+        async function loadUserLevel() {
+            try {
+                const response = await fetch('/api/user/stats');
+                const result = await response.json();
+                
+                if (result.success && result.data) {
+                    const stats = result.data;
+                    const totalSearches = stats.total_searches || 0;
+                    
+                    // Calculate user level based on searches
+                    let userLevel = {
+                        level: 'New User',
+                        icon: 'fas fa-user',
+                        color: 'linear-gradient(45deg, #6366f1, #8b5cf6)'
+                    };
+                    
+                    if (totalSearches >= 100) {
+                        userLevel = {
+                            level: 'Expert',
+                            icon: 'fas fa-crown',
+                            color: 'linear-gradient(45deg, #f59e0b, #f97316)'
+                        };
+                    } else if (totalSearches >= 50) {
+                        userLevel = {
+                            level: 'Advanced',
+                            icon: 'fas fa-star',
+                            color: 'linear-gradient(45deg, #10b981, #059669)'
+                        };
+                    } else if (totalSearches >= 20) {
+                        userLevel = {
+                            level: 'Intermediate',
+                            icon: 'fas fa-medal',
+                            color: 'linear-gradient(45deg, #3b82f6, #1d4ed8)'
+                        };
+                    } else if (totalSearches >= 5) {
+                        userLevel = {
+                            level: 'Beginner',
+                            icon: 'fas fa-seedling',
+                            color: 'linear-gradient(45deg, #8b5cf6, #7c3aed)'
+                        };
+                    }
+                    
+                    // Update level display
+                    const levelNameEl = document.getElementById('userLevelName');
+                    const levelIconEl = document.getElementById('userLevelIcon');
+                    const levelProgressEl = document.getElementById('userLevelProgress');
+                    
+                    if (levelNameEl) levelNameEl.textContent = userLevel.level;
+                    
+                    if (levelIconEl) {
+                        levelIconEl.className = userLevel.icon;
+                        levelIconEl.parentElement.style.background = userLevel.color;
+                    }
+                    
+                    // Calculate progress to next level
+                    let nextMilestone = 5;
+                    if (totalSearches >= 5) nextMilestone = 20;
+                    if (totalSearches >= 20) nextMilestone = 50;
+                    if (totalSearches >= 50) nextMilestone = 100;
+                    if (totalSearches >= 100) nextMilestone = 200;
+                    
+                    const progress = Math.min((totalSearches / nextMilestone) * 100, 100);
+                    if (levelProgressEl) {
+                        levelProgressEl.style.width = progress + '%';
+                    }
+                }
+            } catch (error) {
+                console.error('Error loading user level:', error);
+            }
+        }
+
+    </script>
+
+    <!-- Main JavaScript -->
+    <script src="/static/js/app.js" defer></script>
+    
+    <!-- Page-specific JavaScript -->
+    {% block extra_js %}{% endblock %}
+
+    <!-- Additional Component Styles -->
+    <style>
+        /* Enhanced User Level Badge */
+        .user-level-badge {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 1rem;
+            background: linear-gradient(135deg, rgba(124, 58, 237, 0.1) 0%, rgba(37, 99, 235, 0.1) 100%);
+            border: 1px solid rgba(124, 58, 237, 0.2);
+            border-radius: 12px;
+            margin: 1rem 0;
+            transition: all 0.3s ease;
+        }
+
+        .level-icon {
+            width: 40px;
+            height: 40px;
+            background: var(--accent-gradient);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 1.2rem;
+            flex-shrink: 0;
+        }
+
+        .level-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .level-name {
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .progress-bar {
+            height: 6px;
+            background: var(--bg-hover);
+            border-radius: 3px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: var(--accent-gradient);
+            border-radius: 3px;
+            transition: width 1s ease;
+            position: relative;
+        }
+
+        .progress-fill::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
+            animation: progressShimmer 2s infinite;
+        }
+
+        @keyframes progressShimmer {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
+        }
+
+        /* Enhanced Tooltips */
+        [data-tooltip] {
+            position: relative;
+            cursor: help;
+        }
+
+        [data-tooltip]:before {
+            content: attr(data-tooltip);
+            position: absolute;
+            bottom: calc(100% + 8px);
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--bg-card);
+            color: var(--text-primary);
+            padding: 0.75rem 1rem;
+            border-radius: 8px;
+            font-size: 0.875rem;
+            font-weight: 500;
+            white-space: nowrap;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            border: 1px solid var(--border-primary);
+            z-index: 10000;
+            pointer-events: none;
+            max-width: 200px;
+            white-space: normal;
+            text-align: center;
+            line-height: 1.4;
+        }
+
+        [data-tooltip]:after {
+            content: '';
+            position: absolute;
+            bottom: calc(100% + 2px);
+            left: 50%;
+            transform: translateX(-50%);
+            border: 6px solid transparent;
+            border-top-color: var(--bg-card);
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+            z-index: 10001;
+            pointer-events: none;
+        }
+
+        [data-tooltip]:hover:before,
+        [data-tooltip]:hover:after {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        /* Tooltip positioning for different contexts */
+        .dropdown__menu [data-tooltip]:before {
+            bottom: auto;
+            top: calc(100% + 8px);
+            left: 0;
+            transform: none;
+        }
+
+        .dropdown__menu [data-tooltip]:after {
+            bottom: auto;
+            top: calc(100% + 2px);
+            left: 20px;
+            transform: none;
+            border-top-color: transparent;
+            border-bottom-color: var(--bg-card);
+        }
+
+        /* Enhanced avatar with initials */
+        .user__avatar,
+        .dropdown__avatar {
+            background: var(--accent-gradient);
+            color: white;
+            font-weight: 700;
+            font-size: 1.1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .user__avatar::before,
+        .dropdown__avatar::before {
+            content: '';
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(45deg, transparent, rgba(255,255,255,0.2), transparent);
+            transform: translateX(-100%);
+            transition: transform 0.6s;
+        }
+
+        .user__avatar:hover::before,
+        .dropdown__avatar:hover::before {
+            transform: translateX(100%);
+        }
+
+        /* Enhanced dropdown stats */
+        .stat {
+            background: var(--bg-hover);
+            border: 1px solid rgba(124, 58, 237, 0.1);
+            border-radius: 8px;
+            padding: 1rem;
+            text-align: center;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .stat:hover {
+            transform: translateY(-2px);
+            border-color: var(--accent-primary);
+            box-shadow: 0 8px 25px rgba(124, 58, 237, 0.2);
+        }
+
+        .stat::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: var(--accent-gradient);
+            transform: scaleX(0);
+            transition: transform 0.3s ease;
+        }
+
+        .stat:hover::before {
+            transform: scaleX(1);
+        }
+
+        .stat__value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--accent-primary);
+            margin-bottom: 0.25rem;
+            transition: all 0.3s ease;
+        }
+
+        .stat:hover .stat__value {
+            transform: scale(1.1);
+        }
+
+        .stat__label {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        /* Responsive tooltip adjustments */
+        @media (max-width: 768px) {
+            [data-tooltip]:before {
+                font-size: 0.8rem;
+                padding: 0.5rem 0.75rem;
+                max-width: 150px;
+            }
+            
+            .user__info {
+                display: none;
+            }
+        }
+
+        /* Enhanced loading animation for stats */
+        .stat__value.loading {
+            background: linear-gradient(90deg, 
+                var(--text-secondary) 25%, 
+                var(--accent-primary) 50%, 
+                var(--text-secondary) 75%
+            );
+            background-size: 200% 100%;
+            animation: statLoading 1.5s infinite;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        @keyframes statLoading {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+
+        /* Enhanced modal styling */
+        #profileModal, #settingsModal {
+            backdrop-filter: blur(10px);
+            animation: modalFadeIn 0.3s ease;
+        }
+
+        @keyframes modalFadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        #profileModal > div, #settingsModal > div {
+            animation: modalSlideIn 0.3s ease;
+            border: 1px solid var(--border-primary);
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+
+        @keyframes modalSlideIn {
+            from { 
+                transform: translateY(-30px);
+                opacity: 0;
+            }
+            to { 
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+    </style>
+</head>
+<!-- Core Implementation Scripts -->
+<script src="/static/js/missing-implementations.js"></script>
+<script src="/static/js/integration-fixes.js"></script>
+
+<!-- Initialize after everything loads -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Ensure all managers are initialized
+    if (!window.notificationManager) {
+        window.notificationManager = new NotificationManager();
+    }
+    if (!window.modalManager) {
+        window.modalManager = new ModalManager();
+    }
+    if (!window.themeManager) {
+        window.themeManager = new ThemeManager();
+    }
+    
+    console.log('✅ All components initialized successfully');
+});
+</script>
+</body>
+</html>
