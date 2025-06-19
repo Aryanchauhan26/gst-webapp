@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-GST Intelligence Platform - Enhanced Main Application
-Enhanced with PostgreSQL database, AI-powered insights, and user management
+GST Intelligence Platform - Complete Main Application
+Enhanced with all missing API endpoints and functionality
 """
 
 import os
@@ -63,6 +63,18 @@ class UserProfileRequest(BaseModel):
     company: Optional[str] = None
     email: Optional[str] = None
     designation: Optional[str] = None
+
+# NEW: Missing Pydantic models from paste.txt
+class BatchSearchRequest(BaseModel):
+    gstins: List[str]
+
+class ErrorLogRequest(BaseModel):
+    type: str
+    message: str
+    stack: Optional[str] = None
+    url: Optional[str] = None
+    userAgent: Optional[str] = None
+    timestamp: Optional[str] = None
 
 # Add template globals
 def setup_template_globals():
@@ -981,7 +993,255 @@ async def analytics_dashboard(request: Request, current_user: str = Depends(requ
         "avg_compliance": round(avg_compliance or 0, 1)
     })
 
-# API Endpoints for User Management
+# ==============================================================
+# NEW API ENDPOINTS FROM PASTE.TXT - MISSING IMPLEMENTATIONS
+# ==============================================================
+
+# Batch Search Endpoint
+@app.post("/api/search/batch")
+async def batch_search(request: BatchSearchRequest, current_user: str = Depends(require_auth)):
+    """Handle batch GSTIN searches (max 10 at once)"""
+    try:
+        gstins = request.gstins[:10]  # Limit to 10 for safety
+        results = []
+        successful = 0
+        
+        if not api_client:
+            raise HTTPException(status_code=503, detail="GST API service not configured")
+        
+        for gstin in gstins:
+            gstin = gstin.strip().upper()
+            if not validate_gstin(gstin):
+                results.append({
+                    'gstin': gstin,
+                    'success': False,
+                    'error': 'Invalid GSTIN format'
+                })
+                continue
+            
+            try:
+                company_data = await api_client.fetch_gstin_data(gstin)
+                compliance_score = calculate_compliance_score(company_data)
+                
+                # Add to search history
+                await db.add_search_history(current_user, gstin, company_data.get("lgnm", "Unknown"), compliance_score)
+                
+                results.append({
+                    'gstin': gstin,
+                    'success': True,
+                    'company_name': company_data.get('lgnm', 'Unknown'),
+                    'compliance_score': compliance_score,
+                    'status': company_data.get('sts', 'Unknown')
+                })
+                successful += 1
+                
+            except Exception as e:
+                logger.error(f"Error processing GSTIN {gstin}: {e}")
+                results.append({
+                    'gstin': gstin,
+                    'success': False,
+                    'error': str(e)
+                })
+        
+        return {
+            'success': True,
+            'results': results,
+            'processed': len(gstins),
+            'successful': successful
+        }
+        
+    except Exception as e:
+        logger.error(f"Batch search error: {e}")
+        return {
+            'success': False,
+            'error': 'Batch search failed',
+            'results': [],
+            'processed': 0,
+            'successful': 0
+        }
+
+# Search Suggestions Endpoint  
+@app.get("/api/search/suggestions")
+async def get_search_suggestions(q: str, current_user: str = Depends(require_auth)):
+    """Get search suggestions based on query"""
+    try:
+        if len(q) < 2:
+            return {'success': True, 'suggestions': []}
+        
+        # Get recent searches from history that match query
+        await db.connect()
+        async with db.pool.acquire() as conn:
+            rows = await conn.fetch("""
+                SELECT DISTINCT gstin, company_name, compliance_score 
+                FROM search_history 
+                WHERE mobile = $1 
+                AND (LOWER(company_name) LIKE $2 OR LOWER(gstin) LIKE $2)
+                ORDER BY searched_at DESC 
+                LIMIT 5
+            """, current_user, f"%{q.lower()}%")
+        
+        suggestions = []
+        for row in rows:
+            suggestions.append({
+                'gstin': row['gstin'],
+                'company': row['company_name'],
+                'compliance_score': float(row['compliance_score']) if row['compliance_score'] else None,
+                'icon': 'fas fa-history',
+                'type': 'recent'
+            })
+        
+        # Add some sample suggestions if no recent matches
+        if not suggestions:
+            sample_suggestions = [
+                {
+                    'gstin': '27AABCU9603R1ZX',
+                    'company': 'UBER INDIA SYSTEMS PRIVATE LIMITED',
+                    'icon': 'fas fa-building',
+                    'type': 'sample'
+                },
+                {
+                    'gstin': '29AABCT1332L1ZU', 
+                    'company': 'TATA CONSULTANCY SERVICES LIMITED',
+                    'icon': 'fas fa-building',
+                    'type': 'sample'
+                }
+            ]
+            
+            # Filter samples that match query
+            for suggestion in sample_suggestions:
+                if (q.lower() in suggestion['company'].lower() or 
+                    q.lower() in suggestion['gstin'].lower()):
+                    suggestions.append(suggestion)
+        
+        return {
+            'success': True,
+            'suggestions': suggestions[:5]
+        }
+        
+    except Exception as e:
+        logger.error(f"Search suggestions error: {e}")
+        return {'success': False, 'suggestions': []}
+
+# Error Logging Endpoint
+@app.post("/api/system/error")
+async def log_frontend_error(request: ErrorLogRequest):
+    """Log frontend JavaScript errors"""
+    try:
+        error_data = {
+            'type': request.type,
+            'message': request.message,
+            'stack': request.stack,
+            'url': request.url,
+            'userAgent': request.userAgent,
+            'timestamp': request.timestamp
+        }
+        
+        # Log to application logger
+        logger.error(f"Frontend Error: {error_data}")
+        
+        # Could also save to database if needed
+        # await db.log_error(error_data)
+        
+        return {'success': True, 'message': 'Error logged'}
+        
+    except Exception as e:
+        logger.error(f"Error logging frontend error: {e}")
+        return {'success': False, 'message': 'Failed to log error'}
+
+# Enhanced User Activity Endpoint
+@app.get("/api/user/activity")
+async def get_user_activity(days: int = 30, current_user: str = Depends(require_auth)):
+    """Get detailed user activity data for charts"""
+    try:
+        await db.connect()
+        async with db.pool.acquire() as conn:
+            # Daily search activity
+            daily_activity = await conn.fetch("""
+                SELECT DATE(searched_at) as date, 
+                       COUNT(*) as searches,
+                       AVG(compliance_score) as avg_score
+                FROM search_history 
+                WHERE mobile = $1 
+                AND searched_at >= CURRENT_DATE - INTERVAL '%s days'
+                GROUP BY DATE(searched_at)
+                ORDER BY date
+            """, current_user, days)
+            
+            # Hourly activity pattern
+            hourly_activity = await conn.fetch("""
+                SELECT EXTRACT(hour FROM searched_at) as hour,
+                       COUNT(*) as searches
+                FROM search_history 
+                WHERE mobile = $1
+                AND searched_at >= CURRENT_DATE - INTERVAL '30 days'
+                GROUP BY EXTRACT(hour FROM searched_at)
+                ORDER BY hour
+            """, current_user)
+            
+            # Score distribution
+            score_distribution = await conn.fetch("""
+                SELECT 
+                    CASE 
+                        WHEN compliance_score >= 90 THEN 'Excellent (90-100)'
+                        WHEN compliance_score >= 80 THEN 'Very Good (80-89)'
+                        WHEN compliance_score >= 70 THEN 'Good (70-79)'
+                        WHEN compliance_score >= 60 THEN 'Average (60-69)'
+                        ELSE 'Poor (<60)'
+                    END as range,
+                    COUNT(*) as count
+                FROM search_history 
+                WHERE mobile = $1 
+                AND compliance_score IS NOT NULL
+                GROUP BY range
+                ORDER BY range DESC
+            """, current_user)
+        
+        return {
+            'success': True,
+            'data': {
+                'daily_activity': [dict(row) for row in daily_activity],
+                'hourly_activity': [dict(row) for row in hourly_activity],
+                'score_distribution': [dict(row) for row in score_distribution]
+            }
+        }
+        
+    except Exception as e:
+        logger.error(f"Error getting user activity: {e}")
+        return {'success': False, 'error': 'Failed to get activity data'}
+
+# System Status Endpoint
+@app.get("/api/system/status")
+async def get_system_status():
+    """Get system status for monitoring"""
+    try:
+        status = {
+            'database': 'healthy',
+            'gst_api': 'configured' if RAPIDAPI_KEY else 'missing',
+            'ai_service': 'configured' if ANTHROPIC_API_KEY else 'disabled',
+            'timestamp': datetime.now().isoformat()
+        }
+        
+        # Test database connection
+        try:
+            await db.connect()
+            async with db.pool.acquire() as conn:
+                await conn.execute("SELECT 1")
+        except Exception as e:
+            status['database'] = f'unhealthy: {str(e)}'
+        
+        return {
+            'success': True,
+            'status': status
+        }
+        
+    except Exception as e:
+        logger.error(f"System status error: {e}")
+        return {
+            'success': False,
+            'error': 'Failed to get system status'
+        }
+
+# API Endpoints for User Management (ALREADY EXISTED - KEEPING AS IS)
 @app.get("/api/user/stats")
 async def get_user_stats(current_user: str = Depends(require_auth)):
     """Get user statistics for profile display"""
@@ -1219,6 +1479,20 @@ def generate_pdf_report(company_data: dict, compliance_score: float, synopsis: s
 async def favicon():
     favicon_bytes = b'\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\rIDATx\x9cc\xf8\x0f\x00\x00\x01\x01\x00\x05\x00\x01\x8d\xc8\x02\x00\x00\x00\x00IEND\xaeB`\x82'
     return Response(content=favicon_bytes, media_type="image/png")
+
+# Serve PWA manifest
+@app.get("/manifest.json")
+async def get_manifest():
+    with open("static/manifest.json", "r") as f:
+        manifest_content = f.read()
+    return Response(content=manifest_content, media_type="application/json")
+
+# Serve service worker
+@app.get("/sw.js")
+async def get_service_worker():
+    with open("sw.js", "r") as f:
+        sw_content = f.read()
+    return Response(content=sw_content, media_type="application/javascript")
 
 # Error handlers
 @app.exception_handler(HTTPException)
