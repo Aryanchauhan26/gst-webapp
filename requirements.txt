@@ -1,31 +1,118 @@
-# Core FastAPI dependencies
+# GST Intelligence Platform - Python Dependencies
+# Latest versions will be automatically installed
+
+# =====================================================
+# CORE WEB FRAMEWORK
+# =====================================================
 fastapi
 uvicorn[standard]
+<<<<<<< HEAD
 
 # HTTP and networking
 httpx
 
 # Template engine
+=======
+python-multipart
+>>>>>>> c532489b53e866b4caaacf4b11866da31089f9c3
 jinja2
+python-jose[cryptography]
+passlib[bcrypt]
+starlette
 
-# PDF generation
-weasyprint
+# =====================================================
+# DATABASE & ORM
+# =====================================================
+asyncpg
+databases[postgresql]
+sqlalchemy
+alembic
+psycopg2-binary
 
+<<<<<<< HEAD
 # Form handling
 python-multipart
+=======
+# =====================================================
+# HTTP CLIENT & API
+# =====================================================
+httpx
+aiohttp
+requests
+urllib3
+>>>>>>> c532489b53e866b4caaacf4b11866da31089f9c3
 
-# Environment management
+# =====================================================
+# DATA PROCESSING & ANALYSIS
+# =====================================================
+pandas
+numpy
+openpyxl
+xlsxwriter
+
+# =====================================================
+# AI & MACHINE LEARNING
+# =====================================================
+anthropic
+openai
+
+# =====================================================
+# SECURITY & AUTHENTICATION
+# =====================================================
+pyjwt
+cryptography
+bcrypt
 python-dotenv
 
+<<<<<<< HEAD
 # AI integration
 anthropic
 
 # Web scraping
+=======
+# =====================================================
+# VALIDATION & SERIALIZATION
+# =====================================================
+pydantic
+pydantic-settings
+email-validator
+
+# =====================================================
+# DATE & TIME
+# =====================================================
+python-dateutil
+pytz
+
+# =====================================================
+# FILE HANDLING & PDF GENERATION
+# =====================================================
+aiofiles
+weasyprint
+
+# =====================================================
+# LOGGING & MONITORING
+# =====================================================
+loguru
+
+# =====================================================
+# UTILITY LIBRARIES
+# =====================================================
+click
+rich
+
+# =====================================================
+# WEB SCRAPING & PARSING
+# =====================================================
+>>>>>>> c532489b53e866b4caaacf4b11866da31089f9c3
 beautifulsoup4
+lxml
 
-# Web search capability
-googlesearch-python
+# =====================================================
+# DEPLOYMENT & PRODUCTION
+# =====================================================
+gunicorn
 
+<<<<<<< HEAD
 # Database (PostgreSQL/Neon)
 asyncpg
 
@@ -41,3 +128,13 @@ requests
 # Add if missing
 html5lib
 bleach
+=======
+# =====================================================
+# DEVELOPMENT DEPENDENCIES (Optional - uncomment for dev)
+# =====================================================
+# pytest
+# pytest-asyncio
+# black
+# isort
+# flake8
+>>>>>>> c532489b53e866b4caaacf4b11866da31089f9c3
