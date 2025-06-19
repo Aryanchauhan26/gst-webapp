@@ -1466,5 +1466,26 @@
         }
     </style>
 </head>
+<!-- Core Implementation Scripts -->
+<script src="/static/js/missing-implementations.js"></script>
+<script src="/static/js/integration-fixes.js"></script>
+
+<!-- Initialize after everything loads -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Ensure all managers are initialized
+    if (!window.notificationManager) {
+        window.notificationManager = new NotificationManager();
+    }
+    if (!window.modalManager) {
+        window.modalManager = new ModalManager();
+    }
+    if (!window.themeManager) {
+        window.themeManager = new ThemeManager();
+    }
+    
+    console.log('✅ All components initialized successfully');
+});
+</script>
 </body>
 </html>
