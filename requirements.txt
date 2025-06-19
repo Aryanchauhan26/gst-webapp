@@ -1,215 +1,124 @@
-# GST Intelligence Platform - Complete Python Dependencies
-# Production-ready packages with specific versions for stability
+# GST Intelligence Platform - Python Dependencies
+# Latest versions will be automatically installed
 
 # =====================================================
 # CORE WEB FRAMEWORK
 # =====================================================
-fastapi==0.104.1
-uvicorn[standard]==0.24.0
-python-multipart==0.0.6
-jinja2==3.1.2
-python-jose[cryptography]==3.3.0
-passlib[bcrypt]==1.7.4
+fastapi
+uvicorn[standard]
+python-multipart
+jinja2
+python-jose[cryptography]
+passlib[bcrypt]
+starlette
 
 # =====================================================
 # DATABASE & ORM
 # =====================================================
-asyncpg==0.29.0
-databases[postgresql]==0.8.0
-sqlalchemy==2.0.23
-alembic==1.12.1
+asyncpg
+databases[postgresql]
+sqlalchemy
+alembic
+psycopg2-binary
 
 # =====================================================
 # HTTP CLIENT & API
 # =====================================================
-httpx==0.25.2
-aiohttp==3.9.1
-requests==2.31.0
-urllib3==2.1.0
+httpx
+aiohttp
+requests
+urllib3
 
 # =====================================================
 # DATA PROCESSING & ANALYSIS
 # =====================================================
-pandas==2.1.4
-numpy==1.25.2
-openpyxl==3.1.2
-xlsxwriter==3.1.9
-python-docx==1.1.0
-pypdf2==3.0.1
+pandas
+numpy
+openpyxl
+xlsxwriter
 
 # =====================================================
 # AI & MACHINE LEARNING
 # =====================================================
-anthropic==0.7.8
-openai==1.3.7
-langchain==0.0.335
-transformers==4.36.0
-torch==2.1.1
-scikit-learn==1.3.2
+anthropic
+openai
 
 # =====================================================
 # SECURITY & AUTHENTICATION
 # =====================================================
-pyjwt==2.8.0
-cryptography==41.0.8
-bcrypt==4.1.2
-python-dotenv==1.0.0
-secrets==0.0.0
+pyjwt
+cryptography
+bcrypt
+python-dotenv
 
 # =====================================================
 # VALIDATION & SERIALIZATION
 # =====================================================
-pydantic==2.5.1
-pydantic-settings==2.1.0
-email-validator==2.1.0
-phonenumbers==8.13.26
+pydantic
+pydantic-settings
+email-validator
 
 # =====================================================
 # DATE & TIME
 # =====================================================
-python-dateutil==2.8.2
-arrow==1.3.0
-pytz==2023.3
+python-dateutil
+pytz
 
 # =====================================================
 # FILE HANDLING
 # =====================================================
-pillow==10.1.0
-aiofiles==23.2.1
-python-magic==0.4.27
+aiofiles
 
 # =====================================================
 # LOGGING & MONITORING
 # =====================================================
-loguru==0.7.2
-sentry-sdk[fastapi]==1.38.0
-prometheus-client==0.19.0
-
-# =====================================================
-# CACHING & REDIS
-# =====================================================
-redis==5.0.1
-aioredis==2.0.1
-python-memcached==1.59
-
-# =====================================================
-# TESTING & DEVELOPMENT
-# =====================================================
-pytest==7.4.3
-pytest-asyncio==0.21.1
-pytest-cov==4.1.0
-httpx==0.25.2
-factory-boy==3.3.0
-
-# =====================================================
-# CODE QUALITY & FORMATTING
-# =====================================================
-black==23.11.0
-isort==5.12.0
-flake8==6.1.0
-mypy==1.7.1
-pre-commit==3.6.0
-
-# =====================================================
-# WEB SCRAPING & PARSING
-# =====================================================
-beautifulsoup4==4.12.2
-lxml==4.9.3
-selenium==4.15.2
-scrapy==2.11.0
-
-# =====================================================
-# BACKGROUND TASKS
-# =====================================================
-celery==5.3.4
-kombu==5.3.4
-billiard==4.2.0
-
-# =====================================================
-# EMAIL & NOTIFICATIONS
-# =====================================================
-fastapi-mail==1.4.1
-twilio==8.10.3
-sendgrid==6.10.0
-
-# =====================================================
-# DEPLOYMENT & PRODUCTION
-# =====================================================
-gunicorn==21.2.0
-supervisor==4.2.5
-psutil==5.9.6
+loguru
 
 # =====================================================
 # UTILITY LIBRARIES
 # =====================================================
-python-slugify==8.0.1
-pyqrcode==1.2.1
-qrcode[pil]==7.4.2
-jsonschema==4.20.0
-marshmallow==3.20.1
-click==8.1.7
-rich==13.7.0
-tqdm==4.66.1
+click
+rich
 
 # =====================================================
-# GEOGRAPHY & LOCATION
+# WEB SCRAPING & PARSING
 # =====================================================
-geopy==2.4.0
-pycountry==22.3.5
-pycountry-convert==0.7.2
+beautifulsoup4
+lxml
 
 # =====================================================
-# FINANCIAL & ACCOUNTING
+# DEPLOYMENT & PRODUCTION
 # =====================================================
-python-decimal==0.0.0
-babel==2.13.1
-forex-python==1.8
+gunicorn
 
 # =====================================================
-# GST & INDIAN COMPLIANCE SPECIFIC
+# DEVELOPMENT DEPENDENCIES (Optional - uncomment for dev)
 # =====================================================
-# Custom packages for Indian GST system
-indian-gst==0.1.0  # Hypothetical package
-pan-validator==1.0.0  # Hypothetical package
+# pytest
+pytest-asyncio
+black
+isort
+flake8
 
 # =====================================================
-# OPTIONAL PACKAGES (Comment out if not needed)
+# OPTIONAL FEATURES (Uncomment if needed)
 # =====================================================
-# Jupyter notebook support
-jupyter==1.0.0
-notebook==7.0.6
+# Advanced monitoring
+sentry-sdk[fastapi]
+prometheus-client
+
+# Redis caching
+redis
+aioredis
+
+# Email notifications
+fastapi-mail
+
+# Background tasks
+celery
+kombu
 
 # Advanced data visualization
-plotly==5.17.0
-matplotlib==3.8.2
-seaborn==0.13.0
-
-# Advanced NLP
-spacy==3.7.2
-nltk==3.8.1
-
-# Advanced async support
-trio==0.23.1
-anyio==4.1.0
-
-# =====================================================
-# PLATFORM SPECIFIC
-# =====================================================
-# Windows specific
-pywin32==306; sys_platform == "win32"
-
-# Linux specific
-python-systemd==235; sys_platform == "linux"
-
-# macOS specific
-pyobjc==10.0; sys_platform == "darwin"
-
-# =====================================================
-# DEVELOPMENT DEPENDENCIES
-# =====================================================
-# These are only for development environment
-pytest-xdist==3.4.0
-pytest-mock==3.12.0
-coverage==7.3.2
-bandit==1.7.5
-safety==2.3.5
+plotly
+matplotlib
+seaborn
