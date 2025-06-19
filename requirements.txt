@@ -65,9 +65,10 @@ python-dateutil
 pytz
 
 # =====================================================
-# FILE HANDLING
+# FILE HANDLING & PDF GENERATION
 # =====================================================
 aiofiles
+weasyprint
 
 # =====================================================
 # LOGGING & MONITORING
@@ -95,30 +96,7 @@ gunicorn
 # DEVELOPMENT DEPENDENCIES (Optional - uncomment for dev)
 # =====================================================
 # pytest
-pytest-asyncio
-black
-isort
-flake8
-
-# =====================================================
-# OPTIONAL FEATURES (Uncomment if needed)
-# =====================================================
-# Advanced monitoring
-sentry-sdk[fastapi]
-prometheus-client
-
-# Redis caching
-redis
-aioredis
-
-# Email notifications
-fastapi-mail
-
-# Background tasks
-celery
-kombu
-
-# Advanced data visualization
-plotly
-matplotlib
-seaborn
+# pytest-asyncio
+# black
+# isort
+# flake8
