@@ -37,3 +37,7 @@ lxml
 
 # Additional dependencies for proper functionality
 requests
+
+# Add if missing
+html5lib
+bleach

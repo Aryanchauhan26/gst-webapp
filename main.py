@@ -24,6 +24,7 @@ from weasyprint import HTML
 from dotenv import load_dotenv
 from anthro_ai import get_anthropic_synopsis
 from pydantic import BaseModel
+import html
 
 # Load environment variables
 load_dotenv()
@@ -415,6 +416,59 @@ class PostgresDB:
                     'designation': prefs.get('designation')
                 }
             return {}
+
+    async def get_user_activity_summary(self, mobile: str, days: int = 30) -> Dict:
+        """Get user activity summary for dashboard"""
+        await self.connect()
+        end_date = datetime.now()
+        start_date = end_date - timedelta(days=days)
+        
+        async with self.pool.acquire() as conn:
+            summary = await conn.fetchrow("""
+                SELECT 
+                    COUNT(*) as total_searches,
+                    COUNT(DISTINCT gstin) as unique_companies,
+                    AVG(compliance_score) as avg_compliance,
+                    MAX(searched_at) as last_search,
+                    MIN(searched_at) as first_search
+                FROM search_history 
+                WHERE mobile = $1 AND searched_at >= $2
+            """, mobile, start_date)
+            
+            return {
+                "total_searches": summary["total_searches"] or 0,
+                "unique_companies": summary["unique_companies"] or 0,
+                "avg_compliance": float(summary["avg_compliance"]) if summary["avg_compliance"] else 0,
+                "last_search": summary["last_search"].isoformat() if summary["last_search"] else None,
+                "first_search": summary["first_search"].isoformat() if summary["first_search"] else None,
+                "period_days": days
+            }
+
+    async def get_compliance_insights(self, mobile: str) -> Dict:
+        """Get compliance insights for user"""
+        await self.connect()
+        async with self.pool.acquire() as conn:
+            insights = await conn.fetchrow("""
+                SELECT 
+                    AVG(compliance_score) as avg_score,
+                    MAX(compliance_score) as best_score,
+                    MIN(compliance_score) as worst_score,
+                    COUNT(CASE WHEN compliance_score >= 80 THEN 1 END) as high_compliance_count,
+                    COUNT(CASE WHEN compliance_score < 60 THEN 1 END) as low_compliance_count,
+                    COUNT(*) as total_scored
+                FROM search_history 
+                WHERE mobile = $1 AND compliance_score IS NOT NULL
+            """, mobile)
+            
+            return {
+                "avg_score": float(insights["avg_score"]) if insights["avg_score"] else 0,
+                "best_score": float(insights["best_score"]) if insights["best_score"] else 0,
+                "worst_score": float(insights["worst_score"]) if insights["worst_score"] else 0,
+                "high_compliance_count": insights["high_compliance_count"] or 0,
+                "low_compliance_count": insights["low_compliance_count"] or 0,
+                "total_scored": insights["total_scored"] or 0,
+                "high_compliance_percentage": (insights["high_compliance_count"] / insights["total_scored"] * 100) if insights["total_scored"] > 0 else 0
+            }
 
 db = PostgresDB()
 
