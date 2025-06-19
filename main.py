@@ -134,15 +134,24 @@ class PostgresDB:
 
     async def connect(self):
         if not self.pool:
-            self.pool = await asyncpg.create_pool(dsn=self.dsn)
+            try:
+                self.pool = await asyncpg.create_pool(
+                    dsn=self.dsn,
+                    min_size=1,
+                    max_size=10,
+                    command_timeout=60
+                )
+                logger.info("✅ Database pool created successfully")
+            except Exception as e:
+                logger.error(f"❌ Database connection failed: {e}")
+                raise
 
     async def ensure_tables(self):
         """Ensure all required tables exist"""
         await self.connect()
         async with self.pool.acquire() as conn:
-            # Create users table
-            await conn.execute("""
-                CREATE TABLE IF NOT EXISTS users (
+            # Users table
+            await conn.execute("""CREATE TABLE IF NOT EXISTS users (
                     mobile VARCHAR(10) PRIMARY KEY,
                     password_hash VARCHAR(128) NOT NULL,
                     salt VARCHAR(32) NOT NULL,
@@ -151,9 +160,8 @@ class PostgresDB:
                 );
             """)
             
-            # Create sessions table
-            await conn.execute("""
-                CREATE TABLE IF NOT EXISTS sessions (
+            # Sessions table
+            await conn.execute("""CREATE TABLE IF NOT EXISTS sessions (
                     session_token VARCHAR(64) PRIMARY KEY,
                     mobile VARCHAR(10) NOT NULL,
                     expires_at TIMESTAMP NOT NULL,
@@ -162,9 +170,8 @@ class PostgresDB:
                 );
             """)
             
-            # Create search_history table
-            await conn.execute("""
-                CREATE TABLE IF NOT EXISTS search_history (
+            # Search history table
+            await conn.execute("""CREATE TABLE IF NOT EXISTS search_history (
                     id SERIAL PRIMARY KEY,
                     mobile VARCHAR(10) NOT NULL,
                     gstin VARCHAR(15) NOT NULL,
@@ -175,9 +182,8 @@ class PostgresDB:
                 );
             """)
             
-            # Create user_preferences table
-            await conn.execute("""
-                CREATE TABLE IF NOT EXISTS user_preferences (
+            # User preferences table
+            await conn.execute("""CREATE TABLE IF NOT EXISTS user_preferences (
                     mobile VARCHAR(10) PRIMARY KEY,
                     preferences JSONB NOT NULL DEFAULT '{}',
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -186,26 +192,25 @@ class PostgresDB:
                 );
             """)
             
-            # Create indexes
-            await conn.execute("CREATE INDEX IF NOT EXISTS idx_sessions_expires ON sessions(expires_at);")
-            await conn.execute("CREATE INDEX IF NOT EXISTS idx_search_history_mobile ON search_history(mobile);")
-            await conn.execute("CREATE INDEX IF NOT EXISTS idx_search_history_searched_at ON search_history(searched_at);")
+            logger.info("✅ All tables ensured")
 
     async def create_user(self, mobile: str, password_hash: str, salt: str):
         await self.connect()
         async with self.pool.acquire() as conn:
             await conn.execute(
-                "INSERT INTO users (mobile, password_hash, salt) VALUES ($1, $2, $3) ON CONFLICT (mobile) DO NOTHING",
+                "INSERT INTO users (mobile, password_hash, salt) VALUES ($1, $2, $3)",
                 mobile, password_hash, salt
             )
 
     async def verify_user(self, mobile: str, password: str) -> bool:
         await self.connect()
         async with self.pool.acquire() as conn:
-            row = await conn.fetchrow("SELECT password_hash, salt FROM users WHERE mobile=$1", mobile)
-            if not row:
-                return False
-            return check_password(password, row['password_hash'], row['salt'])
+            user = await conn.fetchrow(
+                "SELECT password_hash, salt FROM users WHERE mobile = $1", mobile
+            )
+            if user:
+                return check_password(password, user['password_hash'], user['salt'])
+            return False
 
     async def change_password(self, mobile: str, old_password: str, new_password: str) -> bool:
         """Change user password after verifying old password"""
@@ -229,29 +234,24 @@ class PostgresDB:
 
     async def create_session(self, mobile: str) -> Optional[str]:
         session_token = secrets.token_urlsafe(32)
-        expires_at = datetime.now() + timedelta(days=7)
+        expires_at = datetime.now() + timedelta(days=30)
+        
         await self.connect()
-        try:
-            async with self.pool.acquire() as conn:
-                await conn.execute(
-                    "INSERT INTO sessions (session_token, mobile, expires_at) VALUES ($1, $2, $3)",
-                    session_token, mobile, expires_at
-                )
-            return session_token
-        except Exception as e:
-            logger.error(f"Session creation failed: {e}")
-            return None
+        async with self.pool.acquire() as conn:
+            await conn.execute(
+                "INSERT INTO sessions (session_token, mobile, expires_at) VALUES ($1, $2, $3)",
+                session_token, mobile, expires_at
+            )
+        return session_token
 
     async def get_session(self, session_token: str) -> Optional[str]:
         await self.connect()
         async with self.pool.acquire() as conn:
-            row = await conn.fetchrow(
-                "SELECT mobile, expires_at FROM sessions WHERE session_token=$1",
+            user = await conn.fetchrow(
+                "SELECT mobile FROM sessions WHERE session_token = $1 AND expires_at > NOW()",
                 session_token
             )
-            if row and row['expires_at'] > datetime.now():
-                return row['mobile']
-        return None
+            return user['mobile'] if user else None
 
     async def delete_session(self, session_token: str):
         await self.connect()
@@ -513,10 +513,14 @@ class GSAPIClient:
 api_client = GSAPIClient(RAPIDAPI_KEY, RAPIDAPI_HOST) if RAPIDAPI_KEY else None
 
 # Validation functions
+def check_password(password: str, stored_hash: str, salt: str) -> bool:
+    hash_attempt = hashlib.pbkdf2_hmac('sha256', password.encode('utf-8'), salt.encode('utf-8'), 100000, dklen=64).hex()
+    return hash_attempt == stored_hash
+
 def validate_mobile(mobile: str) -> tuple[bool, str]:
     mobile = mobile.strip()
     if not mobile.isdigit() or len(mobile) != 10 or mobile[0] not in "6789":
-        return False, "Invalid mobile number"
+        return False, "Please enter a valid 10-digit mobile number starting with 6, 7, 8, or 9"
     return True, ""
 
 def validate_gstin(gstin: str) -> bool:
@@ -535,12 +539,12 @@ def validate_password_strength(password: str) -> tuple[bool, str]:
         return False, "Password must contain at least one lowercase letter"
     
     if not re.search(r'\d', password):
-        return False, "Password must contain at least one number"
+        return False, "Password must contain at least one digit"
     
     if not re.search(r'[!@#$%^&*(),.?":{}|<>]', password):
         return False, "Password must contain at least one special character"
     
-    return True, "Password is strong"
+    return True, ""
 
 async def get_user_display_name(mobile: str) -> str:
     """Get user display name or fallback to mobile"""
@@ -740,10 +744,6 @@ def calculate_compliance_score(company_data: dict) -> float:
     logger.info(f"Calculated compliance score: {final_score} for company {company_data.get('lgnm', 'Unknown')}")
     return final_score
 
-def check_password(password: str, stored_hash: str, salt: str) -> bool:
-    hash_attempt = hashlib.pbkdf2_hmac('sha256', password.encode('utf-8'), salt.encode('utf-8'), 100000, dklen=64).hex()
-    return hash_attempt == stored_hash
-
 # Routes
 @app.get("/health")
 async def health_check():
@@ -801,25 +801,42 @@ async def get_login(request: Request):
 
 @app.post("/login")
 async def post_login(request: Request, mobile: str = Form(...), password: str = Form(...)):
-    is_valid, message = validate_mobile(mobile)
+    # Rate limiting
+    client_ip = request.client.host
+    if not login_limiter.is_allowed(client_ip):
+        return templates.TemplateResponse("login.html", {
+            "request": request,
+            "error": "Too many login attempts. Please try again later."
+        })
+    
+    # Validate mobile number
+    is_valid, error_msg = validate_mobile(mobile)
     if not is_valid:
-        return templates.TemplateResponse("login.html", {"request": request, "error": message})
+        return templates.TemplateResponse("login.html", {
+            "request": request,
+            "error": error_msg
+        })
     
-    if not await db.verify_user(mobile, password):
-        return templates.TemplateResponse("login.html", {"request": request, "error": "Invalid credentials"})
-    
-    session_token = await db.create_session(mobile)
-    if not session_token:
-        return templates.TemplateResponse("login.html", {"request": request, "error": "Failed to create session"})
-    
-    await db.update_last_login(mobile)
-    
-    response = RedirectResponse(url="/", status_code=302)
-    response.set_cookie(
-        key="session_token", value=session_token, max_age=7 * 24 * 60 * 60,
-        httponly=True, samesite="lax", secure=False
-    )
-    return response
+    # Verify user
+    if await db.verify_user(mobile, password):
+        session_token = await db.create_session(mobile)
+        await db.update_last_login(mobile)
+        
+        response = RedirectResponse(url="/", status_code=303)
+        response.set_cookie(
+            key="session_token",
+            value=session_token,
+            max_age=30 * 24 * 3600,  # 30 days
+            httponly=True,
+            secure=True,
+            samesite="strict"
+        )
+        return response
+    else:
+        return templates.TemplateResponse("login.html", {
+            "request": request,
+            "error": "Invalid mobile number or password"
+        })
 
 @app.get("/signup", response_class=HTMLResponse)
 async def get_signup(request: Request):
@@ -827,21 +844,49 @@ async def get_signup(request: Request):
 
 @app.post("/signup")
 async def post_signup(request: Request, mobile: str = Form(...), password: str = Form(...), confirm_password: str = Form(...)):
-    is_valid, message = validate_mobile(mobile)
+    # Validate mobile
+    is_valid, error_msg = validate_mobile(mobile)
     if not is_valid:
-        return templates.TemplateResponse("signup.html", {"request": request, "error": message})
+        return templates.TemplateResponse("signup.html", {
+            "request": request,
+            "error": error_msg
+        })
     
-    if len(password) < 6:
-        return templates.TemplateResponse("signup.html", {"request": request, "error": "Password must be at least 6 characters"})
+    # Validate password
+    is_strong, strength_msg = validate_password_strength(password)
+    if not is_strong:
+        return templates.TemplateResponse("signup.html", {
+            "request": request,
+            "error": strength_msg
+        })
     
+    # Check password confirmation
     if password != confirm_password:
-        return templates.TemplateResponse("signup.html", {"request": request, "error": "Passwords do not match"})
+        return templates.TemplateResponse("signup.html", {
+            "request": request,
+            "error": "Passwords do not match"
+        })
     
-    salt = secrets.token_hex(16)
-    password_hash = hashlib.pbkdf2_hmac('sha256', password.encode('utf-8'), salt.encode('utf-8'), 100000, dklen=64).hex()
-    
-    await db.create_user(mobile, password_hash, salt)
-    return RedirectResponse(url="/login?registered=true", status_code=302)
+    try:
+        # Create user
+        salt = secrets.token_hex(16)
+        password_hash = hashlib.pbkdf2_hmac('sha256', password.encode('utf-8'), salt.encode('utf-8'), 100000, dklen=64).hex()
+        
+        await db.create_user(mobile, password_hash, salt)
+        
+        return RedirectResponse(url="/login?registered=true", status_code=303)
+        
+    except Exception as e:
+        if "duplicate key" in str(e).lower():
+            error_msg = "Mobile number already registered"
+        else:
+            error_msg = "Registration failed. Please try again."
+            logger.error(f"Signup error: {e}")
+        
+        return templates.TemplateResponse("signup.html", {
+            "request": request,
+            "error": error_msg
+        })
 
 @app.get("/logout")
 async def logout(request: Request):
@@ -867,60 +912,66 @@ async def search_gstin_post(request: Request, gstin: str = Form(...), current_us
 async def process_search(request: Request, gstin: str, current_user: str):
     gstin = gstin.strip().upper()
     if not validate_gstin(gstin):
-        history = await db.get_search_history(current_user)
         return templates.TemplateResponse("index.html", {
-            "request": request, "current_user": current_user, "error": "Invalid GSTIN format", "history": history
+            "request": request,
+            "error": "Invalid GSTIN format. Please enter a valid 15-character GSTIN.",
+            "current_user": current_user
         })
     
     if not api_limiter.is_allowed(current_user):
-        history = await db.get_search_history(current_user)
         return templates.TemplateResponse("index.html", {
-            "request": request, "current_user": current_user, 
-            "error": "API rate limit exceeded. Please try again later.", "history": history
+            "request": request,
+            "error": "Rate limit exceeded. Please try again later.",
+            "current_user": current_user
         })
     
     try:
         if not api_client:
-            raise HTTPException(status_code=503, detail="GST API service not configured")
-            
+            return templates.TemplateResponse("index.html", {
+                "request": request,
+                "error": "GST API service is currently unavailable.",
+                "current_user": current_user
+            })
+        
+        # Fetch company data
         company_data = await api_client.fetch_gstin_data(gstin)
-        
-        # Calculate compliance score
         compliance_score = calculate_compliance_score(company_data)
-        logger.info(f"Final compliance score for template: {compliance_score}")
         
-        synopsis = None
-        if ANTHROPIC_API_KEY:
-            try:
-                synopsis = await get_anthropic_synopsis(company_data)
-            except Exception as e:
-                logger.error(f"Failed to get AI synopsis: {e}")
+        # Get AI synopsis
+        synopsis = await get_anthropic_synopsis(company_data)
+        
+        # Analyze late filings
+        late_filing_analysis = analyze_late_filings(company_data.get('returns', []))
         
         # Add to search history
-        await db.add_search_history(current_user, gstin, company_data.get("lgnm", "Unknown"), compliance_score)
-        
-        late_filing_analysis = company_data.get('_late_filing_analysis', {})
+        await db.add_search_history(
+            current_user, 
+            gstin, 
+            company_data.get("lgnm", "Unknown"), 
+            compliance_score
+        )
         
         return templates.TemplateResponse("results.html", {
-            "request": request, 
-            "current_user": current_user, 
+            "request": request,
             "company_data": company_data,
-            "compliance_score": int(compliance_score),
+            "compliance_score": compliance_score,
             "synopsis": synopsis,
-            "late_filing_analysis": late_filing_analysis
+            "late_filing_analysis": late_filing_analysis,
+            "current_user": current_user
         })
         
     except HTTPException as e:
-        history = await db.get_search_history(current_user)
         return templates.TemplateResponse("index.html", {
-            "request": request, "current_user": current_user, "error": e.detail, "history": history
+            "request": request,
+            "error": f"Error fetching company data: {e.detail}",
+            "current_user": current_user
         })
     except Exception as e:
-        logger.error(f"Search error: {e}")
-        history = await db.get_search_history(current_user)
+        logger.error(f"Search error for {gstin}: {e}")
         return templates.TemplateResponse("index.html", {
-            "request": request, "current_user": current_user, 
-            "error": "An error occurred while searching. Please try again.", "history": history
+            "request": request,
+            "error": "An unexpected error occurred. Please try again.",
+            "current_user": current_user
         })
 
 @app.get("/history", response_class=HTMLResponse)
@@ -961,7 +1012,7 @@ async def analytics_dashboard(request: Request, current_user: str = Depends(requ
                         WHEN compliance_score >= 80 THEN 'Very Good (80-89)'
                         WHEN compliance_score >= 70 THEN 'Good (70-79)'
                         WHEN compliance_score >= 60 THEN 'Average (60-69)'
-                        ELSE 'Poor (<60)' END as range, COUNT(*) as count
+                        ELSE 'Poor (<60)' END as range, COUNT(*)
             FROM search_history WHERE mobile = $1 AND compliance_score IS NOT NULL GROUP BY range ORDER BY range DESC
         """, current_user)
         
