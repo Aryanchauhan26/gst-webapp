@@ -175,41 +175,41 @@ pan-validator==1.0.0  # Hypothetical package
 # =====================================================
 # OPTIONAL PACKAGES (Comment out if not needed)
 # =====================================================
-Jupyter notebook support
-# jupyter==1.0.0
-# notebook==7.0.6
+# Jupyter notebook support
+jupyter==1.0.0
+notebook==7.0.6
 
 # Advanced data visualization
-# plotly==5.17.0
-# matplotlib==3.8.2
-# seaborn==0.13.0
+plotly==5.17.0
+matplotlib==3.8.2
+seaborn==0.13.0
 
 # Advanced NLP
-# spacy==3.7.2
-# nltk==3.8.1
+spacy==3.7.2
+nltk==3.8.1
 
 # Advanced async support
-# trio==0.23.1
-# anyio==4.1.0
+trio==0.23.1
+anyio==4.1.0
 
 # =====================================================
 # PLATFORM SPECIFIC
 # =====================================================
 # Windows specific
-# pywin32==306; sys_platform == "win32"
+pywin32==306; sys_platform == "win32"
 
 # Linux specific
-# python-systemd==235; sys_platform == "linux"
+python-systemd==235; sys_platform == "linux"
 
 # macOS specific
-# pyobjc==10.0; sys_platform == "darwin"
+pyobjc==10.0; sys_platform == "darwin"
 
 # =====================================================
 # DEVELOPMENT DEPENDENCIES
 # =====================================================
 # These are only for development environment
-# pytest-xdist==3.4.0
-# pytest-mock==3.12.0
-# coverage==7.3.2
-# bandit==1.7.5
-# safety==2.3.5
+pytest-xdist==3.4.0
+pytest-mock==3.12.0
+coverage==7.3.2
+bandit==1.7.5
+safety==2.3.5
