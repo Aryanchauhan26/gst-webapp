@@ -101,7 +101,7 @@ uvloop
 httptools
 
 # =============================================================================
-# Optional Dependencies (Install manually if needed)
+# Optional Dependencies (Install manually if needed).
 # =============================================================================
 
 # For advanced analytics (large dataset processing)
