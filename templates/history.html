@@ -6,14 +6,6 @@
 {% block extra_js %}
 <!-- Enhanced Common Scripts -->
 <script>
-// History-specific functionality
-function exportToExcel() {
-    window.location.href = '/export/history';
-    if (typeof notificationManager !== 'undefined') {
-        notificationManager.showToast('Exporting data to Excel...', 'info');
-    }
-}
-
 // Filter functionality
 document.addEventListener('DOMContentLoaded', function() {
     const companyFilter = document.getElementById('companyFilter');

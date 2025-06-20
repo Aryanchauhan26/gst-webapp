@@ -1,386 +1,799 @@
-// Frontend-Backend Integration Fixes
-// This file contains fixes for missing functions referenced in templates
+// =====================================================
+// GST Intelligence Platform - Frontend Integration Module
+// Complete integration layer for frontend-backend communication
+// =====================================================
 
-// ===========================================
-// 1. GLOBAL CONFIGURATION
-// ===========================================
+'use strict';
 
-window.GST_CONFIG = {
-    API_BASE_URL: '',
-    USER_PREFERENCES_KEY: 'gst_user_preferences',
-    RECENT_SEARCHES_KEY: 'recentGSTINSearches',
-    DEBUG_MODE: localStorage.getItem('gst_debug') === 'true',
-    MAX_RECENT_SEARCHES: 10,
-    NOTIFICATION_DURATION: 5000,
-    THEME_TRANSITION_DURATION: 300
+console.log('🔧 GST Integration Module Loading...');
+
+// =====================================================
+// 1. INTEGRATION CONFIGURATION
+// =====================================================
+
+window.GST_INTEGRATION = {
+    VERSION: '2.0.0',
+    DEBUG: localStorage.getItem('gst_debug') === 'true',
+    
+    CONFIG: {
+        API_TIMEOUT: 10000,
+        RETRY_ATTEMPTS: 3,
+        RETRY_DELAY: 1000,
+        CACHE_DURATION: 5 * 60 * 1000, // 5 minutes
+    },
+    
+    state: {
+        initialized: false,
+        userProfile: null,
+        userPreferences: null,
+        userStats: null
+    },
+    
+    utils: {
+        log: function(...args) {
+            if (window.GST_INTEGRATION.DEBUG) {
+                console.log('🔧 INTEGRATION:', ...args);
+            }
+        },
+        
+        error: function(...args) {
+            console.error('❌ INTEGRATION:', ...args);
+        },
+        
+        showNotification: function(message, type = 'info', duration = 3000) {
+            if (window.notificationManager) {
+                window.notificationManager.show(message, type, duration);
+            } else {
+                console.log(`${type.toUpperCase()}: ${message}`);
+            }
+        }
+    }
 };
 
-// ===========================================
-// 2. ENHANCED PROFILE MODAL (Fix for missing implementation)
-// ===========================================
+// =====================================================
+// 2. API CLIENT WITH RETRY LOGIC
+// =====================================================
 
-window.openEnhancedProfileModal = async function() {
-    if (!window.modalManager) {
-        console.error('Modal manager not initialized');
-        return;
+class APIClient {
+    constructor() {
+        this.baseURL = '';
+        this.timeout = window.GST_INTEGRATION.CONFIG.API_TIMEOUT;
+        this.retryAttempts = window.GST_INTEGRATION.CONFIG.RETRY_ATTEMPTS;
+        this.retryDelay = window.GST_INTEGRATION.CONFIG.RETRY_DELAY;
     }
 
-    try {
-        // Load current user profile data
-        const profileResponse = await fetch('/api/user/profile');
-        const profileResult = await profileResponse.json();
-        
-        const statsResponse = await fetch('/api/user/stats');
-        const statsResult = await statsResponse.json();
-        
-        const currentProfile = profileResult.success ? profileResult.data : {};
-        const userStats = statsResult.success ? statsResult.data : {};
+    async request(endpoint, options = {}) {
+        const url = `${this.baseURL}${endpoint}`;
+        const config = {
+            timeout: this.timeout,
+            headers: {
+                'Content-Type': 'application/json',
+                ...options.headers
+            },
+            ...options
+        };
 
-        const modal = window.modalManager.createModal({
-            title: '👤 Enhanced Profile Settings',
-            size: 'large',
-            content: `
-                <div style="display: flex; flex-direction: column; gap: 2rem;">
-                    <!-- User Stats Overview -->
-                    <div style="background: linear-gradient(135deg, rgba(124, 58, 237, 0.1) 0%, rgba(37, 99, 235, 0.1) 100%); border-radius: 12px; padding: 2rem; border: 1px solid rgba(124, 58, 237, 0.2);">
-                        <h4 style="margin-bottom: 1.5rem; color: var(--text-primary); display: flex; align-items: center; gap: 0.5rem;">
-                            <i class="fas fa-chart-bar"></i>
-                            Your Activity Overview
-                        </h4>
-                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem;">
-                            <div style="text-align: center; background: var(--bg-card); padding: 1rem; border-radius: 8px;">
-                                <div style="font-size: 1.8rem; font-weight: 700; color: var(--accent-primary); margin-bottom: 0.25rem;">${userStats.total_searches || 0}</div>
-                                <div style="font-size: 0.8rem; color: var(--text-secondary);">Total Searches</div>
-                            </div>
-                            <div style="text-align: center; background: var(--bg-card); padding: 1rem; border-radius: 8px;">
-                                <div style="font-size: 1.8rem; font-weight: 700; color: var(--accent-primary); margin-bottom: 0.25rem;">${userStats.unique_companies || 0}</div>
-                                <div style="font-size: 0.8rem; color: var(--text-secondary);">Companies Analyzed</div>
-                            </div>
-                            <div style="text-align: center; background: var(--bg-card); padding: 1rem; border-radius: 8px;">
-                                <div style="font-size: 1.8rem; font-weight: 700; color: var(--accent-primary); margin-bottom: 0.25rem;">${Math.round(userStats.avg_compliance || 0)}%</div>
-                                <div style="font-size: 0.8rem; color: var(--text-secondary);">Avg Compliance</div>
-                            </div>
-                            <div style="text-align: center; background: var(--bg-card); padding: 1rem; border-radius: 8px;">
-                                <div style="font-size: 1.8rem; font-weight: 700; color: var(--accent-primary); margin-bottom: 0.25rem;">${userStats.recent_searches || 0}</div>
-                                <div style="font-size: 0.8rem; color: var(--text-secondary);">Recent Activity</div>
-                            </div>
+        for (let attempt = 1; attempt <= this.retryAttempts; attempt++) {
+            try {
+                window.GST_INTEGRATION.utils.log(`API Request (attempt ${attempt}):`, endpoint);
+                
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), this.timeout);
+                
+                const response = await fetch(url, {
+                    ...config,
+                    signal: controller.signal
+                });
+                
+                clearTimeout(timeoutId);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                window.GST_INTEGRATION.utils.log(`API Response:`, data);
+                
+                return data;
+                
+            } catch (error) {
+                window.GST_INTEGRATION.utils.error(`API Error (attempt ${attempt}):`, error);
+                
+                if (attempt === this.retryAttempts) {
+                    throw error;
+                }
+                
+                // Wait before retry
+                await new Promise(resolve => setTimeout(resolve, this.retryDelay * attempt));
+            }
+        }
+    }
+
+    async get(endpoint, params = {}) {
+        const queryString = new URLSearchParams(params).toString();
+        const url = queryString ? `${endpoint}?${queryString}` : endpoint;
+        return this.request(url, { method: 'GET' });
+    }
+
+    async post(endpoint, data = {}) {
+        return this.request(endpoint, {
+            method: 'POST',
+            body: JSON.stringify(data)
+        });
+    }
+
+    async put(endpoint, data = {}) {
+        return this.request(endpoint, {
+            method: 'PUT',
+            body: JSON.stringify(data)
+        });
+    }
+
+    async delete(endpoint) {
+        return this.request(endpoint, { method: 'DELETE' });
+    }
+}
+
+// =====================================================
+// 3. USER PROFILE MANAGER
+// =====================================================
+
+class UserProfileManager {
+    constructor(apiClient) {
+        this.api = apiClient;
+        this.profileCache = null;
+        this.cacheTimestamp = null;
+    }
+
+    async loadUserProfile() {
+        try {
+            // Check cache first
+            if (this.profileCache && this.isCacheValid()) {
+                return this.profileCache;
+            }
+
+            const response = await this.api.get('/api/user/profile');
+            if (response.success) {
+                this.profileCache = response.data;
+                this.cacheTimestamp = Date.now();
+                window.GST_INTEGRATION.state.userProfile = response.data;
+                return response.data;
+            }
+            throw new Error(response.error || 'Failed to load profile');
+        } catch (error) {
+            window.GST_INTEGRATION.utils.error('Profile load failed:', error);
+            return {};
+        }
+    }
+
+    async saveUserProfile(profileData) {
+        try {
+            const response = await this.api.post('/api/user/profile', profileData);
+            if (response.success) {
+                this.profileCache = { ...this.profileCache, ...profileData };
+                this.cacheTimestamp = Date.now();
+                window.GST_INTEGRATION.state.userProfile = this.profileCache;
+                return true;
+            }
+            throw new Error(response.error || 'Failed to save profile');
+        } catch (error) {
+            window.GST_INTEGRATION.utils.error('Profile save failed:', error);
+            return false;
+        }
+    }
+
+    async loadUserStats() {
+        try {
+            const response = await this.api.get('/api/user/stats');
+            if (response.success) {
+                window.GST_INTEGRATION.state.userStats = response.data;
+                return response.data;
+            }
+            throw new Error(response.error || 'Failed to load stats');
+        } catch (error) {
+            window.GST_INTEGRATION.utils.error('Stats load failed:', error);
+            return {};
+        }
+    }
+
+    async loadUserPreferences() {
+        try {
+            const response = await this.api.get('/api/user/preferences');
+            if (response.success) {
+                window.GST_INTEGRATION.state.userPreferences = response.data;
+                return response.data;
+            }
+            throw new Error(response.error || 'Failed to load preferences');
+        } catch (error) {
+            window.GST_INTEGRATION.utils.error('Preferences load failed:', error);
+            return {};
+        }
+    }
+
+    async saveUserPreferences(preferences) {
+        try {
+            const response = await this.api.post('/api/user/preferences', preferences);
+            if (response.success) {
+                window.GST_INTEGRATION.state.userPreferences = { 
+                    ...window.GST_INTEGRATION.state.userPreferences, 
+                    ...preferences 
+                };
+                return true;
+            }
+            throw new Error(response.error || 'Failed to save preferences');
+        } catch (error) {
+            window.GST_INTEGRATION.utils.error('Preferences save failed:', error);
+            return false;
+        }
+    }
+
+    async changePassword(currentPassword, newPassword) {
+        try {
+            const response = await this.api.post('/api/user/change-password', {
+                currentPassword,
+                newPassword
+            });
+            return response.success;
+        } catch (error) {
+            window.GST_INTEGRATION.utils.error('Password change failed:', error);
+            return false;
+        }
+    }
+
+    async clearUserData() {
+        try {
+            const response = await this.api.delete('/api/user/data');
+            if (response.success) {
+                // Clear local cache
+                this.profileCache = null;
+                this.cacheTimestamp = null;
+                return response.deleted_count || 0;
+            }
+            throw new Error(response.error || 'Failed to clear data');
+        } catch (error) {
+            window.GST_INTEGRATION.utils.error('Data clear failed:', error);
+            return 0;
+        }
+    }
+
+    isCacheValid() {
+        return this.cacheTimestamp && 
+               (Date.now() - this.cacheTimestamp) < window.GST_INTEGRATION.CONFIG.CACHE_DURATION;
+    }
+
+    invalidateCache() {
+        this.profileCache = null;
+        this.cacheTimestamp = null;
+    }
+}
+
+// =====================================================
+// 4. ENHANCED MODAL SYSTEM
+// =====================================================
+
+class EnhancedModalSystem {
+    constructor() {
+        this.activeModals = new Map();
+        this.zIndexCounter = 1050;
+    }
+
+    async openProfileModal() {
+        try {
+            const [profileData, statsData] = await Promise.all([
+                window.GST_INTEGRATION.userManager.loadUserProfile(),
+                window.GST_INTEGRATION.userManager.loadUserStats()
+            ]);
+
+            const modalContent = this.createProfileModalContent(profileData, statsData);
+            
+            return this.createModal({
+                id: 'profile-modal',
+                title: '👤 Enhanced Profile Settings',
+                content: modalContent,
+                size: 'large',
+                onSubmit: this.handleProfileSubmit.bind(this)
+            });
+        } catch (error) {
+            window.GST_INTEGRATION.utils.error('Profile modal error:', error);
+            window.GST_INTEGRATION.utils.showNotification('Failed to load profile data', 'error');
+        }
+    }
+
+    createProfileModalContent(profile, stats) {
+        return `
+            <div class="profile-modal-content">
+                <!-- User Stats Overview -->
+                <div class="stats-overview">
+                    <h4><i class="fas fa-chart-bar"></i> Your Activity Overview</h4>
+                    <div class="stats-grid">
+                        <div class="stat-item">
+                            <div class="stat-value">${stats.total_searches || 0}</div>
+                            <div class="stat-label">Total Searches</div>
                         </div>
-                        
-                        <!-- User Level Badge -->
-                        <div style="margin-top: 1.5rem; text-align: center;">
-                            <div style="display: inline-flex; align-items: center; gap: 1rem; background: var(--bg-card); padding: 1rem 2rem; border-radius: 20px; border: 1px solid rgba(124, 58, 237, 0.3);">
-                                <div style="width: 40px; height: 40px; background: var(--accent-gradient); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white;">
-                                    <i class="${userStats.user_level?.icon || 'fas fa-user'}"></i>
-                                </div>
-                                <div>
-                                    <div style="font-weight: 600; color: var(--text-primary);">${userStats.user_level?.level || 'New User'}</div>
-                                    <div style="font-size: 0.8rem; color: var(--text-secondary);">Current Level</div>
-                                </div>
+                        <div class="stat-item">
+                            <div class="stat-value">${stats.unique_companies || 0}</div>
+                            <div class="stat-label">Companies Analyzed</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value">${Math.round(stats.avg_compliance || 0)}%</div>
+                            <div class="stat-label">Avg Compliance</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value">${stats.recent_searches || 0}</div>
+                            <div class="stat-label">Recent Activity</div>
+                        </div>
+                    </div>
+                    
+                    <!-- User Level Badge -->
+                    <div class="user-level-badge">
+                        <div class="level-icon">
+                            <i class="${stats.user_level?.icon || 'fas fa-user'}"></i>
+                        </div>
+                        <div class="level-info">
+                            <div class="level-title">${stats.user_level?.level || 'New User'}</div>
+                            <div class="level-subtitle">Current Level</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Profile Form -->
+                <form id="profileForm" class="profile-form">
+                    <div class="form-section">
+                        <h4><i class="fas fa-user-edit"></i> Personal Information</h4>
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label for="displayName">Display Name *</label>
+                                <input type="text" 
+                                       id="displayName" 
+                                       name="display_name" 
+                                       value="${profile.display_name || ''}" 
+                                       placeholder="Your full name"
+                                       required>
+                            </div>
+                            <div class="form-group">
+                                <label for="designation">Designation</label>
+                                <input type="text" 
+                                       id="designation" 
+                                       name="designation" 
+                                       value="${profile.designation || ''}" 
+                                       placeholder="Your job title">
                             </div>
                         </div>
                     </div>
                     
-                    <!-- Profile Form -->
-                    <form id="enhancedProfileForm" style="display: flex; flex-direction: column; gap: 1.5rem;">
-                        <div style="background: var(--bg-hover); border-radius: 12px; padding: 2rem;">
-                            <h4 style="margin-bottom: 1.5rem; color: var(--text-primary); display: flex; align-items: center; gap: 0.5rem;">
-                                <i class="fas fa-user-edit"></i>
-                                Personal Information
-                            </h4>
-                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem;">
-                                <div>
-                                    <label style="display: block; margin-bottom: 0.5rem; color: var(--text-secondary); font-weight: 500;">Display Name *</label>
-                                    <input type="text" name="display_name" id="displayNameInput" value="${currentProfile.display_name || ''}" placeholder="Your full name" style="width: 100%; padding: 0.75rem; background: var(--bg-input); border: 1px solid var(--border-color); border-radius: 8px; color: var(--text-primary);" required>
-                                </div>
-                                <div>
-                                    <label style="display: block; margin-bottom: 0.5rem; color: var(--text-secondary); font-weight: 500;">Designation</label>
-                                    <input type="text" name="designation" id="designationInput" value="${currentProfile.designation || ''}" placeholder="Your job title" style="width: 100%; padding: 0.75rem; background: var(--bg-input); border: 1px solid var(--border-color); border-radius: 8px; color: var(--text-primary);">
-                                </div>
+                    <div class="form-section">
+                        <h4><i class="fas fa-building"></i> Company Information</h4>
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label for="company">Company Name</label>
+                                <input type="text" 
+                                       id="company" 
+                                       name="company" 
+                                       value="${profile.company || ''}" 
+                                       placeholder="Your company name">
+                            </div>
+                            <div class="form-group">
+                                <label for="email">Email</label>
+                                <input type="email" 
+                                       id="email" 
+                                       name="email" 
+                                       value="${profile.email || ''}" 
+                                       placeholder="your.email@company.com">
                             </div>
                         </div>
-                        
-                        <div style="background: var(--bg-hover); border-radius: 12px; padding: 2rem;">
-                            <h4 style="margin-bottom: 1.5rem; color: var(--text-primary); display: flex; align-items: center; gap: 0.5rem;">
-                                <i class="fas fa-building"></i>
-                                Company Information
-                            </h4>
-                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem;">
-                                <div>
-                                    <label style="display: block; margin-bottom: 0.5rem; color: var(--text-secondary); font-weight: 500;">Company Name</label>
-                                    <input type="text" name="company" id="companyInput" value="${currentProfile.company || ''}" placeholder="Your company name" style="width: 100%; padding: 0.75rem; background: var(--bg-input); border: 1px solid var(--border-color); border-radius: 8px; color: var(--text-primary);">
-                                </div>
-                                <div>
-                                    <label style="display: block; margin-bottom: 0.5rem; color: var(--text-secondary); font-weight: 500;">Email</label>
-                                    <input type="email" name="email" id="emailInput" value="${currentProfile.email || ''}" placeholder="your.email@company.com" style="width: 100%; padding: 0.75rem; background: var(--bg-input); border: 1px solid var(--border-color); border-radius: 8px; color: var(--text-primary);">
-                                </div>
+                    </div>
+                    
+                    <!-- Achievements Section -->
+                    ${this.createAchievementsSection(stats.achievements)}
+                    
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn--primary">
+                            <i class="fas fa-save"></i> Save Profile
+                        </button>
+                        <button type="button" class="btn btn--danger" onclick="window.GST_INTEGRATION.clearUserData()">
+                            <i class="fas fa-trash"></i> Clear Data
+                        </button>
+                    </div>
+                </form>
+            </div>
+        `;
+    }
+
+    createAchievementsSection(achievements) {
+        if (!achievements || achievements.length === 0) return '';
+        
+        return `
+            <div class="form-section">
+                <h4><i class="fas fa-trophy"></i> Your Achievements</h4>
+                <div class="achievements-grid">
+                    ${achievements.map(achievement => `
+                        <div class="achievement-item ${achievement.unlocked ? 'unlocked' : 'locked'}">
+                            <div class="achievement-icon">${achievement.unlocked ? '🏆' : '🔒'}</div>
+                            <div class="achievement-info">
+                                <div class="achievement-title">${achievement.title}</div>
+                                <div class="achievement-desc">${achievement.description}</div>
                             </div>
                         </div>
-                        
-                        <!-- Achievements Section -->
-                        ${userStats.achievements && userStats.achievements.length > 0 ? `
-                        <div style="background: var(--bg-hover); border-radius: 12px; padding: 2rem;">
-                            <h4 style="margin-bottom: 1.5rem; color: var(--text-primary); display: flex; align-items: center; gap: 0.5rem;">
-                                <i class="fas fa-trophy"></i>
-                                Your Achievements
-                            </h4>
-                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
-                                ${userStats.achievements.map(achievement => `
-                                    <div style="background: ${achievement.unlocked ? 'rgba(16, 185, 129, 0.1)' : 'var(--bg-secondary)'}; border: 1px solid ${achievement.unlocked ? 'var(--success)' : 'var(--border-color)'}; border-radius: 8px; padding: 1rem; text-align: center; ${achievement.unlocked ? '' : 'opacity: 0.6;'}">
-                                        <div style="font-size: 2rem; margin-bottom: 0.5rem;">${achievement.unlocked ? '🏆' : '🔒'}</div>
-                                        <div style="font-weight: 600; color: var(--text-primary); margin-bottom: 0.25rem;">${achievement.title}</div>
-                                        <div style="font-size: 0.8rem; color: var(--text-secondary);">${achievement.description}</div>
-                                    </div>
-                                `).join('')}
-                            </div>
-                        </div>
-                        ` : ''}
-                        
-                        <div style="display: flex; gap: 1rem; margin-top: 1rem;">
-                            <button type="submit" class="btn btn--primary" style="flex: 1; padding: 1rem; background: var(--accent-gradient); color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 0.5rem;">
-                                <i class="fas fa-save"></i>
-                                Save Profile
-                            </button>
-                            <button type="button" onclick="clearUserData()" class="btn btn--danger" style="padding: 1rem 1.5rem; background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 0.5rem;">
-                                <i class="fas fa-trash"></i>
-                                Clear Data
-                            </button>
-                        </div>
-                    </form>
+                    `).join('')}
                 </div>
-            `,
-            onSubmit: async function(formData) {
-                try {
-                    const response = await fetch('/api/user/profile', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify(formData)
-                    });
-                    
-                    const result = await response.json();
-                    
-                    if (result.success) {
-                        window.notificationManager.showSuccess('✨ Profile updated successfully!', 3000);
-                        
-                        // Refresh page data
-                        setTimeout(() => {
-                            window.location.reload();
-                        }, 1500);
-                        
-                        return true;
-                    } else {
-                        window.notificationManager.showError(result.error || 'Failed to save profile');
-                        return false;
-                    }
-                } catch (error) {
-                    console.error('Error saving profile:', error);
-                    window.notificationManager.showError('Failed to save profile');
-                    return false;
-                }
+            </div>
+        `;
+    }
+
+    async openSettingsModal() {
+        try {
+            const preferences = await window.GST_INTEGRATION.userManager.loadUserPreferences();
+            const modalContent = this.createSettingsModalContent(preferences);
+            
+            return this.createModal({
+                id: 'settings-modal',
+                title: '⚙️ Settings & Preferences',
+                content: modalContent,
+                size: 'medium',
+                onSubmit: this.handleSettingsSubmit.bind(this)
+            });
+        } catch (error) {
+            window.GST_INTEGRATION.utils.error('Settings modal error:', error);
+            window.GST_INTEGRATION.utils.showNotification('Failed to load settings', 'error');
+        }
+    }
+
+    createSettingsModalContent(preferences) {
+        return `
+            <div class="settings-modal-content">
+                <form id="settingsForm" class="settings-form">
+                    <!-- Theme Settings -->
+                    <div class="settings-section">
+                        <h4><i class="fas fa-palette"></i> Theme & Appearance</h4>
+                        <div class="setting-item">
+                            <span class="setting-label">Dark Mode</span>
+                            <div class="theme-toggle-control">
+                                <label class="toggle-switch">
+                                    <input type="checkbox" ${this.getCurrentTheme() === 'dark' ? 'checked' : ''} onchange="window.themeManager?.toggleTheme()">
+                                    <span class="toggle-slider"></span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Notification Settings -->
+                    <div class="settings-section">
+                        <h4><i class="fas fa-bell"></i> Notifications</h4>
+                        <div class="setting-item">
+                            <label class="setting-checkbox">
+                                <input type="checkbox" name="emailNotifications" ${preferences.emailNotifications ? 'checked' : ''}>
+                                <span class="checkbox-custom"></span>
+                                <span class="setting-label">Email Notifications</span>
+                            </label>
+                        </div>
+                        <div class="setting-item">
+                            <label class="setting-checkbox">
+                                <input type="checkbox" name="pushNotifications" ${preferences.pushNotifications ? 'checked' : ''}>
+                                <span class="checkbox-custom"></span>
+                                <span class="setting-label">Push Notifications</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Application Settings -->
+                    <div class="settings-section">
+                        <h4><i class="fas fa-cog"></i> Application Settings</h4>
+                        <div class="setting-item">
+                            <label class="setting-checkbox">
+                                <input type="checkbox" name="autoSearch" ${preferences.autoSearch !== false ? 'checked' : ''}>
+                                <span class="checkbox-custom"></span>
+                                <span class="setting-label">Auto-Search on GSTIN Paste</span>
+                            </label>
+                        </div>
+                        <div class="setting-item">
+                            <label class="setting-checkbox">
+                                <input type="checkbox" name="saveHistory" ${preferences.saveHistory !== false ? 'checked' : ''}>
+                                <span class="checkbox-custom"></span>
+                                <span class="setting-label">Save Search History</span>
+                            </label>
+                        </div>
+                        <div class="setting-item">
+                            <label class="setting-checkbox">
+                                <input type="checkbox" name="analytics" ${preferences.analytics !== false ? 'checked' : ''}>
+                                <span class="checkbox-custom"></span>
+                                <span class="setting-label">Enable Analytics</span>
+                            </label>
+                        </div>
+                        <div class="setting-item">
+                            <label class="setting-checkbox">
+                                <input type="checkbox" name="compactMode" ${preferences.compactMode ? 'checked' : ''}>
+                                <span class="checkbox-custom"></span>
+                                <span class="setting-label">Compact Mode</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Debug Settings -->
+                    <div class="settings-section">
+                        <h4><i class="fas fa-bug"></i> Developer Settings</h4>
+                        <div class="setting-item">
+                            <label class="setting-checkbox">
+                                <input type="checkbox" id="debugModeToggle" ${window.GST_INTEGRATION.DEBUG ? 'checked' : ''}>
+                                <span class="checkbox-custom"></span>
+                                <span class="setting-label">Debug Mode</span>
+                            </label>
+                        </div>
+                        <div class="setting-item">
+                            <button type="button" class="btn btn--secondary" onclick="window.GST_INTEGRATION.exportAllData()">
+                                <i class="fas fa-download"></i> Export All Data
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn--primary">
+                            <i class="fas fa-save"></i> Save Settings
+                        </button>
+                        <button type="button" class="btn btn--secondary" onclick="window.GST_INTEGRATION.resetSettings()">
+                            <i class="fas fa-undo"></i> Reset
+                        </button>
+                    </div>
+                </form>
+            </div>
+        `;
+    }
+
+    createModal(options) {
+        const { id, title, content, size = 'medium', onSubmit } = options;
+        
+        // Remove existing modal with same ID
+        if (this.activeModals.has(id)) {
+            this.closeModal(id);
+        }
+
+        const modal = document.createElement('div');
+        modal.id = id;
+        modal.className = 'enhanced-modal-overlay';
+        modal.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(5px);
+            z-index: ${this.zIndexCounter++};
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            padding: 1rem;
+        `;
+
+        const sizeStyles = {
+            small: 'max-width: 400px;',
+            medium: 'max-width: 600px;',
+            large: 'max-width: 900px;',
+            fullscreen: 'width: 95%; height: 95%;'
+        };
+
+        modal.innerHTML = `
+            <div class="enhanced-modal-content" style="
+                background: var(--bg-card);
+                border-radius: 20px;
+                ${sizeStyles[size]}
+                width: 100%;
+                max-height: 90vh;
+                overflow-y: auto;
+                box-shadow: var(--hover-shadow);
+                border: 1px solid var(--border-primary);
+                transform: scale(0.9);
+                transition: transform 0.3s ease;
+            ">
+                <div class="modal-header" style="
+                    padding: 2rem 2rem 1rem 2rem;
+                    border-bottom: 1px solid var(--border-primary);
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                ">
+                    <h3 style="margin: 0; color: var(--text-primary); font-size: 1.5rem; font-weight: 600;">${title}</h3>
+                    <button class="modal-close-btn" style="
+                        background: none;
+                        border: none;
+                        color: var(--text-secondary);
+                        font-size: 1.5rem;
+                        cursor: pointer;
+                        padding: 0.5rem;
+                        border-radius: 8px;
+                        transition: all 0.3s ease;
+                    " onclick="window.GST_INTEGRATION.modalSystem.closeModal('${id}')">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="modal-body" style="padding: 2rem;">
+                    ${content}
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(modal);
+
+        // Show animation
+        requestAnimationFrame(() => {
+            modal.style.opacity = '1';
+            const modalContent = modal.querySelector('.enhanced-modal-content');
+            modalContent.style.transform = 'scale(1)';
+        });
+
+        // Handle backdrop click
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                this.closeModal(id);
             }
         });
 
-    } catch (error) {
-        console.error('Error opening profile modal:', error);
-        window.notificationManager.showError('Failed to load profile data');
-    }
-};
-
-// ===========================================
-// 3. SETTINGS MODAL (Fix for missing implementation)
-// ===========================================
-
-window.openSettingsModal = async function() {
-    if (!window.modalManager) {
-        console.error('Modal manager not initialized');
-        return;
-    }
-
-    try {
-        // Load current preferences
-        const response = await fetch('/api/user/preferences');
-        const result = await response.json();
-        const preferences = result.success ? result.data : {};
-
-        const modal = window.modalManager.createModal({
-            title: '⚙️ Settings & Preferences',
-            size: 'medium',
-            content: `
-                <div style="display: flex; flex-direction: column; gap: 2rem;">
-                    <form id="settingsForm" style="display: flex; flex-direction: column; gap: 2rem;">
-                        <!-- Theme Settings -->
-                        <div style="background: var(--bg-hover); border-radius: 12px; padding: 2rem;">
-                            <h4 style="margin-bottom: 1.5rem; color: var(--text-primary); display: flex; align-items: center; gap: 0.5rem;">
-                                <i class="fas fa-palette"></i>
-                                Theme & Appearance
-                            </h4>
-                            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem;">
-                                <span style="color: var(--text-primary);">Dark Mode</span>
-                                <div class="theme-toggle" onclick="window.themeManager.toggleTheme()" style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 50px; padding: 4px; cursor: pointer; display: flex; align-items: center; position: relative; width: 60px; height: 32px;">
-                                    <div class="theme-toggle-indicator" style="position: absolute; width: 24px; height: 24px; background: var(--accent-gradient); border-radius: 50%; transition: transform 0.3s; left: 4px;">
-                                        <i class="fas fa-moon" style="color: white; font-size: 12px; display: flex; align-items: center; justify-content: center; width: 100%; height: 100%;"></i>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Notification Settings -->
-                        <div style="background: var(--bg-hover); border-radius: 12px; padding: 2rem;">
-                            <h4 style="margin-bottom: 1.5rem; color: var(--text-primary); display: flex; align-items: center; gap: 0.5rem;">
-                                <i class="fas fa-bell"></i>
-                                Notifications
-                            </h4>
-                            <div style="display: flex; flex-direction: column; gap: 1rem;">
-                                <label style="display: flex; align-items: center; justify-content: space-between; cursor: pointer;">
-                                    <span style="color: var(--text-primary);">Email Notifications</span>
-                                    <input type="checkbox" name="emailNotifications" ${preferences.emailNotifications ? 'checked' : ''} style="width: 20px; height: 20px;">
-                                </label>
-                                <label style="display: flex; align-items: center; justify-content: space-between; cursor: pointer;">
-                                    <span style="color: var(--text-primary);">Push Notifications</span>
-                                    <input type="checkbox" name="pushNotifications" ${preferences.pushNotifications ? 'checked' : ''} style="width: 20px; height: 20px;">
-                                </label>
-                            </div>
-                        </div>
-
-                        <!-- Application Settings -->
-                        <div style="background: var(--bg-hover); border-radius: 12px; padding: 2rem;">
-                            <h4 style="margin-bottom: 1.5rem; color: var(--text-primary); display: flex; align-items: center; gap: 0.5rem;">
-                                <i class="fas fa-cog"></i>
-                                Application Settings
-                            </h4>
-                            <div style="display: flex; flex-direction: column; gap: 1rem;">
-                                <label style="display: flex; align-items: center; justify-content: space-between; cursor: pointer;">
-                                    <span style="color: var(--text-primary);">Auto-Search on GSTIN Paste</span>
-                                    <input type="checkbox" name="autoSearch" ${preferences.autoSearch !== false ? 'checked' : ''} style="width: 20px; height: 20px;">
-                                </label>
-                                <label style="display: flex; align-items: center; justify-content: space-between; cursor: pointer;">
-                                    <span style="color: var(--text-primary);">Save Search History</span>
-                                    <input type="checkbox" name="saveHistory" ${preferences.saveHistory !== false ? 'checked' : ''} style="width: 20px; height: 20px;">
-                                </label>
-                                <label style="display: flex; align-items: center; justify-content: space-between; cursor: pointer;">
-                                    <span style="color: var(--text-primary);">Enable Analytics</span>
-                                    <input type="checkbox" name="analytics" ${preferences.analytics !== false ? 'checked' : ''} style="width: 20px; height: 20px;">
-                                </label>
-                                <label style="display: flex; align-items: center; justify-content: space-between; cursor: pointer;">
-                                    <span style="color: var(--text-primary);">Compact Mode</span>
-                                    <input type="checkbox" name="compactMode" ${preferences.compactMode ? 'checked' : ''} style="width: 20px; height: 20px;">
-                                </label>
-                            </div>
-                        </div>
-
-                        <!-- Debug Settings -->
-                        <div style="background: var(--bg-hover); border-radius: 12px; padding: 2rem;">
-                            <h4 style="margin-bottom: 1.5rem; color: var(--text-primary); display: flex; align-items: center; gap: 0.5rem;">
-                                <i class="fas fa-bug"></i>
-                                Developer Settings
-                            </h4>
-                            <div style="display: flex; flex-direction: column; gap: 1rem;">
-                                <label style="display: flex; align-items: center; justify-content: space-between; cursor: pointer;">
-                                    <span style="color: var(--text-primary);">Debug Mode</span>
-                                    <input type="checkbox" id="debugModeToggle" ${window.debugManager?.enabled ? 'checked' : ''} style="width: 20px; height: 20px;">
-                                </label>
-                                <button type="button" onclick="exportAllUserData()" style="background: var(--accent-gradient); color: white; border: none; padding: 0.75rem 1rem; border-radius: 8px; cursor: pointer; width: 100%;">
-                                    <i class="fas fa-download"></i> Export All Data
-                                </button>
-                            </div>
-                        </div>
-
-                        <div style="display: flex; gap: 1rem; margin-top: 1rem;">
-                            <button type="submit" class="btn btn--primary" style="flex: 1; padding: 1rem; background: var(--accent-gradient); color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer;">
-                                <i class="fas fa-save"></i> Save Settings
-                            </button>
-                            <button type="button" onclick="resetAllSettings()" class="btn btn--secondary" style="padding: 1rem 1.5rem; background: var(--bg-card); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 8px; font-weight: 600; cursor: pointer;">
-                                <i class="fas fa-undo"></i> Reset
-                            </button>
-                        </div>
-                    </form>
-                </div>
-            `,
-            onSubmit: async function(formData) {
-                try {
-                    // Handle debug mode toggle
-                    const debugToggle = document.getElementById('debugModeToggle');
-                    if (debugToggle?.checked) {
-                        window.debugManager?.enable();
-                    } else {
-                        window.debugManager?.disable();
-                    }
-
-                    const response = await fetch('/api/user/preferences', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify(formData)
-                    });
+        // Handle form submission
+        if (onSubmit) {
+            const form = modal.querySelector('form');
+            if (form) {
+                form.addEventListener('submit', async (e) => {
+                    e.preventDefault();
+                    const formData = new FormData(form);
+                    const data = Object.fromEntries(formData.entries());
                     
-                    const result = await response.json();
-                    
-                    if (result.success) {
-                        window.notificationManager.showSuccess('⚙️ Settings saved successfully!', 3000);
-                        
-                        // Apply settings immediately
-                        localStorage.setItem(GST_CONFIG.USER_PREFERENCES_KEY, JSON.stringify(formData));
-                        
-                        return true;
-                    } else {
-                        window.notificationManager.showError(result.error || 'Failed to save settings');
-                        return false;
+                    try {
+                        const result = await onSubmit(data);
+                        if (result !== false) {
+                            this.closeModal(id);
+                        }
+                    } catch (error) {
+                        window.GST_INTEGRATION.utils.error('Form submission error:', error);
                     }
-                } catch (error) {
-                    console.error('Error saving settings:', error);
-                    window.notificationManager.showError('Failed to save settings');
-                    return false;
+                });
+            }
+        }
+
+        // Store modal reference
+        this.activeModals.set(id, { element: modal, options });
+        
+        return modal;
+    }
+
+    closeModal(id) {
+        const modalData = this.activeModals.get(id);
+        if (!modalData) return;
+
+        const modal = modalData.element;
+        modal.style.opacity = '0';
+        
+        const modalContent = modal.querySelector('.enhanced-modal-content');
+        if (modalContent) {
+            modalContent.style.transform = 'scale(0.9)';
+        }
+
+        setTimeout(() => {
+            if (modal.parentNode) {
+                modal.parentNode.removeChild(modal);
+            }
+            this.activeModals.delete(id);
+        }, 300);
+    }
+
+    async handleProfileSubmit(formData) {
+        try {
+            const success = await window.GST_INTEGRATION.userManager.saveUserProfile(formData);
+            if (success) {
+                window.GST_INTEGRATION.utils.showNotification('✨ Profile updated successfully!', 'success');
+                
+                // Update display name in UI
+                this.updateDisplayName(formData.display_name);
+                
+                // Refresh page data after delay
+                setTimeout(() => {
+                    window.location.reload();
+                }, 1500);
+                
+                return true;
+            } else {
+                window.GST_INTEGRATION.utils.showNotification('Failed to save profile', 'error');
+                return false;
+            }
+        } catch (error) {
+            window.GST_INTEGRATION.utils.error('Profile submission error:', error);
+            window.GST_INTEGRATION.utils.showNotification('Failed to save profile', 'error');
+            return false;
+        }
+    }
+
+    async handleSettingsSubmit(formData) {
+        try {
+            // Handle debug mode toggle
+            const debugCheckbox = document.getElementById('debugModeToggle');
+            if (debugCheckbox) {
+                if (debugCheckbox.checked) {
+                    localStorage.setItem('gst_debug', 'true');
+                    window.GST_INTEGRATION.DEBUG = true;
+                } else {
+                    localStorage.setItem('gst_debug', 'false');
+                    window.GST_INTEGRATION.DEBUG = false;
                 }
             }
-        });
 
-    } catch (error) {
-        console.error('Error opening settings modal:', error);
-        window.notificationManager.showError('Failed to load settings');
+            const success = await window.GST_INTEGRATION.userManager.saveUserPreferences(formData);
+            if (success) {
+                window.GST_INTEGRATION.utils.showNotification('⚙️ Settings saved successfully!', 'success');
+                
+                // Apply settings immediately
+                this.applySettings(formData);
+                
+                return true;
+            } else {
+                window.GST_INTEGRATION.utils.showNotification('Failed to save settings', 'error');
+                return false;
+            }
+        } catch (error) {
+            window.GST_INTEGRATION.utils.error('Settings submission error:', error);
+            window.GST_INTEGRATION.utils.showNotification('Failed to save settings', 'error');
+            return false;
+        }
     }
-};
 
-// ===========================================
-// 4. UTILITY FUNCTIONS (Fix missing implementations)
-// ===========================================
+    updateDisplayName(displayName) {
+        const nameElements = document.querySelectorAll('#userDisplayName, .user__name, .user-name');
+        nameElements.forEach(element => {
+            if (displayName) {
+                element.textContent = displayName;
+            }
+        });
+    }
 
-window.clearUserData = async function() {
+    applySettings(settings) {
+        // Apply compact mode
+        if (settings.compactMode) {
+            document.body.classList.add('compact-mode');
+        } else {
+            document.body.classList.remove('compact-mode');
+        }
+
+        // Store settings in localStorage for immediate access
+        localStorage.setItem('gst_user_preferences', JSON.stringify(settings));
+    }
+
+    getCurrentTheme() {
+        return document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
+    }
+}
+
+// =====================================================
+// 5. UTILITY FUNCTIONS
+// =====================================================
+
+async function clearUserData() {
     if (!confirm('⚠️ Are you sure you want to clear all your search history? This action cannot be undone.')) {
         return;
     }
 
     try {
-        const response = await fetch('/api/user/data', {
-            method: 'DELETE'
-        });
+        const deletedCount = await window.GST_INTEGRATION.userManager.clearUserData();
+        window.GST_INTEGRATION.utils.showNotification(
+            `🗑️ Cleared ${deletedCount} search records`, 
+            'success'
+        );
         
-        const result = await response.json();
-        
-        if (result.success) {
-            window.notificationManager.showSuccess(`🗑️ Cleared ${result.deleted_count || 0} search records`, 3000);
-            
-            // Close modal and refresh page
-            window.modalManager.closeAllModals();
-            setTimeout(() => {
-                window.location.reload();
-            }, 1500);
-        } else {
-            window.notificationManager.showError('Failed to clear data');
-        }
+        // Close modal and refresh page
+        window.GST_INTEGRATION.modalSystem.closeModal('profile-modal');
+        setTimeout(() => {
+            window.location.reload();
+        }, 1500);
     } catch (error) {
-        console.error('Error clearing data:', error);
-        window.notificationManager.showError('Failed to clear data');
+        window.GST_INTEGRATION.utils.error('Data clear error:', error);
+        window.GST_INTEGRATION.utils.showNotification('Failed to clear data', 'error');
     }
-};
+}
 
-window.exportAllUserData = function() {
+function exportAllData() {
     window.location.href = '/export/history';
-    window.notificationManager.showInfo('📊 Preparing data export...', 3000);
-};
+    window.GST_INTEGRATION.utils.showNotification('📊 Preparing data export...', 'info');
+}
 
-window.resetAllSettings = async function() {
+async function resetSettings() {
     if (!confirm('Reset all settings to default values?')) {
         return;
     }
@@ -395,286 +808,98 @@ window.resetAllSettings = async function() {
     };
 
     try {
-        const response = await fetch('/api/user/preferences', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(defaultSettings)
-        });
-        
-        const result = await response.json();
-        
-        if (result.success) {
-            window.notificationManager.showSuccess('⚙️ Settings reset to defaults!', 3000);
-            window.modalManager.closeAllModals();
+        const success = await window.GST_INTEGRATION.userManager.saveUserPreferences(defaultSettings);
+        if (success) {
+            window.GST_INTEGRATION.utils.showNotification('⚙️ Settings reset to defaults!', 'success');
+            window.GST_INTEGRATION.modalSystem.closeModal('settings-modal');
             setTimeout(() => {
                 window.location.reload();
             }, 1500);
         } else {
-            window.notificationManager.showError('Failed to reset settings');
+            window.GST_INTEGRATION.utils.showNotification('Failed to reset settings', 'error');
         }
     } catch (error) {
-        console.error('Error resetting settings:', error);
-        window.notificationManager.showError('Failed to reset settings');
+        window.GST_INTEGRATION.utils.error('Settings reset error:', error);
+        window.GST_INTEGRATION.utils.showNotification('Failed to reset settings', 'error');
     }
-};
-
-// ===========================================
-// 5. ENHANCED SEARCH FUNCTIONALITY
-// ===========================================
-
-window.enhanceSearchInputs = function() {
-    const searchInputs = document.querySelectorAll('input[name="gstin"], #gstin, #gstinEnhanced');
-    
-    searchInputs.forEach(input => {
-        // Add autocomplete functionality
-        input.addEventListener('input', async function(e) {
-            const query = e.target.value.trim();
-            
-            if (query.length >= 2) {
-                try {
-                    const response = await fetch(`/api/search/suggestions?q=${encodeURIComponent(query)}`);
-                    const result = await response.json();
-                    
-                    if (result.success && result.suggestions.length > 0) {
-                        showSearchSuggestions(e.target, result.suggestions);
-                    }
-                } catch (error) {
-                    console.error('Error fetching suggestions:', error);
-                }
-            }
-        });
-
-        // Auto-search on valid GSTIN paste
-        input.addEventListener('paste', function(e) {
-            setTimeout(() => {
-                const value = e.target.value.trim().toUpperCase();
-                const preferences = JSON.parse(localStorage.getItem(GST_CONFIG.USER_PREFERENCES_KEY) || '{}');
-                
-                if (value.length === 15 && isValidGSTIN(value) && preferences.autoSearch !== false) {
-                    window.notificationManager.showInfo('🔍 Auto-searching pasted GSTIN...', 2000);
-                    
-                    setTimeout(() => {
-                        const form = e.target.closest('form');
-                        if (form) {
-                            form.submit();
-                        }
-                    }, 500);
-                }
-            }, 100);
-        });
-    });
-};
-
-function showSearchSuggestions(input, suggestions) {
-    // Remove existing suggestions
-    const existingSuggestions = document.querySelector('.search-suggestions');
-    if (existingSuggestions) {
-        existingSuggestions.remove();
-    }
-
-    const suggestionsEl = document.createElement('div');
-    suggestionsEl.className = 'search-suggestions';
-    suggestionsEl.style.cssText = `
-        position: absolute;
-        top: 100%;
-        left: 0;
-        right: 0;
-        background: var(--bg-card);
-        border: 1px solid var(--border-color);
-        border-radius: 12px;
-        box-shadow: var(--card-shadow);
-        max-height: 300px;
-        overflow-y: auto;
-        z-index: 1000;
-        margin-top: 4px;
-    `;
-
-    suggestionsEl.innerHTML = suggestions.map((suggestion, index) => `
-        <div class="suggestion-item" data-gstin="${suggestion.gstin}" style="
-            padding: 1rem;
-            border-bottom: 1px solid var(--border-color);
-            cursor: pointer;
-            transition: all 0.2s ease;
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-        " onmouseover="this.style.background='var(--bg-hover)'" onmouseout="this.style.background='transparent'">
-            <div style="width: 40px; height: 40px; background: var(--accent-gradient); border-radius: 8px; display: flex; align-items: center; justify-content: center; color: white;">
-                <i class="${suggestion.icon || 'fas fa-building'}"></i>
-            </div>
-            <div style="flex: 1;">
-                <div style="font-weight: 600; color: var(--text-primary); margin-bottom: 0.25rem;">${suggestion.company}</div>
-                <div style="font-size: 0.875rem; color: var(--text-secondary); font-family: monospace;">${suggestion.gstin}</div>
-                ${suggestion.compliance_score ? `<div style="font-size: 0.75rem; color: var(--accent-primary);">Score: ${Math.round(suggestion.compliance_score)}%</div>` : ''}
-            </div>
-        </div>
-    `).join('');
-
-    // Position and show
-    const container = input.parentElement;
-    container.style.position = 'relative';
-    container.appendChild(suggestionsEl);
-
-    // Add click handlers
-    suggestionsEl.querySelectorAll('.suggestion-item').forEach(item => {
-        item.addEventListener('click', () => {
-            input.value = item.dataset.gstin;
-            suggestionsEl.remove();
-            input.focus();
-            input.dispatchEvent(new Event('input'));
-        });
-    });
-
-    // Hide on outside click
-    const hideHandler = (e) => {
-        if (!container.contains(e.target)) {
-            suggestionsEl.remove();
-            document.removeEventListener('click', hideHandler);
-        }
-    };
-    
-    setTimeout(() => {
-        document.addEventListener('click', hideHandler);
-    }, 100);
 }
 
-function isValidGSTIN(gstin) {
-    return /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/.test(gstin);
-}
-
-// ===========================================
-// 6. INITIALIZATION AND EVENT HANDLERS
-// ===========================================
+// =====================================================
+// 6. INITIALIZATION & EXPORTS
+// =====================================================
 
 document.addEventListener('DOMContentLoaded', function() {
-    // Initialize enhanced search functionality
-    window.enhanceSearchInputs();
-    
-    // Initialize tooltips enhancement
-    initializeTooltips();
-    
-    // Initialize keyboard shortcuts
-    initializeKeyboardShortcuts();
-    
-    // Initialize performance monitoring
-    if (window.debugManager?.enabled) {
-        initializePerformanceMonitoring();
+    if (window.GST_INTEGRATION.state.initialized) return;
+
+    try {
+        // Initialize core components
+        window.GST_INTEGRATION.apiClient = new APIClient();
+        window.GST_INTEGRATION.userManager = new UserProfileManager(window.GST_INTEGRATION.apiClient);
+        window.GST_INTEGRATION.modalSystem = new EnhancedModalSystem();
+
+        // Add required CSS
+        if (!document.getElementById('integration-styles')) {
+            const style = document.createElement('style');
+            style.id = 'integration-styles';
+            style.textContent = `
+                .profile-modal-content { display: flex; flex-direction: column; gap: 2rem; }
+                .stats-overview { background: var(--bg-hover); border-radius: 12px; padding: 1.5rem; }
+                .stats-overview h4 { margin-bottom: 1rem; color: var(--text-primary); display: flex; align-items: center; gap: 0.5rem; }
+                .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 1rem; margin-bottom: 1.5rem; }
+                .stat-item { text-align: center; background: var(--bg-card); padding: 1rem; border-radius: 8px; }
+                .stat-value { font-size: 1.5rem; font-weight: 700; color: var(--accent-primary); margin-bottom: 0.25rem; }
+                .stat-label { font-size: 0.8rem; color: var(--text-secondary); }
+                .user-level-badge { display: flex; align-items: center; justify-content: center; gap: 1rem; background: var(--bg-card); padding: 1rem; border-radius: 12px; }
+                .level-icon { width: 40px; height: 40px; background: var(--accent-gradient); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; }
+                .level-title { font-weight: 600; color: var(--text-primary); }
+                .level-subtitle { font-size: 0.8rem; color: var(--text-secondary); }
+                .form-section { background: var(--bg-hover); border-radius: 12px; padding: 1.5rem; }
+                .form-section h4 { margin-bottom: 1rem; color: var(--text-primary); display: flex; align-items: center; gap: 0.5rem; }
+                .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; }
+                .form-group { display: flex; flex-direction: column; gap: 0.5rem; }
+                .form-group label { font-weight: 500; color: var(--text-secondary); }
+                .form-group input { padding: 0.75rem; background: var(--bg-input); border: 1px solid var(--border-color); border-radius: 8px; color: var(--text-primary); }
+                .achievements-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; }
+                .achievement-item { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 8px; padding: 1rem; text-align: center; }
+                .achievement-item.unlocked { border-color: var(--success); background: rgba(16, 185, 129, 0.1); }
+                .achievement-icon { font-size: 2rem; margin-bottom: 0.5rem; }
+                .achievement-title { font-weight: 600; color: var(--text-primary); margin-bottom: 0.25rem; }
+                .achievement-desc { font-size: 0.8rem; color: var(--text-secondary); }
+                .form-actions { display: flex; gap: 1rem; margin-top: 1.5rem; }
+                .settings-modal-content { display: flex; flex-direction: column; gap: 1.5rem; }
+                .settings-section { background: var(--bg-hover); border-radius: 12px; padding: 1.5rem; }
+                .settings-section h4 { margin-bottom: 1rem; color: var(--text-primary); display: flex; align-items: center; gap: 0.5rem; }
+                .setting-item { display: flex; align-items: center; justify-content: space-between; padding: 0.75rem 0; border-bottom: 1px solid var(--border-color); }
+                .setting-item:last-child { border-bottom: none; }
+                .setting-label { color: var(--text-primary); }
+                .setting-checkbox { display: flex; align-items: center; gap: 0.75rem; cursor: pointer; }
+                .checkbox-custom { width: 20px; height: 20px; border: 2px solid var(--border-color); border-radius: 4px; position: relative; transition: all 0.3s; }
+                .setting-checkbox input:checked + .checkbox-custom { background: var(--accent-primary); border-color: var(--accent-primary); }
+                .setting-checkbox input:checked + .checkbox-custom::after { content: '✓'; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: white; font-size: 12px; font-weight: bold; }
+                .setting-checkbox input { display: none; }
+                .toggle-switch { position: relative; display: inline-block; width: 60px; height: 30px; }
+                .toggle-switch input { opacity: 0; width: 0; height: 0; }
+                .toggle-slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 30px; transition: 0.3s; }
+                .toggle-slider:before { position: absolute; content: ""; height: 22px; width: 22px; left: 3px; bottom: 3px; background: var(--text-primary); border-radius: 50%; transition: 0.3s; }
+                .toggle-switch input:checked + .toggle-slider { background: var(--accent-primary); }
+                .toggle-switch input:checked + .toggle-slider:before { transform: translateX(30px); background: white; }
+            `;
+            document.head.appendChild(style);
+        }
+
+        // Export global functions
+        window.openEnhancedProfileModal = () => window.GST_INTEGRATION.modalSystem.openProfileModal();
+        window.openSettingsModal = () => window.GST_INTEGRATION.modalSystem.openSettingsModal();
+        window.GST_INTEGRATION.clearUserData = clearUserData;
+        window.GST_INTEGRATION.exportAllData = exportAllData;
+        window.GST_INTEGRATION.resetSettings = resetSettings;
+
+        window.GST_INTEGRATION.state.initialized = true;
+        window.GST_INTEGRATION.utils.log('Integration Module initialized successfully');
+
+    } catch (error) {
+        window.GST_INTEGRATION.utils.error('Integration initialization failed:', error);
     }
-    
-    console.log('🎯 Frontend integration fixes loaded successfully');
 });
 
-function initializeTooltips() {
-    // Enhanced tooltip functionality
-    document.querySelectorAll('[data-tooltip]').forEach(element => {
-        element.addEventListener('mouseenter', function(e) {
-            const tooltip = document.createElement('div');
-            tooltip.className = 'enhanced-tooltip';
-            tooltip.textContent = e.target.getAttribute('data-tooltip');
-            tooltip.style.cssText = `
-                position: absolute;
-                background: var(--bg-card);
-                color: var(--text-primary);
-                padding: 0.75rem 1rem;
-                border-radius: 8px;
-                font-size: 0.875rem;
-                box-shadow: var(--card-shadow);
-                border: 1px solid var(--border-color);
-                z-index: 10000;
-                pointer-events: none;
-                max-width: 250px;
-                word-wrap: break-word;
-                animation: fadeIn 0.2s ease;
-            `;
-            
-            document.body.appendChild(tooltip);
-            
-            const rect = e.target.getBoundingClientRect();
-            const tooltipRect = tooltip.getBoundingClientRect();
-            
-            tooltip.style.left = Math.min(
-                rect.left + (rect.width / 2) - (tooltipRect.width / 2),
-                window.innerWidth - tooltipRect.width - 10
-            ) + 'px';
-            
-            tooltip.style.top = (rect.top - tooltipRect.height - 10) + 'px';
-            
-            e.target._tooltip = tooltip;
-        });
-        
-        element.addEventListener('mouseleave', function(e) {
-            if (e.target._tooltip) {
-                e.target._tooltip.remove();
-                delete e.target._tooltip;
-            }
-        });
-    });
-}
-
-function initializeKeyboardShortcuts() {
-    document.addEventListener('keydown', function(e) {
-        // Only handle shortcuts when not in input fields
-        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
-            return;
-        }
-        
-        // Ctrl/Cmd + K for search focus
-        if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
-            e.preventDefault();
-            const searchInput = document.querySelector('#gstin, #gstinEnhanced, input[name="gstin"]');
-            if (searchInput) {
-                searchInput.focus();
-                searchInput.select();
-                window.notificationManager.showInfo('🔍 Search focused (Ctrl+K)', 1500);
-            }
-        }
-        
-        // Ctrl/Cmd + P for profile
-        if ((e.ctrlKey || e.metaKey) && e.key === 'p') {
-            e.preventDefault();
-            window.openEnhancedProfileModal();
-        }
-        
-        // Ctrl/Cmd + , for settings
-        if ((e.ctrlKey || e.metaKey) && e.key === ',') {
-            e.preventDefault();
-            window.openSettingsModal();
-        }
-    });
-}
-
-function initializePerformanceMonitoring() {
-    // Basic performance monitoring
-    let pageLoadTime = performance.now();
-    
-    window.addEventListener('load', () => {
-        pageLoadTime = performance.now();
-        console.log(`📊 Page loaded in ${Math.round(pageLoadTime)}ms`);
-    });
-    
-    // Monitor API calls
-    const originalFetch = window.fetch;
-    window.fetch = async (...args) => {
-        const startTime = performance.now();
-        try {
-            const response = await originalFetch(...args);
-            const endTime = performance.now();
-            console.log(`🌐 API call to ${args[0]} took ${Math.round(endTime - startTime)}ms`);
-            return response;
-        } catch (error) {
-            console.error(`❌ API call to ${args[0]} failed:`, error);
-            throw error;
-        }
-    };
-}
-
-// Export functions for global access
-window.GST_INTEGRATION = {
-    openProfile: window.openEnhancedProfileModal,
-    openSettings: window.openSettingsModal,
-    clearData: window.clearUserData,
-    exportData: window.exportAllUserData,
-    resetSettings: window.resetAllSettings
-};
+console.log('✅ GST Integration Module Loaded Successfully!');

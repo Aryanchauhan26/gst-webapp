@@ -668,24 +668,12 @@ document.addEventListener('DOMContentLoaded', function() {
         gstinInput.addEventListener('input', function(e) {
             let value = e.target.value.toUpperCase();
             
-            // Format GSTIN with visual groups: 12ABC12345A1Z1
-            if (value.length > 2 && value.length <= 7) {
-                // Add space after state code
-                value = value.slice(0, 2) + ' ' + value.slice(2);
-            } else if (value.length > 7 && value.length <= 11) {
-                // Add space after PAN
-                value = value.slice(0, 2) + ' ' + value.slice(2, 7) + ' ' + value.slice(7);
-            } else if (value.length > 11) {
-                // Add space after entity number
-                value = value.slice(0, 2) + ' ' + value.slice(2, 7) + ' ' + value.slice(7, 11) + ' ' + value.slice(11);
-            }
-            
             // Remove spaces for actual value
             const cleanValue = value.replace(/\s/g, '');
             e.target.value = cleanValue;
             
-            // Visual feedback
-            if (cleanValue.length === 15 && isValidGSTIN(cleanValue)) {
+            // Visual feedback - use external validation if available
+            if (cleanValue.length === 15 && window.isValidGSTIN && window.isValidGSTIN(cleanValue)) {
                 e.target.style.borderColor = 'var(--success)';
                 e.target.style.boxShadow = '0 8px 32px rgba(16, 185, 129, 0.2), 0 0 0 4px rgba(16, 185, 129, 0.1)';
             } else if (cleanValue.length === 15) {
@@ -701,13 +689,13 @@ document.addEventListener('DOMContentLoaded', function() {
         gstinInput.addEventListener('paste', function(e) {
             setTimeout(() => {
                 const value = e.target.value.trim().toUpperCase();
-                if (value.length === 15 && isValidGSTIN(value)) {
+                if (value.length === 15 && window.isValidGSTIN && window.isValidGSTIN(value)) {
                     // Success animation
                     e.target.style.transform = 'scale(1.02)';
                     setTimeout(() => e.target.style.transform = '', 200);
                     
-                    if (typeof notificationManager !== 'undefined') {
-                        notificationManager.showSuccess('✅ Valid GSTIN detected!', 2000);
+                    if (window.notificationManager) {
+                        window.notificationManager.showSuccess('✅ Valid GSTIN detected!', 2000);
                     }
                     
                     // Auto-search if enabled
@@ -794,17 +782,6 @@ function addRippleEffect() {
             }, 600);
         });
     });
-}
-
-function isValidGSTIN(gstin) {
-    return /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/.test(gstin);
-}
-
-function exportToExcel() {
-    window.location.href = '/export/history';
-    if (typeof notificationManager !== 'undefined') {
-        notificationManager.showInfo('📊 Preparing Excel export...', 3000);
-    }
 }
 
 // Keyboard shortcuts
