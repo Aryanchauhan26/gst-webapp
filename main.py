@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 GST Intelligence Platform - Complete Main Application
-Enhanced with all missing API endpoints and functionality
+Enhanced with clean architecture and comprehensive functionality
 """
 
 import os
@@ -14,40 +14,53 @@ import logging
 import json
 from datetime import datetime, timedelta
 from collections import defaultdict
-from typing import Optional, Dict, List
+from typing import Optional, Dict, List, Any
 from fastapi import FastAPI, Request, Form, Depends, HTTPException, status, Response
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse, StreamingResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
-from io import BytesIO
+from io import BytesIO, StringIO
+import csv
 from weasyprint import HTML
 from dotenv import load_dotenv
 from anthro_ai import get_anthropic_synopsis
-from pydantic import BaseModel
+from pydantic import BaseModel, validator
 import html
 
 # Load environment variables
 load_dotenv()
 
-# Set up logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO, 
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
 logger = logging.getLogger(__name__)
 
-# Environment Configuration
-RAPIDAPI_KEY = os.getenv("RAPIDAPI_KEY")
-ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY") 
-RAPIDAPI_HOST = os.getenv("RAPIDAPI_HOST", "gst-return-status.p.rapidapi.com")
-POSTGRES_DSN = "postgresql://neondb_owner:npg_i3m7wqMeHXaW@ep-fragrant-cell-a10j16o4-pooler.ap-southeast-1.aws.neon.tech/neondb?sslmode=require"
+# Configuration
+class Config:
+    RAPIDAPI_KEY = os.getenv("RAPIDAPI_KEY")
+    ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
+    RAPIDAPI_HOST = os.getenv("RAPIDAPI_HOST", "gst-return-status.p.rapidapi.com")
+    POSTGRES_DSN = "postgresql://neondb_owner:npg_i3m7wqMeHXaW@ep-fragrant-cell-a10j16o4-pooler.ap-southeast-1.aws.neon.tech/neondb?sslmode=require"
+    SECRET_KEY = os.getenv("SECRET_KEY", secrets.token_urlsafe(32))
+    SESSION_DURATION = timedelta(days=7)
+    MAX_SEARCH_HISTORY = 1000
+    RATE_LIMIT_REQUESTS = 60
+    RATE_LIMIT_WINDOW = 60  # seconds
 
-# Initialize FastAPI app
-app = FastAPI(title="GST Intelligence Platform", version="2.0.0")
-app.mount("/static", StaticFiles(directory="static"), name="static")
-templates = Jinja2Templates(directory="templates")
+config = Config()
 
-# Pydantic models for API requests
+# Pydantic Models
 class ChangePasswordRequest(BaseModel):
     currentPassword: str
     newPassword: str
+    
+    @validator('newPassword')
+    def validate_password(cls, v):
+        if len(v) < 8:
+            raise ValueError('Password must be at least 8 characters long')
+        return v
 
 class UserPreferencesRequest(BaseModel):
     emailNotifications: Optional[bool] = False
@@ -64,9 +77,14 @@ class UserProfileRequest(BaseModel):
     email: Optional[str] = None
     designation: Optional[str] = None
 
-# NEW: Missing Pydantic models from paste.txt
 class BatchSearchRequest(BaseModel):
     gstins: List[str]
+    
+    @validator('gstins')
+    def validate_gstins(cls, v):
+        if len(v) > 10:
+            raise ValueError('Maximum 10 GSTINs allowed')
+        return v
 
 class ErrorLogRequest(BaseModel):
     type: str
@@ -76,71 +94,57 @@ class ErrorLogRequest(BaseModel):
     userAgent: Optional[str] = None
     timestamp: Optional[str] = None
 
-# Add template globals
-def setup_template_globals():
-    """Setup global template variables"""
-    templates.env.globals.update({
-        'current_year': datetime.now().year,
-        'app_version': "2.0.0"
-    })
+# Initialize FastAPI app
+app = FastAPI(
+    title="GST Intelligence Platform", 
+    version="2.0.0",
+    description="Advanced GST Compliance Analytics Platform"
+)
 
-# Authentication functions
-async def get_current_user(request: Request) -> Optional[str]:
-    """Get current user from session"""
-    session_token = request.cookies.get("session_token")
-    if not session_token:
-        return None
-    return await db.get_session(session_token)
-
-async def require_auth(request: Request) -> str:
-    """Require authentication for protected routes"""
-    user = await get_current_user(request)
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_303_SEE_OTHER, 
-            headers={"Location": "/login"}
-        )
-    return user
+# Static files and templates
+app.mount("/static", StaticFiles(directory="static"), name="static")
+templates = Jinja2Templates(directory="templates")
 
 # Rate Limiter
 class RateLimiter:
-    def __init__(self, max_attempts=5, window_minutes=15):
-        self.attempts = defaultdict(list)
-        self.max_attempts = max_attempts
-        self.window = timedelta(minutes=window_minutes)
+    def __init__(self, max_requests: int = config.RATE_LIMIT_REQUESTS, 
+                 window_seconds: int = config.RATE_LIMIT_WINDOW):
+        self.requests = defaultdict(list)
+        self.max_requests = max_requests
+        self.window = timedelta(seconds=window_seconds)
     
     def is_allowed(self, identifier: str) -> bool:
         now = datetime.now()
-        self.attempts[identifier] = [
-            attempt for attempt in self.attempts[identifier]
-            if now - attempt < self.window
+        self.requests[identifier] = [
+            req_time for req_time in self.requests[identifier]
+            if now - req_time < self.window
         ]
         
-        if len(self.attempts[identifier]) >= self.max_attempts:
+        if len(self.requests[identifier]) >= self.max_requests:
             return False
         
-        self.attempts[identifier].append(now)
+        self.requests[identifier].append(now)
         return True
 
 # Initialize rate limiters
-login_limiter = RateLimiter()
-api_limiter = RateLimiter(max_attempts=60, window_minutes=1)
+login_limiter = RateLimiter(max_requests=5, window_seconds=900)  # 5 attempts per 15 min
+api_limiter = RateLimiter()
 
-# PostgreSQL Database Manager
-class PostgresDB:
-    def __init__(self, dsn=POSTGRES_DSN):
+# Database Manager
+class DatabaseManager:
+    def __init__(self, dsn: str = config.POSTGRES_DSN):
         self.dsn = dsn
         self.pool = None
 
-    async def connect(self):
+    async def initialize(self):
+        """Initialize database connection pool and ensure tables exist."""
         if not self.pool:
-            self.pool = await asyncpg.create_pool(dsn=self.dsn)
+            self.pool = await asyncpg.create_pool(dsn=self.dsn, min_size=1, max_size=10)
+        await self._ensure_tables()
 
-    async def ensure_tables(self):
-        """Ensure all required tables exist"""
-        await self.connect()
+    async def _ensure_tables(self):
+        """Ensure all required tables exist."""
         async with self.pool.acquire() as conn:
-            # Create users table
             await conn.execute("""
                 CREATE TABLE IF NOT EXISTS users (
                     mobile VARCHAR(10) PRIMARY KEY,
@@ -149,10 +153,7 @@ class PostgresDB:
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     last_login TIMESTAMP
                 );
-            """)
-            
-            # Create sessions table
-            await conn.execute("""
+                
                 CREATE TABLE IF NOT EXISTS sessions (
                     session_token VARCHAR(64) PRIMARY KEY,
                     mobile VARCHAR(10) NOT NULL,
@@ -160,10 +161,7 @@ class PostgresDB:
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     FOREIGN KEY (mobile) REFERENCES users(mobile) ON DELETE CASCADE
                 );
-            """)
-            
-            # Create search_history table
-            await conn.execute("""
+                
                 CREATE TABLE IF NOT EXISTS search_history (
                     id SERIAL PRIMARY KEY,
                     mobile VARCHAR(10) NOT NULL,
@@ -173,10 +171,7 @@ class PostgresDB:
                     searched_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     FOREIGN KEY (mobile) REFERENCES users(mobile) ON DELETE CASCADE
                 );
-            """)
-            
-            # Create user_preferences table
-            await conn.execute("""
+                
                 CREATE TABLE IF NOT EXISTS user_preferences (
                     mobile VARCHAR(10) PRIMARY KEY,
                     preferences JSONB NOT NULL DEFAULT '{}',
@@ -184,36 +179,41 @@ class PostgresDB:
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     FOREIGN KEY (mobile) REFERENCES users(mobile) ON DELETE CASCADE
                 );
+                
+                CREATE INDEX IF NOT EXISTS idx_sessions_expires ON sessions(expires_at);
+                CREATE INDEX IF NOT EXISTS idx_search_history_mobile ON search_history(mobile);
+                CREATE INDEX IF NOT EXISTS idx_search_history_searched_at ON search_history(searched_at);
+                CREATE INDEX IF NOT EXISTS idx_user_preferences_mobile ON user_preferences(mobile);
             """)
-            
-            # Create indexes
-            await conn.execute("CREATE INDEX IF NOT EXISTS idx_sessions_expires ON sessions(expires_at);")
-            await conn.execute("CREATE INDEX IF NOT EXISTS idx_search_history_mobile ON search_history(mobile);")
-            await conn.execute("CREATE INDEX IF NOT EXISTS idx_search_history_searched_at ON search_history(searched_at);")
 
-    async def create_user(self, mobile: str, password_hash: str, salt: str):
-        await self.connect()
-        async with self.pool.acquire() as conn:
-            await conn.execute(
-                "INSERT INTO users (mobile, password_hash, salt) VALUES ($1, $2, $3) ON CONFLICT (mobile) DO NOTHING",
-                mobile, password_hash, salt
-            )
+    async def create_user(self, mobile: str, password_hash: str, salt: str) -> bool:
+        """Create a new user."""
+        try:
+            async with self.pool.acquire() as conn:
+                await conn.execute(
+                    "INSERT INTO users (mobile, password_hash, salt) VALUES ($1, $2, $3)",
+                    mobile, password_hash, salt
+                )
+                return True
+        except asyncpg.UniqueViolationError:
+            return False
 
     async def verify_user(self, mobile: str, password: str) -> bool:
-        await self.connect()
+        """Verify user credentials."""
         async with self.pool.acquire() as conn:
-            row = await conn.fetchrow("SELECT password_hash, salt FROM users WHERE mobile=$1", mobile)
+            row = await conn.fetchrow(
+                "SELECT password_hash, salt FROM users WHERE mobile=$1", mobile
+            )
             if not row:
                 return False
-            return check_password(password, row['password_hash'], row['salt'])
+            return self._check_password(password, row['password_hash'], row['salt'])
 
     async def change_password(self, mobile: str, old_password: str, new_password: str) -> bool:
-        """Change user password after verifying old password"""
-        await self.connect()
+        """Change user password after verifying old password."""
         async with self.pool.acquire() as conn:
             # Verify old password
             row = await conn.fetchrow("SELECT password_hash, salt FROM users WHERE mobile=$1", mobile)
-            if not row or not check_password(old_password, row['password_hash'], row['salt']):
+            if not row or not self._check_password(old_password, row['password_hash'], row['salt']):
                 return False
             
             # Generate new salt and hash
@@ -228,9 +228,10 @@ class PostgresDB:
             return True
 
     async def create_session(self, mobile: str) -> Optional[str]:
+        """Create a new session for user."""
         session_token = secrets.token_urlsafe(32)
-        expires_at = datetime.now() + timedelta(days=7)
-        await self.connect()
+        expires_at = datetime.now() + config.SESSION_DURATION
+        
         try:
             async with self.pool.acquire() as conn:
                 await conn.execute(
@@ -239,11 +240,11 @@ class PostgresDB:
                 )
             return session_token
         except Exception as e:
-            logger.error(f"Session creation failed: {e}")
+            logger.error(f"Failed to create session: {e}")
             return None
 
     async def get_session(self, session_token: str) -> Optional[str]:
-        await self.connect()
+        """Get user from session token."""
         async with self.pool.acquire() as conn:
             row = await conn.fetchrow(
                 "SELECT mobile, expires_at FROM sessions WHERE session_token=$1",
@@ -254,25 +255,40 @@ class PostgresDB:
         return None
 
     async def delete_session(self, session_token: str):
-        await self.connect()
+        """Delete a session."""
         async with self.pool.acquire() as conn:
             await conn.execute("DELETE FROM sessions WHERE session_token=$1", session_token)
 
     async def update_last_login(self, mobile: str):
-        await self.connect()
+        """Update user's last login time."""
         async with self.pool.acquire() as conn:
-            await conn.execute("UPDATE users SET last_login=$1 WHERE mobile=$2", datetime.now(), mobile)
+            await conn.execute(
+                "UPDATE users SET last_login=$1 WHERE mobile=$2", 
+                datetime.now(), mobile
+            )
 
-    async def add_search_history(self, mobile: str, gstin: str, company_name: str, compliance_score: float = None):
-        await self.connect()
+    async def add_search_history(self, mobile: str, gstin: str, 
+                               company_name: str, compliance_score: Optional[float] = None):
+        """Add search to history."""
         async with self.pool.acquire() as conn:
+            # Keep only latest entries per user
+            await conn.execute("""
+                DELETE FROM search_history 
+                WHERE mobile = $1 AND id NOT IN (
+                    SELECT id FROM search_history 
+                    WHERE mobile = $1 
+                    ORDER BY searched_at DESC 
+                    LIMIT $2
+                )
+            """, mobile, config.MAX_SEARCH_HISTORY - 1)
+            
             await conn.execute(
                 "INSERT INTO search_history (mobile, gstin, company_name, compliance_score) VALUES ($1, $2, $3, $4)",
                 mobile, gstin, company_name, compliance_score
             )
 
     async def get_search_history(self, mobile: str, limit: int = 10) -> List[Dict]:
-        await self.connect()
+        """Get user's search history."""
         async with self.pool.acquire() as conn:
             rows = await conn.fetch(
                 "SELECT gstin, company_name, searched_at, compliance_score FROM search_history WHERE mobile=$1 ORDER BY searched_at DESC LIMIT $2",
@@ -281,7 +297,7 @@ class PostgresDB:
             return [dict(row) for row in rows]
 
     async def get_all_searches(self, mobile: str) -> List[Dict]:
-        await self.connect()
+        """Get all user searches for history page."""
         async with self.pool.acquire() as conn:
             rows = await conn.fetch(
                 "SELECT gstin, company_name, searched_at, compliance_score FROM search_history WHERE mobile=$1 ORDER BY searched_at DESC",
@@ -290,101 +306,101 @@ class PostgresDB:
             return [dict(row) for row in rows]
 
     async def get_user_stats(self, mobile: str) -> Dict:
-        """Get comprehensive user statistics"""
-        await self.connect()
+        """Get comprehensive user statistics."""
         async with self.pool.acquire() as conn:
-            # Basic stats
-            total_searches = await conn.fetchval(
-                "SELECT COUNT(*) FROM search_history WHERE mobile = $1", mobile
-            )
-            
-            unique_companies = await conn.fetchval(
-                "SELECT COUNT(DISTINCT gstin) FROM search_history WHERE mobile = $1", mobile
-            )
-            
-            avg_compliance = await conn.fetchval(
-                "SELECT AVG(compliance_score) FROM search_history WHERE mobile = $1 AND compliance_score IS NOT NULL", mobile
-            )
-            
-            # Recent activity (last 30 days)
-            recent_searches = await conn.fetchval("""
-                SELECT COUNT(*) FROM search_history 
-                WHERE mobile = $1 AND searched_at >= CURRENT_DATE - INTERVAL '30 days'
+            stats = await conn.fetchrow("""
+                SELECT 
+                    COUNT(*) as total_searches,
+                    COUNT(DISTINCT gstin) as unique_companies,
+                    AVG(compliance_score) as avg_compliance,
+                    COUNT(CASE WHEN searched_at >= CURRENT_DATE - INTERVAL '30 days' THEN 1 END) as recent_searches,
+                    MAX(searched_at) as last_search
+                FROM search_history 
+                WHERE mobile = $1
             """, mobile)
             
-            # Last search date
-            last_search = await conn.fetchval(
-                "SELECT MAX(searched_at) FROM search_history WHERE mobile = $1", mobile
-            )
-            
-            # User level and achievements
-            user_level = self._get_user_level(total_searches or 0)
-            achievements = self._get_user_achievements(total_searches or 0, avg_compliance or 0)
-            
             return {
-                "total_searches": total_searches or 0,
-                "unique_companies": unique_companies or 0,
-                "avg_compliance": float(avg_compliance) if avg_compliance else 0,
-                "recent_searches": recent_searches or 0,
-                "last_search": last_search.isoformat() if last_search else None,
-                "user_level": user_level,
-                "achievements": achievements
+                "total_searches": stats["total_searches"] or 0,
+                "unique_companies": stats["unique_companies"] or 0,
+                "avg_compliance": float(stats["avg_compliance"]) if stats["avg_compliance"] else 0,
+                "recent_searches": stats["recent_searches"] or 0,
+                "last_search": stats["last_search"].isoformat() if stats["last_search"] else None,
+                "user_level": self._get_user_level(stats["total_searches"] or 0),
+                "achievements": self._get_achievements(stats["total_searches"] or 0)
             }
 
-    def _get_user_level(self, total_searches: int) -> dict:
-        """Determine user level based on activity"""
-        if total_searches >= 100:
-            return {"level": "Expert", "icon": "fas fa-crown", "color": "#f59e0b"}
-        elif total_searches >= 50:
-            return {"level": "Advanced", "icon": "fas fa-star", "color": "#3b82f6"}
-        elif total_searches >= 20:
-            return {"level": "Intermediate", "icon": "fas fa-chart-line", "color": "#10b981"}
-        elif total_searches >= 5:
-            return {"level": "Beginner", "icon": "fas fa-seedling", "color": "#8b5cf6"}
-        else:
-            return {"level": "New User", "icon": "fas fa-user-plus", "color": "#6b7280"}
+    async def get_analytics_data(self, mobile: str) -> Dict:
+        """Get analytics data for charts."""
+        async with self.pool.acquire() as conn:
+            # Daily searches for last 7 days
+            daily_searches = await conn.fetch("""
+                SELECT DATE(searched_at) as date, COUNT(*) as search_count, AVG(compliance_score) as avg_score
+                FROM search_history WHERE mobile = $1 AND searched_at >= CURRENT_DATE - INTERVAL '7 days'
+                GROUP BY DATE(searched_at) ORDER BY date
+            """, mobile)
+            
+            # Score distribution
+            score_distribution = await conn.fetch("""
+                SELECT CASE WHEN compliance_score >= 90 THEN 'Excellent (90-100)'
+                            WHEN compliance_score >= 80 THEN 'Very Good (80-89)'
+                            WHEN compliance_score >= 70 THEN 'Good (70-79)'
+                            WHEN compliance_score >= 60 THEN 'Average (60-69)'
+                            ELSE 'Poor (<60)' END as range, COUNT(*) as count
+                FROM search_history WHERE mobile = $1 AND compliance_score IS NOT NULL 
+                GROUP BY range ORDER BY range DESC
+            """, mobile)
+            
+            # Top companies
+            top_companies = await conn.fetch("""
+                SELECT company_name, gstin, COUNT(*) as search_count, MAX(compliance_score) as latest_score
+                FROM search_history WHERE mobile = $1 GROUP BY company_name, gstin
+                ORDER BY search_count DESC LIMIT 10
+            """, mobile)
+            
+            return {
+                "daily_searches": [dict(row) for row in daily_searches],
+                "score_distribution": [dict(row) for row in score_distribution],
+                "top_companies": [dict(row) for row in top_companies]
+            }
 
-    def _get_user_achievements(self, total_searches: int, avg_compliance: float) -> list:
-        """Get user achievements based on activity"""
+    def _get_user_level(self, total_searches: int) -> Dict:
+        """Determine user level based on activity."""
+        levels = [
+            (100, "Expert", "fas fa-crown", "#f59e0b"),
+            (50, "Advanced", "fas fa-star", "#3b82f6"),
+            (20, "Intermediate", "fas fa-chart-line", "#10b981"),
+            (5, "Beginner", "fas fa-seedling", "#8b5cf6"),
+            (0, "New User", "fas fa-user-plus", "#6b7280")
+        ]
+        
+        for threshold, level, icon, color in levels:
+            if total_searches >= threshold:
+                return {"level": level, "icon": icon, "color": color}
+        
+        return {"level": levels[-1][1], "icon": levels[-1][2], "color": levels[-1][3]}
+
+    def _get_achievements(self, total_searches: int) -> List[Dict]:
+        """Get user achievements."""
         achievements = []
         
-        if total_searches >= 1:
-            achievements.append({
-                "title": "First Search",
-                "description": "Completed your first GST search",
-                "icon": "fas fa-search",
-                "unlocked": True
-            })
+        achievement_data = [
+            (1, "First Search", "Completed your first GST search", "fas fa-search"),
+            (10, "Research Enthusiast", "Completed 10 searches", "fas fa-chart-bar"),
+            (50, "Compliance Expert", "Completed 50 searches", "fas fa-medal"),
+        ]
         
-        if total_searches >= 10:
+        for threshold, title, desc, icon in achievement_data:
             achievements.append({
-                "title": "Research Enthusiast",
-                "description": "Completed 10 searches",
-                "icon": "fas fa-chart-bar",
-                "unlocked": True
-            })
-        
-        if total_searches >= 50:
-            achievements.append({
-                "title": "Compliance Expert",
-                "description": "Completed 50 searches",
-                "icon": "fas fa-medal",
-                "unlocked": True
-            })
-        
-        if avg_compliance >= 80:
-            achievements.append({
-                "title": "Quality Finder",
-                "description": "Average compliance score above 80%",
-                "icon": "fas fa-trophy",
-                "unlocked": True
+                "title": title,
+                "description": desc,
+                "icon": icon,
+                "unlocked": total_searches >= threshold
             })
         
         return achievements
 
-    async def save_user_preferences(self, mobile: str, preferences: dict):
-        """Save user preferences"""
-        await self.connect()
+    async def save_user_preferences(self, mobile: str, preferences: Dict):
+        """Save user preferences."""
         async with self.pool.acquire() as conn:
             await conn.execute("""
                 INSERT INTO user_preferences (mobile, preferences, updated_at) 
@@ -393,16 +409,16 @@ class PostgresDB:
                 DO UPDATE SET preferences = $2, updated_at = $3
             """, mobile, json.dumps(preferences), datetime.now())
 
-    async def get_user_preferences(self, mobile: str) -> dict:
-        """Get user preferences"""
-        await self.connect()
+    async def get_user_preferences(self, mobile: str) -> Dict:
+        """Get user preferences."""
         async with self.pool.acquire() as conn:
-            row = await conn.fetchrow("SELECT preferences FROM user_preferences WHERE mobile = $1", mobile)
+            row = await conn.fetchrow(
+                "SELECT preferences FROM user_preferences WHERE mobile = $1", mobile
+            )
             return json.loads(row['preferences']) if row else {}
 
-    async def save_user_profile(self, mobile: str, profile_data: dict):
-        """Save user profile information"""
-        await self.connect()
+    async def save_user_profile(self, mobile: str, profile_data: Dict):
+        """Save user profile information."""
         async with self.pool.acquire() as conn:
             # Update or insert user profile
             await conn.execute("""
@@ -414,9 +430,8 @@ class PostgresDB:
                     updated_at = $3
             """, mobile, json.dumps(profile_data), datetime.now())
 
-    async def get_user_profile(self, mobile: str) -> dict:
-        """Get user profile information"""
-        await self.connect()
+    async def get_user_profile(self, mobile: str) -> Dict:
+        """Get user profile information."""
         async with self.pool.acquire() as conn:
             row = await conn.fetchrow("SELECT preferences FROM user_preferences WHERE mobile = $1", mobile)
             if row:
@@ -429,132 +444,79 @@ class PostgresDB:
                 }
             return {}
 
-    async def get_user_activity_summary(self, mobile: str, days: int = 30) -> Dict:
-        """Get user activity summary for dashboard"""
-        await self.connect()
-        end_date = datetime.now()
-        start_date = end_date - timedelta(days=days)
-        
+    async def clear_user_data(self, mobile: str) -> int:
+        """Clear user search history."""
         async with self.pool.acquire() as conn:
-            summary = await conn.fetchrow("""
-                SELECT 
-                    COUNT(*) as total_searches,
-                    COUNT(DISTINCT gstin) as unique_companies,
-                    AVG(compliance_score) as avg_compliance,
-                    MAX(searched_at) as last_search,
-                    MIN(searched_at) as first_search
-                FROM search_history 
-                WHERE mobile = $1 AND searched_at >= $2
-            """, mobile, start_date)
-            
-            return {
-                "total_searches": summary["total_searches"] or 0,
-                "unique_companies": summary["unique_companies"] or 0,
-                "avg_compliance": float(summary["avg_compliance"]) if summary["avg_compliance"] else 0,
-                "last_search": summary["last_search"].isoformat() if summary["last_search"] else None,
-                "first_search": summary["first_search"].isoformat() if summary["first_search"] else None,
-                "period_days": days
-            }
+            result = await conn.fetchval("DELETE FROM search_history WHERE mobile = $1 RETURNING COUNT(*)", mobile)
+            return result or 0
 
-    async def get_compliance_insights(self, mobile: str) -> Dict:
-        """Get compliance insights for user"""
-        await self.connect()
+    def _check_password(self, password: str, stored_hash: str, salt: str) -> bool:
+        """Verify password against stored hash."""
+        hash_attempt = hashlib.pbkdf2_hmac(
+            'sha256', password.encode('utf-8'), 
+            salt.encode('utf-8'), 100000, dklen=64
+        ).hex()
+        return hash_attempt == stored_hash
+
+    async def cleanup_expired_sessions(self):
+        """Clean up expired sessions."""
         async with self.pool.acquire() as conn:
-            insights = await conn.fetchrow("""
-                SELECT 
-                    AVG(compliance_score) as avg_score,
-                    MAX(compliance_score) as best_score,
-                    MIN(compliance_score) as worst_score,
-                    COUNT(CASE WHEN compliance_score >= 80 THEN 1 END) as high_compliance_count,
-                    COUNT(CASE WHEN compliance_score < 60 THEN 1 END) as low_compliance_count,
-                    COUNT(*) as total_scored
-                FROM search_history 
-                WHERE mobile = $1 AND compliance_score IS NOT NULL
-            """, mobile)
-            
-            return {
-                "avg_score": float(insights["avg_score"]) if insights["avg_score"] else 0,
-                "best_score": float(insights["best_score"]) if insights["best_score"] else 0,
-                "worst_score": float(insights["worst_score"]) if insights["worst_score"] else 0,
-                "high_compliance_count": insights["high_compliance_count"] or 0,
-                "low_compliance_count": insights["low_compliance_count"] or 0,
-                "total_scored": insights["total_scored"] or 0,
-                "high_compliance_percentage": (insights["high_compliance_count"] / insights["total_scored"] * 100) if insights["total_scored"] > 0 else 0
-            }
+            await conn.execute('DELETE FROM sessions WHERE expires_at < $1', datetime.now())
 
-db = PostgresDB()
+# Initialize database
+db = DatabaseManager()
 
 # GST API Client
-class GSAPIClient:
+class GSTAPIClient:
     def __init__(self, api_key: str, host: str):
         self.api_key = api_key
         self.host = host
         self.headers = {
             "x-rapidapi-key": api_key,
             "x-rapidapi-host": host,
-            "User-Agent": "GST-Compliance-Platform/2.0"
+            "User-Agent": "GST-Intelligence-Platform/2.0"
         }
     
     async def fetch_gstin_data(self, gstin: str) -> Dict:
+        """Fetch GSTIN data from API."""
         import httpx
         url = f"https://{self.host}/free/gstin/{gstin}"
+        
         async with httpx.AsyncClient(timeout=30) as client:
             resp = await client.get(url, headers=self.headers)
+            
             if resp.status_code == 200:
-                json_data = resp.json()
-                if json_data.get("success") and "data" in json_data:
-                    return json_data["data"]
-                elif "data" in json_data:
-                    return json_data["data"]
+                data = resp.json()
+                if data.get("success") and "data" in data:
+                    return data["data"]
+                elif "data" in data:
+                    return data["data"]
                 else:
-                    return json_data
-            raise HTTPException(status_code=404, detail="GSTIN not found or API error")
+                    return data
+            
+            raise HTTPException(
+                status_code=404, 
+                detail="GSTIN not found or API error"
+            )
 
-api_client = GSAPIClient(RAPIDAPI_KEY, RAPIDAPI_HOST) if RAPIDAPI_KEY else None
+# Initialize API client
+api_client = GSTAPIClient(config.RAPIDAPI_KEY, config.RAPIDAPI_HOST) if config.RAPIDAPI_KEY else None
 
-# Validation functions
+# Validation utilities
 def validate_mobile(mobile: str) -> tuple[bool, str]:
+    """Validate mobile number format."""
     mobile = mobile.strip()
     if not mobile.isdigit() or len(mobile) != 10 or mobile[0] not in "6789":
-        return False, "Invalid mobile number"
+        return False, "Invalid mobile number format"
     return True, ""
 
 def validate_gstin(gstin: str) -> bool:
+    """Validate GSTIN format."""
     pattern = r'^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$'
     return bool(re.match(pattern, gstin.upper()))
 
-def validate_password_strength(password: str) -> tuple[bool, str]:
-    """Validate password strength"""
-    if len(password) < 8:
-        return False, "Password must be at least 8 characters long"
-    
-    if not re.search(r'[A-Z]', password):
-        return False, "Password must contain at least one uppercase letter"
-    
-    if not re.search(r'[a-z]', password):
-        return False, "Password must contain at least one lowercase letter"
-    
-    if not re.search(r'\d', password):
-        return False, "Password must contain at least one number"
-    
-    if not re.search(r'[!@#$%^&*(),.?":{}|<>]', password):
-        return False, "Password must contain at least one special character"
-    
-    return True, "Password is strong"
-
-async def get_user_display_name(mobile: str) -> str:
-    """Get user display name or fallback to mobile"""
-    try:
-        profile = await db.get_user_profile(mobile)
-        display_name = profile.get('display_name')
-        if display_name:
-            return display_name
-        # Create a friendly name from mobile number
-        return f"User {mobile[-4:]}"
-    except:
-        return f"User {mobile[-4:]}"
-
-def calculate_return_due_date(return_type: str, tax_period: str, fy: str) -> datetime:
+def calculate_return_due_date(return_type: str, tax_period: str, fy: str) -> Optional[datetime]:
+    """Calculate due date for GST returns."""
     try:
         months = {
             'January': 1, 'February': 2, 'March': 3, 'April': 4,
@@ -593,6 +555,7 @@ def calculate_return_due_date(return_type: str, tax_period: str, fy: str) -> dat
     return None
 
 def analyze_late_filings(returns: List[Dict]) -> Dict:
+    """Analyze late filing patterns."""
     late_returns = []
     on_time_returns = []
     total_delay_days = 0
@@ -632,8 +595,8 @@ def analyze_late_filings(returns: List[Dict]) -> Dict:
         'average_delay': total_delay_days / len(late_returns) if late_returns else 0
     }
 
-def calculate_compliance_score(company_data: dict) -> float:
-    """Calculate compliance score with proper logic"""
+def calculate_compliance_score(company_data: Dict) -> float:
+    """Calculate compliance score based on company data."""
     score = 100.0
     
     # Registration Status (25 points)
@@ -646,6 +609,7 @@ def calculate_compliance_score(company_data: dict) -> float:
         current_date = datetime.now()
         gstr1_returns = [r for r in returns if r.get("rtntype") == "GSTR1"]
         
+        # Calculate expected returns based on registration date
         months_since_reg = 12
         if company_data.get("rgdt"):
             try:
@@ -740,641 +704,9 @@ def calculate_compliance_score(company_data: dict) -> float:
     logger.info(f"Calculated compliance score: {final_score} for company {company_data.get('lgnm', 'Unknown')}")
     return final_score
 
-def check_password(password: str, stored_hash: str, salt: str) -> bool:
-    hash_attempt = hashlib.pbkdf2_hmac('sha256', password.encode('utf-8'), salt.encode('utf-8'), 100000, dklen=64).hex()
-    return hash_attempt == stored_hash
-
-# Routes
-@app.get("/health")
-async def health_check():
-    try:
-        db_status = "healthy"
-        try:
-            await db.connect()
-            async with db.pool.acquire() as conn:
-                await conn.execute("SELECT 1")
-        except Exception as e:
-            db_status = f"unhealthy: {str(e)}"
-        
-        return {
-            "status": "healthy" if db_status == "healthy" else "degraded",
-            "timestamp": datetime.now(),
-            "version": "2.0.0",
-            "checks": {
-                "database": db_status,
-                "gst_api": "configured" if RAPIDAPI_KEY else "missing",
-                "ai_features": "configured" if ANTHROPIC_API_KEY else "disabled"
-            }
-        }
-    except Exception as e:
-        return JSONResponse(
-            status_code=503,
-            content={"status": "unhealthy", "error": str(e), "timestamp": datetime.now()}
-        )
-
-@app.get("/", response_class=HTMLResponse)
-async def home(request: Request, current_user: str = Depends(require_auth)):
-    history = await db.get_search_history(current_user)
-    user_profile = await db.get_user_profile(current_user)
-    user_display_name = await get_user_display_name(current_user)
-    
-    # Calculate searches this month
-    now = datetime.now()
-    last_30_days = now - timedelta(days=30)
-    searches_this_month = sum(
-        1 for item in history
-        if item.get('searched_at') and item['searched_at'] >= last_30_days
-    )
-    
-    return templates.TemplateResponse("index.html", {
-        "request": request, 
-        "current_user": current_user,
-        "user_display_name": user_display_name,
-        "user_profile": user_profile,
-        "history": history,
-        "searches_this_month": searches_this_month
-    })
-
-@app.get("/login", response_class=HTMLResponse)
-async def get_login(request: Request):
-    return templates.TemplateResponse("login.html", {"request": request})
-
-@app.post("/login")
-async def post_login(request: Request, mobile: str = Form(...), password: str = Form(...)):
-    is_valid, message = validate_mobile(mobile)
-    if not is_valid:
-        return templates.TemplateResponse("login.html", {"request": request, "error": message})
-    
-    if not await db.verify_user(mobile, password):
-        return templates.TemplateResponse("login.html", {"request": request, "error": "Invalid credentials"})
-    
-    session_token = await db.create_session(mobile)
-    if not session_token:
-        return templates.TemplateResponse("login.html", {"request": request, "error": "Failed to create session"})
-    
-    await db.update_last_login(mobile)
-    
-    response = RedirectResponse(url="/", status_code=302)
-    response.set_cookie(
-        key="session_token", value=session_token, max_age=7 * 24 * 60 * 60,
-        httponly=True, samesite="lax", secure=False
-    )
-    return response
-
-@app.get("/signup", response_class=HTMLResponse)
-async def get_signup(request: Request):
-    return templates.TemplateResponse("signup.html", {"request": request})
-
-@app.post("/signup")
-async def post_signup(request: Request, mobile: str = Form(...), password: str = Form(...), confirm_password: str = Form(...)):
-    is_valid, message = validate_mobile(mobile)
-    if not is_valid:
-        return templates.TemplateResponse("signup.html", {"request": request, "error": message})
-    
-    if len(password) < 6:
-        return templates.TemplateResponse("signup.html", {"request": request, "error": "Password must be at least 6 characters"})
-    
-    if password != confirm_password:
-        return templates.TemplateResponse("signup.html", {"request": request, "error": "Passwords do not match"})
-    
-    salt = secrets.token_hex(16)
-    password_hash = hashlib.pbkdf2_hmac('sha256', password.encode('utf-8'), salt.encode('utf-8'), 100000, dklen=64).hex()
-    
-    await db.create_user(mobile, password_hash, salt)
-    return RedirectResponse(url="/login?registered=true", status_code=302)
-
-@app.get("/logout")
-async def logout(request: Request):
-    session_token = request.cookies.get("session_token")
-    if session_token:
-        await db.delete_session(session_token)
-    
-    response = RedirectResponse(url="/login", status_code=302)
-    response.delete_cookie("session_token")
-    return response
-
-@app.get("/search")
-async def search_gstin_get(request: Request, gstin: str = None, current_user: str = Depends(require_auth)):
-    if not gstin:
-        return RedirectResponse(url="/", status_code=302)
-    
-    return await process_search(request, gstin, current_user)
-
-@app.post("/search")
-async def search_gstin_post(request: Request, gstin: str = Form(...), current_user: str = Depends(require_auth)):
-    return await process_search(request, gstin, current_user)
-
-async def process_search(request: Request, gstin: str, current_user: str):
-    gstin = gstin.strip().upper()
-    if not validate_gstin(gstin):
-        history = await db.get_search_history(current_user)
-        return templates.TemplateResponse("index.html", {
-            "request": request, "current_user": current_user, "error": "Invalid GSTIN format", "history": history
-        })
-    
-    if not api_limiter.is_allowed(current_user):
-        history = await db.get_search_history(current_user)
-        return templates.TemplateResponse("index.html", {
-            "request": request, "current_user": current_user, 
-            "error": "API rate limit exceeded. Please try again later.", "history": history
-        })
-    
-    try:
-        if not api_client:
-            raise HTTPException(status_code=503, detail="GST API service not configured")
-            
-        company_data = await api_client.fetch_gstin_data(gstin)
-        
-        # Calculate compliance score
-        compliance_score = calculate_compliance_score(company_data)
-        logger.info(f"Final compliance score for template: {compliance_score}")
-        
-        synopsis = None
-        if ANTHROPIC_API_KEY:
-            try:
-                synopsis = await get_anthropic_synopsis(company_data)
-            except Exception as e:
-                logger.error(f"Failed to get AI synopsis: {e}")
-        
-        # Add to search history
-        await db.add_search_history(current_user, gstin, company_data.get("lgnm", "Unknown"), compliance_score)
-        
-        late_filing_analysis = company_data.get('_late_filing_analysis', {})
-        
-        return templates.TemplateResponse("results.html", {
-            "request": request, 
-            "current_user": current_user, 
-            "company_data": company_data,
-            "compliance_score": int(compliance_score),
-            "synopsis": synopsis,
-            "late_filing_analysis": late_filing_analysis
-        })
-        
-    except HTTPException as e:
-        history = await db.get_search_history(current_user)
-        return templates.TemplateResponse("index.html", {
-            "request": request, "current_user": current_user, "error": e.detail, "history": history
-        })
-    except Exception as e:
-        logger.error(f"Search error: {e}")
-        history = await db.get_search_history(current_user)
-        return templates.TemplateResponse("index.html", {
-            "request": request, "current_user": current_user, 
-            "error": "An error occurred while searching. Please try again.", "history": history
-        })
-
-@app.get("/history", response_class=HTMLResponse)
-async def view_history(request: Request, current_user: str = Depends(require_auth)):
-    history = await db.get_all_searches(current_user)
-    user_profile = await db.get_user_profile(current_user)
-    user_display_name = await get_user_display_name(current_user)
-    now = datetime.now()
-    last_30_days = now - timedelta(days=30)
-    searches_this_month = sum(
-        1 for item in history
-        if item.get('searched_at') and item['searched_at'] >= last_30_days
-    )
-    return templates.TemplateResponse("history.html", {
-        "request": request, 
-        "current_user": current_user,
-        "user_display_name": user_display_name,
-        "user_profile": user_profile,
-        "history": history,
-        "searches_this_month": searches_this_month
-    })
-
-@app.get("/analytics", response_class=HTMLResponse)
-async def analytics_dashboard(request: Request, current_user: str = Depends(require_auth)):
-    user_profile = await db.get_user_profile(current_user)
-    user_display_name = await get_user_display_name(current_user)
-    
-    await db.connect()
-    async with db.pool.acquire() as conn:
-        daily_searches = await conn.fetch("""
-            SELECT DATE(searched_at) as date, COUNT(*) as search_count, AVG(compliance_score) as avg_score
-            FROM search_history WHERE mobile = $1 AND searched_at >= CURRENT_DATE - INTERVAL '7 days'
-            GROUP BY DATE(searched_at) ORDER BY date
-        """, current_user)
-        
-        score_distribution = await conn.fetch("""
-            SELECT CASE WHEN compliance_score >= 90 THEN 'Excellent (90-100)'
-                        WHEN compliance_score >= 80 THEN 'Very Good (80-89)'
-                        WHEN compliance_score >= 70 THEN 'Good (70-79)'
-                        WHEN compliance_score >= 60 THEN 'Average (60-69)'
-                        ELSE 'Poor (<60)' END as range, COUNT(*) as count
-            FROM search_history WHERE mobile = $1 AND compliance_score IS NOT NULL GROUP BY range ORDER BY range DESC
-        """, current_user)
-        
-        top_companies = await conn.fetch("""
-            SELECT company_name, gstin, COUNT(*) as search_count, MAX(compliance_score) as latest_score
-            FROM search_history WHERE mobile = $1 GROUP BY company_name, gstin
-            ORDER BY search_count DESC LIMIT 10
-        """, current_user)
-        
-        total_searches = await conn.fetchval("SELECT COUNT(*) FROM search_history WHERE mobile = $1", current_user)
-        unique_companies = await conn.fetchval("SELECT COUNT(DISTINCT gstin) FROM search_history WHERE mobile = $1", current_user)
-        avg_compliance = await conn.fetchval("SELECT AVG(compliance_score) FROM search_history WHERE mobile = $1", current_user)
-    
-    daily_searches = [
-        {**dict(row), "date": row["date"].isoformat() if hasattr(row["date"], "isoformat") else row["date"]}
-        for row in daily_searches
-    ]
-    
-    return templates.TemplateResponse("analytics.html", {
-        "request": request, 
-        "current_user": current_user,
-        "user_display_name": user_display_name,
-        "user_profile": user_profile,
-        "daily_searches": daily_searches,
-        "score_distribution": [dict(row) for row in score_distribution],
-        "top_companies": [dict(row) for row in top_companies],
-        "total_searches": total_searches or 0, 
-        "unique_companies": unique_companies or 0,
-        "avg_compliance": round(avg_compliance or 0, 1)
-    })
-
-# ==============================================================
-# NEW API ENDPOINTS FROM PASTE.TXT - MISSING IMPLEMENTATIONS
-# ==============================================================
-
-# Batch Search Endpoint
-@app.post("/api/search/batch")
-async def batch_search(request: BatchSearchRequest, current_user: str = Depends(require_auth)):
-    """Handle batch GSTIN searches (max 10 at once)"""
-    try:
-        gstins = request.gstins[:10]  # Limit to 10 for safety
-        results = []
-        successful = 0
-        
-        if not api_client:
-            raise HTTPException(status_code=503, detail="GST API service not configured")
-        
-        for gstin in gstins:
-            gstin = gstin.strip().upper()
-            if not validate_gstin(gstin):
-                results.append({
-                    'gstin': gstin,
-                    'success': False,
-                    'error': 'Invalid GSTIN format'
-                })
-                continue
-            
-            try:
-                company_data = await api_client.fetch_gstin_data(gstin)
-                compliance_score = calculate_compliance_score(company_data)
-                
-                # Add to search history
-                await db.add_search_history(current_user, gstin, company_data.get("lgnm", "Unknown"), compliance_score)
-                
-                results.append({
-                    'gstin': gstin,
-                    'success': True,
-                    'company_name': company_data.get('lgnm', 'Unknown'),
-                    'compliance_score': compliance_score,
-                    'status': company_data.get('sts', 'Unknown')
-                })
-                successful += 1
-                
-            except Exception as e:
-                logger.error(f"Error processing GSTIN {gstin}: {e}")
-                results.append({
-                    'gstin': gstin,
-                    'success': False,
-                    'error': str(e)
-                })
-        
-        return {
-            'success': True,
-            'results': results,
-            'processed': len(gstins),
-            'successful': successful
-        }
-        
-    except Exception as e:
-        logger.error(f"Batch search error: {e}")
-        return {
-            'success': False,
-            'error': 'Batch search failed',
-            'results': [],
-            'processed': 0,
-            'successful': 0
-        }
-
-# Search Suggestions Endpoint  
-@app.get("/api/search/suggestions")
-async def get_search_suggestions(q: str, current_user: str = Depends(require_auth)):
-    """Get search suggestions based on query"""
-    try:
-        if len(q) < 2:
-            return {'success': True, 'suggestions': []}
-        
-        # Get recent searches from history that match query
-        await db.connect()
-        async with db.pool.acquire() as conn:
-            rows = await conn.fetch("""
-                SELECT DISTINCT gstin, company_name, compliance_score 
-                FROM search_history 
-                WHERE mobile = $1 
-                AND (LOWER(company_name) LIKE $2 OR LOWER(gstin) LIKE $2)
-                ORDER BY searched_at DESC 
-                LIMIT 5
-            """, current_user, f"%{q.lower()}%")
-        
-        suggestions = []
-        for row in rows:
-            suggestions.append({
-                'gstin': row['gstin'],
-                'company': row['company_name'],
-                'compliance_score': float(row['compliance_score']) if row['compliance_score'] else None,
-                'icon': 'fas fa-history',
-                'type': 'recent'
-            })
-        
-        # Add some sample suggestions if no recent matches
-        if not suggestions:
-            sample_suggestions = [
-                {
-                    'gstin': '27AABCU9603R1ZX',
-                    'company': 'UBER INDIA SYSTEMS PRIVATE LIMITED',
-                    'icon': 'fas fa-building',
-                    'type': 'sample'
-                },
-                {
-                    'gstin': '29AABCT1332L1ZU', 
-                    'company': 'TATA CONSULTANCY SERVICES LIMITED',
-                    'icon': 'fas fa-building',
-                    'type': 'sample'
-                }
-            ]
-            
-            # Filter samples that match query
-            for suggestion in sample_suggestions:
-                if (q.lower() in suggestion['company'].lower() or 
-                    q.lower() in suggestion['gstin'].lower()):
-                    suggestions.append(suggestion)
-        
-        return {
-            'success': True,
-            'suggestions': suggestions[:5]
-        }
-        
-    except Exception as e:
-        logger.error(f"Search suggestions error: {e}")
-        return {'success': False, 'suggestions': []}
-
-# Error Logging Endpoint
-@app.post("/api/system/error")
-async def log_frontend_error(request: ErrorLogRequest):
-    """Log frontend JavaScript errors"""
-    try:
-        error_data = {
-            'type': request.type,
-            'message': request.message,
-            'stack': request.stack,
-            'url': request.url,
-            'userAgent': request.userAgent,
-            'timestamp': request.timestamp
-        }
-        
-        # Log to application logger
-        logger.error(f"Frontend Error: {error_data}")
-        
-        # Could also save to database if needed
-        # await db.log_error(error_data)
-        
-        return {'success': True, 'message': 'Error logged'}
-        
-    except Exception as e:
-        logger.error(f"Error logging frontend error: {e}")
-        return {'success': False, 'message': 'Failed to log error'}
-
-# Enhanced User Activity Endpoint
-@app.get("/api/user/activity")
-async def get_user_activity(days: int = 30, current_user: str = Depends(require_auth)):
-    """Get detailed user activity data for charts"""
-    try:
-        await db.connect()
-        async with db.pool.acquire() as conn:
-            # Daily search activity
-            daily_activity = await conn.fetch("""
-                SELECT DATE(searched_at) as date, 
-                       COUNT(*) as searches,
-                       AVG(compliance_score) as avg_score
-                FROM search_history 
-                WHERE mobile = $1 
-                AND searched_at >= CURRENT_DATE - INTERVAL '%s days'
-                GROUP BY DATE(searched_at)
-                ORDER BY date
-            """, current_user, days)
-            
-            # Hourly activity pattern
-            hourly_activity = await conn.fetch("""
-                SELECT EXTRACT(hour FROM searched_at) as hour,
-                       COUNT(*) as searches
-                FROM search_history 
-                WHERE mobile = $1
-                AND searched_at >= CURRENT_DATE - INTERVAL '30 days'
-                GROUP BY EXTRACT(hour FROM searched_at)
-                ORDER BY hour
-            """, current_user)
-            
-            # Score distribution
-            score_distribution = await conn.fetch("""
-                SELECT 
-                    CASE 
-                        WHEN compliance_score >= 90 THEN 'Excellent (90-100)'
-                        WHEN compliance_score >= 80 THEN 'Very Good (80-89)'
-                        WHEN compliance_score >= 70 THEN 'Good (70-79)'
-                        WHEN compliance_score >= 60 THEN 'Average (60-69)'
-                        ELSE 'Poor (<60)'
-                    END as range,
-                    COUNT(*) as count
-                FROM search_history 
-                WHERE mobile = $1 
-                AND compliance_score IS NOT NULL
-                GROUP BY range
-                ORDER BY range DESC
-            """, current_user)
-        
-        return {
-            'success': True,
-            'data': {
-                'daily_activity': [dict(row) for row in daily_activity],
-                'hourly_activity': [dict(row) for row in hourly_activity],
-                'score_distribution': [dict(row) for row in score_distribution]
-            }
-        }
-        
-    except Exception as e:
-        logger.error(f"Error getting user activity: {e}")
-        return {'success': False, 'error': 'Failed to get activity data'}
-
-# System Status Endpoint
-@app.get("/api/system/status")
-async def get_system_status():
-    """Get system status for monitoring"""
-    try:
-        status = {
-            'database': 'healthy',
-            'gst_api': 'configured' if RAPIDAPI_KEY else 'missing',
-            'ai_service': 'configured' if ANTHROPIC_API_KEY else 'disabled',
-            'timestamp': datetime.now().isoformat()
-        }
-        
-        # Test database connection
-        try:
-            await db.connect()
-            async with db.pool.acquire() as conn:
-                await conn.execute("SELECT 1")
-        except Exception as e:
-            status['database'] = f'unhealthy: {str(e)}'
-        
-        return {
-            'success': True,
-            'status': status
-        }
-        
-    except Exception as e:
-        logger.error(f"System status error: {e}")
-        return {
-            'success': False,
-            'error': 'Failed to get system status'
-        }
-
-# API Endpoints for User Management (ALREADY EXISTED - KEEPING AS IS)
-@app.get("/api/user/stats")
-async def get_user_stats(current_user: str = Depends(require_auth)):
-    """Get user statistics for profile display"""
-    try:
-        stats = await db.get_user_stats(current_user)
-        return {"success": True, "data": stats}
-    except Exception as e:
-        logger.error(f"Error fetching user stats: {e}")
-        return {"success": False, "error": "Failed to fetch user statistics"}
-
-@app.post("/api/user/change-password")
-async def change_password(request: ChangePasswordRequest, current_user: str = Depends(require_auth)):
-    """Change user password"""
-    try:
-        # Validate new password strength
-        is_strong, message = validate_password_strength(request.newPassword)
-        if not is_strong:
-            return {"success": False, "message": message}
-        
-        # Change password
-        success = await db.change_password(current_user, request.currentPassword, request.newPassword)
-        
-        if success:
-            return {"success": True, "message": "Password changed successfully"}
-        else:
-            return {"success": False, "message": "Current password is incorrect"}
-    
-    except Exception as e:
-        logger.error(f"Error changing password: {e}")
-        return {"success": False, "message": "Failed to change password"}
-
-@app.get("/api/user/preferences")
-async def get_user_preferences(current_user: str = Depends(require_auth)):
-    """Get user preferences"""
-    try:
-        preferences = await db.get_user_preferences(current_user)
-        return {"success": True, "data": preferences}
-    except Exception as e:
-        logger.error(f"Error fetching preferences: {e}")
-        return {"success": False, "error": "Failed to fetch preferences"}
-
-@app.post("/api/user/preferences")
-async def save_user_preferences(request: UserPreferencesRequest, current_user: str = Depends(require_auth)):
-    """Save user preferences"""
-    try:
-        preferences = request.dict()
-        await db.save_user_preferences(current_user, preferences)
-        return {"success": True, "message": "Preferences saved successfully"}
-    except Exception as e:
-        logger.error(f"Error saving preferences: {e}")
-        return {"success": False, "error": "Failed to save preferences"}
-
-@app.get("/api/user/profile")
-async def get_user_profile_api(current_user: str = Depends(require_auth)):
-    """Get user profile data"""
-    try:
-        profile = await db.get_user_profile(current_user)
-        return {"success": True, "data": profile}
-    except Exception as e:
-        logger.error(f"Error fetching user profile: {e}")
-        return {"success": False, "error": "Failed to fetch user profile"}
-
-@app.post("/api/user/profile")
-async def save_user_profile_api(request: UserProfileRequest, current_user: str = Depends(require_auth)):
-    """Save user profile data"""
-    try:
-        profile_data = {k: v for k, v in request.dict().items() if v is not None}
-        await db.save_user_profile(current_user, profile_data)
-        return {"success": True, "message": "Profile saved successfully"}
-    except Exception as e:
-        logger.error(f"Error saving user profile: {e}")
-        return {"success": False, "error": "Failed to save user profile"}
-
-@app.delete("/api/user/data")
-async def clear_user_data(current_user: str = Depends(require_auth)):
-    """Clear user search history"""
-    try:
-        await db.connect()
-        async with db.pool.acquire() as conn:
-            result = await conn.fetchval("DELETE FROM search_history WHERE mobile = $1 RETURNING COUNT(*)", current_user)
-            return {"success": True, "deleted_count": result or 0}
-    except Exception as e:
-        logger.error(f"Error clearing user data: {e}")
-        return {"success": False, "error": "Failed to clear user data"}
-
-@app.get("/export/history")
-async def export_history(current_user: str = Depends(require_auth)):
-    from io import StringIO
-    import csv
-    history = await db.get_all_searches(current_user)
-    output = StringIO()
-    writer = csv.DictWriter(output, fieldnames=['searched_at', 'gstin', 'company_name', 'compliance_score'])
-    writer.writeheader()
-    writer.writerows(history)
-    content = output.getvalue()
-    output.close()
-    
-    return StreamingResponse(
-        BytesIO(content.encode()), media_type="text/csv",
-        headers={"Content-Disposition": f"attachment; filename=gst_search_history_{datetime.now().strftime('%Y%m%d')}.csv"}
-    )
-
-@app.post("/generate-pdf")
-async def generate_pdf(request: Request, gstin: str = Form(...), current_user: str = Depends(require_auth)):
-    try:
-        if not api_client:
-            raise HTTPException(status_code=503, detail="GST API service not configured")
-            
-        company_data = await api_client.fetch_gstin_data(gstin)
-        compliance_score = calculate_compliance_score(company_data)
-        
-        synopsis = None
-        if ANTHROPIC_API_KEY:
-            try:
-                synopsis = await get_anthropic_synopsis(company_data)
-            except:
-                synopsis = "AI synopsis not available"
-        
-        late_filing_analysis = company_data.get('_late_filing_analysis', None)
-        pdf_content = generate_pdf_report(company_data, compliance_score, synopsis, late_filing_analysis)
-        
-        return StreamingResponse(
-            pdf_content, media_type="application/pdf",
-            headers={"Content-Disposition": f"attachment; filename=GST_Report_{gstin}.pdf"}
-        )
-        
-    except Exception as e:
-        logger.error(f"PDF generation error: {e}")
-        raise HTTPException(status_code=500, detail="Failed to generate PDF")
-
-def generate_pdf_report(company_data: dict, compliance_score: float, synopsis: str = None, late_filing_analysis: dict = None) -> BytesIO:
-    """Generate comprehensive PDF report"""
-    company_name = company_data.get("lgnm", "Unknown Company")
+def generate_pdf_report(company_data: Dict, compliance_score: float, synopsis: str = None, late_filing_analysis: Dict = None) -> BytesIO:
+    """Generate comprehensive PDF report."""
+    company_name = html.escape(company_data.get("lgnm", "Unknown Company"))
     gstin = company_data.get("gstin", "N/A")
     status = company_data.get("sts", "N/A")
     returns = company_data.get('returns', [])
@@ -1438,13 +770,13 @@ def generate_pdf_report(company_data: dict, compliance_score: float, synopsis: s
             <div>GSTIN: {gstin}</div>
         </div>
         
-        <div class="compliance-section card--elevated glow-pulse">
+        <div class="compliance-section">
             <h2 style="margin-bottom: 15px;">Overall Compliance Score</h2>
             <div class="score-value">{int(compliance_score)}%</div>
             <div class="score-grade">{grade} ({grade_text})</div>
         </div>
         
-        {f'<div style="background: #e0e7ff; border-radius: 12px; padding: 20px; margin-bottom: 20px;"><h3>Company Overview</h3><p>{synopsis}</p></div>' if synopsis else ''}
+        {f'<div style="background: #e0e7ff; border-radius: 12px; padding: 20px; margin-bottom: 20px;"><h3>Company Overview</h3><p>{html.escape(synopsis)}</p></div>' if synopsis else ''}
         
         <div class="info-grid">
             <div class="info-card">
@@ -1475,21 +807,645 @@ def generate_pdf_report(company_data: dict, compliance_score: float, synopsis: s
     pdf_file.seek(0)
     return pdf_file
 
+async def get_user_display_name(mobile: str) -> str:
+    """Get user display name or fallback to mobile."""
+    try:
+        profile = await db.get_user_profile(mobile)
+        display_name = profile.get('display_name')
+        if display_name:
+            return display_name
+        return f"User {mobile[-4:]}"
+    except:
+        return f"User {mobile[-4:]}"
+
+# Authentication dependencies
+async def get_current_user(request: Request) -> Optional[str]:
+    """Get current user from session."""
+    session_token = request.cookies.get("session_token")
+    if not session_token:
+        return None
+    return await db.get_session(session_token)
+
+async def require_auth(request: Request) -> str:
+    """Require authentication for protected routes."""
+    user = await get_current_user(request)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_303_SEE_OTHER,
+            headers={"Location": "/login"}
+        )
+    return user
+
+# Main Routes
+@app.get("/health")
+async def health_check():
+    """Health check endpoint."""
+    try:
+        # Test database connection
+        async with db.pool.acquire() as conn:
+            await conn.execute("SELECT 1")
+        
+        return {
+            "status": "healthy",
+            "timestamp": datetime.now().isoformat(),
+            "version": "2.0.0",
+            "checks": {
+                "database": "healthy",
+                "gst_api": "configured" if config.RAPIDAPI_KEY else "missing",
+                "ai_features": "configured" if config.ANTHROPIC_API_KEY else "disabled"
+            }
+        }
+    except Exception as e:
+        return JSONResponse(
+            status_code=503,
+            content={
+                "status": "unhealthy", 
+                "error": str(e), 
+                "timestamp": datetime.now().isoformat()
+            }
+        )
+
+@app.get("/", response_class=HTMLResponse)
+async def dashboard(request: Request, current_user: str = Depends(require_auth)):
+    """Main dashboard page."""
+    history = await db.get_search_history(current_user)
+    user_profile = await db.get_user_profile(current_user)
+    user_display_name = await get_user_display_name(current_user)
+    
+    # Calculate recent activity
+    now = datetime.now()
+    last_30_days = now - timedelta(days=30)
+    searches_this_month = sum(
+        1 for item in history
+        if item.get('searched_at') and item['searched_at'] >= last_30_days
+    )
+    
+    return templates.TemplateResponse("index.html", {
+        "request": request,
+        "current_user": current_user,
+        "user_display_name": user_display_name,
+        "user_profile": user_profile,
+        "history": history,
+        "searches_this_month": searches_this_month
+    })
+
+@app.get("/login", response_class=HTMLResponse)
+async def login_page(request: Request):
+    """Login page."""
+    return templates.TemplateResponse("login.html", {"request": request})
+
+@app.post("/login")
+async def login(request: Request, mobile: str = Form(...), password: str = Form(...)):
+    """Handle login."""
+    is_valid, message = validate_mobile(mobile)
+    if not is_valid:
+        return templates.TemplateResponse("login.html", {
+            "request": request, 
+            "error": message
+        })
+    
+    if not login_limiter.is_allowed(mobile):
+        return templates.TemplateResponse("login.html", {
+            "request": request,
+            "error": "Too many login attempts. Please try again later."
+        })
+    
+    if not await db.verify_user(mobile, password):
+        return templates.TemplateResponse("login.html", {
+            "request": request,
+            "error": "Invalid credentials"
+        })
+    
+    session_token = await db.create_session(mobile)
+    if not session_token:
+        return templates.TemplateResponse("login.html", {
+            "request": request,
+            "error": "Failed to create session"
+        })
+    
+    await db.update_last_login(mobile)
+    
+    response = RedirectResponse(url="/", status_code=302)
+    response.set_cookie(
+        key="session_token",
+        value=session_token,
+        max_age=int(config.SESSION_DURATION.total_seconds()),
+        httponly=True,
+        samesite="lax",
+        secure=False  # Set to True in production with HTTPS
+    )
+    return response
+
+@app.get("/signup", response_class=HTMLResponse)
+async def signup_page(request: Request):
+    """Signup page."""
+    return templates.TemplateResponse("signup.html", {"request": request})
+
+@app.post("/signup")
+async def signup(request: Request, mobile: str = Form(...), 
+                password: str = Form(...), confirm_password: str = Form(...)):
+    """Handle signup."""
+    is_valid, message = validate_mobile(mobile)
+    if not is_valid:
+        return templates.TemplateResponse("signup.html", {
+            "request": request,
+            "error": message
+        })
+    
+    if len(password) < 6:
+        return templates.TemplateResponse("signup.html", {
+            "request": request,
+            "error": "Password must be at least 6 characters"
+        })
+    
+    if password != confirm_password:
+        return templates.TemplateResponse("signup.html", {
+            "request": request,
+            "error": "Passwords do not match"
+        })
+    
+    # Create password hash
+    salt = secrets.token_hex(16)
+    password_hash = hashlib.pbkdf2_hmac(
+        'sha256', password.encode('utf-8'), 
+        salt.encode('utf-8'), 100000, dklen=64
+    ).hex()
+    
+    success = await db.create_user(mobile, password_hash, salt)
+    if not success:
+        return templates.TemplateResponse("signup.html", {
+            "request": request,
+            "error": "Mobile number already registered"
+        })
+    
+    return RedirectResponse(url="/login?registered=true", status_code=302)
+
+@app.get("/logout")
+async def logout(request: Request):
+    """Handle logout."""
+    session_token = request.cookies.get("session_token")
+    if session_token:
+        await db.delete_session(session_token)
+    
+    response = RedirectResponse(url="/login", status_code=302)
+    response.delete_cookie("session_token")
+    return response
+
+@app.get("/search")
+async def search_gstin_get(request: Request, gstin: str = None, current_user: str = Depends(require_auth)):
+    """Handle GET search requests."""
+    if not gstin:
+        return RedirectResponse(url="/", status_code=302)
+    
+    return await process_search(request, gstin, current_user)
+
+@app.post("/search")
+async def search_gstin_post(request: Request, gstin: str = Form(...), current_user: str = Depends(require_auth)):
+    """Handle POST search requests."""
+    return await process_search(request, gstin, current_user)
+
+async def process_search(request: Request, gstin: str, current_user: str):
+    """Process GST search request."""
+    gstin = gstin.strip().upper()
+    if not validate_gstin(gstin):
+        history = await db.get_search_history(current_user)
+        return templates.TemplateResponse("index.html", {
+            "request": request, 
+            "current_user": current_user, 
+            "error": "Invalid GSTIN format", 
+            "history": history
+        })
+    
+    if not api_limiter.is_allowed(current_user):
+        history = await db.get_search_history(current_user)
+        return templates.TemplateResponse("index.html", {
+            "request": request, 
+            "current_user": current_user, 
+            "error": "API rate limit exceeded. Please try again later.", 
+            "history": history
+        })
+    
+    try:
+        if not api_client:
+            raise HTTPException(status_code=503, detail="GST API service not configured")
+            
+        company_data = await api_client.fetch_gstin_data(gstin)
+        
+        # Calculate compliance score
+        compliance_score = calculate_compliance_score(company_data)
+        logger.info(f"Final compliance score for template: {compliance_score}")
+        
+        synopsis = None
+        if config.ANTHROPIC_API_KEY:
+            try:
+                synopsis = await get_anthropic_synopsis(company_data)
+            except Exception as e:
+                logger.error(f"Failed to get AI synopsis: {e}")
+        
+        # Add to search history
+        await db.add_search_history(current_user, gstin, company_data.get("lgnm", "Unknown"), compliance_score)
+        
+        late_filing_analysis = company_data.get('_late_filing_analysis', {})
+        
+        return templates.TemplateResponse("results.html", {
+            "request": request, 
+            "current_user": current_user, 
+            "company_data": company_data,
+            "compliance_score": int(compliance_score),
+            "synopsis": synopsis,
+            "late_filing_analysis": late_filing_analysis
+        })
+        
+    except HTTPException as e:
+        history = await db.get_search_history(current_user)
+        return templates.TemplateResponse("index.html", {
+            "request": request, 
+            "current_user": current_user, 
+            "error": e.detail, 
+            "history": history
+        })
+    except Exception as e:
+        logger.error(f"Search error: {e}")
+        history = await db.get_search_history(current_user)
+        return templates.TemplateResponse("index.html", {
+            "request": request, 
+            "current_user": current_user, 
+            "error": "An error occurred while searching. Please try again.", 
+            "history": history
+        })
+
+@app.get("/history", response_class=HTMLResponse)
+async def history_page(request: Request, current_user: str = Depends(require_auth)):
+    """Search history page."""
+    history = await db.get_all_searches(current_user)
+    user_profile = await db.get_user_profile(current_user)
+    user_display_name = await get_user_display_name(current_user)
+    
+    # Calculate recent activity
+    now = datetime.now()
+    last_30_days = now - timedelta(days=30)
+    searches_this_month = sum(
+        1 for item in history
+        if item.get('searched_at') and item['searched_at'] >= last_30_days
+    )
+    
+    return templates.TemplateResponse("history.html", {
+        "request": request, 
+        "current_user": current_user,
+        "user_display_name": user_display_name,
+        "user_profile": user_profile,
+        "history": history,
+        "searches_this_month": searches_this_month
+    })
+
+@app.get("/analytics", response_class=HTMLResponse)
+async def analytics_page(request: Request, current_user: str = Depends(require_auth)):
+    """Analytics dashboard page."""
+    user_profile = await db.get_user_profile(current_user)
+    user_display_name = await get_user_display_name(current_user)
+    analytics_data = await db.get_analytics_data(current_user)
+    
+    # Get overall stats
+    stats = await db.get_user_stats(current_user)
+    
+    return templates.TemplateResponse("analytics.html", {
+        "request": request, 
+        "current_user": current_user,
+        "user_display_name": user_display_name,
+        "user_profile": user_profile,
+        "daily_searches": analytics_data["daily_searches"],
+        "score_distribution": analytics_data["score_distribution"],
+        "top_companies": analytics_data["top_companies"],
+        "total_searches": stats["total_searches"],
+        "unique_companies": stats["unique_companies"],
+        "avg_compliance": stats["avg_compliance"]
+    })
+
+# API Routes
+@app.get("/api/user/stats")
+async def get_user_stats_api(current_user: str = Depends(require_auth)):
+    """Get user statistics API."""
+    try:
+        stats = await db.get_user_stats(current_user)
+        return {"success": True, "data": stats}
+    except Exception as e:
+        logger.error(f"Error fetching user stats: {e}")
+        return {"success": False, "error": "Failed to fetch user statistics"}
+
+@app.post("/api/user/change-password")
+async def change_password_api(request: ChangePasswordRequest, current_user: str = Depends(require_auth)):
+    """Change user password API."""
+    try:
+        success = await db.change_password(current_user, request.currentPassword, request.newPassword)
+        
+        if success:
+            return {"success": True, "message": "Password changed successfully"}
+        else:
+            return {"success": False, "message": "Current password is incorrect"}
+    
+    except Exception as e:
+        logger.error(f"Error changing password: {e}")
+        return {"success": False, "message": "Failed to change password"}
+
+@app.get("/api/user/preferences")
+async def get_user_preferences_api(current_user: str = Depends(require_auth)):
+    """Get user preferences API."""
+    try:
+        preferences = await db.get_user_preferences(current_user)
+        return {"success": True, "data": preferences}
+    except Exception as e:
+        logger.error(f"Error fetching preferences: {e}")
+        return {"success": False, "error": "Failed to fetch preferences"}
+
+@app.post("/api/user/preferences")
+async def save_user_preferences_api(request: UserPreferencesRequest, current_user: str = Depends(require_auth)):
+    """Save user preferences API."""
+    try:
+        preferences = request.dict()
+        await db.save_user_preferences(current_user, preferences)
+        return {"success": True, "message": "Preferences saved successfully"}
+    except Exception as e:
+        logger.error(f"Error saving preferences: {e}")
+        return {"success": False, "error": "Failed to save preferences"}
+
+@app.get("/api/user/profile")
+async def get_user_profile_api(current_user: str = Depends(require_auth)):
+    """Get user profile API."""
+    try:
+        profile = await db.get_user_profile(current_user)
+        return {"success": True, "data": profile}
+    except Exception as e:
+        logger.error(f"Error fetching user profile: {e}")
+        return {"success": False, "error": "Failed to fetch user profile"}
+
+@app.post("/api/user/profile")
+async def save_user_profile_api(request: UserProfileRequest, current_user: str = Depends(require_auth)):
+    """Save user profile API."""
+    try:
+        profile_data = {k: v for k, v in request.dict().items() if v is not None}
+        await db.save_user_profile(current_user, profile_data)
+        return {"success": True, "message": "Profile saved successfully"}
+    except Exception as e:
+        logger.error(f"Error saving user profile: {e}")
+        return {"success": False, "error": "Failed to save user profile"}
+
+@app.delete("/api/user/data")
+async def clear_user_data_api(current_user: str = Depends(require_auth)):
+    """Clear user data API."""
+    try:
+        deleted_count = await db.clear_user_data(current_user)
+        return {"success": True, "deleted_count": deleted_count}
+    except Exception as e:
+        logger.error(f"Error clearing user data: {e}")
+        return {"success": False, "error": "Failed to clear user data"}
+
+@app.post("/api/search/batch")
+async def batch_search_api(request: BatchSearchRequest, current_user: str = Depends(require_auth)):
+    """Batch GSTIN search API."""
+    try:
+        gstins = request.gstins[:10]  # Limit to 10
+        results = []
+        successful = 0
+        
+        if not api_client:
+            raise HTTPException(status_code=503, detail="GST API service not configured")
+        
+        for gstin in gstins:
+            gstin = gstin.strip().upper()
+            if not validate_gstin(gstin):
+                results.append({
+                    'gstin': gstin,
+                    'success': False,
+                    'error': 'Invalid GSTIN format'
+                })
+                continue
+            
+            try:
+                company_data = await api_client.fetch_gstin_data(gstin)
+                compliance_score = calculate_compliance_score(company_data)
+                
+                # Add to search history
+                await db.add_search_history(current_user, gstin, company_data.get("lgnm", "Unknown"), compliance_score)
+                
+                results.append({
+                    'gstin': gstin,
+                    'success': True,
+                    'company_name': company_data.get('lgnm', 'Unknown'),
+                    'compliance_score': compliance_score,
+                    'status': company_data.get('sts', 'Unknown')
+                })
+                successful += 1
+                
+            except Exception as e:
+                logger.error(f"Error processing GSTIN {gstin}: {e}")
+                results.append({
+                    'gstin': gstin,
+                    'success': False,
+                    'error': str(e)
+                })
+        
+        return {
+            'success': True,
+            'results': results,
+            'processed': len(gstins),
+            'successful': successful
+        }
+        
+    except Exception as e:
+        logger.error(f"Batch search error: {e}")
+        return {
+            'success': False,
+            'error': 'Batch search failed',
+            'results': [],
+            'processed': 0,
+            'successful': 0
+        }
+
+@app.get("/api/search/suggestions")
+async def get_search_suggestions_api(q: str, current_user: str = Depends(require_auth)):
+    """Search suggestions API."""
+    try:
+        if len(q) < 2:
+            return {'success': True, 'suggestions': []}
+        
+        # Get recent searches that match query
+        async with db.pool.acquire() as conn:
+            rows = await conn.fetch("""
+                SELECT DISTINCT gstin, company_name, compliance_score 
+                FROM search_history 
+                WHERE mobile = $1 
+                AND (LOWER(company_name) LIKE $2 OR LOWER(gstin) LIKE $2)
+                ORDER BY searched_at DESC 
+                LIMIT 5
+            """, current_user, f"%{q.lower()}%")
+        
+        suggestions = []
+        for row in rows:
+            suggestions.append({
+                'gstin': row['gstin'],
+                'company': row['company_name'],
+                'compliance_score': float(row['compliance_score']) if row['compliance_score'] else None,
+                'icon': 'fas fa-history',
+                'type': 'recent'
+            })
+        
+        return {
+            'success': True,
+            'suggestions': suggestions[:5]
+        }
+        
+    except Exception as e:
+        logger.error(f"Search suggestions error: {e}")
+        return {'success': False, 'suggestions': []}
+
+@app.post("/api/system/error")
+async def log_error_api(request: ErrorLogRequest):
+    """Error logging API."""
+    try:
+        error_data = {
+            'type': request.type,
+            'message': request.message,
+            'stack': request.stack,
+            'url': request.url,
+            'userAgent': request.userAgent,
+            'timestamp': request.timestamp
+        }
+        
+        # Log to application logger
+        logger.error(f"Frontend Error: {error_data}")
+        
+        return {'success': True, 'message': 'Error logged'}
+        
+    except Exception as e:
+        logger.error(f"Error logging frontend error: {e}")
+        return {'success': False, 'message': 'Failed to log error'}
+
+@app.get("/api/user/activity")
+async def get_user_activity_api(days: int = 30, current_user: str = Depends(require_auth)):
+    """User activity API."""
+    try:
+        analytics_data = await db.get_analytics_data(current_user)
+        
+        return {
+            'success': True,
+            'data': {
+                'daily_activity': analytics_data["daily_searches"],
+                'score_distribution': analytics_data["score_distribution"]
+            }
+        }
+        
+    except Exception as e:
+        logger.error(f"Error getting user activity: {e}")
+        return {'success': False, 'error': 'Failed to get activity data'}
+
+@app.get("/api/system/status")
+async def get_system_status_api():
+    """System status API."""
+    try:
+        status = {
+            'database': 'healthy',
+            'gst_api': 'configured' if config.RAPIDAPI_KEY else 'missing',
+            'ai_service': 'configured' if config.ANTHROPIC_API_KEY else 'disabled',
+            'timestamp': datetime.now().isoformat()
+        }
+        
+        # Test database connection
+        try:
+            async with db.pool.acquire() as conn:
+                await conn.execute("SELECT 1")
+        except Exception as e:
+            status['database'] = f'unhealthy: {str(e)}'
+        
+        return {
+            'success': True,
+            'status': status
+        }
+        
+    except Exception as e:
+        logger.error(f"System status error: {e}")
+        return {
+            'success': False,
+            'error': 'Failed to get system status'
+        }
+
+# Export and PDF Routes
+@app.get("/export/history")
+async def export_history(current_user: str = Depends(require_auth)):
+    """Export search history as CSV."""
+    try:
+        history = await db.get_all_searches(current_user)
+        output = StringIO()
+        writer = csv.DictWriter(output, fieldnames=['searched_at', 'gstin', 'company_name', 'compliance_score'])
+        writer.writeheader()
+        
+        for item in history:
+            writer.writerow({
+                'searched_at': item['searched_at'].isoformat() if item['searched_at'] else '',
+                'gstin': item['gstin'],
+                'company_name': item['company_name'],
+                'compliance_score': item['compliance_score'] if item['compliance_score'] else ''
+            })
+        
+        content = output.getvalue()
+        output.close()
+        
+        return StreamingResponse(
+            BytesIO(content.encode()), 
+            media_type="text/csv",
+            headers={"Content-Disposition": f"attachment; filename=gst_search_history_{datetime.now().strftime('%Y%m%d')}.csv"}
+        )
+    except Exception as e:
+        logger.error(f"Export error: {e}")
+        raise HTTPException(status_code=500, detail="Export failed")
+
+@app.post("/generate-pdf")
+async def generate_pdf_route(request: Request, gstin: str = Form(...), current_user: str = Depends(require_auth)):
+    """Generate PDF report."""
+    try:
+        if not api_client:
+            raise HTTPException(status_code=503, detail="GST API service not configured")
+            
+        company_data = await api_client.fetch_gstin_data(gstin)
+        compliance_score = calculate_compliance_score(company_data)
+        
+        synopsis = None
+        if config.ANTHROPIC_API_KEY:
+            try:
+                synopsis = await get_anthropic_synopsis(company_data)
+            except:
+                synopsis = "AI synopsis not available"
+        
+        late_filing_analysis = company_data.get('_late_filing_analysis', None)
+        pdf_content = generate_pdf_report(company_data, compliance_score, synopsis, late_filing_analysis)
+        
+        return StreamingResponse(
+            pdf_content, 
+            media_type="application/pdf",
+            headers={"Content-Disposition": f"attachment; filename=GST_Report_{gstin}.pdf"}
+        )
+        
+    except Exception as e:
+        logger.error(f"PDF generation error: {e}")
+        raise HTTPException(status_code=500, detail="Failed to generate PDF")
+
+# Static file routes
 @app.get("/favicon.ico")
 async def favicon():
+    """Favicon route."""
+    # Simple 1x1 PNG favicon
     favicon_bytes = b'\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\rIDATx\x9cc\xf8\x0f\x00\x00\x01\x01\x00\x05\x00\x01\x8d\xc8\x02\x00\x00\x00\x00IEND\xaeB`\x82'
     return Response(content=favicon_bytes, media_type="image/png")
 
-# Serve PWA manifest
 @app.get("/manifest.json")
 async def get_manifest():
+    """PWA manifest route."""
     with open("static/manifest.json", "r") as f:
         manifest_content = f.read()
     return Response(content=manifest_content, media_type="application/json")
 
-# Serve service worker
 @app.get("/sw.js")
 async def get_service_worker():
+    """Service worker route."""
     with open("sw.js", "r") as f:
         sw_content = f.read()
     return Response(content=sw_content, media_type="application/javascript")
@@ -1497,29 +1453,38 @@ async def get_service_worker():
 # Error handlers
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request: Request, exc: HTTPException):
+    """Handle HTTP exceptions."""
     if exc.status_code == 303 and exc.headers and "Location" in exc.headers:
         return RedirectResponse(url=exc.headers["Location"], status_code=303)
-    return JSONResponse(status_code=exc.status_code, content={"error": exc.detail})
+    return JSONResponse(
+        status_code=exc.status_code, 
+        content={"error": exc.detail}
+    )
 
 @app.exception_handler(Exception)
 async def general_exception_handler(request: Request, exc: Exception):
+    """Handle general exceptions."""
     logger.error(f"Unhandled exception: {exc}", exc_info=True)
-    return JSONResponse(status_code=500, content={"error": "An internal error occurred"})
+    return JSONResponse(
+        status_code=500, 
+        content={"error": "An internal error occurred"}
+    )
 
-# Startup/Shutdown
+# Startup/Shutdown events
 @app.on_event("startup")
-async def startup_event():
+async def startup():
+    """Initialize application on startup."""
     logger.info("GST Intelligence Platform starting up...")
-    await db.ensure_tables()
-    setup_template_globals()
-    await db.connect()
-    async with db.pool.acquire() as conn:
-        await conn.execute('DELETE FROM sessions WHERE expires_at < $1', datetime.now())
-    logger.info("Startup complete")
+    await db.initialize()
+    await db.cleanup_expired_sessions()
+    logger.info("Application startup complete")
 
 @app.on_event("shutdown")
-async def shutdown_event():
+async def shutdown():
+    """Clean up on shutdown."""
     logger.info("GST Intelligence Platform shutting down...")
+    if db.pool:
+        await db.pool.close()
 
 if __name__ == "__main__":
     import uvicorn
