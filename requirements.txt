@@ -19,7 +19,6 @@ markupsafe
 
 # Database & Async Support
 asyncpg
-asyncio-throttle
 
 # Environment & Configuration
 python-dotenv
@@ -54,12 +53,10 @@ python-dateutil
 
 # Performance & Monitoring
 psutil
-prometheus-client
 
 # Utilities & Helpers
 python-slugify
 pytz
-tzdata
 charset-normalizer
 
 # Excel & CSV Processing
@@ -70,23 +67,9 @@ numpy
 
 # Caching & Session Management
 redis
-python-memcached
-
-# Testing Dependencies (Optional - Development)
-pytest
-pytest-asyncio
-pytest-cov
-httpx-mock
-
-# Code Quality (Optional - Development)
-black
-isort
-flake8
-mypy
 
 # Additional Production Dependencies
 gunicorn
-setproctitle
 watchfiles
 
 # =============================================================================
@@ -97,11 +80,17 @@ typing-extensions
 anyio
 urllib3
 certifi
-uvloop
-httptools
 
 # =============================================================================
-# Optional Dependencies (Install manually if needed).
+# Development Dependencies (Install separately)
+# =============================================================================
+
+# For testing: pip install pytest pytest-asyncio pytest-cov respx
+# For code quality: pip install black isort flake8 mypy
+# For mocking HTTP: pip install respx
+
+# =============================================================================
+# Optional Dependencies (Install manually if needed)
 # =============================================================================
 
 # For advanced analytics (large dataset processing)
@@ -122,17 +111,23 @@ httptools
 
 # For message queuing (future scaling)
 # celery
-# kombu
+# redis
 
 # =============================================================================
-# Installation Notes
+# Installation Commands
 # =============================================================================
 
-# Install with: pip install -r requirements.txt
-# For development: pip install -r requirements.txt pytest black isort
-# For production: pip install --no-cache-dir -r requirements.txt
+# Production install:
+# pip install -r requirements.txt
 
+# Development install:
+# pip install -r requirements.txt
+# pip install pytest pytest-asyncio pytest-cov respx black isort flake8 mypy
+
+# =============================================================================
 # Dependencies explanation:
+# =============================================================================
+
 # - fastapi: Modern web framework for APIs
 # - uvicorn: ASGI server for FastAPI
 # - httpx: Async HTTP client for API calls
@@ -141,4 +136,4 @@ httptools
 # - weasyprint: HTML to PDF conversion
 # - beautifulsoup4: Web scraping and HTML parsing
 # - cryptography: Security and encryption
-# - pydantic: Data validation
+# - pydantic: Data validation and serialization
