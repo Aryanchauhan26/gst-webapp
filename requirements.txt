@@ -3,131 +3,126 @@
 # =============================================================================
 
 # Core Web Framework
-fastapi==0.104.1
-uvicorn[standard]==0.24.0
-starlette==0.27.0
+fastapi
+uvicorn[standard]
+starlette
 
 # HTTP Client & Networking
-httpx==0.25.2
-requests==2.31.0
-aiohttp==3.9.1
+httpx
+requests
+aiohttp
 
 # Template Engine & Web Forms
-jinja2==3.1.2
-python-multipart==0.0.6
-markupsafe==2.1.3
+jinja2
+python-multipart
+markupsafe
 
 # Database & Async Support
-asyncpg==0.29.0
-asyncio-throttle==1.0.2
+asyncpg
+asyncio-throttle
 
 # Environment & Configuration
-python-dotenv==1.0.0
-pydantic==2.5.0
-pydantic-settings==2.1.0
+python-dotenv
+pydantic
+pydantic-settings
 
 # AI & Machine Learning
-anthropic==0.7.7
+anthropic
 
 # Web Scraping & Data Processing
-beautifulsoup4==4.12.2
-lxml==4.9.3
-html5lib==1.1
-bleach==6.1.0
-googlesearch-python==1.2.3
+beautifulsoup4
+lxml
+html5lib
+bleach
+googlesearch-python
 
 # PDF Generation & Document Processing
-weasyprint==60.2
-pypdf2==3.0.1
-reportlab==4.0.7
+weasyprint
+pypdf2
+reportlab
 
 # Security & Cryptography
-cryptography>=3.4.8
-bcrypt==4.1.2
-passlib[bcrypt]==1.7.4
-python-jose[cryptography]==3.3.0
+cryptography
+bcrypt
+passlib[bcrypt]
+python-jose[cryptography]
 
 # Data Validation & Serialization
-email-validator==2.1.0
-phonenumbers==8.13.25
-python-dateutil==2.8.2
+email-validator
+phonenumbers
+python-dateutil
 
 # Performance & Monitoring
-psutil==5.9.6
-prometheus-client==0.19.0
+psutil
+prometheus-client
 
 # Utilities & Helpers
-python-slugify==8.0.1
-pytz==2023.3
-tzdata==2023.3
-charset-normalizer==3.3.2
+python-slugify
+pytz
+tzdata
+charset-normalizer
 
 # Excel & CSV Processing
-openpyxl==3.1.2
-xlsxwriter==3.1.9
-pandas==2.1.4
-numpy==1.24.4
+openpyxl
+xlsxwriter
+pandas
+numpy
 
 # Caching & Session Management
-redis==5.0.1
-python-memcached==1.59
+redis
+python-memcached
 
 # Testing Dependencies (Optional - Development)
-pytest==7.4.3
-pytest-asyncio==0.21.1
-pytest-cov==4.1.0
-httpx-mock==0.10.2
+pytest
+pytest-asyncio
+pytest-cov
+httpx-mock
 
 # Code Quality (Optional - Development)
-black==23.11.0
-isort==5.12.0
-flake8==6.1.0
-mypy==1.7.1
+black
+isort
+flake8
+mypy
 
 # Additional Production Dependencies
-gunicorn==21.2.0  # Alternative WSGI server
-setproctitle==1.3.3  # Process title setting
-watchfiles==0.21.0  # File watching for development
+gunicorn
+setproctitle
+watchfiles
 
 # =============================================================================
-# Version Constraints for Compatibility
+# Core Dependencies for Compatibility
 # =============================================================================
 
-# Ensure compatibility with Python 3.11+
-typing-extensions>=4.8.0
-anyio>=3.7.0,<5.0.0
-
-# Security updates
-urllib3>=1.26.18,<3.0.0
-certifi>=2023.7.22
-
-# Performance optimizations
-uvloop>=0.19.0; sys_platform != "win32"
-httptools>=0.6.0
+typing-extensions
+anyio
+urllib3
+certifi
+uvloop
+httptools
 
 # =============================================================================
 # Optional Dependencies (Install manually if needed)
 # =============================================================================
 
 # For advanced analytics (large dataset processing)
-# scipy==1.11.4
-# scikit-learn==1.3.2
-# matplotlib==3.8.2
+# scipy
+# scikit-learn
+# matplotlib
 
 # For advanced PDF features
-# pdfplumber==0.10.3
-# PyMuPDF==1.23.8
+# pdfplumber
+# PyMuPDF
 
 # For image processing (if needed for logo/charts)
-# Pillow==10.1.0
+# Pillow
 
 # For advanced database features
-# sqlalchemy==2.0.23
-# alembic==1.13.0
+# sqlalchemy
+# alembic
 
 # For message queuing (future scaling)
-# celery==5.3.4
-# kombu==5.3.4
+# celery
+# kombu
 
 # =============================================================================
 # Installation Notes
@@ -146,4 +141,4 @@ httptools>=0.6.0
 # - weasyprint: HTML to PDF conversion
 # - beautifulsoup4: Web scraping and HTML parsing
 # - cryptography: Security and encryption
-# - pydantic: Data validation and serialization
+# - pydantic: Data validation
