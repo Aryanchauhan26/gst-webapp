@@ -21,7 +21,8 @@ from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 from io import BytesIO, StringIO
 import csv
-from weasyprint import HTML
+try:
+    from weasyprint import HTML
     HAS_WEASYPRINT = True
 except ImportError:
     logger.warning("WeasyPrint not available - PDF generation disabled")
