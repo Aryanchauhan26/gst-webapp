@@ -1,0 +1,11 @@
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Other common exclusions
+__pycache__/
+*.pyc
+.vscode/
+.idea/
+node_modules/
