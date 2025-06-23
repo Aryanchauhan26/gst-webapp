@@ -4,30 +4,18 @@
 {% block body_class %}page-dashboard{% endblock %}
 
 {% block content %}
+<!-- Enhanced Dashboard with Modern UI -->
 <style>
-    /* Dashboard-specific styles */
+    /* Dashboard-specific modern styles */
     .hero-section {
-        background: linear-gradient(135deg, var(--bg-card) 0%, rgba(124, 58, 237, 0.1) 100%);
-        border: 1px solid rgba(124, 58, 237, 0.2);
+        background: var(--dark-gradient);
         border-radius: 32px;
         padding: 4rem 3rem;
         margin-bottom: 3rem;
         text-align: center;
         position: relative;
         overflow: hidden;
-        box-shadow: var(--card-shadow), 0 0 40px rgba(124, 58, 237, 0.1);
-        animation: heroGlow 4s ease-in-out infinite;
-    }
-
-    @keyframes heroGlow {
-        0%, 100% { 
-            box-shadow: var(--card-shadow), 0 0 40px rgba(124, 58, 237, 0.1);
-            transform: scale(1);
-        }
-        50% { 
-            box-shadow: var(--card-shadow), 0 0 60px rgba(124, 58, 237, 0.3);
-            transform: scale(1.02);
-        }
+        border: 1px solid rgba(124, 58, 237, 0.2);
     }
 
     .hero-section::before {
@@ -41,12 +29,6 @@
         animation: progressBar 3s ease-in-out infinite;
     }
 
-    @keyframes progressBar {
-        0% { transform: scaleX(0); }
-        50% { transform: scaleX(1); }
-        100% { transform: scaleX(0); }
-    }
-
     .hero-title {
         font-size: 3.5rem;
         font-weight: 900;
@@ -56,8 +38,6 @@
         margin-bottom: 1rem;
         line-height: 1.1;
         animation: fadeInUp 0.8s ease-out;
-        position: relative;
-        z-index: 1;
     }
 
     .hero-subtitle {
@@ -65,26 +45,6 @@
         color: var(--text-secondary);
         margin-bottom: 2rem;
         animation: fadeInUp 0.8s ease-out 0.2s both;
-        position: relative;
-        z-index: 1;
-    }
-
-    .status-indicator {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 1rem;
-        margin-top: 2rem;
-        position: relative;
-        z-index: 1;
-    }
-
-    .status-dot {
-        width: 12px;
-        height: 12px;
-        background: var(--success);
-        border-radius: 50%;
-        animation: pulse 2s infinite;
     }
 
     /* Enhanced Search Section */
@@ -118,23 +78,6 @@
         z-index: 1;
     }
 
-    .search-title {
-        font-size: 2.5rem;
-        font-weight: 700;
-        text-align: center;
-        margin-bottom: 1rem;
-        background: var(--accent-gradient);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-    }
-
-    .search-subtitle {
-        text-align: center;
-        color: var(--text-secondary);
-        font-size: 1.1rem;
-        margin-bottom: 2rem;
-    }
-
     .search-form-enhanced {
         display: flex;
         gap: 1rem;
@@ -166,15 +109,11 @@
 
     .gstin-input:focus {
         outline: none;
-        border-color: var(--accent-primary);
+        border-color: var(--primary-500);
         box-shadow: 
             0 8px 32px rgba(124, 58, 237, 0.2),
             0 0 0 4px rgba(124, 58, 237, 0.1);
         transform: translateY(-3px);
-    }
-
-    .gstin-input::placeholder {
-        color: var(--text-muted);
     }
 
     .gstin-icon {
@@ -188,7 +127,7 @@
     }
 
     .gstin-input:focus + .gstin-icon {
-        color: var(--accent-primary);
+        color: var(--primary-500);
         transform: translateY(-50%) scale(1.1);
     }
 
@@ -205,9 +144,6 @@
         box-shadow: 0 8px 30px rgba(124, 58, 237, 0.4);
         position: relative;
         overflow: hidden;
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
     }
 
     .search-btn-enhanced::before {
@@ -230,69 +166,15 @@
         box-shadow: 0 12px 40px rgba(124, 58, 237, 0.6);
     }
 
-    .search-btn-enhanced:disabled {
-        opacity: 0.6;
-        cursor: not-allowed;
-        transform: none;
-    }
-
-    /* Error message */
-    .error-message {
-        background: rgba(239, 68, 68, 0.1);
-        border: 1px solid var(--error);
-        border-radius: 16px;
-        padding: 1.5rem;
-        margin-top: 2rem;
-        display: flex;
-        align-items: center;
-        gap: 1rem;
-        animation: fadeInUp 0.5s ease-out;
-    }
-
-    .error-icon {
-        color: var(--error);
-        font-size: 1.5rem;
-        flex-shrink: 0;
-    }
-
-    .error-text {
-        color: var(--error);
-        font-weight: 500;
-    }
-
     /* Enhanced Stats Grid */
-    .stats-section {
-        margin-bottom: 3rem;
-    }
-
-    .stats-header {
-        text-align: center;
-        margin-bottom: 3rem;
-    }
-
-    .stats-title {
-        font-size: 2.5rem;
-        font-weight: 700;
-        color: var(--text-primary);
-        margin-bottom: 1rem;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 1rem;
-    }
-
-    .stats-subtitle {
-        color: var(--text-secondary);
-        font-size: 1.1rem;
-    }
-
-    .stats-grid {
+    .stats-grid-enhanced {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
         gap: 2rem;
+        margin-bottom: 3rem;
     }
 
-    .stat-card {
+    .stat-card-enhanced {
         background: var(--bg-card);
         border: 1px solid var(--border-primary);
         border-radius: 24px;
@@ -302,10 +184,9 @@
         position: relative;
         overflow: hidden;
         cursor: pointer;
-        box-shadow: var(--card-shadow);
     }
 
-    .stat-card::before {
+    .stat-card-enhanced::before {
         content: '';
         position: absolute;
         top: -50%;
@@ -323,17 +204,17 @@
         transition: opacity 0.3s ease;
     }
 
-    .stat-card:hover::before {
+    .stat-card-enhanced:hover::before {
         opacity: 1;
     }
 
-    .stat-card:hover {
+    .stat-card-enhanced:hover {
         transform: translateY(-12px) scale(1.03);
         box-shadow: 0 25px 50px rgba(124, 58, 237, 0.25);
-        border-color: var(--accent-primary);
+        border-color: var(--primary-500);
     }
 
-    .stat-icon {
+    .stat-icon-enhanced {
         width: 80px;
         height: 80px;
         background: var(--accent-gradient);
@@ -349,7 +230,7 @@
         box-shadow: 0 8px 32px rgba(124, 58, 237, 0.4);
     }
 
-    .stat-value {
+    .stat-value-enhanced {
         font-size: 3.5rem;
         font-weight: 900;
         background: var(--accent-gradient);
@@ -361,7 +242,7 @@
         z-index: 2;
     }
 
-    .stat-label {
+    .stat-label-enhanced {
         color: var(--text-secondary);
         font-size: 1.1rem;
         font-weight: 600;
@@ -389,7 +270,7 @@
     }
 
     /* Quick Actions Panel */
-    .quick-actions {
+    .quick-actions-panel {
         background: var(--bg-card);
         border: 1px solid var(--border-primary);
         border-radius: 32px;
@@ -410,13 +291,13 @@
         gap: 1rem;
     }
 
-    .actions-grid {
+    .quick-actions-grid {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
         gap: 1.5rem;
     }
 
-    .action-card {
+    .quick-action-card {
         background: var(--bg-hover);
         border: 1px solid var(--border-primary);
         border-radius: 20px;
@@ -426,11 +307,9 @@
         cursor: pointer;
         position: relative;
         overflow: hidden;
-        text-decoration: none;
-        color: inherit;
     }
 
-    .action-card::before {
+    .quick-action-card::before {
         content: '';
         position: absolute;
         top: 0;
@@ -442,19 +321,17 @@
         transition: transform 0.3s ease;
     }
 
-    .action-card:hover::before {
+    .quick-action-card:hover::before {
         transform: scaleX(1);
     }
 
-    .action-card:hover {
+    .quick-action-card:hover {
         transform: translateY(-8px);
         box-shadow: 0 20px 40px rgba(124, 58, 237, 0.2);
-        border-color: var(--accent-primary);
-        color: inherit;
-        text-decoration: none;
+        border-color: var(--primary-500);
     }
 
-    .action-icon {
+    .quick-action-icon {
         width: 60px;
         height: 60px;
         background: var(--accent-gradient);
@@ -468,14 +345,14 @@
         box-shadow: 0 8px 24px rgba(124, 58, 237, 0.3);
     }
 
-    .action-title {
+    .quick-action-title {
         font-size: 1.2rem;
         font-weight: 600;
         color: var(--text-primary);
         margin-bottom: 0.5rem;
     }
 
-    .action-desc {
+    .quick-action-desc {
         font-size: 0.9rem;
         color: var(--text-secondary);
         line-height: 1.5;
@@ -490,19 +367,7 @@
         margin-top: 3rem;
     }
 
-    .tips-title {
-        font-size: 1.8rem;
-        font-weight: 700;
-        color: var(--text-primary);
-        margin-bottom: 2rem;
-        text-align: center;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 0.5rem;
-    }
-
-    .tip-card {
+    .tip-card-enhanced {
         background: var(--bg-card);
         border: 1px solid rgba(124, 58, 237, 0.2);
         border-radius: 16px;
@@ -542,29 +407,6 @@
         line-height: 1.6;
     }
 
-    /* Floating Action Button */
-    .fab {
-        position: fixed;
-        bottom: 2rem;
-        right: 2rem;
-        width: 60px;
-        height: 60px;
-        background: var(--accent-gradient);
-        border: none;
-        border-radius: 50%;
-        color: white;
-        font-size: 1.5rem;
-        cursor: pointer;
-        box-shadow: 0 8px 30px rgba(124, 58, 237, 0.5);
-        z-index: 1000;
-        transition: all 0.3s ease;
-    }
-
-    .fab:hover {
-        transform: scale(1.1);
-        box-shadow: 0 12px 40px rgba(124, 58, 237, 0.7);
-    }
-
     /* Animations */
     @keyframes fadeInUp {
         from {
@@ -575,6 +417,12 @@
             opacity: 1;
             transform: translateY(0);
         }
+    }
+
+    @keyframes progressBar {
+        0% { transform: scaleX(0); }
+        50% { transform: scaleX(1); }
+        100% { transform: scaleX(0); }
     }
 
     @keyframes rotate {
@@ -606,40 +454,17 @@
             min-width: 100%;
         }
         
-        .stats-grid {
+        .stats-grid-enhanced {
             grid-template-columns: 1fr;
             gap: 1.5rem;
         }
         
-        .stat-card {
+        .stat-card-enhanced {
             padding: 2rem;
         }
         
-        .stat-value {
+        .stat-value-enhanced {
             font-size: 2.5rem;
-        }
-
-        .actions-grid {
-            grid-template-columns: 1fr;
-        }
-
-        .fab {
-            bottom: 1rem;
-            right: 1rem;
-        }
-    }
-
-    @media (max-width: 480px) {
-        .hero-section {
-            padding: 2rem 1.5rem;
-        }
-
-        .search-section {
-            padding: 2rem 1.5rem;
-        }
-
-        .quick-actions {
-            padding: 2rem 1.5rem;
         }
     }
 </style>
@@ -649,8 +474,9 @@
     <h1 class="hero-title">GST Intelligence Platform</h1>
     <p class="hero-subtitle">Advanced compliance analytics with AI-powered insights</p>
     
-    <div class="status-indicator">
-        <div class="status-dot"></div>
+    <!-- Live Status Indicator -->
+    <div style="display: flex; align-items: center; justify-content: center; gap: 1rem; margin-top: 2rem;">
+        <div style="width: 12px; height: 12px; background: var(--success); border-radius: 50%; animation: pulse 2s infinite;"></div>
         <span style="color: var(--text-secondary); font-size: 1rem;">System Online & Ready</span>
     </div>
 </section>
@@ -658,8 +484,10 @@
 <!-- Enhanced Search Section -->
 <section class="search-section">
     <div class="search-content">
-        <h2 class="search-title">Search Company by GSTIN</h2>
-        <p class="search-subtitle">
+        <h2 style="font-size: 2.5rem; font-weight: 700; text-align: center; margin-bottom: 1rem; background: var(--accent-gradient); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+            Search Company by GSTIN
+        </h2>
+        <p style="text-align: center; color: var(--text-secondary); font-size: 1.1rem; margin-bottom: 2rem;">
             Enter a 15-digit GSTIN to get comprehensive compliance analysis
         </p>
         
@@ -672,86 +500,90 @@
                        placeholder="e.g., 27AADCB2230M1Z8"
                        pattern="[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}"
                        maxlength="15"
-                       required
-                       autocomplete="off">
+                       required>
                 <i class="fas fa-search gstin-icon"></i>
             </div>
-            <button type="submit" class="search-btn-enhanced" id="searchBtnEnhanced">
-                <i class="fas fa-chart-line"></i>
+            <button type="submit" class="search-btn-enhanced">
+                <i class="fas fa-chart-line" style="margin-right: 0.5rem;"></i>
                 Analyze
             </button>
         </form>
         
+        <!-- Error Messages -->
         {% if error %}
-        <div class="error-message">
-            <i class="fas fa-exclamation-circle error-icon"></i>
-            <span class="error-text">{{ error }}</span>
+        <div style="background: rgba(239, 68, 68, 0.1); border: 1px solid var(--error); border-radius: 16px; padding: 1.5rem; margin-top: 2rem; display: flex; align-items: center; gap: 1rem;">
+            <i class="fas fa-exclamation-circle" style="color: var(--error); font-size: 1.5rem;"></i>
+            <span style="color: var(--error); font-weight: 500;">{{ error }}</span>
         </div>
         {% endif %}
     </div>
 </section>
 
 <!-- Enhanced Stats Dashboard -->
-<section class="stats-section">
-    <div class="stats-header">
-        <h2 class="stats-title">
-            <i class="fas fa-chart-pie" style="color: var(--accent-primary);"></i>
+<section>
+    <div style="text-align: center; margin-bottom: 3rem;">
+        <h2 style="font-size: 2.5rem; font-weight: 700; color: var(--text-primary); margin-bottom: 1rem;">
+            <i class="fas fa-chart-pie" style="margin-right: 1rem; color: var(--primary-500);"></i>
             Quick Analytics
         </h2>
-        <p class="stats-subtitle">
+        <p style="color: var(--text-secondary); font-size: 1.1rem;">
             Your search activity and compliance insights at a glance
         </p>
     </div>
     
-    <div class="stats-grid">
-        <div class="stat-card" onclick="window.location.href='/analytics'" role="button" tabindex="0">
-            <div class="stat-icon">
+    <div class="stats-grid-enhanced">
+        <!-- Total Companies Searched -->
+        <div class="stat-card-enhanced" onclick="window.location.href='/analytics'">
+            <div class="stat-icon-enhanced">
                 <i class="fas fa-building"></i>
             </div>
-            <div class="stat-value" data-stat-type="total-searches">{{ history | length if history else 0 }}</div>
-            <div class="stat-label">Companies Analyzed</div>
+            <div class="stat-value-enhanced" id="totalCompaniesEnhanced">{{ history | length if history else 0 }}</div>
+            <div class="stat-label-enhanced">Companies Analyzed</div>
             <div class="stat-trend positive">
                 <i class="fas fa-arrow-up"></i>
-                <span>{{ searches_this_month or 0 }} this month</span>
+                <span>+12% this month</span>
             </div>
         </div>
         
-        <div class="stat-card" onclick="window.location.href='/analytics'" role="button" tabindex="0">
-            <div class="stat-icon">
+        <!-- Average Compliance Score -->
+        <div class="stat-card-enhanced" onclick="window.location.href='/analytics'">
+            <div class="stat-icon-enhanced">
                 <i class="fas fa-percentage"></i>
             </div>
-            <div class="stat-value" data-stat-type="avg-compliance">
+            <div class="stat-value-enhanced">
                 {% if history and history[0].compliance_score %}
                     {{ "%.0f"|format((history|map(attribute='compliance_score')|sum) / (history|length)) }}%
                 {% else %}
                     N/A
                 {% endif %}
             </div>
-            <div class="stat-label">Avg Compliance Score</div>
+            <div class="stat-label-enhanced">Avg Compliance Score</div>
             <div class="stat-trend {% if history and (history|map(attribute='compliance_score')|sum) / (history|length) >= 75 %}positive{% else %}neutral{% endif %}">
                 <i class="fas {% if history and (history|map(attribute='compliance_score')|sum) / (history|length) >= 75 %}fa-arrow-up{% else %}fa-minus{% endif %}"></i>
                 <span>{% if history and (history|map(attribute='compliance_score')|sum) / (history|length) >= 75 %}Good trend{% else %}Stable{% endif %}</span>
             </div>
         </div>
         
-        <div class="stat-card" onclick="window.location.href='/history'" role="button" tabindex="0">
-            <div class="stat-icon">
+        <!-- This Month's Activity -->
+        <div class="stat-card-enhanced" onclick="window.location.href='/history'">
+            <div class="stat-icon-enhanced">
                 <i class="fas fa-calendar-check"></i>
             </div>
-            <div class="stat-value" data-stat-type="recent-searches">{{ searches_this_month if searches_this_month is defined else history|length if history else 0 }}</div>
-            <div class="stat-label">Searches This Month</div>
+            <div class="stat-value-enhanced">{{ searches_this_month if searches_this_month is defined else history|length if history else 0 }}</div>
+            <div class="stat-label-enhanced">Searches This Month</div>
             <div class="stat-trend positive">
                 <i class="fas fa-clock"></i>
                 <span>Active user</span>
             </div>
         </div>
         
-        <div class="stat-card" onclick="if(window.openEnhancedProfileModal) window.openEnhancedProfileModal()" role="button" tabindex="0">
-            <div class="stat-icon">
+        <!-- AI Insights -->
+        <div class="stat-card-enhanced" onclick="openEnhancedProfileModal()">
+            <div class="stat-icon-enhanced">
                 <i class="fas fa-robot"></i>
             </div>
-            <div class="stat-value">AI</div>
-            <div class="stat-label">Powered Analytics</div>
+            <div class="stat-value-enhanced">AI</div>
+            <div class="stat-label-enhanced">Powered Analytics</div>
             <div class="stat-trend positive">
                 <i class="fas fa-sparkles"></i>
                 <span>Active</span>
@@ -761,55 +593,55 @@
 </section>
 
 <!-- Quick Actions Panel -->
-<section class="quick-actions">
+<section class="quick-actions-panel">
     <h3 class="quick-actions-title">
         <i class="fas fa-bolt"></i>
         Quick Actions
     </h3>
     
-    <div class="actions-grid">
-        <a href="/history" class="action-card">
-            <div class="action-icon">
+    <div class="quick-actions-grid">
+        <div class="quick-action-card" onclick="window.location.href='/history'">
+            <div class="quick-action-icon">
                 <i class="fas fa-history"></i>
             </div>
-            <div class="action-title">View History</div>
-            <div class="action-desc">Browse your previous searches and compliance reports</div>
-        </a>
+            <div class="quick-action-title">View History</div>
+            <div class="quick-action-desc">Browse your previous searches and compliance reports</div>
+        </div>
         
-        <a href="/analytics" class="action-card">
-            <div class="action-icon">
+        <div class="quick-action-card" onclick="window.location.href='/analytics'">
+            <div class="quick-action-icon">
                 <i class="fas fa-chart-bar"></i>
             </div>
-            <div class="action-title">Live Analytics</div>
-            <div class="action-desc">Detailed insights and trends from your search data</div>
-        </a>
+            <div class="quick-action-title">Live Analytics</div>
+            <div class="quick-action-desc">Detailed insights and trends from your search data</div>
+        </div>
         
-        <a href="#" onclick="exportToExcel(); return false;" class="action-card">
-            <div class="action-icon">
+        <div class="quick-action-card" onclick="exportToExcel()">
+            <div class="quick-action-icon">
                 <i class="fas fa-download"></i>
             </div>
-            <div class="action-title">Export Data</div>
-            <div class="action-desc">Download your search history as Excel spreadsheet</div>
-        </a>
+            <div class="quick-action-title">Export Data</div>
+            <div class="quick-action-desc">Download your search history as Excel spreadsheet</div>
+        </div>
         
-        <a href="#" onclick="if(window.openEnhancedProfileModal) window.openEnhancedProfileModal(); return false;" class="action-card">
-            <div class="action-icon">
+        <div class="quick-action-card" onclick="openEnhancedProfileModal()">
+            <div class="quick-action-icon">
                 <i class="fas fa-user-cog"></i>
             </div>
-            <div class="action-title">Profile Settings</div>
-            <div class="action-desc">Manage your account preferences and settings</div>
-        </a>
+            <div class="quick-action-title">Profile Settings</div>
+            <div class="quick-action-desc">Manage your account preferences and settings</div>
+        </div>
     </div>
 </section>
 
-<!-- Tips Section -->
+<!-- Enhanced Tips Section -->
 <section class="tips-section">
-    <h3 class="tips-title">
-        <i class="fas fa-lightbulb" style="color: var(--accent-primary);"></i>
+    <h3 style="font-size: 1.8rem; font-weight: 700; color: var(--text-primary); margin-bottom: 2rem; text-align: center;">
+        <i class="fas fa-lightbulb" style="color: var(--primary-500); margin-right: 0.5rem;"></i>
         Pro Tips & Insights
     </h3>
     
-    <div class="tip-card">
+    <div class="tip-card-enhanced">
         <div class="tip-icon">
             <i class="fas fa-shield-alt"></i>
         </div>
@@ -823,45 +655,41 @@
 </section>
 
 <!-- Floating Action Button -->
-<button class="fab" onclick="document.getElementById('gstinEnhanced').focus()" title="Quick Search" aria-label="Quick Search">
+<button class="fab" onclick="document.getElementById('gstinEnhanced').focus()" title="Quick Search">
     <i class="fas fa-search"></i>
 </button>
-{% endblock %}
 
-{% block extra_js %}
 <script>
 // Enhanced Dashboard functionality
 document.addEventListener('DOMContentLoaded', function() {
-    // Initialize GSTIN input
+    // Enhanced GSTIN input formatting
     const gstinInput = document.getElementById('gstinEnhanced');
-    const searchBtn = document.getElementById('searchBtnEnhanced');
-    
     if (gstinInput) {
-        // Enhanced GSTIN input formatting
         gstinInput.addEventListener('input', function(e) {
-            let value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+            let value = e.target.value.toUpperCase();
             
-            // Limit to 15 characters
-            if (value.length > 15) {
-                value = value.slice(0, 15);
+            // Remove spaces for actual value
+            const cleanValue = value.replace(/\s/g, '');
+            e.target.value = cleanValue;
+            
+            // Visual feedback - use external validation if available
+            if (cleanValue.length === 15 && window.isValidGSTIN && window.isValidGSTIN(cleanValue)) {
+                e.target.style.borderColor = 'var(--success)';
+                e.target.style.boxShadow = '0 8px 32px rgba(16, 185, 129, 0.2), 0 0 0 4px rgba(16, 185, 129, 0.1)';
+            } else if (cleanValue.length === 15) {
+                e.target.style.borderColor = 'var(--error)';
+                e.target.style.boxShadow = '0 8px 32px rgba(239, 68, 68, 0.2), 0 0 0 4px rgba(239, 68, 68, 0.1)';
+            } else {
+                e.target.style.borderColor = 'var(--border-primary)';
+                e.target.style.boxShadow = '0 4px 20px rgba(0, 0, 0, 0.1)';
             }
-            
-            e.target.value = value;
-            
-            // Update search button state
-            if (searchBtn) {
-                searchBtn.disabled = value.length !== 15;
-            }
-            
-            // Visual feedback
-            updateInputValidation(e.target, value);
         });
         
         // Enhanced paste handling
         gstinInput.addEventListener('paste', function(e) {
             setTimeout(() => {
                 const value = e.target.value.trim().toUpperCase();
-                if (value.length === 15 && isValidGSTIN(value)) {
+                if (value.length === 15 && window.isValidGSTIN && window.isValidGSTIN(value)) {
                     // Success animation
                     e.target.style.transform = 'scale(1.02)';
                     setTimeout(() => e.target.style.transform = '', 200);
@@ -872,92 +700,27 @@ document.addEventListener('DOMContentLoaded', function() {
                     
                     // Auto-search if enabled
                     const autoSearch = localStorage.getItem('autoSearch');
-                    if (autoSearch !== 'false') {
+                    if (autoSearch === 'true' || autoSearch === null) {
                         setTimeout(() => {
-                            if (confirm('Auto-search this GSTIN?')) {
-                                document.getElementById('enhancedSearchForm').submit();
-                            }
+                            document.getElementById('enhancedSearchForm').submit();
                         }, 500);
                     }
                 }
             }, 100);
         });
-
-        // Form submission handling
-        const form = document.getElementById('enhancedSearchForm');
-        if (form) {
-            form.addEventListener('submit', function(e) {
-                const gstin = gstinInput.value.trim();
-                if (!gstin || gstin.length !== 15 || !isValidGSTIN(gstin)) {
-                    e.preventDefault();
-                    showInputError(gstinInput, 'Please enter a valid 15-digit GSTIN');
-                    return false;
-                }
-            });
-        }
     }
     
     // Animate stats on load
     animateStats();
     
-    // Add keyboard navigation for stat cards
-    addKeyboardNavigation();
-    
-    console.log('📊 Dashboard initialized successfully');
+    // Add ripple effect to stat cards
+    addRippleEffect();
 });
 
-function updateInputValidation(input, value) {
-    if (value.length === 0) {
-        clearInputStyles(input);
-    } else if (value.length === 15) {
-        const isValid = isValidGSTIN(value);
-        if (isValid) {
-            input.style.borderColor = 'var(--success)';
-            input.style.boxShadow = '0 8px 32px rgba(16, 185, 129, 0.2), 0 0 0 4px rgba(16, 185, 129, 0.1)';
-        } else {
-            input.style.borderColor = 'var(--error)';
-            input.style.boxShadow = '0 8px 32px rgba(239, 68, 68, 0.2), 0 0 0 4px rgba(239, 68, 68, 0.1)';
-        }
-    } else {
-        input.style.borderColor = 'var(--accent-primary)';
-        input.style.boxShadow = '0 8px 32px rgba(124, 58, 237, 0.2), 0 0 0 4px rgba(124, 58, 237, 0.1)';
-    }
-}
-
-function clearInputStyles(input) {
-    input.style.borderColor = '';
-    input.style.boxShadow = '';
-}
-
-function showInputError(input, message) {
-    clearInputStyles(input);
-    input.style.borderColor = 'var(--error)';
-    input.style.boxShadow = '0 8px 32px rgba(239, 68, 68, 0.2), 0 0 0 4px rgba(239, 68, 68, 0.1)';
-    
-    if (window.notificationManager) {
-        window.notificationManager.showError(message, 3000);
-    }
-    
-    // Shake animation
-    input.style.animation = 'shake 0.5s ease-in-out';
-    setTimeout(() => {
-        input.style.animation = '';
-    }, 500);
-}
-
-function isValidGSTIN(gstin) {
-    if (!gstin || gstin.length !== 15) return false;
-    
-    const pattern = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/;
-    return pattern.test(gstin);
-}
-
 function animateStats() {
-    const statValues = document.querySelectorAll('.stat-value[data-stat-type]');
+    const statValues = document.querySelectorAll('.stat-value-enhanced');
     statValues.forEach((stat, index) => {
-        const textContent = stat.textContent.replace(/[^0-9]/g, '');
-        const targetValue = parseInt(textContent) || 0;
-        
+        const targetValue = parseInt(stat.textContent) || 0;
         if (targetValue > 0) {
             let currentValue = 0;
             const increment = targetValue / 50;
@@ -967,22 +730,56 @@ function animateStats() {
                     currentValue = targetValue;
                     clearInterval(timer);
                 }
-                
-                const suffix = stat.textContent.includes('%') ? '%' : '';
-                stat.textContent = Math.floor(currentValue) + suffix;
+                stat.textContent = Math.floor(currentValue) + (stat.textContent.includes('%') ? '%' : '');
             }, 30);
         }
     });
 }
 
-function addKeyboardNavigation() {
-    const cards = document.querySelectorAll('.stat-card, .action-card');
+function addRippleEffect() {
+    const cards = document.querySelectorAll('.stat-card-enhanced, .quick-action-card');
     cards.forEach(card => {
-        card.addEventListener('keydown', function(e) {
-            if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                this.click();
+        card.addEventListener('click', function(e) {
+            const ripple = document.createElement('span');
+            const rect = this.getBoundingClientRect();
+            const size = Math.max(rect.width, rect.height);
+            const x = e.clientX - rect.left - size / 2;
+            const y = e.clientY - rect.top - size / 2;
+            
+            ripple.style.cssText = `
+                position: absolute;
+                width: ${size}px;
+                height: ${size}px;
+                left: ${x}px;
+                top: ${y}px;
+                background: radial-gradient(circle, rgba(124, 58, 237, 0.3) 0%, transparent 70%);
+                border-radius: 50%;
+                transform: scale(0);
+                animation: ripple 0.6s ease-out;
+                pointer-events: none;
+                z-index: 10;
+            `;
+            
+            if (!document.getElementById('rippleStyle')) {
+                const style = document.createElement('style');
+                style.id = 'rippleStyle';
+                style.textContent = `
+                    @keyframes ripple {
+                        to {
+                            transform: scale(2);
+                            opacity: 0;
+                        }
+                    }
+                `;
+                document.head.appendChild(style);
             }
+            
+            this.style.position = 'relative';
+            this.appendChild(ripple);
+            
+            setTimeout(() => {
+                ripple.remove();
+            }, 600);
         });
     });
 }
@@ -992,7 +789,7 @@ document.addEventListener('keydown', function(e) {
     // Ctrl/Cmd + K for quick search focus
     if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
         e.preventDefault();
-        document.getElementById('gstinEnhanced')?.focus();
+        document.getElementById('gstinEnhanced').focus();
     }
     
     // Ctrl/Cmd + H for history
@@ -1007,19 +804,5 @@ document.addEventListener('keydown', function(e) {
         window.location.href = '/analytics';
     }
 });
-
-// Add shake animation CSS if not present
-if (!document.getElementById('shake-animation')) {
-    const style = document.createElement('style');
-    style.id = 'shake-animation';
-    style.textContent = `
-        @keyframes shake {
-            0%, 100% { transform: translateX(0); }
-            25% { transform: translateX(-5px); }
-            75% { transform: translateX(5px); }
-        }
-    `;
-    document.head.appendChild(style);
-}
 </script>
 {% endblock %}
