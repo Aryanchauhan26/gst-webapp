@@ -4,115 +4,558 @@
 {% block body_class %}page-analytics{% endblock %}
 
 {% block content %}
-<style>
-    /* =================================================================
-       ANALYTICS PAGE - COMPLETE STYLES
-       ================================================================= */
+<main class="container">
+    <!-- Live Indicator -->
+    <div class="live-indicator">
+        <div class="live-dot"></div>
+        <span>Live Analytics</span>
+        <div class="last-updated" id="lastUpdated">
+            Updated just now
+        </div>
+    </div>
+
+    <!-- Stats Overview -->
+    <div class="stats-grid">
+        <div class="stat-card" data-stat="total-searches">
+            <div class="stat-icon">
+                <i class="fas fa-search"></i>
+            </div>
+            <div class="stat-content">
+                <div class="stat-value">{{ total_searches or 0 }}</div>
+                <div class="stat-label">Total Searches</div>
+                <div class="stat-change positive">+{{ searches_this_month or 0 }} this month</div>
+            </div>
+        </div>
+
+        <div class="stat-card" data-stat="unique-companies">
+            <div class="stat-icon">
+                <i class="fas fa-building"></i>
+            </div>
+            <div class="stat-content">
+                <div class="stat-value">{{ unique_companies or 0 }}</div>
+                <div class="stat-label">Unique Companies</div>
+                <div class="stat-change neutral">Companies analyzed</div>
+            </div>
+        </div>
+
+        <div class="stat-card" data-stat="avg-compliance">
+            <div class="stat-icon">
+                <i class="fas fa-chart-line"></i>
+            </div>
+            <div class="stat-content">
+                <div class="stat-value">{{ avg_compliance or 0 }}%</div>
+                <div class="stat-label">Avg Compliance</div>
+                <div class="stat-change {{ 'positive' if (avg_compliance or 0) >= 75 else 'neutral' }}">
+                    {{ 'Excellent' if (avg_compliance or 0) >= 90 else 'Good' if (avg_compliance or 0) >= 75 else 'Average' }}
+                </div>
+            </div>
+        </div>
+
+        <div class="stat-card" data-stat="searches-monthly">
+            <div class="stat-icon">
+                <i class="fas fa-calendar-alt"></i>
+            </div>
+            <div class="stat-content">
+                <div class="stat-value">{{ searches_this_month or 0 }}</div>
+                <div class="stat-label">This Month</div>
+                <div class="stat-change positive">{{ ((searches_this_month or 0) / 30) | round(1) }}/day avg</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Charts Section -->
+    <div class="charts-grid">
+        <!-- Search Trends Chart -->
+        <div class="chart-card card--glass glow-md">
+            <div class="chart-header">
+                <h3 class="chart-title">
+                    <i class="fas fa-chart-line"></i>
+                    Search Trends
+                </h3>
+                <div class="chart-controls">
+                    <button class="chart-btn active" data-period="7d">7D</button>
+                    <button class="chart-btn" data-period="30d">30D</button>
+                    <button class="chart-btn" data-period="90d">90D</button>
+                </div>
+            </div>
+            <div class="chart-container">
+                <canvas id="trendsChart" width="400" height="200"></canvas>
+            </div>
+        </div>
+
+        <!-- Compliance Distribution Chart -->
+        <div class="chart-card card--glass glow-md">
+            <div class="chart-header">
+                <h3 class="chart-title">
+                    <i class="fas fa-chart-pie"></i>
+                    Compliance Distribution
+                </h3>
+            </div>
+            <div class="chart-container">
+                <canvas id="distributionChart" width="400" height="200"></canvas>
+                <div class="chart-legend">
+                    <div class="legend-item excellent">Excellent (90-100%)</div>
+                    <div class="legend-item good">Good (70-89%)</div>
+                    <div class="legend-item average">Average (50-69%)</div>
+                    <div class="legend-item poor">Poor (<50%)</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Top Companies Section -->
+    <div class="chart-card card--glass glow-md">
+        <div class="chart-header">
+            <h3 class="chart-title">
+                <i class="fas fa-trophy"></i>
+                Top Searched Companies
+            </h3>
+        </div>
+        <div class="companies-list">
+            {% if top_companies %}
+                {% for company in top_companies %}
+                <div class="company-row" data-gstin="{{ company.gstin }}" onclick="searchCompany('{{ company.gstin }}')">
+                    <div class="company-info">
+                        <div class="company-name">{{ company.company_name }}</div>
+                        <div class="company-gstin">{{ company.gstin }}</div>
+                    </div>
+                    <div class="company-stats">
+                        <div class="search-count">
+                            <i class="fas fa-search"></i>
+                            {{ company.search_count }} searches
+                        </div>
+                        <div class="compliance-score">
+                            <div class="score-badge score-{{ 'excellent' if company.latest_score >= 90 else 'good' if company.latest_score >= 70 else 'average' }}">
+                                {{ company.latest_score or 'N/A' }}{{ '%' if company.latest_score else '' }}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div class="empty-state">
+                    <i class="fas fa-chart-bar"></i>
+                    <p>No search data available yet. Start searching companies to see analytics!</p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Insights Panel -->
+    <div class="insights-panel">
+        <div class="insight-card">
+            <div class="insight-icon">
+                <i class="fas fa-lightbulb"></i>
+            </div>
+            <div class="insight-content">
+                <h4>Smart Insights</h4>
+                <ul>
+                    {% if avg_compliance >= 80 %}
+                    <li>✅ Your searches focus on high-compliance companies</li>
+                    {% elif avg_compliance >= 60 %}
+                    <li>⚠️ Mixed compliance in your search history</li>
+                    {% else %}
+                    <li>🔍 Consider focusing on higher compliance companies</li>
+                    {% endif %}
+                    
+                    {% if searches_this_month >= 20 %}
+                    <li>🚀 High search activity this month</li>
+                    {% elif searches_this_month >= 5 %}
+                    <li>📊 Moderate search activity</li>
+                    {% else %}
+                    <li>💡 Explore more companies to gain insights</li>
+                    {% endif %}
+                    
+                    {% if unique_companies >= 10 %}
+                    <li>🎯 Good diversity in company research</li>
+                    {% endif %}
+                </ul>
+            </div>
+        </div>
+    </div>
+</main>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Enhanced Analytics Dashboard with Chart.js integration
+document.addEventListener('DOMContentLoaded', function() {
+    // Ensure Chart.js is loaded
+    if (typeof Chart === 'undefined') {
+        console.error('Chart.js is not loaded! Analytics charts will not work.');
+        showChartError();
+        return;
+    }
     
-    /* Live Status Indicator */
+    // Set Chart.js defaults for dark theme
+    Chart.defaults.color = '#a1a1aa';
+    Chart.defaults.borderColor = '#27272a';
+    Chart.defaults.backgroundColor = 'rgba(124, 58, 237, 0.1)';
+    
+    // Initialize charts with error handling
+    try {
+        initializeTrendsChart();
+        initializeDistributionChart();
+        
+        console.log('📊 Analytics dashboard charts initialized successfully');
+    } catch (error) {
+        console.error('Error initializing charts:', error);
+        showChartError();
+    }
+    
+    // Update timestamps
+    updateTimestamps();
+    
+    // Auto-refresh data every 30 seconds
+    setInterval(updateTimestamps, 30000);
+    
+    // Initialize chart controls
+    initializeChartControls();
+    
+    console.log('📊 Analytics dashboard initialized');
+});
+
+function showChartError() {
+    // Show error message in chart containers
+    const chartContainers = document.querySelectorAll('.chart-container');
+    chartContainers.forEach(container => {
+        const canvas = container.querySelector('canvas');
+        if (canvas) {
+            canvas.style.display = 'none';
+            container.innerHTML += '<div class="chart-error"><i class="fas fa-exclamation-triangle"></i><p>Chart could not be loaded</p></div>';
+        }
+    });
+}
+
+function initializeTrendsChart() {
+    const trendsData = {{ daily_searches | tojson | safe }};
+    const trendsCtx = document.getElementById('trendsChart');
+    
+    if (!trendsCtx) {
+        console.warn('Trends chart canvas not found');
+        return;
+    }
+    
+    // Validate and prepare data
+    let chartData = [];
+    let chartLabels = [];
+    
+    if (trendsData && Array.isArray(trendsData) && trendsData.length > 0) {
+        chartLabels = trendsData.map(item => {
+            const date = new Date(item.date);
+            return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        });
+        chartData = trendsData.map(item => item.search_count || 0);
+    } else {
+        // Generate sample data for empty state
+        const today = new Date();
+        for (let i = 6; i >= 0; i--) {
+            const date = new Date(today);
+            date.setDate(date.getDate() - i);
+            chartLabels.push(date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }));
+            chartData.push(0);
+        }
+    }
+    
+    const ctx = trendsCtx.getContext('2d');
+    
+    // Create gradient
+    const gradient = ctx.createLinearGradient(0, 0, 0, 200);
+    gradient.addColorStop(0, 'rgba(124, 58, 237, 0.3)');
+    gradient.addColorStop(1, 'rgba(124, 58, 237, 0.05)');
+    
+    new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: chartLabels,
+            datasets: [{
+                label: 'Daily Searches',
+                data: chartData,
+                borderColor: '#7c3aed',
+                backgroundColor: gradient,
+                borderWidth: 2,
+                fill: true,
+                tension: 0.4,
+                pointBackgroundColor: '#7c3aed',
+                pointBorderColor: '#ffffff',
+                pointBorderWidth: 2,
+                pointRadius: 4,
+                pointHoverRadius: 6
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: {
+                intersect: false,
+                mode: 'index'
+            },
+            plugins: {
+                legend: {
+                    display: false
+                },
+                tooltip: {
+                    backgroundColor: 'rgba(26, 26, 26, 0.95)',
+                    titleColor: '#ffffff',
+                    bodyColor: '#a1a1aa',
+                    borderColor: '#7c3aed',
+                    borderWidth: 1,
+                    cornerRadius: 8,
+                    displayColors: false,
+                    callbacks: {
+                        title: function(context) {
+                            return context[0].label;
+                        },
+                        label: function(context) {
+                            return `${context.parsed.y} searches`;
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    grid: {
+                        color: 'rgba(39, 39, 42, 0.3)',
+                        drawBorder: false
+                    },
+                    ticks: {
+                        color: '#a1a1aa',
+                        font: {
+                            size: 11
+                        }
+                    }
+                },
+                y: {
+                    beginAtZero: true,
+                    grid: {
+                        color: 'rgba(39, 39, 42, 0.3)',
+                        drawBorder: false
+                    },
+                    ticks: {
+                        color: '#a1a1aa',
+                        font: {
+                            size: 11
+                        },
+                        stepSize: 1
+                    }
+                }
+            }
+        });
+}
+
+function initializeDistributionChart() {
+    const distributionData = {{ score_distribution | tojson | safe }};
+    const distributionCtx = document.getElementById('distributionChart');
+    
+    if (!distributionCtx) {
+        console.warn('Distribution chart canvas not found');
+        return;
+    }
+    
+    // Prepare data with validation
+    let chartData = [];
+    let chartLabels = [];
+    let hasData = false;
+    
+    if (distributionData && Array.isArray(distributionData) && distributionData.length > 0) {
+        chartLabels = distributionData.map(item => item.range || 'Unknown');
+        chartData = distributionData.map(item => item.count || 0);
+        hasData = chartData.some(value => value > 0);
+    }
+    
+    // If no data, show placeholder
+    if (!hasData) {
+        chartLabels = ['No Data Yet'];
+        chartData = [1];
+    }
+    
+    const ctx = distributionCtx.getContext('2d');
+    
+    new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: chartLabels,
+            datasets: [{
+                data: chartData,
+                backgroundColor: hasData ? [
+                    '#10b981', // Excellent - Green
+                    '#3b82f6', // Very Good - Blue  
+                    '#f59e0b', // Good - Yellow
+                    '#f97316', // Average - Orange
+                    '#ef4444'  // Poor - Red
+                ] : ['#374151'], // Gray for no data
+                borderColor: '#1a1a1a',
+                borderWidth: 2,
+                hoverBorderWidth: 3
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            cutout: '60%',
+            plugins: {
+                legend: {
+                    display: false // We use custom legend
+                },
+                tooltip: {
+                    backgroundColor: 'rgba(26, 26, 26, 0.95)',
+                    titleColor: '#ffffff',
+                    bodyColor: '#a1a1aa',
+                    borderColor: '#7c3aed',
+                    borderWidth: 1,
+                    cornerRadius: 8,
+                    displayColors: true,
+                    callbacks: {
+                        label: function(context) {
+                            if (!hasData) return 'Start searching to see distribution';
+                            const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                            const percentage = ((context.parsed / total) * 100).toFixed(1);
+                            return `${context.label}: ${context.parsed} (${percentage}%)`;
+                        }
+                    }
+                }
+            }
+        });
+}
+
+function initializeChartControls() {
+    // Chart period buttons
+    document.querySelectorAll('.chart-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            // Remove active class from all buttons in the same group
+            const parentControls = this.closest('.chart-controls');
+            parentControls.querySelectorAll('.chart-btn').forEach(b => b.classList.remove('active'));
+            
+            // Add active class to clicked button
+            this.classList.add('active');
+            
+            const period = this.dataset.period;
+            console.log('Chart period changed to:', period);
+            
+            // You can implement period-based data loading here
+            // Example: loadChartData(period);
+        });
+    });
+}
+
+function updateTimestamps() {
+    const now = new Date();
+    const timeString = now.toLocaleTimeString('en-IN', { 
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit'
+    });
+    
+    const lastUpdatedElement = document.getElementById('lastUpdated');
+    if (lastUpdatedElement) {
+        lastUpdatedElement.textContent = `Updated at ${timeString}`;
+    }
+}
+
+// Company search function
+function searchCompany(gstin) {
+    if (gstin) {
+        // Navigate to search with the GSTIN
+        const form = document.createElement('form');
+        form.method = 'GET';
+        form.action = '/search';
+        
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = 'gstin';
+        input.value = gstin;
+        
+        form.appendChild(input);
+        document.body.appendChild(form);
+        form.submit();
+    }
+}
+
+// Company row click handlers
+document.addEventListener('click', function(e) {
+    const companyRow = e.target.closest('.company-row');
+    if (companyRow) {
+        const gstin = companyRow.dataset.gstin;
+        if (gstin) {
+            searchCompany(gstin);
+        }
+    }
+});
+
+// Refresh analytics data
+function refreshAnalytics() {
+    // Show loading state
+    const liveIndicator = document.querySelector('.live-indicator');
+    if (liveIndicator) {
+        liveIndicator.classList.add('loading');
+    }
+    
+    // Reload the page to get fresh data
+    setTimeout(() => {
+        window.location.reload();
+    }, 500);
+}
+
+// Add refresh button functionality if exists
+document.addEventListener('click', function(e) {
+    if (e.target.matches('[data-action="refresh"]')) {
+        e.preventDefault();
+        refreshAnalytics();
+    }
+});
+</script>
+
+<!-- Analytics-specific styles -->
+<style>
     .live-indicator {
         display: flex;
         align-items: center;
         gap: 0.75rem;
-        padding: 1.25rem 2rem;
-        background: linear-gradient(135deg, var(--bg-card) 0%, rgba(124, 58, 237, 0.05) 100%);
-        border: 1px solid rgba(124, 58, 237, 0.2);
-        border-radius: 16px;
+        padding: 1rem;
+        background: var(--bg-card);
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
         margin-bottom: 2rem;
         box-shadow: var(--shadow-sm);
-        transition: all 0.3s ease;
-        position: relative;
-        overflow: hidden;
-    }
-
-    .live-indicator::before {
-        content: '';
-        position: absolute;
-        top: 0;
-        left: -100%;
-        width: 100%;
-        height: 2px;
-        background: var(--accent-gradient);
-        animation: progressSweep 3s ease-in-out infinite;
-    }
-
-    @keyframes progressSweep {
-        0% { left: -100%; }
-        50% { left: 100%; }
-        100% { left: -100%; }
     }
 
     .live-dot {
-        width: 12px;
-        height: 12px;
-        background: var(--success);
+        width: 8px;
+        height: 8px;
+        background: #10b981;
         border-radius: 50%;
-        animation: livePulse 2s infinite ease-in-out;
-        box-shadow: 0 0 10px rgba(16, 185, 129, 0.5);
-    }
-
-    @keyframes livePulse {
-        0%, 100% { 
-            opacity: 1; 
-            transform: scale(1);
-        }
-        50% { 
-            opacity: 0.7; 
-            transform: scale(1.2);
-        }
-    }
-
-    .live-text {
-        font-weight: 600;
-        color: var(--text-primary);
-        font-size: 1rem;
+        animation: blink 2s infinite;
     }
 
     .last-updated {
         margin-left: auto;
         font-size: 0.875rem;
         color: var(--text-secondary);
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
     }
 
-    .refresh-btn {
-        background: none;
-        border: 1px solid var(--border-primary);
-        border-radius: 8px;
-        padding: 0.5rem;
-        color: var(--text-secondary);
-        cursor: pointer;
-        transition: all 0.3s ease;
-        display: flex;
-        align-items: center;
-        justify-content: center;
+    @keyframes blink {
+        0%, 50% { opacity: 1; }
+        51%, 100% { opacity: 0.3; }
     }
 
-    .refresh-btn:hover {
-        background: var(--accent-primary);
-        border-color: var(--accent-primary);
-        color: white;
-        transform: rotate(180deg);
-    }
-
-    /* Stats Grid */
     .stats-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
         gap: 1.5rem;
-        margin-bottom: 2.5rem;
+        margin-bottom: 2rem;
     }
 
     .stat-card {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        padding: 1.5rem;
         background: var(--bg-card);
-        border: 1px solid var(--border-primary);
-        border-radius: 20px;
-        padding: 2rem;
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
         position: relative;
         overflow: hidden;
-        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        transition: all 0.3s ease;
         cursor: pointer;
     }
 
@@ -121,150 +564,86 @@
         position: absolute;
         top: 0;
         left: 0;
-        width: 100%;
-        height: 4px;
+        right: 0;
+        height: 3px;
         background: var(--accent-gradient);
-        transform: scaleX(0);
-        transition: transform 0.3s ease;
+        opacity: 0;
+        transition: opacity 0.3s ease;
     }
 
     .stat-card:hover {
-        transform: translateY(-8px);
-        box-shadow: 0 20px 40px rgba(124, 58, 237, 0.15);
+        transform: translateY(-2px);
+        box-shadow: var(--shadow-lg);
         border-color: var(--accent-primary);
     }
 
     .stat-card:hover::before {
-        transform: scaleX(1);
-    }
-
-    .stat-card-content {
-        display: flex;
-        align-items: center;
-        gap: 1.5rem;
-        position: relative;
-        z-index: 1;
+        opacity: 1;
     }
 
     .stat-icon {
-        width: 70px;
-        height: 70px;
+        width: 48px;
+        height: 48px;
         background: var(--accent-gradient);
-        border-radius: 16px;
+        border-radius: 12px;
         display: flex;
         align-items: center;
         justify-content: center;
-        font-size: 2rem;
+        font-size: 1.25rem;
         color: white;
-        box-shadow: 0 8px 32px rgba(124, 58, 237, 0.3);
         flex-shrink: 0;
     }
 
-    .stat-info {
+    .stat-content {
         flex: 1;
         min-width: 0;
     }
 
     .stat-value {
-        font-size: 2.5rem;
-        font-weight: 800;
-        background: var(--accent-gradient);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
+        font-size: 2rem;
+        font-weight: 700;
+        color: var(--text-primary);
         line-height: 1;
-        margin-bottom: 0.5rem;
+        margin-bottom: 0.25rem;
     }
 
     .stat-label {
-        font-size: 1rem;
+        font-size: 0.875rem;
         color: var(--text-secondary);
-        font-weight: 500;
         margin-bottom: 0.5rem;
     }
 
     .stat-change {
-        font-size: 0.875rem;
+        font-size: 0.75rem;
         font-weight: 600;
-        padding: 0.25rem 0.75rem;
-        border-radius: 20px;
-        display: inline-flex;
-        align-items: center;
-        gap: 0.25rem;
+        padding: 0.25rem 0.5rem;
+        border-radius: 6px;
+        display: inline-block;
     }
 
     .stat-change.positive {
         background: rgba(16, 185, 129, 0.1);
-        color: var(--success);
+        color: #10b981;
     }
 
     .stat-change.neutral {
-        background: rgba(156, 163, 175, 0.1);
-        color: var(--text-secondary);
-    }
-
-    .stat-change.negative {
-        background: rgba(239, 68, 68, 0.1);
-        color: var(--error);
-    }
-
-    /* Charts Section */
-    .charts-section {
-        margin-bottom: 2.5rem;
-    }
-
-    .section-header {
-        text-align: center;
-        margin-bottom: 2rem;
-    }
-
-    .section-title {
-        font-size: 2rem;
-        font-weight: 700;
-        background: var(--accent-gradient);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        margin-bottom: 0.5rem;
-    }
-
-    .section-subtitle {
-        color: var(--text-secondary);
-        font-size: 1.1rem;
+        background: rgba(161, 161, 170, 0.1);
+        color: #a1a1aa;
     }
 
     .charts-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(450px, 1fr));
+        grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
         gap: 2rem;
         margin-bottom: 2rem;
     }
 
     .chart-card {
         background: var(--bg-card);
-        border: 1px solid var(--border-primary);
-        border-radius: 24px;
-        padding: 2rem;
+        border: 1px solid var(--border-color);
+        border-radius: 16px;
+        padding: 1.5rem;
         box-shadow: var(--shadow-sm);
-        transition: all 0.3s ease;
-        position: relative;
-        overflow: hidden;
-    }
-
-    .chart-card::after {
-        content: '';
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background: radial-gradient(circle at 50% 0%, rgba(124, 58, 237, 0.05) 0%, transparent 50%);
-        pointer-events: none;
-        z-index: 0;
-    }
-
-    .chart-card:hover {
-        transform: translateY(-4px);
-        box-shadow: var(--shadow-xl);
-        border-color: var(--accent-primary);
     }
 
     .chart-header {
@@ -273,124 +652,54 @@
         justify-content: space-between;
         margin-bottom: 1.5rem;
         padding-bottom: 1rem;
-        border-bottom: 1px solid var(--border-primary);
-        position: relative;
-        z-index: 1;
+        border-bottom: 1px solid var(--border-color);
     }
 
     .chart-title {
         display: flex;
         align-items: center;
-        gap: 0.75rem;
-        font-size: 1.25rem;
+        gap: 0.5rem;
+        font-size: 1.125rem;
         font-weight: 600;
         color: var(--text-primary);
         margin: 0;
     }
 
-    .chart-title i {
-        color: var(--accent-primary);
-        font-size: 1.125rem;
-    }
-
     .chart-controls {
         display: flex;
         gap: 0.5rem;
-        background: var(--bg-secondary);
-        padding: 0.25rem;
-        border-radius: 12px;
-        border: 1px solid var(--border-primary);
     }
 
     .chart-btn {
-        padding: 0.5rem 1rem;
-        background: transparent;
-        border: none;
-        border-radius: 8px;
-        font-size: 0.875rem;
+        padding: 0.375rem 0.75rem;
+        background: var(--bg-secondary);
+        border: 1px solid var(--border-color);
+        border-radius: 6px;
+        font-size: 0.75rem;
         font-weight: 600;
         color: var(--text-secondary);
         cursor: pointer;
         transition: all 0.2s ease;
-        white-space: nowrap;
     }
 
     .chart-btn.active,
     .chart-btn:hover {
         background: var(--accent-primary);
+        border-color: var(--accent-primary);
         color: white;
-        transform: translateY(-1px);
-        box-shadow: 0 4px 12px rgba(124, 58, 237, 0.3);
     }
 
     .chart-container {
         position: relative;
-        height: 350px;
+        height: 300px;
         margin-bottom: 1rem;
-        z-index: 1;
     }
 
-    .chart-loading {
-        display: none;
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        text-align: center;
-        color: var(--text-secondary);
-        z-index: 2;
-    }
-
-    .chart-loading.active {
-        display: block;
-    }
-
-    .chart-spinner {
-        width: 40px;
-        height: 40px;
-        border: 3px solid var(--border-primary);
-        border-top: 3px solid var(--accent-primary);
-        border-radius: 50%;
-        animation: spin 1s linear infinite;
-        margin: 0 auto 1rem;
-    }
-
-    @keyframes spin {
-        0% { transform: rotate(0deg); }
-        100% { transform: rotate(360deg); }
-    }
-
-    .chart-error {
-        display: none;
-        text-align: center;
-        padding: 2rem;
-        color: var(--text-secondary);
-        z-index: 1;
-        position: relative;
-    }
-
-    .chart-error.active {
-        display: block;
-    }
-
-    .chart-error i {
-        font-size: 3rem;
-        margin-bottom: 1rem;
-        opacity: 0.5;
-        color: var(--error);
-    }
-
-    /* Chart Legend */
     .chart-legend {
         display: flex;
         flex-wrap: wrap;
         gap: 1rem;
         justify-content: center;
-        margin-top: 1rem;
-        padding-top: 1rem;
-        border-top: 1px solid var(--border-primary);
-        position: relative;
-        z-index: 1;
     }
 
     .legend-item {
@@ -399,24 +708,13 @@
         gap: 0.5rem;
         font-size: 0.875rem;
         color: var(--text-secondary);
-        padding: 0.375rem 0.75rem;
-        background: var(--bg-secondary);
-        border-radius: 20px;
-        border: 1px solid var(--border-primary);
-        transition: all 0.2s ease;
-        cursor: pointer;
-    }
-
-    .legend-item:hover {
-        background: var(--bg-hover);
-        transform: translateY(-1px);
     }
 
     .legend-item::before {
         content: '';
         width: 12px;
         height: 12px;
-        border-radius: 3px;
+        border-radius: 2px;
         flex-shrink: 0;
     }
 
@@ -425,98 +723,23 @@
     .legend-item.average::before { background: #f59e0b; }
     .legend-item.poor::before { background: #ef4444; }
 
-    /* Top Companies Section */
-    .companies-section {
-        background: var(--bg-card);
-        border: 1px solid var(--border-primary);
-        border-radius: 24px;
-        padding: 2rem;
-        box-shadow: var(--shadow-sm);
-        margin-bottom: 2rem;
-    }
-
-    .companies-header {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        margin-bottom: 2rem;
-        flex-wrap: wrap;
-        gap: 1rem;
-    }
-
-    .companies-title {
-        display: flex;
-        align-items: center;
-        gap: 0.75rem;
-        font-size: 1.5rem;
-        font-weight: 600;
-        color: var(--text-primary);
-        margin: 0;
-    }
-
-    .companies-title i {
-        color: var(--accent-primary);
-    }
-
-    .companies-controls {
-        display: flex;
-        gap: 1rem;
-        align-items: center;
-    }
-
-    .search-companies {
-        position: relative;
-    }
-
-    .search-input {
-        padding: 0.75rem 1rem 0.75rem 2.5rem;
-        background: var(--bg-input);
-        border: 1px solid var(--border-primary);
-        border-radius: 12px;
-        color: var(--text-primary);
-        font-size: 0.875rem;
-        width: 200px;
-        transition: all 0.3s ease;
-    }
-
-    .search-input:focus {
-        outline: none;
-        border-color: var(--accent-primary);
-        box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.1);
-        width: 250px;
-    }
-
-    .search-icon {
-        position: absolute;
-        left: 0.75rem;
-        top: 50%;
-        transform: translateY(-50%);
-        color: var(--text-muted);
-        font-size: 0.875rem;
-    }
-
     .companies-list {
-        max-height: 500px;
+        max-height: 400px;
         overflow-y: auto;
-        border-radius: 16px;
-        border: 1px solid var(--border-primary);
-        background: var(--bg-secondary);
     }
 
     .company-row {
         display: flex;
         align-items: center;
         justify-content: space-between;
-        padding: 1.5rem;
-        border-bottom: 1px solid var(--border-primary);
+        padding: 1rem;
+        border-bottom: 1px solid var(--border-color);
         cursor: pointer;
         transition: all 0.2s ease;
-        background: var(--bg-card);
     }
 
     .company-row:hover {
         background: var(--bg-hover);
-        transform: translateX(4px);
     }
 
     .company-row:last-child {
@@ -526,7 +749,6 @@
     .company-info {
         flex: 1;
         min-width: 0;
-        margin-right: 1rem;
     }
 
     .company-name {
@@ -541,1471 +763,167 @@
     .company-gstin {
         font-size: 0.875rem;
         color: var(--text-secondary);
-        font-family: 'Courier New', monospace;
-        background: var(--bg-secondary);
-        padding: 0.25rem 0.5rem;
-        border-radius: 6px;
-        display: inline-block;
+        font-family: monospace;
     }
 
     .company-stats {
         display: flex;
         align-items: center;
-        gap: 1.5rem;
+        gap: 1rem;
         flex-shrink: 0;
     }
 
     .search-count {
         display: flex;
         align-items: center;
-        gap: 0.5rem;
+        gap: 0.25rem;
         font-size: 0.875rem;
         color: var(--text-secondary);
-        padding: 0.5rem 1rem;
-        background: var(--bg-secondary);
-        border-radius: 20px;
-        border: 1px solid var(--border-primary);
-    }
-
-    .compliance-score {
-        display: flex;
-        align-items: center;
     }
 
     .score-badge {
-        padding: 0.5rem 1rem;
-        border-radius: 20px;
-        font-size: 0.875rem;
+        padding: 0.25rem 0.5rem;
+        border-radius: 6px;
+        font-size: 0.75rem;
         font-weight: 600;
         text-align: center;
-        min-width: 60px;
-        border: 1px solid;
-        transition: all 0.2s ease;
-    }
-
-    .score-badge:hover {
-        transform: scale(1.05);
+        min-width: 50px;
     }
 
     .score-excellent {
         background: rgba(16, 185, 129, 0.1);
-        color: var(--success);
-        border-color: var(--success);
+        color: #10b981;
     }
 
     .score-good {
         background: rgba(59, 130, 246, 0.1);
         color: #3b82f6;
-        border-color: #3b82f6;
     }
 
     .score-average {
         background: rgba(245, 158, 11, 0.1);
-        color: var(--warning);
-        border-color: var(--warning);
+        color: #f59e0b;
     }
 
-    .score-poor {
-        background: rgba(239, 68, 68, 0.1);
-        color: var(--error);
-        border-color: var(--error);
-    }
-
-    /* Empty State */
     .empty-state {
         text-align: center;
-        padding: 4rem 2rem;
+        padding: 3rem 1rem;
         color: var(--text-secondary);
     }
 
-    .empty-state-icon {
-        font-size: 4rem;
-        margin-bottom: 1.5rem;
-        opacity: 0.3;
-        animation: float 3s ease-in-out infinite;
+    .empty-state i {
+        font-size: 3rem;
+        margin-bottom: 1rem;
+        opacity: 0.5;
     }
 
-    @keyframes float {
-        0%, 100% { transform: translateY(0); }
-        50% { transform: translateY(-10px); }
-    }
-
-    .empty-state-title {
-        font-size: 1.5rem;
-        font-weight: 600;
-        color: var(--text-primary);
-        margin-bottom: 0.5rem;
-    }
-
-    .empty-state-text {
-        font-size: 1rem;
-        margin-bottom: 2rem;
-        line-height: 1.6;
-    }
-
-    .empty-state-action {
-        display: inline-flex;
-        align-items: center;
-        gap: 0.5rem;
-        padding: 1rem 2rem;
-        background: var(--accent-gradient);
-        color: white;
-        text-decoration: none;
-        border-radius: 12px;
-        font-weight: 600;
-        transition: all 0.3s ease;
-        box-shadow: 0 4px 20px rgba(124, 58, 237, 0.3);
-    }
-
-    .empty-state-action:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 8px 30px rgba(124, 58, 237, 0.4);
-    }
-
-    /* Insights Panel */
     .insights-panel {
-        background: linear-gradient(135deg, rgba(124, 58, 237, 0.1) 0%, rgba(37, 99, 235, 0.1) 100%);
-        border: 1px solid rgba(124, 58, 237, 0.2);
-        border-radius: 24px;
-        padding: 2rem;
         margin-top: 2rem;
     }
 
-    .insights-header {
+    .insight-card {
         display: flex;
-        align-items: center;
-        gap: 0.75rem;
-        margin-bottom: 1.5rem;
+        gap: 1rem;
+        padding: 1.5rem;
+        background: var(--bg-card);
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+        box-shadow: var(--shadow-sm);
     }
 
-    .insights-title {
-        font-size: 1.5rem;
-        font-weight: 600;
-        color: var(--text-primary);
-        margin: 0;
-    }
-
-    .insights-icon {
-        width: 50px;
-        height: 50px;
-        background: var(--accent-gradient);
+    .insight-icon {
+        width: 48px;
+        height: 48px;
+        background: linear-gradient(135deg, #f59e0b, #f97316);
         border-radius: 12px;
         display: flex;
         align-items: center;
         justify-content: center;
-        font-size: 1.5rem;
+        font-size: 1.25rem;
         color: white;
-        box-shadow: 0 4px 20px rgba(124, 58, 237, 0.3);
-    }
-
-    .insights-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-        gap: 1rem;
-    }
-
-    .insight-item {
-        display: flex;
-        align-items: flex-start;
-        gap: 1rem;
-        padding: 1.5rem;
-        background: var(--bg-card);
-        border: 1px solid var(--border-primary);
-        border-radius: 16px;
-        transition: all 0.3s ease;
-    }
-
-    .insight-item:hover {
-        transform: translateY(-2px);
-        box-shadow: var(--shadow-lg);
-    }
-
-    .insight-emoji {
-        font-size: 2rem;
         flex-shrink: 0;
     }
 
-    .insight-content {
-        flex: 1;
-        min-width: 0;
+    .insight-content h4 {
+        font-size: 1.125rem;
+        font-weight: 600;
+        color: var(--text-primary);
+        margin: 0 0 1rem 0;
     }
 
-    .insight-text {
-        color: var(--text-primary);
-        font-weight: 500;
-        line-height: 1.5;
+    .insight-content ul {
+        list-style: none;
+        padding: 0;
         margin: 0;
     }
 
-    /* Loading States */
-    .loading-overlay {
-        position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background: rgba(0, 0, 0, 0.5);
-        backdrop-filter: blur(5px);
-        display: none;
+    .insight-content li {
+        padding: 0.5rem 0;
+        color: var(--text-secondary);
+        font-size: 0.875rem;
+    }
+
+    .chart-error {
+        display: flex;
+        flex-direction: column;
         align-items: center;
         justify-content: center;
-        z-index: 9999;
+        height: 200px;
+        color: var(--text-secondary);
+        opacity: 0.7;
     }
 
-    .loading-overlay.active {
-        display: flex;
+    .chart-error i {
+        font-size: 2rem;
+        margin-bottom: 0.5rem;
     }
 
-    .loading-content {
-        background: var(--bg-card);
-        border: 1px solid var(--border-primary);
-        border-radius: 20px;
-        padding: 2rem;
-        text-align: center;
-        box-shadow: var(--shadow-xl);
+    /* Loading state */
+    .live-indicator.loading .live-dot {
+        background: #f59e0b;
+        animation: pulse 1s infinite;
     }
 
-    .loading-spinner {
-        width: 50px;
-        height: 50px;
-        border: 4px solid var(--border-primary);
-        border-top: 4px solid var(--accent-primary);
-        border-radius: 50%;
-        animation: spin 1s linear infinite;
-        margin: 0 auto 1rem;
+    @keyframes pulse {
+        0% { transform: scale(1); opacity: 1; }
+        50% { transform: scale(1.2); opacity: 0.7; }
+        100% { transform: scale(1); opacity: 1; }
     }
 
     /* Responsive Design */
-    @media (max-width: 1200px) {
-        .charts-grid {
-            grid-template-columns: 1fr;
-        }
-    }
-
     @media (max-width: 768px) {
         .stats-grid {
             grid-template-columns: 1fr;
             gap: 1rem;
         }
 
-        .stat-card {
-            padding: 1.5rem;
+        .charts-grid {
+            grid-template-columns: 1fr;
+            gap: 1.5rem;
         }
 
-        .stat-card-content {
-            flex-direction: column;
-            text-align: center;
-            gap: 1rem;
+        .stat-card {
+            padding: 1rem;
         }
 
         .chart-card {
-            padding: 1.5rem;
+            padding: 1rem;
         }
 
         .chart-container {
             height: 250px;
         }
 
-        .companies-header {
-            flex-direction: column;
-            align-items: stretch;
-        }
-
-        .companies-controls {
-            flex-direction: column;
-        }
-
-        .search-input {
-            width: 100%;
-        }
-
-        .search-input:focus {
-            width: 100%;
-        }
-
         .company-row {
             flex-direction: column;
             align-items: flex-start;
-            gap: 1rem;
+            gap: 0.5rem;
         }
 
         .company-stats {
             align-self: stretch;
             justify-content: space-between;
         }
-
-        .insights-grid {
-            grid-template-columns: 1fr;
-        }
-
-        .chart-legend {
-            justify-content: flex-start;
-        }
-
-        .companies-section,
-        .chart-card,
-        .insights-panel {
-            padding: 1.5rem;
-        }
-    }
-
-    @media (max-width: 480px) {
-        .live-indicator {
-            padding: 1rem 1.5rem;
-        }
-
-        .last-updated {
-            flex-direction: column;
-            align-items: flex-end;
-            gap: 0.25rem;
-        }
-
-        .chart-controls {
-            flex-direction: column;
-        }
-
-        .chart-btn {
-            padding: 0.75rem 1rem;
-        }
-    }
-
-    /* Print Styles */
-    @media print {
-        .chart-controls,
-        .refresh-btn,
-        .search-companies {
-            display: none !important;
-        }
-
-        .chart-card,
-        .companies-section,
-        .insights-panel {
-            break-inside: avoid;
-            box-shadow: none !important;
-            border: 1px solid #ddd !important;
-        }
-
-        .live-indicator::before {
-            display: none;
-        }
     }
 </style>
-
-<!-- Live Status Indicator -->
-<section class="live-indicator">
-    <div class="live-dot"></div>
-    <span class="live-text">Live Analytics Dashboard</span>
-    <div class="last-updated">
-        <span id="lastUpdated">Updated just now</span>
-        <button class="refresh-btn" onclick="refreshAnalytics()" title="Refresh Data" aria-label="Refresh analytics data">
-            <i class="fas fa-sync-alt"></i>
-        </button>
-    </div>
-</section>
-
-<!-- Statistics Overview -->
-<section class="stats-grid">
-    <div class="stat-card" onclick="navigateToSection('companies')" role="button" tabindex="0" aria-label="View total searches details">
-        <div class="stat-card-content">
-            <div class="stat-icon">
-                <i class="fas fa-search" aria-hidden="true"></i>
-            </div>
-            <div class="stat-info">
-                <div class="stat-value" data-stat-type="total-searches">{{ total_searches or 0 }}</div>
-                <div class="stat-label">Total Searches</div>
-                <div class="stat-change positive">
-                    <i class="fas fa-arrow-up" aria-hidden="true"></i>
-                    <span>+{{ (total_searches or 0) // 4 }} this month</span>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div class="stat-card" onclick="navigateToSection('companies')" role="button" tabindex="0" aria-label="View unique companies details">
-        <div class="stat-card-content">
-            <div class="stat-icon">
-                <i class="fas fa-building" aria-hidden="true"></i>
-            </div>
-            <div class="stat-info">
-                <div class="stat-value" data-stat-type="unique-companies">{{ unique_companies or 0 }}</div>
-                <div class="stat-label">Unique Companies</div>
-                <div class="stat-change neutral">
-                    <i class="fas fa-chart-line" aria-hidden="true"></i>
-                    <span>Companies analyzed</span>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div class="stat-card" onclick="navigateToSection('compliance')" role="button" tabindex="0" aria-label="View compliance score details">
-        <div class="stat-card-content">
-            <div class="stat-icon">
-                <i class="fas fa-percentage" aria-hidden="true"></i>
-            </div>
-            <div class="stat-info">
-                <div class="stat-value" data-stat-type="avg-compliance">{{ (avg_compliance or 0)|round }}%</div>
-                <div class="stat-label">Avg Compliance</div>
-                <div class="stat-change {{ 'positive' if (avg_compliance or 0) >= 75 else 'neutral' }}">
-                    <i class="fas {{ 'fa-thumbs-up' if (avg_compliance or 0) >= 75 else 'fa-minus' }}" aria-hidden="true"></i>
-                    <span>{{ 'Excellent' if (avg_compliance or 0) >= 90 else 'Good' if (avg_compliance or 0) >= 75 else 'Average' }}</span>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div class="stat-card" onclick="navigateToSection('trends')" role="button" tabindex="0" aria-label="View monthly activity details">
-        <div class="stat-card-content">
-            <div class="stat-icon">
-                <i class="fas fa-calendar-alt" aria-hidden="true"></i>
-            </div>
-            <div class="stat-info">
-                <div class="stat-value" data-stat-type="recent-searches">{{ (total_searches or 0) // 3 }}</div>
-                <div class="stat-label">This Month</div>
-                <div class="stat-change positive">
-                    <i class="fas fa-clock" aria-hidden="true"></i>
-                    <span>{{ ((total_searches or 0) // 90)|round(1) }}/day avg</span>
-                </div>
-            </div>
-        </div>
-    </div>
-</section>
-
-<!-- Charts Section -->
-<section class="charts-section" id="trends">
-    <div class="section-header">
-        <h2 class="section-title">Analytics & Trends</h2>
-        <p class="section-subtitle">Comprehensive insights from your GST compliance analysis</p>
-    </div>
-
-    <div class="charts-grid">
-        <!-- Search Trends Chart -->
-        <div class="chart-card">
-            <div class="chart-header">
-                <h3 class="chart-title">
-                    <i class="fas fa-chart-line" aria-hidden="true"></i>
-                    Search Activity Trends
-                </h3>
-                <div class="chart-controls" role="group" aria-label="Chart time period selection">
-                    <button class="chart-btn active" data-period="7d" aria-pressed="true">7 Days</button>
-                    <button class="chart-btn" data-period="30d" aria-pressed="false">30 Days</button>
-                    <button class="chart-btn" data-period="90d" aria-pressed="false">90 Days</button>
-                </div>
-            </div>
-            <div class="chart-container">
-                <canvas id="trendsChart" role="img" aria-label="Search activity trends chart"></canvas>
-                <div class="chart-loading">
-                    <div class="chart-spinner"></div>
-                    <p>Loading chart data...</p>
-                </div>
-                <div class="chart-error">
-                    <i class="fas fa-exclamation-triangle" aria-hidden="true"></i>
-                    <p>Unable to load chart data</p>
-                    <button class="chart-btn" onclick="retryChart('trendsChart')">Retry</button>
-                </div>
-            </div>
-        </div>
-
-        <!-- Compliance Distribution Chart -->
-        <div class="chart-card" id="compliance">
-            <div class="chart-header">
-                <h3 class="chart-title">
-                    <i class="fas fa-chart-pie" aria-hidden="true"></i>
-                    Compliance Score Distribution
-                </h3>
-            </div>
-            <div class="chart-container">
-                <canvas id="distributionChart" role="img" aria-label="Compliance score distribution chart"></canvas>
-                <div class="chart-loading">
-                    <div class="chart-spinner"></div>
-                    <p>Loading distribution data...</p>
-                </div>
-                <div class="chart-error">
-                    <i class="fas fa-exclamation-triangle" aria-hidden="true"></i>
-                    <p>Unable to load distribution data</p>
-                    <button class="chart-btn" onclick="retryChart('distributionChart')">Retry</button>
-                </div>
-            </div>
-            <div class="chart-legend" role="list" aria-label="Chart legend">
-                <div class="legend-item excellent" role="listitem">Excellent (90-100%)</div>
-                <div class="legend-item good" role="listitem">Good (70-89%)</div>
-                <div class="legend-item average" role="listitem">Average (50-69%)</div>
-                <div class="legend-item poor" role="listitem">Poor (<50%)</div>
-            </div>
-        </div>
-    </div>
-</section>
-
-<!-- Top Companies Section -->
-<section class="companies-section" id="companies">
-    <div class="companies-header">
-        <h3 class="companies-title">
-            <i class="fas fa-trophy" aria-hidden="true"></i>
-            Top Searched Companies
-        </h3>
-        <div class="companies-controls">
-            <div class="search-companies">
-                <input type="text" 
-                       class="search-input" 
-                       id="companySearch" 
-                       placeholder="Search companies..."
-                       aria-label="Search companies">
-                <i class="fas fa-search search-icon" aria-hidden="true"></i>
-            </div>
-        </div>
-    </div>
-
-    <div class="companies-list" role="list" aria-label="Top searched companies">
-        {% if top_companies %}
-            {% for company in top_companies %}
-            <div class="company-row" 
-                 role="listitem"
-                 data-gstin="{{ company.gstin }}" 
-                 data-company="{{ company.company_name|lower }}"
-                 onclick="searchCompany('{{ company.gstin }}')" 
-                 onkeydown="handleCompanyKeydown(event, '{{ company.gstin }}')"
-                 tabindex="0"
-                 aria-label="Search {{ company.company_name }}">
-                <div class="company-info">
-                    <div class="company-name">{{ company.company_name }}</div>
-                    <div class="company-gstin">{{ company.gstin }}</div>
-                </div>
-                <div class="company-stats">
-                    <div class="search-count">
-                        <i class="fas fa-search" aria-hidden="true"></i>
-                        <span>{{ company.search_count }} searches</span>
-                    </div>
-                    <div class="compliance-score">
-                        {% if company.latest_score %}
-                            {% set score = company.latest_score %}
-                            <div class="score-badge {{ 'score-excellent' if score >= 90 else 'score-good' if score >= 70 else 'score-average' if score >= 50 else 'score-poor' }}"
-                                 title="Compliance Score: {{ score }}%">
-                                {{ score }}%
-                            </div>
-                        {% else %}
-                            <div class="score-badge score-average" title="Compliance score not available">N/A</div>
-                        {% endif %}
-                    </div>
-                </div>
-            </div>
-            {% endfor %}
-        {% else %}
-            <div class="empty-state">
-                <div class="empty-state-icon">
-                    <i class="fas fa-chart-bar" aria-hidden="true"></i>
-                </div>
-                <h4 class="empty-state-title">No Search Data Yet</h4>
-                <p class="empty-state-text">Start searching companies to see detailed analytics and insights here!</p>
-                <a href="/" class="empty-state-action">
-                    <i class="fas fa-search" aria-hidden="true"></i>
-                    Start Searching
-                </a>
-            </div>
-        {% endif %}
-    </div>
-</section>
-
-<!-- Smart Insights Panel -->
-<section class="insights-panel">
-    <div class="insights-header">
-        <div class="insights-icon">
-            <i class="fas fa-lightbulb" aria-hidden="true"></i>
-        </div>
-        <h3 class="insights-title">Smart Insights & Recommendations</h3>
-    </div>
-    
-    <div class="insights-grid">
-        {% if avg_compliance >= 80 %}
-        <div class="insight-item">
-            <div class="insight-emoji">✅</div>
-            <div class="insight-content">
-                <p class="insight-text">Excellent! Your search history shows a focus on high-compliance companies. This indicates good judgment in business partner selection.</p>
-            </div>
-        </div>
-        {% elif avg_compliance >= 60 %}
-        <div class="insight-item">
-            <div class="insight-emoji">⚠️</div>
-            <div class="insight-content">
-                <p class="insight-text">Mixed compliance levels in your search history. Consider prioritizing companies with higher compliance scores for better business relationships.</p>
-            </div>
-        </div>
-        {% else %}
-        <div class="insight-item">
-            <div class="insight-emoji">🔍</div>
-            <div class="insight-content">
-                <p class="insight-text">Focus on higher compliance companies to reduce business risks. Look for companies with 80%+ compliance scores.</p>
-            </div>
-        </div>
-        {% endif %}
-        
-        {% if total_searches >= 20 %}
-        <div class="insight-item">
-            <div class="insight-emoji">🚀</div>
-            <div class="insight-content">
-                <p class="insight-text">High search activity indicates thorough due diligence. You're leveraging the platform effectively for business decisions.</p>
-            </div>
-        </div>
-        {% elif total_searches >= 5 %}
-        <div class="insight-item">
-            <div class="insight-emoji">📊</div>
-            <div class="insight-content">
-                <p class="insight-text">Good engagement with the platform. Consider expanding your analysis to more companies for comprehensive market insights.</p>
-            </div>
-        </div>
-        {% else %}
-        <div class="insight-item">
-            <div class="insight-emoji">💡</div>
-            <div class="insight-content">
-                <p class="insight-text">Explore more companies to unlock powerful insights. Regular analysis helps identify compliance patterns and business opportunities.</p>
-            </div>
-        </div>
-        {% endif %}
-        
-        {% if unique_companies >= 10 %}
-        <div class="insight-item">
-            <div class="insight-emoji">🎯</div>
-            <div class="insight-content">
-                <p class="insight-text">Excellent diversity in company research! This broad analysis approach provides valuable market intelligence.</p>
-            </div>
-        </div>
-        {% endif %}
-
-        <div class="insight-item">
-            <div class="insight-emoji">📈</div>
-            <div class="insight-content">
-                <p class="insight-text">Use export features to create compliance reports for stakeholders and maintain comprehensive business intelligence records.</p>
-            </div>
-        </div>
-    </div>
-</section>
-
-<!-- Loading Overlay -->
-<div class="loading-overlay" id="loadingOverlay">
-    <div class="loading-content">
-        <div class="loading-spinner"></div>
-        <p>Refreshing analytics data...</p>
-    </div>
-</div>
-{% endblock %}
-
-{% block extra_js %}
-<script>
-// =================================================================
-// ANALYTICS PAGE - COMPLETE JAVASCRIPT FUNCTIONALITY
-// =================================================================
-
-// Global state management
-const AnalyticsApp = {
-    charts: new Map(),
-    data: {
-        dailySearches: {{ daily_searches | tojson | safe }},
-        scoreDistribution: {{ score_distribution | tojson | safe }},
-        topCompanies: {{ top_companies | tojson | safe }}
-    },
-    config: {
-        chartAnimationDuration: 1000,
-        refreshInterval: 30000,
-        retryAttempts: 3
-    },
-    state: {
-        initialized: false,
-        currentPeriod: '7d',
-        searchFilter: ''
-    }
-};
-
-// Initialize analytics on page load
-document.addEventListener('DOMContentLoaded', function() {
-    initializeAnalytics();
-});
-
-async function initializeAnalytics() {
-    try {
-        showLoadingState();
-        
-        // Initialize charts
-        await Promise.all([
-            initializeTrendsChart(),
-            initializeDistributionChart()
-        ]);
-        
-        // Setup interactive features
-        setupEventListeners();
-        setupCompanySearch();
-        setupChartControls();
-        setupKeyboardNavigation();
-        
-        // Start auto-refresh
-        startAutoRefresh();
-        
-        // Animate stats
-        animateStatValues();
-        
-        AnalyticsApp.state.initialized = true;
-        hideLoadingState();
-        
-        console.log('📊 Analytics dashboard initialized successfully');
-        
-        // Show success notification
-        if (window.notificationManager) {
-            window.notificationManager.showSuccess('📊 Analytics dashboard loaded!', 3000);
-        }
-        
-    } catch (error) {
-        console.error('❌ Analytics initialization failed:', error);
-        hideLoadingState();
-        showGlobalError('Failed to initialize analytics dashboard');
-    }
-}
-
-// =================================================================
-// CHART INITIALIZATION AND MANAGEMENT
-// =================================================================
-
-async function initializeTrendsChart() {
-    try {
-        if (!window.Chart) {
-            await loadChartJS();
-        }
-        
-        const canvas = document.getElementById('trendsChart');
-        if (!canvas) {
-            throw new Error('Trends chart canvas not found');
-        }
-
-        showChartLoading('trendsChart');
-        
-        // Prepare data
-        const dailyData = AnalyticsApp.data.dailySearches || [];
-        const chartData = prepareChartData(dailyData);
-        
-        const ctx = canvas.getContext('2d');
-        
-        // Create gradient
-        const gradient = ctx.createLinearGradient(0, 0, 0, 300);
-        gradient.addColorStop(0, 'rgba(124, 58, 237, 0.3)');
-        gradient.addColorStop(1, 'rgba(124, 58, 237, 0.05)');
-        
-        const chart = new Chart(ctx, {
-            type: 'line',
-            data: {
-                labels: chartData.labels,
-                datasets: [{
-                    label: 'Daily Searches',
-                    data: chartData.searchCounts,
-                    borderColor: '#7c3aed',
-                    backgroundColor: gradient,
-                    borderWidth: 3,
-                    fill: true,
-                    tension: 0.4,
-                    pointBackgroundColor: '#7c3aed',
-                    pointBorderColor: '#ffffff',
-                    pointBorderWidth: 3,
-                    pointRadius: 5,
-                    pointHoverRadius: 8,
-                    pointHoverBackgroundColor: '#7c3aed',
-                    pointHoverBorderColor: '#ffffff'
-                }, {
-                    label: 'Avg Compliance Score',
-                    data: chartData.avgScores,
-                    borderColor: '#10b981',
-                    backgroundColor: 'rgba(16, 185, 129, 0.1)',
-                    borderWidth: 2,
-                    fill: false,
-                    tension: 0.4,
-                    pointBackgroundColor: '#10b981',
-                    pointBorderColor: '#ffffff',
-                    pointBorderWidth: 2,
-                    pointRadius: 4,
-                    pointHoverRadius: 6,
-                    yAxisID: 'y1'
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                animation: {
-                    duration: AnalyticsApp.config.chartAnimationDuration,
-                    easing: 'easeInOutQuart'
-                },
-                interaction: {
-                    mode: 'index',
-                    intersect: false
-                },
-                plugins: {
-                    legend: {
-                        display: true,
-                        position: 'top',
-                        labels: {
-                            usePointStyle: true,
-                            padding: 20,
-                            color: getComputedStyle(document.documentElement).getPropertyValue('--text-primary'),
-                            font: {
-                                size: 12,
-                                weight: '500'
-                            }
-                        }
-                    },
-                    tooltip: {
-                        backgroundColor: 'rgba(26, 26, 26, 0.95)',
-                        titleColor: '#ffffff',
-                        bodyColor: '#a1a1aa',
-                        borderColor: '#7c3aed',
-                        borderWidth: 1,
-                        cornerRadius: 12,
-                        padding: 12,
-                        displayColors: true,
-                        callbacks: {
-                            title: function(context) {
-                                return context[0].label;
-                            },
-                            label: function(context) {
-                                if (context.datasetIndex === 0) {
-                                    return `Searches: ${context.parsed.y}`;
-                                } else {
-                                    return `Avg Score: ${context.parsed.y ? context.parsed.y.toFixed(1) + '%' : 'N/A'}`;
-                                }
-                            }
-                        }
-                    }
-                },
-                scales: {
-                    x: {
-                        grid: {
-                            color: 'rgba(100, 116, 139, 0.1)',
-                            drawBorder: false
-                        },
-                        ticks: {
-                            color: getComputedStyle(document.documentElement).getPropertyValue('--text-secondary'),
-                            font: {
-                                size: 11
-                            }
-                        }
-                    },
-                    y: {
-                        beginAtZero: true,
-                        grid: {
-                            color: 'rgba(100, 116, 139, 0.1)',
-                            drawBorder: false
-                        },
-                        ticks: {
-                            color: getComputedStyle(document.documentElement).getPropertyValue('--text-secondary'),
-                            font: {
-                                size: 11
-                            },
-                            stepSize: 1
-                        }
-                    },
-                    y1: {
-                        type: 'linear',
-                        display: true,
-                        position: 'right',
-                        beginAtZero: true,
-                        max: 100,
-                        grid: {
-                            drawOnChartArea: false,
-                        },
-                        ticks: {
-                            color: getComputedStyle(document.documentElement).getPropertyValue('--text-secondary'),
-                            font: {
-                                size: 11
-                            },
-                            callback: function(value) {
-                                return value + '%';
-                            }
-                        }
-                    }
-                }
-            }
-        });
-        
-        AnalyticsApp.charts.set('trends', chart);
-        hideChartLoading('trendsChart');
-        
-    } catch (error) {
-        console.error('❌ Trends chart initialization failed:', error);
-        hideChartLoading('trendsChart');
-        showChartError('trendsChart');
-    }
-}
-
-async function initializeDistributionChart() {
-    try {
-        if (!window.Chart) {
-            await loadChartJS();
-        }
-        
-        const canvas = document.getElementById('distributionChart');
-        if (!canvas) {
-            throw new Error('Distribution chart canvas not found');
-        }
-
-        showChartLoading('distributionChart');
-        
-        const distributionData = AnalyticsApp.data.scoreDistribution || [];
-        const hasData = distributionData.length > 0 && distributionData.some(d => d.count > 0);
-        
-        let chartData, chartLabels;
-        
-        if (hasData) {
-            chartLabels = distributionData.map(d => d.range || 'Unknown');
-            chartData = distributionData.map(d => d.count || 0);
-        } else {
-            chartLabels = ['No Data Available'];
-            chartData = [1];
-        }
-        
-        const ctx = canvas.getContext('2d');
-        
-        const chart = new Chart(ctx, {
-            type: 'doughnut',
-            data: {
-                labels: chartLabels,
-                datasets: [{
-                    data: chartData,
-                    backgroundColor: hasData ? [
-                        '#10b981', // Excellent
-                        '#3b82f6', // Good
-                        '#f59e0b', // Average
-                        '#ef4444'  // Poor
-                    ] : ['#6b7280'],
-                    borderColor: '#1a1a1a',
-                    borderWidth: 2,
-                    hoverBorderWidth: 4,
-                    hoverOffset: 8
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                cutout: '60%',
-                animation: {
-                    duration: AnalyticsApp.config.chartAnimationDuration,
-                    easing: 'easeInOutQuart'
-                },
-                plugins: {
-                    legend: {
-                        display: false
-                    },
-                    tooltip: {
-                        backgroundColor: 'rgba(26, 26, 26, 0.95)',
-                        titleColor: '#ffffff',
-                        bodyColor: '#a1a1aa',
-                        borderColor: '#7c3aed',
-                        borderWidth: 1,
-                        cornerRadius: 12,
-                        padding: 12,
-                        displayColors: true,
-                        callbacks: {
-                            label: function(context) {
-                                if (!hasData) return 'Start searching to see distribution';
-                                const total = context.dataset.data.reduce((a, b) => a + b, 0);
-                                const percentage = ((context.parsed / total) * 100).toFixed(1);
-                                return `${context.label}: ${context.parsed} (${percentage}%)`;
-                            }
-                        }
-                    }
-                }
-            }
-        });
-        
-        AnalyticsApp.charts.set('distribution', chart);
-        hideChartLoading('distributionChart');
-        
-    } catch (error) {
-        console.error('❌ Distribution chart initialization failed:', error);
-        hideChartLoading('distributionChart');
-        showChartError('distributionChart');
-    }
-}
-
-// =================================================================
-// UTILITY FUNCTIONS
-// =================================================================
-
-function prepareChartData(dailyData) {
-    const now = new Date();
-    const days = AnalyticsApp.state.currentPeriod === '7d' ? 7 : 
-                 AnalyticsApp.state.currentPeriod === '30d' ? 30 : 90;
-    
-    const labels = [];
-    const searchCounts = [];
-    const avgScores = [];
-    
-    for (let i = days - 1; i >= 0; i--) {
-        const date = new Date(now);
-        date.setDate(date.getDate() - i);
-        
-        const dateStr = date.toISOString().split('T')[0];
-        const dayData = dailyData.find(d => d.date?.startsWith(dateStr));
-        
-        labels.push(formatChartDate(date, days));
-        searchCounts.push(dayData?.search_count || 0);
-        avgScores.push(dayData?.avg_score || null);
-    }
-    
-    return { labels, searchCounts, avgScores };
-}
-
-function formatChartDate(date, totalDays) {
-    if (totalDays <= 7) {
-        return date.toLocaleDateString('en-US', { weekday: 'short' });
-    } else if (totalDays <= 30) {
-        return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-    } else {
-        return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-    }
-}
-
-async function loadChartJS() {
-    if (window.Chart) return;
-    
-    return new Promise((resolve, reject) => {
-        const script = document.createElement('script');
-        script.src = 'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.min.js';
-        script.onload = () => {
-            console.log('✅ Chart.js loaded successfully');
-            resolve();
-        };
-        script.onerror = () => {
-            console.error('❌ Failed to load Chart.js');
-            reject(new Error('Failed to load Chart.js'));
-        };
-        document.head.appendChild(script);
-    });
-}
-
-// =================================================================
-// EVENT HANDLERS AND INTERACTIONS
-// =================================================================
-
-function setupEventListeners() {
-    // Stat card clicks
-    document.querySelectorAll('.stat-card').forEach(card => {
-        card.addEventListener('click', function() {
-            const section = this.getAttribute('onclick')?.match(/navigateToSection\('(.+?)'\)/)?.[1];
-            if (section) {
-                navigateToSection(section);
-            }
-        });
-    });
-    
-    // Refresh button
-    const refreshBtn = document.querySelector('.refresh-btn');
-    if (refreshBtn) {
-        refreshBtn.addEventListener('click', refreshAnalytics);
-    }
-}
-
-function setupCompanySearch() {
-    const searchInput = document.getElementById('companySearch');
-    if (!searchInput) return;
-    
-    searchInput.addEventListener('input', function(e) {
-        const searchTerm = e.target.value.toLowerCase();
-        AnalyticsApp.state.searchFilter = searchTerm;
-        filterCompanies(searchTerm);
-    });
-    
-    // Clear search on escape
-    searchInput.addEventListener('keydown', function(e) {
-        if (e.key === 'Escape') {
-            this.value = '';
-            this.dispatchEvent(new Event('input'));
-        }
-    });
-}
-
-function setupChartControls() {
-    document.querySelectorAll('.chart-btn[data-period]').forEach(btn => {
-        btn.addEventListener('click', function() {
-            const period = this.dataset.period;
-            if (period === AnalyticsApp.state.currentPeriod) return;
-            
-            // Update button states
-            document.querySelectorAll('.chart-btn[data-period]').forEach(b => {
-                b.classList.remove('active');
-                b.setAttribute('aria-pressed', 'false');
-            });
-            
-            this.classList.add('active');
-            this.setAttribute('aria-pressed', 'true');
-            
-            AnalyticsApp.state.currentPeriod = period;
-            updateTrendsChart();
-        });
-    });
-}
-
-function setupKeyboardNavigation() {
-    // Company rows
-    document.querySelectorAll('.company-row').forEach(row => {
-        row.addEventListener('keydown', function(e) {
-            if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                this.click();
-            }
-        });
-    });
-    
-    // Global keyboard shortcuts
-    document.addEventListener('keydown', function(e) {
-        if (e.ctrlKey || e.metaKey) {
-            switch (e.key) {
-                case 'r':
-                    e.preventDefault();
-                    refreshAnalytics();
-                    break;
-                case 'f':
-                    e.preventDefault();
-                    document.getElementById('companySearch')?.focus();
-                    break;
-            }
-        }
-        
-        if (e.key === 'Escape') {
-            // Clear search if focused
-            const searchInput = document.getElementById('companySearch');
-            if (searchInput === document.activeElement) {
-                searchInput.value = '';
-                searchInput.dispatchEvent(new Event('input'));
-            }
-        }
-    });
-}
-
-// =================================================================
-// COMPANY INTERACTIONS
-// =================================================================
-
-function searchCompany(gstin) {
-    if (!gstin) return;
-    
-    // Show loading state
-    showLoadingState();
-    
-    // Navigate to search with GSTIN
-    const form = document.createElement('form');
-    form.method = 'GET';
-    form.action = '/search';
-    
-    const input = document.createElement('input');
-    input.type = 'hidden';
-    input.name = 'gstin';
-    input.value = gstin;
-    
-    form.appendChild(input);
-    document.body.appendChild(form);
-    
-    try {
-        form.submit();
-    } catch (error) {
-        console.error('❌ Navigation failed:', error);
-        hideLoadingState();
-        if (window.notificationManager) {
-            window.notificationManager.showError('Failed to navigate to company details');
-        }
-    }
-}
-
-function handleCompanyKeydown(event, gstin) {
-    if (event.key === 'Enter' || event.key === ' ') {
-        event.preventDefault();
-        searchCompany(gstin);
-    }
-}
-
-function filterCompanies(searchTerm) {
-    const companies = document.querySelectorAll('.company-row');
-    let visibleCount = 0;
-    
-    companies.forEach(company => {
-        const companyName = company.dataset.company || '';
-        const gstin = company.dataset.gstin || '';
-        
-        const matches = companyName.includes(searchTerm) || 
-                       gstin.toLowerCase().includes(searchTerm);
-        
-        if (matches) {
-            company.style.display = '';
-            visibleCount++;
-        } else {
-            company.style.display = 'none';
-        }
-    });
-    
-    // Show no results message if needed
-    const companiesList = document.querySelector('.companies-list');
-    let noResultsMsg = companiesList.querySelector('.no-results-message');
-    
-    if (visibleCount === 0 && searchTerm) {
-        if (!noResultsMsg) {
-            noResultsMsg = document.createElement('div');
-            noResultsMsg.className = 'no-results-message empty-state';
-            noResultsMsg.innerHTML = `
-                <div class="empty-state-icon">
-                    <i class="fas fa-search"></i>
-                </div>
-                <h4 class="empty-state-title">No Companies Found</h4>
-                <p class="empty-state-text">Try adjusting your search terms</p>
-            `;
-            companiesList.appendChild(noResultsMsg);
-        }
-        noResultsMsg.style.display = 'block';
-    } else if (noResultsMsg) {
-        noResultsMsg.style.display = 'none';
-    }
-}
-
-// =================================================================
-// CHART UPDATES AND REFRESH
-// =================================================================
-
-function updateTrendsChart() {
-    const chart = AnalyticsApp.charts.get('trends');
-    if (!chart) return;
-    
-    try {
-        showChartLoading('trendsChart');
-        
-        const chartData = prepareChartData(AnalyticsApp.data.dailySearches);
-        
-        chart.data.labels = chartData.labels;
-        chart.data.datasets[0].data = chartData.searchCounts;
-        chart.data.datasets[1].data = chartData.avgScores;
-        
-        chart.update('active');
-        
-        setTimeout(() => {
-            hideChartLoading('trendsChart');
-        }, 500);
-        
-    } catch (error) {
-        console.error('❌ Chart update failed:', error);
-        hideChartLoading('trendsChart');
-        showChartError('trendsChart');
-    }
-}
-
-async function refreshAnalytics() {
-    try {
-        showLoadingState();
-        
-        console.log('🔄 Refreshing analytics data...');
-        
-        // Simulate API call delay
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        
-        // Update timestamp
-        updateTimestamp();
-        
-        // Re-animate stats
-        animateStatValues();
-        
-        hideLoadingState();
-        
-        if (window.notificationManager) {
-            window.notificationManager.showSuccess('📊 Analytics refreshed successfully!', 3000);
-        }
-        
-    } catch (error) {
-        console.error('❌ Analytics refresh failed:', error);
-        hideLoadingState();
-        if (window.notificationManager) {
-            window.notificationManager.showError('Failed to refresh analytics data');
-        }
-    }
-}
-
-function retryChart(chartId) {
-    const chartType = chartId.includes('trends') ? 'trends' : 'distribution';
-    
-    if (chartType === 'trends') {
-        initializeTrendsChart();
-    } else {
-        initializeDistributionChart();
-    }
-}
-
-// =================================================================
-// UI STATE MANAGEMENT
-// =================================================================
-
-function showLoadingState() {
-    const overlay = document.getElementById('loadingOverlay');
-    if (overlay) {
-        overlay.classList.add('active');
-    }
-}
-
-function hideLoadingState() {
-    const overlay = document.getElementById('loadingOverlay');
-    if (overlay) {
-        overlay.classList.remove('active');
-    }
-}
-
-function showChartLoading(chartId) {
-    const container = document.getElementById(chartId)?.parentElement;
-    if (!container) return;
-    
-    const loading = container.querySelector('.chart-loading');
-    const error = container.querySelector('.chart-error');
-    const canvas = container.querySelector('canvas');
-    
-    if (loading) loading.classList.add('active');
-    if (error) error.classList.remove('active');
-    if (canvas) canvas.style.opacity = '0.3';
-}
-
-function hideChartLoading(chartId) {
-    const container = document.getElementById(chartId)?.parentElement;
-    if (!container) return;
-    
-    const loading = container.querySelector('.chart-loading');
-    const canvas = container.querySelector('canvas');
-    
-    if (loading) loading.classList.remove('active');
-    if (canvas) canvas.style.opacity = '1';
-}
-
-function showChartError(chartId) {
-    const container = document.getElementById(chartId)?.parentElement;
-    if (!container) return;
-    
-    const error = container.querySelector('.chart-error');
-    const canvas = container.querySelector('canvas');
-    
-    if (error) error.classList.add('active');
-    if (canvas) canvas.style.display = 'none';
-}
-
-function showGlobalError(message) {
-    if (window.notificationManager) {
-        window.notificationManager.showError(message);
-    } else {
-        console.error(message);
-    }
-}
-
-// =================================================================
-// ANIMATIONS AND INTERACTIONS
-// =================================================================
-
-function animateStatValues() {
-    const statElements = document.querySelectorAll('[data-stat-type]');
-    
-    statElements.forEach(element => {
-        const targetValue = parseInt(element.textContent) || 0;
-        const suffix = element.textContent.includes('%') ? '%' : '';
-        
-        if (targetValue > 0) {
-            animateNumber(element, 0, targetValue, 1500, suffix);
-        }
-    });
-}
-
-function animateNumber(element, start, end, duration, suffix = '') {
-    const startTime = performance.now();
-    const difference = end - start;
-    
-    function update(currentTime) {
-        const elapsed = currentTime - startTime;
-        const progress = Math.min(elapsed / duration, 1);
-        
-        // Easing function
-        const easeOutQuart = 1 - Math.pow(1 - progress, 4);
-        const current = Math.floor(start + (difference * easeOutQuart));
-        
-        element.textContent = current + suffix;
-        
-        if (progress < 1) {
-            requestAnimationFrame(update);
-        } else {
-            element.textContent = end + suffix;
-        }
-    }
-    
-    requestAnimationFrame(update);
-}
-
-function navigateToSection(sectionId) {
-    const section = document.getElementById(sectionId);
-    if (section) {
-        section.scrollIntoView({ 
-            behavior: 'smooth', 
-            block: 'start' 
-        });
-        
-        // Add highlight effect
-        section.style.animation = 'highlightSection 2s ease-out';
-        setTimeout(() => {
-            section.style.animation = '';
-        }, 2000);
-    }
-}
-
-// =================================================================
-// AUTO-REFRESH AND TIMESTAMPS
-// =================================================================
-
-function startAutoRefresh() {
-    setInterval(() => {
-        if (!document.hidden) {
-            updateTimestamp();
-        }
-    }, AnalyticsApp.config.refreshInterval);
-}
-
-function updateTimestamp() {
-    const now = new Date();
-    const timeString = now.toLocaleTimeString('en-IN', {
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit'
-    });
-    
-    const timestampElement = document.getElementById('lastUpdated');
-    if (timestampElement) {
-        timestampElement.textContent = `Updated at ${timeString}`;
-    }
-}
-
-// =================================================================
-// ERROR HANDLING AND RECOVERY
-// =================================================================
-
-window.addEventListener('error', function(event) {
-    console.error('❌ Global error:', event.error);
-    
-    if (AnalyticsApp.state.initialized && window.notificationManager) {
-        window.notificationManager.showError('An error occurred. Please refresh the page if issues persist.');
-    }
-});
-
-// Page visibility change handler
-document.addEventListener('visibilitychange', function() {
-    if (!document.hidden && AnalyticsApp.state.initialized) {
-        updateTimestamp();
-    }
-});
-
-// Initialize timestamp immediately
-updateTimestamp();
-
-// Add CSS animation for section highlighting
-if (!document.getElementById('analytics-animations')) {
-    const style = document.createElement('style');
-    style.id = 'analytics-animations';
-    style.textContent = `
-        @keyframes highlightSection {
-            0% { background-color: transparent; }
-            20% { background-color: rgba(124, 58, 237, 0.1); }
-            100% { background-color: transparent; }
-        }
-    `;
-    document.head.appendChild(style);
-}
-
-console.log('📊 Analytics module loaded successfully');
-</script>
 {% endblock %}
