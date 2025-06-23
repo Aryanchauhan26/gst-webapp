@@ -865,3 +865,49 @@ button {
     page-break-inside: avoid;
   }
 }
+
+/* Missing utility classes */
+.fab {
+    position: fixed;
+    bottom: 2rem;
+    right: 2rem;
+    width: 60px;
+    height: 60px;
+    background: var(--accent-gradient);
+    border: none;
+    border-radius: 50%;
+    color: white;
+    font-size: 1.5rem;
+    cursor: pointer;
+    box-shadow: var(--shadow-xl);
+    transition: all var(--transition);
+    z-index: 1000;
+}
+
+.fab:hover {
+    transform: translateY(-3px) scale(1.1);
+    box-shadow: var(--shadow-2xl), var(--glow);
+}
+
+.gradient-animate {
+    animation: gradientShift 3s ease-in-out infinite;
+}
+
+@keyframes gradientShift {
+    0%, 100% { filter: hue-rotate(0deg); }
+    50% { filter: hue-rotate(10deg); }
+}
+
+.glow-sm { box-shadow: var(--glow-sm); }
+.glow-md { box-shadow: var(--glow); }
+.glow-lg { box-shadow: var(--glow-lg); }
+.glow-xl { box-shadow: var(--glow-lg), var(--shadow-2xl); }
+
+.theme-transitioning *,
+.theme-transitioning *::before,
+.theme-transitioning *::after {
+    transition: background-color 0.3s ease,
+                border-color 0.3s ease,
+                color 0.3s ease,
+                box-shadow 0.3s ease !important;
+}

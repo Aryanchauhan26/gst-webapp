@@ -339,35 +339,44 @@ async function networkFirst(request) {
 /**
  * Cache first strategy with network update
  */
+
 async function cacheFirst(request) {
     const cacheName = getCacheName(request);
     
-    // Try cache first
-    const cachedResponse = await caches.match(request);
-    if (cachedResponse) {
-        console.log(`⚡ Cache hit: ${request.url}`);
-        
-        // Update cache in background for next time
-        fetch(request.clone()).then(async response => {
-            if (response.ok) {
-                const cache = await caches.open(cacheName);
-                await cache.put(request.clone(), response.clone());
-            }
-        }).catch(() => {
-            // Ignore background update errors
-        });
-        
-        return cachedResponse;
-    }
-    
-    // Cache miss, fetch from network
     try {
+        // Try cache first
+        const cachedResponse = await caches.match(request);
+        if (cachedResponse) {
+            console.log(`⚡ Cache hit: ${request.url}`);
+            
+            // Update cache in background for next time
+            fetch(request.clone()).then(async response => {
+                if (response.ok) {
+                    try {
+                        const cache = await caches.open(cacheName);
+                        await cache.put(request.clone(), response.clone());
+                    } catch (cacheError) {
+                        console.warn('Background cache update failed:', cacheError);
+                    }
+                }
+            }).catch(() => {
+                // Ignore background update errors
+            });
+            
+            return cachedResponse;
+        }
+        
+        // Cache miss, fetch from network
         const response = await fetch(request);
         
         if (response.ok) {
-            const cache = await caches.open(cacheName);
-            await cache.put(request.clone(), response.clone());
-            await cleanupCache(cacheName, CACHE_CONFIG.maxEntries.static, CACHE_CONFIG.staticTTL);
+            try {
+                const cache = await caches.open(cacheName);
+                await cache.put(request.clone(), response.clone());
+                await cleanupCache(cacheName, CACHE_CONFIG.maxEntries.static, CACHE_CONFIG.staticTTL);
+            } catch (cacheError) {
+                console.warn('Cache storage failed:', cacheError);
+            }
         }
         
         return response;
