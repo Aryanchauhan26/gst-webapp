@@ -7,7 +7,8 @@ Run this to view your database contents
 import asyncio
 import asyncpg
 
-POSTGRES_DSN = "postgresql://neondb_owner:npg_i3m7wqMeHXaW@ep-fragrant-cell-a10j16o4-pooler.ap-southeast-1.aws.neon.tech/neondb?sslmode=require"
+from config import settings
+POSTGRES_DSN = settings.POSTGRES_DSN
 
 async def view_database():
     try:

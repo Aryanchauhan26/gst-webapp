@@ -16,6 +16,28 @@ window.GST_CONFIG = {
     THEME_TRANSITION_DURATION: 300
 };
 
+// Global GSTIN validation function
+window.isValidGSTIN = function(gstin) {
+    if (!gstin || typeof gstin !== 'string') return false;
+    
+    const cleanGstin = gstin.trim().toUpperCase();
+    const pattern = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/;
+    
+    return pattern.test(cleanGstin);
+};
+
+// Format GSTIN function
+window.formatGSTIN = function(gstin) {
+    if (!gstin) return '';
+    return gstin.trim().toUpperCase().replace(/\s/g, '');
+};
+
+// Add to GST_MANAGERS export at the bottom
+window.GST_MANAGERS.validation = () => ({
+    isValidGSTIN: window.isValidGSTIN,
+    formatGSTIN: window.formatGSTIN
+});
+
 // =====================================================
 // 1. NOTIFICATION MANAGER
 // =====================================================
@@ -50,6 +72,12 @@ class NotificationManager {
     }
 
     show(message, type = 'info', duration = this.defaultOptions.duration) {
+        // Validate inputs
+        if (!message || typeof message !== 'string') {
+            console.warn('Invalid notification message:', message);
+            return null;
+        }
+        
         const notification = this.createNotification(message, type);
         
         // Limit notifications
@@ -60,12 +88,23 @@ class NotificationManager {
         this.container.appendChild(notification.element);
         this.notifications.push(notification);
 
-        // Auto remove
+        // Auto remove with better error handling
         if (duration > 0) {
-            setTimeout(() => this.remove(notification), duration);
+            setTimeout(() => {
+                try {
+                    this.remove(notification);
+                } catch (error) {
+                    console.warn('Error removing notification:', error);
+                }
+            }, duration);
         }
 
         return notification;
+    }
+
+    // Add a showToast alias for compatibility
+    showToast(message, type = 'info', duration) { 
+        return this.show(message, type, duration); 
     }
 
     createNotification(message, type) {
@@ -653,10 +692,16 @@ window.offlineManager = {
 
 window.errorBoundary = {
     lastErrorTime: 0,
+    errorCount: 0,
+    maxErrors: 10,
     
     init() {
         window.addEventListener('error', (event) => {
-            this.handleError(event.error, 'JavaScript Error');
+            this.handleError(event.error, 'JavaScript Error', {
+                filename: event.filename,
+                lineno: event.lineno,
+                colno: event.colno
+            });
         });
         
         window.addEventListener('unhandledrejection', (event) => {
@@ -665,7 +710,14 @@ window.errorBoundary = {
         });
     },
     
-    handleError(error, type) {
+    handleError(error, type, context = {}) {
+        this.errorCount++;
+        
+        // Prevent error spam
+        if (this.errorCount > this.maxErrors) {
+            return;
+        }
+        
         console.error(`${type}:`, error);
         
         if (!this.lastErrorTime || Date.now() - this.lastErrorTime > 5000) {
@@ -678,12 +730,13 @@ window.errorBoundary = {
             this.lastErrorTime = Date.now();
         }
         
+        // Enhanced server logging
         if (location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
-            this.logErrorToServer(error, type);
+            this.logErrorToServer(error, type, context);
         }
     },
     
-    async logErrorToServer(error, type) {
+    async logErrorToServer(error, type, context = {}) {
         try {
             await fetch('/api/system/error', {
                 method: 'POST',
@@ -694,7 +747,8 @@ window.errorBoundary = {
                     stack: error.stack,
                     url: window.location.href,
                     userAgent: navigator.userAgent,
-                    timestamp: new Date().toISOString()
+                    timestamp: new Date().toISOString(),
+                    context: context
                 })
             });
         } catch (logError) {

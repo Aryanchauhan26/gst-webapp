@@ -22,6 +22,11 @@ from fastapi.staticfiles import StaticFiles
 from io import BytesIO, StringIO
 import csv
 from weasyprint import HTML
+    HAS_WEASYPRINT = True
+except ImportError:
+    logger.warning("WeasyPrint not available - PDF generation disabled")
+    HAS_WEASYPRINT = False
+    HTML = None
 from dotenv import load_dotenv
 from anthro_ai import get_anthropic_synopsis
 from pydantic import BaseModel, validator
@@ -38,18 +43,9 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Configuration
-class Config:
-    RAPIDAPI_KEY = os.getenv("RAPIDAPI_KEY")
-    ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
-    RAPIDAPI_HOST = os.getenv("RAPIDAPI_HOST", "gst-return-status.p.rapidapi.com")
-    POSTGRES_DSN = "postgresql://neondb_owner:npg_i3m7wqMeHXaW@ep-fragrant-cell-a10j16o4-pooler.ap-southeast-1.aws.neon.tech/neondb?sslmode=require"
-    SECRET_KEY = os.getenv("SECRET_KEY", secrets.token_urlsafe(32))
-    SESSION_DURATION = timedelta(days=7)
-    MAX_SEARCH_HISTORY = 1000
-    RATE_LIMIT_REQUESTS = 60
-    RATE_LIMIT_WINDOW = 60  # seconds
+from config import settings
 
-config = Config()
+config = settings
 
 # Pydantic Models
 class ChangePasswordRequest(BaseModel):
@@ -93,6 +89,22 @@ class ErrorLogRequest(BaseModel):
     url: Optional[str] = None
     userAgent: Optional[str] = None
     timestamp: Optional[str] = None
+
+def handle_api_errors(func):
+    """Decorator for handling API errors consistently"""
+    async def wrapper(*args, **kwargs):
+        try:
+            return await func(*args, **kwargs)
+        except HTTPException:
+            # Re-raise HTTP exceptions as-is
+            raise
+        except Exception as e:
+            logger.error(f"API error in {func.__name__}: {e}", exc_info=True)
+            return JSONResponse(
+                status_code=500,
+                content={"success": False, "error": "Internal server error"}
+            )
+    return wrapper
 
 # Initialize FastAPI app
 app = FastAPI(
@@ -1123,83 +1135,62 @@ async def analytics_page(request: Request, current_user: str = Depends(require_a
 
 # API Routes
 @app.get("/api/user/stats")
+@handle_api_errors
 async def get_user_stats_api(current_user: str = Depends(require_auth)):
     """Get user statistics API."""
-    try:
-        stats = await db.get_user_stats(current_user)
-        return {"success": True, "data": stats}
-    except Exception as e:
-        logger.error(f"Error fetching user stats: {e}")
-        return {"success": False, "error": "Failed to fetch user statistics"}
+    stats = await db.get_user_stats(current_user)
+    return {"success": True, "data": stats}
 
 @app.post("/api/user/change-password")
+@handle_api_errors
 async def change_password_api(request: ChangePasswordRequest, current_user: str = Depends(require_auth)):
     """Change user password API."""
-    try:
-        success = await db.change_password(current_user, request.currentPassword, request.newPassword)
-        
-        if success:
-            return {"success": True, "message": "Password changed successfully"}
-        else:
-            return {"success": False, "message": "Current password is incorrect"}
+    success = await db.change_password(current_user, request.currentPassword, request.newPassword)
     
-    except Exception as e:
-        logger.error(f"Error changing password: {e}")
-        return {"success": False, "message": "Failed to change password"}
+    if success:
+        return {"success": True, "message": "Password changed successfully"}
+    else:
+        return {"success": False, "message": "Current password is incorrect"}
 
 @app.get("/api/user/preferences")
+@handle_api_errors
 async def get_user_preferences_api(current_user: str = Depends(require_auth)):
     """Get user preferences API."""
-    try:
-        preferences = await db.get_user_preferences(current_user)
-        return {"success": True, "data": preferences}
-    except Exception as e:
-        logger.error(f"Error fetching preferences: {e}")
-        return {"success": False, "error": "Failed to fetch preferences"}
+    preferences = await db.get_user_preferences(current_user)
+    return {"success": True, "data": preferences}
 
 @app.post("/api/user/preferences")
+@handle_api_errors
 async def save_user_preferences_api(request: UserPreferencesRequest, current_user: str = Depends(require_auth)):
     """Save user preferences API."""
-    try:
-        preferences = request.dict()
-        await db.save_user_preferences(current_user, preferences)
-        return {"success": True, "message": "Preferences saved successfully"}
-    except Exception as e:
-        logger.error(f"Error saving preferences: {e}")
-        return {"success": False, "error": "Failed to save preferences"}
+    preferences = request.dict()
+    await db.save_user_preferences(current_user, preferences)
+    return {"success": True, "message": "Preferences saved successfully"}
 
 @app.get("/api/user/profile")
+@handle_api_errors
 async def get_user_profile_api(current_user: str = Depends(require_auth)):
     """Get user profile API."""
-    try:
-        profile = await db.get_user_profile(current_user)
-        return {"success": True, "data": profile}
-    except Exception as e:
-        logger.error(f"Error fetching user profile: {e}")
-        return {"success": False, "error": "Failed to fetch user profile"}
+    profile = await db.get_user_profile(current_user)
+    return {"success": True, "data": profile}
 
 @app.post("/api/user/profile")
+@handle_api_errors
 async def save_user_profile_api(request: UserProfileRequest, current_user: str = Depends(require_auth)):
     """Save user profile API."""
-    try:
-        profile_data = {k: v for k, v in request.dict().items() if v is not None}
-        await db.save_user_profile(current_user, profile_data)
-        return {"success": True, "message": "Profile saved successfully"}
-    except Exception as e:
-        logger.error(f"Error saving user profile: {e}")
-        return {"success": False, "error": "Failed to save user profile"}
+    profile_data = {k: v for k, v in request.dict().items() if v is not None}
+    await db.save_user_profile(current_user, profile_data)
+    return {"success": True, "message": "Profile saved successfully"}
 
 @app.delete("/api/user/data")
+@handle_api_errors
 async def clear_user_data_api(current_user: str = Depends(require_auth)):
     """Clear user data API."""
-    try:
-        deleted_count = await db.clear_user_data(current_user)
-        return {"success": True, "deleted_count": deleted_count}
-    except Exception as e:
-        logger.error(f"Error clearing user data: {e}")
-        return {"success": False, "error": "Failed to clear user data"}
+    deleted_count = await db.clear_user_data(current_user)
+    return {"success": True, "deleted_count": deleted_count}
 
 @app.post("/api/search/batch")
+@handle_api_errors
 async def batch_search_api(request: BatchSearchRequest, current_user: str = Depends(require_auth)):
     """Batch GSTIN search API."""
     try:
@@ -1262,6 +1253,7 @@ async def batch_search_api(request: BatchSearchRequest, current_user: str = Depe
         }
 
 @app.get("/api/search/suggestions")
+@handle_api_errors
 async def get_search_suggestions_api(q: str, current_user: str = Depends(require_auth)):
     """Search suggestions API."""
     try:
@@ -1299,6 +1291,7 @@ async def get_search_suggestions_api(q: str, current_user: str = Depends(require
         return {'success': False, 'suggestions': []}
 
 @app.post("/api/system/error")
+@handle_api_errors
 async def log_error_api(request: ErrorLogRequest):
     """Error logging API."""
     try:
@@ -1321,6 +1314,7 @@ async def log_error_api(request: ErrorLogRequest):
         return {'success': False, 'message': 'Failed to log error'}
 
 @app.get("/api/user/activity")
+@handle_api_errors
 async def get_user_activity_api(days: int = 30, current_user: str = Depends(require_auth)):
     """User activity API."""
     try:
@@ -1339,13 +1333,14 @@ async def get_user_activity_api(days: int = 30, current_user: str = Depends(requ
         return {'success': False, 'error': 'Failed to get activity data'}
 
 @app.get("/api/system/status")
+@handle_api_errors
 async def get_system_status_api():
     """System status API."""
     try:
         status = {
             'database': 'healthy',
             'gst_api': 'configured' if config.RAPIDAPI_KEY else 'missing',
-            'ai_service': 'configured' if config.ANTHROPIC_API_KEY else 'disabled',
+            'ai_service': 'configured' if config.ANTHropic_API_KEY else 'disabled',
             'timestamp': datetime.now().isoformat()
         }
         
@@ -1401,6 +1396,9 @@ async def export_history(current_user: str = Depends(require_auth)):
 @app.post("/generate-pdf")
 async def generate_pdf_route(request: Request, gstin: str = Form(...), current_user: str = Depends(require_auth)):
     """Generate PDF report."""
+    if not HAS_WEASYPRINT:
+        raise HTTPException(status_code=503, detail="PDF generation not available")
+    
     try:
         if not api_client:
             raise HTTPException(status_code=503, detail="GST API service not configured")
