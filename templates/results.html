@@ -1,140 +1,318 @@
 {% extends "base.html" %}
 
-{% block title %}Results - GST Intelligence Platform{% endblock %}
+{% block title %}{{ company_data.lgnm }} - GST Analysis Results{% endblock %}
 {% block body_class %}page-results{% endblock %}
 
 {% block content %}
 <style>
-    /* Results-specific styles */
+    /* =================================================================
+       RESULTS PAGE - COMPLETE STYLES
+       ================================================================= */
+    
+    /* Navigation */
+    .back-navigation {
+        margin-bottom: 2rem;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 1rem;
+    }
+
     .back-btn {
         display: inline-flex;
         align-items: center;
-        gap: 0.5rem;
-        color: var(--accent-secondary);
+        gap: 0.75rem;
+        color: var(--text-secondary);
         text-decoration: none;
-        margin-bottom: 2rem;
         font-weight: 500;
-        transition: all var(--transition-speed);
-        padding: 0.5rem 1rem;
-        border-radius: 8px;
+        transition: all 0.3s ease;
+        padding: 0.75rem 1.5rem;
+        border-radius: 12px;
+        border: 1px solid var(--border-primary);
+        background: var(--bg-card);
     }
 
     .back-btn:hover {
         color: var(--accent-primary);
-        background: var(--bg-card);
+        background: var(--bg-hover);
         transform: translateX(-5px);
+        border-color: var(--accent-primary);
+        box-shadow: 0 4px 12px rgba(124, 58, 237, 0.2);
     }
 
+    .page-actions {
+        display: flex;
+        gap: 1rem;
+        align-items: center;
+    }
+
+    .quick-action-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.75rem 1.25rem;
+        border-radius: 10px;
+        border: 1px solid var(--border-primary);
+        background: var(--bg-card);
+        color: var(--text-secondary);
+        text-decoration: none;
+        font-weight: 500;
+        transition: all 0.3s ease;
+        font-size: 0.875rem;
+    }
+
+    .quick-action-btn:hover {
+        background: var(--accent-primary);
+        border-color: var(--accent-primary);
+        color: white;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(124, 58, 237, 0.3);
+    }
+
+    /* Company Header */
     .company-header {
         background: var(--accent-gradient);
         color: white;
-        border-radius: 24px;
-        padding: 3rem;
-        margin-bottom: 2rem;
-        box-shadow: 0 12px 40px rgba(124, 58, 237, 0.4);
+        border-radius: 32px;
+        padding: 4rem 3rem;
+        margin-bottom: 3rem;
         text-align: center;
         position: relative;
         overflow: hidden;
-        z-index: 10;
-        animation: headerGlow 3s ease-in-out infinite;
+        box-shadow: 0 20px 60px rgba(124, 58, 237, 0.3);
+        animation: headerPulse 4s ease-in-out infinite;
     }
 
-    @keyframes headerGlow {
-        0%, 100% { box-shadow: 0 12px 40px rgba(124, 58, 237, 0.4); }
-        50% { box-shadow: 0 16px 60px rgba(124, 58, 237, 0.6); }
+    @keyframes headerPulse {
+        0%, 100% { 
+            box-shadow: 0 20px 60px rgba(124, 58, 237, 0.3);
+            transform: scale(1);
+        }
+        50% { 
+            box-shadow: 0 25px 80px rgba(124, 58, 237, 0.5);
+            transform: scale(1.02);
+        }
+    }
+
+    .company-header::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+        animation: shimmer 3s ease-in-out infinite;
+    }
+
+    @keyframes shimmer {
+        0% { left: -100%; }
+        100% { left: 100%; }
+    }
+
+    .company-header-content {
+        position: relative;
+        z-index: 1;
     }
 
     .company-name {
-        font-size: 2.5rem;
-        font-weight: 800;
-        margin-bottom: 0.5rem;
-        position: relative;
-        z-index: 1;
+        font-size: 3rem;
+        font-weight: 900;
+        margin-bottom: 1rem;
+        text-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+        line-height: 1.1;
     }
 
     .company-gstin {
-        font-size: 1.2rem;
-        font-family: monospace;
-        opacity: 0.9;
-        position: relative;
-        z-index: 1;
+        font-size: 1.4rem;
+        font-family: 'Courier New', monospace;
+        opacity: 0.95;
+        background: rgba(255, 255, 255, 0.1);
+        padding: 0.75rem 1.5rem;
+        border-radius: 20px;
+        display: inline-block;
+        margin-bottom: 1.5rem;
+        letter-spacing: 0.1em;
+        backdrop-filter: blur(10px);
     }
 
+    .company-status {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        background: rgba(255, 255, 255, 0.15);
+        padding: 0.5rem 1.25rem;
+        border-radius: 25px;
+        font-size: 1rem;
+        font-weight: 600;
+        backdrop-filter: blur(10px);
+    }
+
+    .status-dot {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background: var(--success);
+        animation: statusPulse 2s ease-in-out infinite;
+    }
+
+    @keyframes statusPulse {
+        0%, 100% { opacity: 1; transform: scale(1); }
+        50% { opacity: 0.7; transform: scale(1.2); }
+    }
+
+    /* AI Synopsis */
     .synopsis-section {
         background: linear-gradient(135deg, rgba(124, 58, 237, 0.1) 0%, rgba(37, 99, 235, 0.1) 100%);
-        border: 1px solid var(--accent-primary);
-        border-radius: 20px;
-        padding: 2rem;
-        margin-bottom: 2rem;
+        border: 1px solid rgba(124, 58, 237, 0.2);
+        border-radius: 24px;
+        padding: 2.5rem;
+        margin-bottom: 3rem;
         position: relative;
         overflow: hidden;
     }
 
-    .synopsis-title {
-        font-size: 1.5rem;
-        color: var(--text-primary);
-        margin-bottom: 1rem;
+    .synopsis-section::after {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: radial-gradient(circle at 20% 20%, rgba(124, 58, 237, 0.05) 0%, transparent 50%);
+        pointer-events: none;
+    }
+
+    .synopsis-header {
         display: flex;
         align-items: center;
-        gap: 0.5rem;
+        justify-content: space-between;
+        margin-bottom: 1.5rem;
+        position: relative;
+        z-index: 1;
+        flex-wrap: wrap;
+        gap: 1rem;
+    }
+
+    .synopsis-title {
+        font-size: 1.75rem;
+        color: var(--text-primary);
+        margin: 0;
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        font-weight: 700;
     }
 
     .ai-badge {
         background: var(--accent-gradient);
         color: white;
-        padding: 0.25rem 1rem;
-        border-radius: 20px;
-        font-size: 0.75rem;
+        padding: 0.5rem 1.25rem;
+        border-radius: 25px;
+        font-size: 0.875rem;
         font-weight: 600;
-        margin-left: auto;
-        animation: pulse 2s ease-in-out infinite;
+        animation: aiPulse 3s ease-in-out infinite;
+        box-shadow: 0 4px 20px rgba(124, 58, 237, 0.3);
+    }
+
+    @keyframes aiPulse {
+        0%, 100% { transform: scale(1); }
+        50% { transform: scale(1.05); }
     }
 
     .synopsis-content {
         color: var(--text-primary);
         line-height: 1.8;
         font-size: 1.1rem;
-        max-width: none;
+        position: relative;
+        z-index: 1;
+        background: var(--bg-card);
+        padding: 2rem;
+        border-radius: 16px;
+        border: 1px solid var(--border-primary);
+        box-shadow: var(--shadow-sm);
     }
 
+    .synopsis-meta {
+        margin-top: 1.5rem;
+        display: flex;
+        gap: 2rem;
+        flex-wrap: wrap;
+        font-size: 0.9rem;
+        color: var(--text-secondary);
+        position: relative;
+        z-index: 1;
+    }
+
+    .synopsis-meta-item {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.5rem 1rem;
+        background: var(--bg-card);
+        border-radius: 20px;
+        border: 1px solid var(--border-primary);
+    }
+
+    /* Compliance Score Section */
     .compliance-section {
         background: var(--bg-card);
-        border: 1px solid var(--border-color);
-        border-radius: 20px;
-        padding: 2rem;
-        margin-bottom: 2rem;
-        box-shadow: var(--card-shadow);
+        border: 1px solid var(--border-primary);
+        border-radius: 32px;
+        padding: 3rem;
+        margin-bottom: 3rem;
+        box-shadow: var(--shadow-lg);
         position: relative;
-        z-index: 5;
+        overflow: hidden;
+    }
+
+    .compliance-section::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: radial-gradient(circle at 50% 0%, rgba(124, 58, 237, 0.03) 0%, transparent 70%);
+        pointer-events: none;
     }
 
     .compliance-header {
         text-align: center;
-        margin-bottom: 2rem;
+        margin-bottom: 3rem;
+        position: relative;
+        z-index: 1;
     }
 
     .compliance-title {
-        font-size: 1.5rem;
-        font-weight: 600;
-        color: var(--text-primary);
+        font-size: 2.5rem;
+        font-weight: 800;
+        background: var(--accent-gradient);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
         margin-bottom: 0.5rem;
     }
 
     .compliance-subtitle {
         color: var(--text-secondary);
+        font-size: 1.2rem;
+        font-weight: 500;
     }
 
     .score-visual {
         display: flex;
         justify-content: center;
         align-items: center;
-        margin-bottom: 2rem;
+        margin-bottom: 3rem;
+        position: relative;
+        z-index: 1;
     }
 
     .score-circle-container {
         position: relative;
-        width: 200px;
-        height: 200px;
+        width: 280px;
+        height: 280px;
         margin: 0 auto;
     }
 
@@ -143,8 +321,10 @@
         width: 100%;
         height: 100%;
         border-radius: 50%;
-        background: var(--bg-hover);
-        box-shadow: inset 0 0 20px rgba(0,0,0,0.3);
+        background: var(--bg-secondary);
+        box-shadow: 
+            inset 0 0 30px rgba(0, 0, 0, 0.1),
+            0 10px 40px rgba(124, 58, 237, 0.1);
     }
 
     .score-circle-progress {
@@ -153,12 +333,14 @@
         height: 100%;
         border-radius: 50%;
         background: conic-gradient(
+            from -90deg,
             var(--accent-primary) 0deg,
             var(--accent-secondary) calc(var(--progress, {{ compliance_score }}) * 3.6deg),
-            var(--bg-hover) calc(var(--progress, {{ compliance_score }}) * 3.6deg)
+            var(--bg-secondary) calc(var(--progress, {{ compliance_score }}) * 3.6deg)
         );
-        transform: rotate(-90deg);
-        transition: all 1s ease-out;
+        transform: rotate(0deg);
+        transition: all 2s cubic-bezier(0.4, 0, 0.2, 1);
+        filter: drop-shadow(0 0 20px rgba(124, 58, 237, 0.3));
     }
 
     .score-circle-inner {
@@ -174,84 +356,159 @@
         flex-direction: column;
         align-items: center;
         justify-content: center;
-        box-shadow: 0 0 20px rgba(0,0,0,0.3);
+        box-shadow: 
+            0 0 40px rgba(0, 0, 0, 0.1),
+            inset 0 0 20px rgba(124, 58, 237, 0.05);
         z-index: 10;
     }
 
     .score-value {
-        font-size: 3rem;
-        font-weight: 800;
+        font-size: 4rem;
+        font-weight: 900;
         background: var(--accent-gradient);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
+        line-height: 1;
+        margin-bottom: 0.5rem;
+        text-shadow: 0 0 30px rgba(124, 58, 237, 0.3);
     }
 
     .score-label {
-        font-size: 0.9rem;
+        font-size: 1.1rem;
         color: var(--text-secondary);
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
     }
 
     .score-grade {
         text-align: center;
-        font-size: 1.2rem;
-        color: var(--text-primary);
-        margin-top: 1rem;
+        margin-top: 2rem;
+        position: relative;
+        z-index: 1;
     }
 
+    .grade-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.75rem;
+        padding: 1rem 2rem;
+        border-radius: 25px;
+        font-size: 1.5rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        transition: all 0.3s ease;
+    }
+
+    .grade-badge:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
+    }
+
+    .grade-excellent {
+        background: linear-gradient(135deg, var(--success) 0%, #059669 100%);
+        color: white;
+    }
+
+    .grade-good {
+        background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+        color: white;
+    }
+
+    .grade-average {
+        background: linear-gradient(135deg, var(--warning) 0%, #d97706 100%);
+        color: white;
+    }
+
+    .grade-poor {
+        background: linear-gradient(135deg, var(--error) 0%, #dc2626 100%);
+        color: white;
+    }
+
+    /* Stats Overview */
     .stats-overview {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-        gap: 1.5rem;
-        margin-bottom: 2rem;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 2rem;
+        margin-bottom: 3rem;
     }
 
     .stat-mini {
         background: var(--bg-card);
-        border: 1px solid var(--border-color);
-        border-radius: 16px;
-        padding: 1.5rem;
+        border: 1px solid var(--border-primary);
+        border-radius: 20px;
+        padding: 2rem;
         text-align: center;
-        transition: all var(--transition-speed);
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        cursor: pointer;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .stat-mini::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 4px;
+        background: var(--accent-gradient);
+        transform: scaleX(0);
+        transition: transform 0.3s ease;
     }
 
     .stat-mini:hover {
-        transform: translateY(-5px);
-        box-shadow: var(--hover-shadow);
+        transform: translateY(-8px);
+        box-shadow: 0 20px 40px rgba(124, 58, 237, 0.15);
         border-color: var(--accent-primary);
     }
 
+    .stat-mini:hover::before {
+        transform: scaleX(1);
+    }
+
     .stat-mini-icon {
-        font-size: 2rem;
-        margin-bottom: 0.5rem;
+        font-size: 3rem;
+        margin-bottom: 1rem;
+        background: var(--accent-gradient);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        display: block;
     }
 
     .stat-mini-value {
-        font-size: 1.5rem;
-        font-weight: 700;
-        color: var(--accent-primary);
+        font-size: 2rem;
+        font-weight: 800;
+        color: var(--text-primary);
+        margin-bottom: 0.5rem;
+        line-height: 1;
     }
 
     .stat-mini-label {
-        font-size: 0.9rem;
+        font-size: 1rem;
         color: var(--text-secondary);
+        font-weight: 500;
     }
 
+    /* Info Grid */
     .info-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-        gap: 1.5rem;
-        margin-bottom: 2rem;
+        grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+        gap: 2rem;
+        margin-bottom: 3rem;
     }
 
     .info-card {
         background: var(--bg-card);
-        border: 1px solid var(--border-color);
-        border-radius: 16px;
-        padding: 1.5rem;
-        box-shadow: var(--card-shadow);
-        transition: all var(--transition-speed);
+        border: 1px solid var(--border-primary);
+        border-radius: 24px;
+        padding: 2.5rem;
+        box-shadow: var(--shadow-sm);
+        transition: all 0.3s ease;
         position: relative;
-        overflow: visible;
+        overflow: hidden;
     }
 
     .info-card::before {
@@ -260,15 +517,15 @@
         top: 0;
         left: 0;
         right: 0;
-        height: 3px;
+        height: 4px;
         background: var(--accent-gradient);
         transform: scaleX(0);
-        transition: transform var(--transition-speed);
+        transition: transform 0.3s ease;
     }
 
     .info-card:hover {
-        transform: translateY(-5px);
-        box-shadow: var(--hover-shadow);
+        transform: translateY(-6px);
+        box-shadow: var(--shadow-xl);
         border-color: var(--accent-primary);
     }
 
@@ -277,34 +534,38 @@
     }
 
     .info-card-title {
-        font-size: 1.1rem;
-        font-weight: 600;
+        font-size: 1.4rem;
+        font-weight: 700;
         color: var(--text-primary);
-        margin-bottom: 1rem;
+        margin-bottom: 2rem;
         display: flex;
         align-items: center;
-        gap: 0.5rem;
+        gap: 1rem;
+        padding-bottom: 1rem;
+        border-bottom: 1px solid var(--border-primary);
     }
 
     .info-card-title i {
         color: var(--accent-primary);
+        font-size: 1.25rem;
     }
 
     .info-item {
         display: flex;
         justify-content: space-between;
         align-items: flex-start;
-        padding: 0.8rem 0;
-        border-bottom: 1px solid var(--border-color);
-        transition: all var(--transition-speed);
-        gap: 1rem;
+        padding: 1rem 0;
+        border-bottom: 1px solid var(--border-primary);
+        transition: all 0.3s ease;
+        gap: 1.5rem;
     }
 
     .info-item:hover {
-        padding-left: 0.5rem;
+        padding-left: 1rem;
         background: var(--bg-hover);
-        margin: 0 -0.5rem;
-        padding-right: 0.5rem;
+        margin: 0 -1rem;
+        padding-right: 1rem;
+        border-radius: 12px;
     }
 
     .info-item:last-child {
@@ -313,9 +574,10 @@
 
     .info-label {
         color: var(--text-secondary);
-        font-weight: 500;
+        font-weight: 600;
         flex-shrink: 0;
-        min-width: 120px;
+        min-width: 140px;
+        font-size: 0.95rem;
     }
 
     .info-value {
@@ -324,71 +586,125 @@
         text-align: right;
         word-break: break-word;
         flex: 1;
+        font-size: 0.95rem;
     }
 
+    /* Status Badges */
     .status-badge {
         display: inline-flex;
         align-items: center;
-        gap: 0.3rem;
-        padding: 0.4rem 1rem;
-        border-radius: 20px;
-        font-size: 0.85rem;
+        gap: 0.5rem;
+        padding: 0.6rem 1.2rem;
+        border-radius: 25px;
+        font-size: 0.9rem;
         font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        transition: all 0.3s ease;
     }
 
     .status-active {
-        background: rgba(16, 185, 129, 0.2);
+        background: rgba(16, 185, 129, 0.1);
         color: var(--success);
         border: 1px solid var(--success);
     }
 
     .status-active::before {
         content: '●';
-        animation: pulse 2s ease-in-out infinite;
+        animation: statusPulse 2s ease-in-out infinite;
     }
 
     .status-inactive {
-        background: rgba(239, 68, 68, 0.2);
+        background: rgba(239, 68, 68, 0.1);
         color: var(--error);
         border: 1px solid var(--error);
     }
 
+    /* Returns Analysis */
     .returns-analysis {
         background: var(--bg-card);
-        border: 1px solid var(--border-color);
-        border-radius: 20px;
-        padding: 2rem;
-        margin-bottom: 2rem;
-        box-shadow: var(--card-shadow);
+        border: 1px solid var(--border-primary);
+        border-radius: 32px;
+        padding: 3rem;
+        margin-bottom: 3rem;
+        box-shadow: var(--shadow-lg);
+        position: relative;
     }
 
     .returns-header {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        margin-bottom: 2rem;
+        margin-bottom: 2.5rem;
+        flex-wrap: wrap;
+        gap: 1.5rem;
     }
 
     .returns-title {
-        font-size: 1.5rem;
+        font-size: 2rem;
         color: var(--text-primary);
         display: flex;
         align-items: center;
-        gap: 0.5rem;
+        gap: 1rem;
+        font-weight: 700;
+        margin: 0;
     }
 
+    .returns-controls {
+        display: flex;
+        gap: 1rem;
+        align-items: center;
+    }
+
+    .returns-filter {
+        padding: 0.75rem 1rem;
+        background: var(--bg-input);
+        border: 1px solid var(--border-primary);
+        border-radius: 12px;
+        color: var(--text-primary);
+        font-size: 0.875rem;
+        transition: all 0.3s ease;
+    }
+
+    .returns-filter:focus {
+        outline: none;
+        border-color: var(--accent-primary);
+        box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.1);
+    }
+
+    .toggle-view-btn {
+        padding: 0.75rem 1.25rem;
+        background: var(--bg-secondary);
+        border: 1px solid var(--border-primary);
+        border-radius: 12px;
+        color: var(--text-secondary);
+        cursor: pointer;
+        transition: all 0.3s ease;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-weight: 500;
+    }
+
+    .toggle-view-btn:hover {
+        background: var(--accent-primary);
+        border-color: var(--accent-primary);
+        color: white;
+    }
+
+    /* Late Filing Alert */
     .late-filing-alert {
         background: linear-gradient(135deg, rgba(245, 158, 11, 0.1) 0%, rgba(217, 119, 6, 0.1) 100%);
         border: 1px solid var(--warning);
-        border-radius: 12px;
-        padding: 1.5rem;
-        margin-bottom: 1.5rem;
+        border-radius: 20px;
+        padding: 2rem;
+        margin-bottom: 2rem;
         display: flex;
         align-items: center;
-        gap: 1rem;
-        animation: alertPulse 2s ease-in-out infinite;
+        gap: 1.5rem;
+        animation: alertGlow 3s ease-in-out infinite;
         position: relative;
-        z-index: 3;
+        overflow: hidden;
     }
 
     .late-filing-alert.critical {
@@ -396,62 +712,101 @@
         border-color: var(--error);
     }
 
-    @keyframes alertPulse {
-        0%, 100% { transform: scale(1); }
-        50% { transform: scale(1.02); }
+    @keyframes alertGlow {
+        0%, 100% { box-shadow: 0 0 20px rgba(245, 158, 11, 0.2); }
+        50% { box-shadow: 0 0 30px rgba(245, 158, 11, 0.4); }
     }
 
     .alert-icon {
-        font-size: 2rem;
-        animation: shake 2s ease-in-out infinite;
+        font-size: 3rem;
+        flex-shrink: 0;
+        animation: alertShake 2s ease-in-out infinite;
     }
 
-    @keyframes shake {
+    @keyframes alertShake {
         0%, 100% { transform: rotate(0deg); }
-        25% { transform: rotate(-5deg); }
-        75% { transform: rotate(5deg); }
+        25% { transform: rotate(-3deg); }
+        75% { transform: rotate(3deg); }
     }
 
+    .alert-content {
+        flex: 1;
+    }
+
+    .alert-title {
+        font-size: 1.3rem;
+        font-weight: 700;
+        color: var(--warning);
+        margin-bottom: 0.5rem;
+    }
+
+    .alert-description {
+        color: var(--text-primary);
+        line-height: 1.6;
+        margin-bottom: 1rem;
+    }
+
+    .alert-stats {
+        display: flex;
+        gap: 2rem;
+        font-size: 0.9rem;
+        color: var(--text-secondary);
+        flex-wrap: wrap;
+    }
+
+    /* Returns Summary */
     .returns-summary-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-        gap: 1rem;
-        margin-bottom: 1.5rem;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 1.5rem;
+        margin-bottom: 2.5rem;
     }
 
     .summary-stat {
-        background: var(--bg-hover);
-        border-radius: 12px;
-        padding: 1.5rem;
+        background: var(--bg-secondary);
+        border-radius: 16px;
+        padding: 2rem;
         text-align: center;
-        border: 1px solid var(--border-color);
+        border: 1px solid var(--border-primary);
+        transition: all 0.3s ease;
+        cursor: pointer;
+    }
+
+    .summary-stat:hover {
+        transform: translateY(-4px);
+        box-shadow: var(--shadow-lg);
+        border-color: var(--accent-primary);
     }
 
     .summary-stat-value {
-        font-size: 2rem;
-        font-weight: 700;
-        color: var(--accent-primary);
-        margin-bottom: 0.25rem;
+        font-size: 2.5rem;
+        font-weight: 800;
+        background: var(--accent-gradient);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        margin-bottom: 0.5rem;
+        line-height: 1;
     }
 
     .summary-stat-label {
-        font-size: 0.875rem;
+        font-size: 0.95rem;
         color: var(--text-secondary);
+        font-weight: 600;
     }
 
+    /* Returns Accordion */
     .returns-accordion {
         background: var(--bg-secondary);
-        border-radius: 12px;
-        overflow: visible;
-        margin-top: 1rem;
-        position: relative;
-        z-index: 1;
+        border-radius: 20px;
+        overflow: hidden;
+        margin-top: 2rem;
+        border: 1px solid var(--border-primary);
+        box-shadow: var(--shadow-sm);
     }
 
     .returns-category {
-        border-bottom: 1px solid var(--border-color);
-        position: relative;
-        isolation: isolate;
+        border-bottom: 1px solid var(--border-primary);
+        transition: all 0.3s ease;
     }
 
     .returns-category:last-child {
@@ -459,16 +814,15 @@
     }
 
     .category-header {
-        padding: 1.5rem;
+        padding: 2rem;
         background: var(--bg-hover);
         cursor: pointer;
         display: flex;
         justify-content: space-between;
         align-items: center;
-        transition: all 0.3s;
+        transition: all 0.3s ease;
         user-select: none;
         position: relative;
-        z-index: 2;
     }
 
     .category-header:hover {
@@ -476,29 +830,45 @@
         color: white;
     }
 
+    .category-header.active {
+        background: var(--accent-primary);
+        color: white;
+    }
+
     .category-info {
         display: flex;
         align-items: center;
-        gap: 1rem;
+        gap: 1.5rem;
     }
 
     .category-title {
-        font-weight: 600;
-        font-size: 1.1rem;
+        font-weight: 700;
+        font-size: 1.3rem;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+
+    .category-tooltip {
+        cursor: help;
+        opacity: 0.7;
+        font-size: 1rem;
     }
 
     .category-count {
-        background: var(--accent-gradient);
-        color: white;
-        padding: 0.25rem 0.75rem;
+        background: rgba(255, 255, 255, 0.2);
+        color: inherit;
+        padding: 0.5rem 1rem;
         border-radius: 20px;
-        font-size: 0.875rem;
+        font-size: 0.9rem;
         font-weight: 600;
+        min-width: 40px;
+        text-align: center;
     }
 
     .category-toggle {
-        font-size: 1.2rem;
-        transition: transform 0.3s;
+        font-size: 1.5rem;
+        transition: transform 0.3s ease;
     }
 
     .category-header.active .category-toggle {
@@ -509,16 +879,15 @@
         max-height: 0;
         overflow: hidden;
         transition: max-height 0.5s cubic-bezier(0.4, 0, 0.2, 1);
-        position: relative;
-        z-index: 1;
         background: var(--bg-card);
     }
 
     .category-content.active {
-        max-height: 2000px;
+        max-height: 3000px;
         overflow: visible;
     }
 
+    /* Returns Table */
     .returns-table {
         width: 100%;
         background: var(--bg-card);
@@ -529,253 +898,570 @@
 
     .returns-table th {
         background: var(--bg-secondary);
-        padding: 1rem;
+        padding: 1.5rem;
         text-align: left;
-        font-weight: 600;
+        font-weight: 700;
         color: var(--text-primary);
-        font-size: 0.9rem;
-        border-bottom: 1px solid var(--border-color);
+        font-size: 1rem;
+        border-bottom: 2px solid var(--border-primary);
         position: sticky;
         top: 0;
         z-index: 10;
     }
 
     .returns-table td {
-        padding: 1rem;
-        border-bottom: 1px solid var(--border-color);
+        padding: 1.5rem;
+        border-bottom: 1px solid var(--border-primary);
         color: var(--text-primary);
-        font-size: 0.9rem;
-        vertical-align: top;
+        font-size: 0.95rem;
+        vertical-align: middle;
+    }
+
+    .returns-table tbody tr {
+        transition: all 0.3s ease;
     }
 
     .returns-table tbody tr:hover {
         background: var(--bg-hover);
+        transform: translateX(4px);
     }
 
     .filing-status {
         display: inline-flex;
         align-items: center;
-        gap: 0.25rem;
-        padding: 0.25rem 0.75rem;
-        border-radius: 12px;
-        font-size: 0.8rem;
+        gap: 0.5rem;
+        padding: 0.5rem 1rem;
+        border-radius: 20px;
+        font-size: 0.85rem;
         font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
     }
 
     .status-on-time {
-        background: rgba(16, 185, 129, 0.2);
+        background: rgba(16, 185, 129, 0.1);
         color: var(--success);
+        border: 1px solid var(--success);
     }
 
     .status-late {
-        background: rgba(239, 68, 68, 0.2);
+        background: rgba(239, 68, 68, 0.1);
         color: var(--error);
+        border: 1px solid var(--error);
     }
 
     .return-type-badge {
         background: var(--accent-gradient);
         color: white;
-        padding: 0.25rem 0.5rem;
-        border-radius: 6px;
-        font-size: 0.8rem;
+        padding: 0.4rem 0.8rem;
+        border-radius: 8px;
+        font-size: 0.85rem;
         font-weight: 600;
         display: inline-block;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
     }
 
+    /* Action Buttons */
     .action-buttons {
         display: flex;
-        gap: 1rem;
-        margin-top: 2rem;
+        gap: 1.5rem;
+        margin-top: 3rem;
         flex-wrap: wrap;
         justify-content: center;
+        padding: 2rem;
+        background: var(--bg-secondary);
+        border-radius: 24px;
+        border: 1px solid var(--border-primary);
     }
 
     .action-btn {
-        padding: 1rem 2rem;
-        border-radius: 12px;
+        padding: 1.25rem 2.5rem;
+        border-radius: 16px;
         text-decoration: none;
-        font-weight: 600;
-        transition: all var(--transition-speed);
+        font-weight: 700;
+        font-size: 1.1rem;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         display: inline-flex;
         align-items: center;
-        gap: 0.5rem;
+        gap: 0.75rem;
         border: none;
         cursor: pointer;
         position: relative;
         overflow: hidden;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+    }
+
+    .action-btn::before {
+        content: '';
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        width: 0;
+        height: 0;
+        background: rgba(255, 255, 255, 0.2);
+        border-radius: 50%;
+        transform: translate(-50%, -50%);
+        transition: width 0.6s, height 0.6s;
+    }
+
+    .action-btn:hover::before {
+        width: 300px;
+        height: 300px;
+    }
+
+    .action-btn:hover {
+        transform: translateY(-4px);
     }
 
     .pdf-btn {
         background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
         color: white;
-        box-shadow: 0 4px 20px rgba(239, 68, 68, 0.3);
+        box-shadow: 0 8px 32px rgba(239, 68, 68, 0.3);
+    }
+
+    .pdf-btn:hover {
+        box-shadow: 0 12px 40px rgba(239, 68, 68, 0.5);
     }
 
     .share-btn {
         background: linear-gradient(135deg, #10b981 0%, #059669 100%);
         color: white;
-        box-shadow: 0 4px 20px rgba(16, 185, 129, 0.3);
+        box-shadow: 0 8px 32px rgba(16, 185, 129, 0.3);
+    }
+
+    .share-btn:hover {
+        box-shadow: 0 12px 40px rgba(16, 185, 129, 0.5);
     }
 
     .print-btn {
         background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
         color: white;
-        box-shadow: 0 4px 20px rgba(59, 130, 246, 0.3);
+        box-shadow: 0 8px 32px rgba(59, 130, 246, 0.3);
     }
 
-    .action-btn:hover {
-        transform: translateY(-3px);
+    .print-btn:hover {
+        box-shadow: 0 12px 40px rgba(59, 130, 246, 0.5);
     }
 
-    /* Mobile Responsive */
-    @media (max-width: 768px) {
-        .container {
-            padding: 1rem;
-        }
-        
-        .company-name {
-            font-size: 1.8rem;
-        }
-        
+    .bookmark-btn {
+        background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+        color: white;
+        box-shadow: 0 8px 32px rgba(139, 92, 246, 0.3);
+    }
+
+    .bookmark-btn:hover {
+        box-shadow: 0 12px 40px rgba(139, 92, 246, 0.5);
+    }
+
+    /* Loading States */
+    .loading-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.6);
+        backdrop-filter: blur(8px);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        z-index: 9999;
+    }
+
+    .loading-overlay.active {
+        display: flex;
+    }
+
+    .loading-content {
+        background: var(--bg-card);
+        border: 1px solid var(--border-primary);
+        border-radius: 24px;
+        padding: 3rem;
+        text-align: center;
+        box-shadow: var(--shadow-xl);
+        max-width: 400px;
+        width: 90%;
+    }
+
+    .loading-spinner {
+        width: 60px;
+        height: 60px;
+        border: 4px solid var(--border-primary);
+        border-top: 4px solid var(--accent-primary);
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+        margin: 0 auto 1.5rem;
+    }
+
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+
+    .loading-text {
+        color: var(--text-primary);
+        font-size: 1.1rem;
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+    }
+
+    .loading-subtext {
+        color: var(--text-secondary);
+        font-size: 0.9rem;
+    }
+
+    /* Responsive Design */
+    @media (max-width: 1200px) {
         .info-grid {
             grid-template-columns: 1fr;
         }
-        
-        .returns-table {
-            font-size: 0.8rem;
+    }
+
+    @media (max-width: 768px) {
+        .company-name {
+            font-size: 2rem;
         }
-        
+
+        .company-gstin {
+            font-size: 1.1rem;
+        }
+
+        .company-header {
+            padding: 2.5rem 2rem;
+        }
+
+        .back-navigation {
+            flex-direction: column;
+            align-items: stretch;
+        }
+
+        .page-actions {
+            justify-content: center;
+        }
+
+        .compliance-section,
+        .synopsis-section,
+        .returns-analysis {
+            padding: 2rem;
+        }
+
+        .compliance-title {
+            font-size: 2rem;
+        }
+
+        .score-circle-container {
+            width: 220px;
+            height: 220px;
+        }
+
+        .score-value {
+            font-size: 3rem;
+        }
+
+        .stats-overview {
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1rem;
+        }
+
+        .stat-mini {
+            padding: 1.5rem;
+        }
+
+        .returns-table {
+            font-size: 0.875rem;
+        }
+
         .returns-table th,
         .returns-table td {
-            padding: 0.75rem 0.5rem;
+            padding: 1rem 0.75rem;
         }
-        
-        .category-content {
-            overflow-x: auto;
-            -webkit-overflow-scrolling: touch;
+
+        .category-header {
+            padding: 1.5rem;
         }
-        
+
+        .action-buttons {
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .action-btn {
+            justify-content: center;
+            padding: 1rem 2rem;
+        }
+
         .info-item {
             flex-direction: column;
             align-items: flex-start;
             gap: 0.5rem;
         }
-        
+
         .info-label {
             min-width: auto;
+            font-weight: 500;
         }
-        
+
         .info-value {
             text-align: left;
         }
-        
-        .hide-mobile {
-            display: none;
+    }
+
+    @media (max-width: 480px) {
+        .company-header {
+            padding: 2rem 1.5rem;
         }
-        
-        .action-buttons {
-            flex-direction: column;
+
+        .company-name {
+            font-size: 1.6rem;
+        }
+
+        .synopsis-section,
+        .compliance-section,
+        .returns-analysis {
+            padding: 1.5rem;
+        }
+
+        .score-circle-container {
+            width: 180px;
+            height: 180px;
+        }
+
+        .score-value {
+            font-size: 2.5rem;
+        }
+
+        .stats-overview {
+            grid-template-columns: 1fr;
+        }
+
+        .returns-summary-grid {
+            grid-template-columns: repeat(2, 1fr);
+        }
+
+        .category-content {
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .returns-table {
+            min-width: 600px;
+        }
+
+        .quick-action-btn {
+            font-size: 0.8rem;
+            padding: 0.6rem 1rem;
+        }
+    }
+
+    /* Print Styles */
+    @media print {
+        .back-navigation,
+        .action-buttons,
+        .quick-action-btn,
+        .toggle-view-btn,
+        .returns-filter {
+            display: none !important;
+        }
+
+        .company-header,
+        .compliance-section,
+        .synopsis-section,
+        .returns-analysis,
+        .info-card {
+            break-inside: avoid;
+            box-shadow: none !important;
+            border: 1px solid #ddd !important;
+        }
+
+        .company-header {
+            background: #f8f9fa !important;
+            color: #000 !important;
+        }
+
+        .score-circle-progress {
+            filter: none !important;
+        }
+    }
+
+    /* High Contrast Mode */
+    @media (prefers-contrast: high) {
+        .status-badge,
+        .filing-status,
+        .grade-badge {
+            border-width: 2px;
+        }
+
+        .score-circle-progress {
+            filter: contrast(1.5);
+        }
+    }
+
+    /* Reduced Motion */
+    @media (prefers-reduced-motion: reduce) {
+        *,
+        *::before,
+        *::after {
+            animation-duration: 0.01ms !important;
+            animation-iteration-count: 1 !important;
+            transition-duration: 0.01ms !important;
         }
     }
 </style>
 
 <!-- Back Navigation -->
-<a href="/" class="back-btn">
-    <i class="fas fa-arrow-left"></i>
-    Back to Dashboard
-</a>
+<section class="back-navigation">
+    <a href="/" class="back-btn" aria-label="Return to dashboard">
+        <i class="fas fa-arrow-left" aria-hidden="true"></i>
+        <span>Back to Dashboard</span>
+    </a>
+    <div class="page-actions">
+        <a href="/analytics" class="quick-action-btn" title="View Analytics">
+            <i class="fas fa-chart-bar" aria-hidden="true"></i>
+            <span>Analytics</span>
+        </a>
+        <a href="/history" class="quick-action-btn" title="View History">
+            <i class="fas fa-history" aria-hidden="true"></i>
+            <span>History</span>
+        </a>
+    </div>
+</section>
 
 <!-- Company Header -->
-<div class="company-header gradient-animate glow-lg">
-    <h1 class="company-name">{{ company_data.lgnm }}</h1>
-    <p class="company-gstin">GSTIN: {{ company_data.gstin }}</p>
-</div>
+<section class="company-header">
+    <div class="company-header-content">
+        <h1 class="company-name">{{ company_data.lgnm }}</h1>
+        <div class="company-gstin" aria-label="GST Identification Number">{{ company_data.gstin }}</div>
+        <div class="company-status">
+            {% if company_data.sts == 'Active' %}
+                <div class="status-dot" aria-label="Status indicator"></div>
+                <span>{{ company_data.sts or 'Active' }} Registration</span>
+            {% else %}
+                <span>{{ company_data.sts or 'Inactive' }} Registration</span>
+            {% endif %}
+        </div>
+    </div>
+</section>
 
 <!-- AI Synopsis Section -->
 {% if synopsis %}
-<div class="synopsis-section">
-    <h2 class="synopsis-title">
-        <i class="fas fa-robot"></i>
-        AI-Generated Company Overview
-        <span class="ai-badge">Powered by AI</span>
-    </h2>
+<section class="synopsis-section">
+    <div class="synopsis-header">
+        <h2 class="synopsis-title">
+            <i class="fas fa-robot" aria-hidden="true"></i>
+            AI-Generated Company Overview
+        </h2>
+        <div class="ai-badge">
+            <i class="fas fa-sparkles" aria-hidden="true"></i>
+            Powered by AI
+        </div>
+    </div>
     <div class="synopsis-content">
         {{ synopsis }}
     </div>
-    <div style="margin-top: 1rem; display: flex; gap: 1rem; flex-wrap: wrap;">
-        <span style="color: var(--text-secondary); font-size: 0.9rem;">
-            <i class="fas fa-info-circle"></i> Generated using advanced AI analysis
-        </span>
-        <span style="color: var(--text-secondary); font-size: 0.9rem;">
-            <i class="fas fa-clock"></i> Updated: Just now
-        </span>
+    <div class="synopsis-meta">
+        <div class="synopsis-meta-item">
+            <i class="fas fa-brain" aria-hidden="true"></i>
+            <span>Advanced AI Analysis</span>
+        </div>
+        <div class="synopsis-meta-item">
+            <i class="fas fa-clock" aria-hidden="true"></i>
+            <span>Generated: Just now</span>
+        </div>
+        <div class="synopsis-meta-item">
+            <i class="fas fa-shield-check" aria-hidden="true"></i>
+            <span>Verified Data Sources</span>
+        </div>
     </div>
-</div>
+</section>
 {% endif %}
 
 <!-- Compliance Score Section -->
-<div class="compliance-section">
+<section class="compliance-section">
     <div class="compliance-header">
         <h2 class="compliance-title">Compliance Score Analysis</h2>
-        <p class="compliance-subtitle">Based on multiple compliance factors and filing history</p>
+        <p class="compliance-subtitle">Comprehensive assessment based on filing history, compliance patterns, and regulatory adherence</p>
     </div>
     
     <div class="score-visual">
         <div class="score-circle-container">
             <div class="score-circle-bg"></div>
-            <div class="score-circle-progress" style="--progress: {{ compliance_score }}"></div>
+            <div class="score-circle-progress" style="--progress: {{ compliance_score }}" aria-label="Compliance score {{ compliance_score }}%"></div>
             <div class="score-circle-inner">
-                <div class="score-value" id="scoreValue">{{ compliance_score }}%</div>
-                <div class="score-label">Overall Score</div>
+                <div class="score-value" id="scoreValue">0%</div>
+                <div class="score-label">Compliance Score</div>
             </div>
         </div>
     </div>
     
     <div class="score-grade">
         {% if compliance_score >= 90 %}
-            <span style="color: var(--success); font-size: 1.2rem; font-weight: 600;">Grade A+ (Excellent)</span>
+            <div class="grade-badge grade-excellent">
+                <i class="fas fa-star" aria-hidden="true"></i>
+                <span>Grade A+ (Excellent)</span>
+            </div>
         {% elif compliance_score >= 80 %}
-            <span style="color: var(--success); font-size: 1.2rem; font-weight: 600;">Grade A (Very Good)</span>
+            <div class="grade-badge grade-good">
+                <i class="fas fa-thumbs-up" aria-hidden="true"></i>
+                <span>Grade A (Very Good)</span>
+            </div>
         {% elif compliance_score >= 70 %}
-            <span style="color: var(--warning); font-size: 1.2rem; font-weight: 600;">Grade B (Good)</span>
+            <div class="grade-badge grade-average">
+                <i class="fas fa-check" aria-hidden="true"></i>
+                <span>Grade B (Good)</span>
+            </div>
         {% elif compliance_score >= 60 %}
-            <span style="color: var(--warning); font-size: 1.2rem; font-weight: 600;">Grade C (Average)</span>
+            <div class="grade-badge grade-average">
+                <i class="fas fa-minus" aria-hidden="true"></i>
+                <span>Grade C (Average)</span>
+            </div>
         {% else %}
-            <span style="color: var(--error); font-size: 1.2rem; font-weight: 600;">Grade D (Needs Improvement)</span>
+            <div class="grade-badge grade-poor">
+                <i class="fas fa-exclamation-triangle" aria-hidden="true"></i>
+                <span>Grade D (Needs Improvement)</span>
+            </div>
         {% endif %}
     </div>
-</div>
+</section>
 
 <!-- Stats Overview -->
-<div class="stats-overview">
-    <div class="stat-mini">
+<section class="stats-overview">
+    <div class="stat-mini" tabindex="0" role="button" aria-label="Registration status information">
         <div class="stat-mini-icon">✅</div>
-        <div class="stat-mini-value">{{ company_data.sts or 'N/A' }}</div>
-        <div class="stat-mini-label">Status</div>
+        <div class="stat-mini-value">{{ company_data.sts or 'Active' }}</div>
+        <div class="stat-mini-label">GST Status</div>
     </div>
-    <div class="stat-mini">
+    <div class="stat-mini" tabindex="0" role="button" aria-label="Registration date information">
         <div class="stat-mini-icon">📅</div>
         <div class="stat-mini-value">{{ company_data.rgdt or 'N/A' }}</div>
         <div class="stat-mini-label">Registration Date</div>
     </div>
-    <div class="stat-mini">
+    <div class="stat-mini" tabindex="0" role="button" aria-label="State location information">
         <div class="stat-mini-icon">📍</div>
-        <div class="stat-mini-value">{% if company_data.stj %}{{ company_data.stj.split('State - ')[1].split(',')[0] if 'State - ' in company_data.stj else 'N/A' }}{% else %}N/A{% endif %}</div>
+        <div class="stat-mini-value">
+            {% if company_data.stj %}
+                {{ company_data.stj.split('State - ')[1].split(',')[0] if 'State - ' in company_data.stj else 'N/A' }}
+            {% else %}
+                N/A
+            {% endif %}
+        </div>
         <div class="stat-mini-label">State</div>
     </div>
-    <div class="stat-mini">
+    <div class="stat-mini" tabindex="0" role="button" aria-label="Returns filed information">
         <div class="stat-mini-icon">📄</div>
         <div class="stat-mini-value">{{ company_data.returns|length if company_data.returns else 0 }}</div>
         <div class="stat-mini-label">Returns Filed</div>
     </div>
-</div>
+</section>
 
 <!-- Info Grid -->
-<div class="info-grid">
+<section class="info-grid">
     <!-- Basic Information -->
     <div class="info-card">
         <h3 class="info-card-title">
-            <i class="fas fa-building"></i>
+            <i class="fas fa-building" aria-hidden="true"></i>
             Basic Information
         </h3>
         <div class="info-item">
@@ -783,7 +1469,7 @@
             <span class="info-value">{{ company_data.tradeName or company_data.lgnm or 'N/A' }}</span>
         </div>
         <div class="info-item">
-            <span class="info-label" data-tooltip="The legal constitution of the business">Business Type</span>
+            <span class="info-label" title="The legal constitution of the business">Business Type</span>
             <span class="info-value">{{ company_data.ctb or 'N/A' }}</span>
         </div>
         <div class="info-item">
@@ -794,18 +1480,18 @@
             <span class="info-label">Status</span>
             <span class="info-value">
                 {% if company_data.sts == 'Active' %}
-                    <span class="status-badge status-active">Active</span>
+                    <span class="status-badge status-active">{{ company_data.sts }}</span>
                 {% else %}
                     <span class="status-badge status-inactive">{{ company_data.sts or 'Inactive' }}</span>
                 {% endif %}
             </span>
         </div>
         <div class="info-item">
-            <span class="info-label">PAN</span>
+            <span class="info-label">PAN Number</span>
             <span class="info-value">{{ company_data.pan or 'N/A' }}</span>
         </div>
         <div class="info-item">
-            <span class="info-label" data-tooltip="Company category under GST">Company Category</span>
+            <span class="info-label" title="Company category under GST">Company Category</span>
             <span class="info-value">{{ company_data.compCategory or 'N/A' }}</span>
         </div>
     </div>
@@ -813,11 +1499,11 @@
     <!-- Address Information -->
     <div class="info-card">
         <h3 class="info-card-title">
-            <i class="fas fa-map-marker-alt"></i>
+            <i class="fas fa-map-marker-alt" aria-hidden="true"></i>
             Address Details
         </h3>
         <div class="info-item">
-            <span class="info-label">Address</span>
+            <span class="info-label">Principal Address</span>
             <span class="info-value">{{ company_data.adr or 'N/A' }}</span>
         </div>
         <div class="info-item">
@@ -826,22 +1512,28 @@
         </div>
         <div class="info-item">
             <span class="info-label">State</span>
-            <span class="info-value">{% if company_data.stj %}{{ company_data.stj.split('State - ')[1].split(',')[0] if 'State - ' in company_data.stj else 'N/A' }}{% else %}N/A{% endif %}</span>
+            <span class="info-value">
+                {% if company_data.stj %}
+                    {{ company_data.stj.split('State - ')[1].split(',')[0] if 'State - ' in company_data.stj else 'N/A' }}
+                {% else %}
+                    N/A
+                {% endif %}
+            </span>
         </div>
         <div class="info-item">
-            <span class="info-label" data-tooltip="State GST jurisdiction">State Jurisdiction</span>
-            <span class="info-value" style="font-size: 0.9rem;">{{ company_data.stj or 'N/A' }}</span>
+            <span class="info-label" title="State GST jurisdiction">State Jurisdiction</span>
+            <span class="info-value" style="font-size: 0.85rem;">{{ company_data.stj or 'N/A' }}</span>
         </div>
         <div class="info-item">
-            <span class="info-label" data-tooltip="Central GST jurisdiction">Central Jurisdiction</span>
-            <span class="info-value" style="font-size: 0.9rem;">{{ company_data.ctj or 'N/A' }}</span>
+            <span class="info-label" title="Central GST jurisdiction">Central Jurisdiction</span>
+            <span class="info-value" style="font-size: 0.85rem;">{{ company_data.ctj or 'N/A' }}</span>
         </div>
     </div>
 
     <!-- Additional Information -->
     <div class="info-card">
         <h3 class="info-card-title">
-            <i class="fas fa-info-circle"></i>
+            <i class="fas fa-info-circle" aria-hidden="true"></i>
             Additional Details
         </h3>
         <div class="info-item">
@@ -852,7 +1544,7 @@
                         {{ activity }}{% if not loop.last %}, {% endif %}
                     {% endfor %}
                     {% if company_data.nba|length > 2 %}
-                        <span data-tooltip="{% for activity in company_data.nba[2:] %}{{ activity }}{% if not loop.last %}, {% endif %}{% endfor %}"> (+{{ company_data.nba|length - 2 }} more)</span>
+                        <span title="{% for activity in company_data.nba[2:] %}{{ activity }}{% if not loop.last %}, {% endif %}{% endfor %}"> (+{{ company_data.nba|length - 2 }} more)</span>
                     {% endif %}
                 {% else %}
                     N/A
@@ -860,11 +1552,11 @@
             </span>
         </div>
         <div class="info-item">
-            <span class="info-label" data-tooltip="E-invoicing system status">E-Invoice Status</span>
+            <span class="info-label" title="E-invoicing system status">E-Invoice Status</span>
             <span class="info-value">{{ company_data.einvoiceStatus or 'N/A' }}</span>
         </div>
         <div class="info-item">
-            <span class="info-label" data-tooltip="Type of duty applicable under GST">Duty Type</span>
+            <span class="info-label" title="Type of duty applicable under GST">Duty Type</span>
             <span class="info-value">{{ company_data.dty or 'N/A' }}</span>
         </div>
         <div class="info-item">
@@ -876,76 +1568,109 @@
             <span class="info-value">{{ company_data.meta.latestgtsr3b if company_data.meta and company_data.meta.latestgtsr3b else 'N/A' }}</span>
         </div>
     </div>
-</div>
+</section>
 
 <!-- GST Returns Analysis -->
 {% if company_data.returns %}
-<div class="returns-analysis">
+<section class="returns-analysis">
     <div class="returns-header">
         <h2 class="returns-title">
-            <i class="fas fa-file-invoice"></i>
+            <i class="fas fa-file-invoice" aria-hidden="true"></i>
             GST Returns Analysis
         </h2>
+        <div class="returns-controls">
+            <select class="returns-filter" id="returnsFilter" aria-label="Filter returns by type">
+                <option value="">All Returns</option>
+                <option value="GSTR1">GSTR-1 Only</option>
+                <option value="GSTR3B">GSTR-3B Only</option>
+                <option value="GSTR9">Annual Returns</option>
+            </select>
+            <button class="toggle-view-btn" id="toggleView" aria-label="Toggle table view">
+                <i class="fas fa-table" aria-hidden="true"></i>
+                <span>Table View</span>
+            </button>
+        </div>
     </div>
     
     <!-- Late Filing Alert -->
     {% if late_filing_analysis and late_filing_analysis.late_count > 0 %}
     <div class="late-filing-alert {% if late_filing_analysis.late_count > 5 %}critical{% endif %}">
         <div class="alert-icon">⚠️</div>
-        <div>
-            <div style="font-weight: 600; margin-bottom: 0.25rem;">Late Filing Alert</div>
-            <div>{{ late_filing_analysis.late_count }} returns filed late out of {{ late_filing_analysis.late_count + late_filing_analysis.on_time_count }} total returns</div>
-            <div style="font-size: 0.9rem; opacity: 0.8;">Average delay: {{ "%.1f"|format(late_filing_analysis.average_delay) }} days</div>
+        <div class="alert-content">
+            <div class="alert-title">Late Filing Alert</div>
+            <div class="alert-description">
+                This company has {{ late_filing_analysis.late_count }} returns filed late out of {{ late_filing_analysis.late_count + late_filing_analysis.on_time_count }} total returns.
+                This pattern may indicate compliance challenges that could affect business relationships.
+            </div>
+            <div class="alert-stats">
+                <div><strong>Average Delay:</strong> {{ "%.1f"|format(late_filing_analysis.average_delay) }} days</div>
+                <div><strong>On-Time Rate:</strong> {{ "%.1f"|format((late_filing_analysis.on_time_count / (late_filing_analysis.late_count + late_filing_analysis.on_time_count)) * 100) }}%</div>
+                <div><strong>Total Delay Days:</strong> {{ late_filing_analysis.total_delay_days }} days</div>
+            </div>
         </div>
     </div>
     {% endif %}
     
     <!-- Returns Summary Stats -->
     <div class="returns-summary-grid">
-        <div class="summary-stat">
+        <div class="summary-stat" tabindex="0" role="button" aria-label="Total returns filed">
             <div class="summary-stat-value">{{ company_data.returns|length }}</div>
             <div class="summary-stat-label">Total Returns</div>
         </div>
-        <div class="summary-stat">
+        <div class="summary-stat" tabindex="0" role="button" aria-label="GSTR-1 returns filed">
             <div class="summary-stat-value">{{ company_data.returns|selectattr('rtntype', 'equalto', 'GSTR1')|list|length }}</div>
             <div class="summary-stat-label">GSTR-1 Filed</div>
         </div>
-        <div class="summary-stat">
+        <div class="summary-stat" tabindex="0" role="button" aria-label="GSTR-3B returns filed">
             <div class="summary-stat-value">{{ company_data.returns|selectattr('rtntype', 'equalto', 'GSTR3B')|list|length }}</div>
             <div class="summary-stat-label">GSTR-3B Filed</div>
         </div>
-        <div class="summary-stat">
+        <div class="summary-stat" tabindex="0" role="button" aria-label="Annual returns filed">
             <div class="summary-stat-value">{{ company_data.returns|selectattr('rtntype', 'equalto', 'GSTR9')|list|length }}</div>
             <div class="summary-stat-label">Annual Returns</div>
         </div>
+        {% if late_filing_analysis %}
+        <div class="summary-stat" tabindex="0" role="button" aria-label="On-time returns filed">
+            <div class="summary-stat-value">{{ late_filing_analysis.on_time_count }}</div>
+            <div class="summary-stat-label">On-Time Filed</div>
+        </div>
+        <div class="summary-stat" tabindex="0" role="button" aria-label="Late returns filed">
+            <div class="summary-stat-value">{{ late_filing_analysis.late_count }}</div>
+            <div class="summary-stat-label">Late Filed</div>
+        </div>
+        {% endif %}
     </div>
     
     <!-- Returns Accordion -->
-    <div class="returns-accordion">
+    <div class="returns-accordion" id="returnsAccordion">
         <!-- GSTR-1 Category -->
         {% set gstr1_returns = company_data.returns|selectattr('rtntype', 'equalto', 'GSTR1')|list %}
         {% if gstr1_returns %}
-        <div class="returns-category">
-            <div class="category-header" onclick="toggleCategory(this)">
+        <div class="returns-category" data-return-type="GSTR1">
+            <div class="category-header" onclick="toggleCategory(this)" onkeydown="handleCategoryKeydown(event)" tabindex="0" role="button" aria-expanded="false">
                 <div class="category-info">
-                    <span class="category-title" data-tooltip="Monthly/quarterly return for outward supplies">GSTR-1</span>
+                    <span class="category-title">
+                        GSTR-1
+                        <i class="fas fa-info-circle category-tooltip" title="Monthly/quarterly return for outward supplies" aria-hidden="true"></i>
+                    </span>
                     <span class="category-count">{{ gstr1_returns|length }}</span>
                 </div>
-                <span class="category-toggle"><i class="fas fa-chevron-down"></i></span>
+                <span class="category-toggle"><i class="fas fa-chevron-down" aria-hidden="true"></i></span>
             </div>
             <div class="category-content">
-                <table class="returns-table">
+                <table class="returns-table" role="table" aria-label="GSTR-1 returns">
                     <thead>
-                        <tr>
-                            <th>Tax Period</th>
-                            <th>Financial Year</th>
-                            <th>Filing Date</th>
-                            <th>Status</th>
+                        <tr role="row">
+                            <th scope="col">Tax Period</th>
+                            <th scope="col">Financial Year</th>
+                            <th scope="col">Filing Date</th>
+                            <th scope="col">Status</th>
+                            <th scope="col">Details</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for r in gstr1_returns %}
-                        <tr>
+                        <tr role="row">
                             <td>{{ r.taxp }}</td>
                             <td>{{ r.fy }}</td>
                             <td>{{ r.dof }}</td>
@@ -953,13 +1678,28 @@
                                 {% if late_filing_analysis and late_filing_analysis.late_returns %}
                                     {% set is_late = late_filing_analysis.late_returns|selectattr('return.dof', 'equalto', r.dof)|list %}
                                     {% if is_late %}
-                                        <span class="filing-status status-late">Late by {{ is_late[0].delay_days }} days</span>
+                                        <span class="filing-status status-late">
+                                            <i class="fas fa-exclamation-triangle" aria-hidden="true"></i>
+                                            Late by {{ is_late[0].delay_days }} days
+                                        </span>
                                     {% else %}
-                                        <span class="filing-status status-on-time">On Time</span>
+                                        <span class="filing-status status-on-time">
+                                            <i class="fas fa-check" aria-hidden="true"></i>
+                                            On Time
+                                        </span>
                                     {% endif %}
                                 {% else %}
-                                    <span class="filing-status status-on-time">Filed</span>
+                                    <span class="filing-status status-on-time">
+                                        <i class="fas fa-check" aria-hidden="true"></i>
+                                        Filed
+                                    </span>
                                 {% endif %}
+                            </td>
+                            <td>
+                                <button class="quick-action-btn" onclick="showReturnDetails('{{ r.rtntype }}', '{{ r.taxp }}', '{{ r.fy }}')" title="View return details">
+                                    <i class="fas fa-eye" aria-hidden="true"></i>
+                                    View
+                                </button>
                             </td>
                         </tr>
                         {% endfor %}
@@ -972,27 +1712,31 @@
         <!-- GSTR-3B Category -->
         {% set gstr3b_returns = company_data.returns|selectattr('rtntype', 'equalto', 'GSTR3B')|list %}
         {% if gstr3b_returns %}
-        <div class="returns-category">
-            <div class="category-header" onclick="toggleCategory(this)">
+        <div class="returns-category" data-return-type="GSTR3B">
+            <div class="category-header" onclick="toggleCategory(this)" onkeydown="handleCategoryKeydown(event)" tabindex="0" role="button" aria-expanded="false">
                 <div class="category-info">
-                    <span class="category-title" data-tooltip="Monthly summary return">GSTR-3B</span>
+                    <span class="category-title">
+                        GSTR-3B
+                        <i class="fas fa-info-circle category-tooltip" title="Monthly summary return" aria-hidden="true"></i>
+                    </span>
                     <span class="category-count">{{ gstr3b_returns|length }}</span>
                 </div>
-                <i class="fas fa-chevron-down category-toggle"></i>
+                <i class="fas fa-chevron-down category-toggle" aria-hidden="true"></i>
             </div>
             <div class="category-content">
-                <table class="returns-table">
+                <table class="returns-table" role="table" aria-label="GSTR-3B returns">
                     <thead>
-                        <tr>
-                            <th>Tax Period</th>
-                            <th>Financial Year</th>
-                            <th>Filing Date</th>
-                            <th>Status</th>
+                        <tr role="row">
+                            <th scope="col">Tax Period</th>
+                            <th scope="col">Financial Year</th>
+                            <th scope="col">Filing Date</th>
+                            <th scope="col">Status</th>
+                            <th scope="col">Details</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for r in gstr3b_returns %}
-                        <tr>
+                        <tr role="row">
                             <td>{{ r.taxp }}</td>
                             <td>{{ r.fy }}</td>
                             <td>{{ r.dof }}</td>
@@ -1000,13 +1744,28 @@
                                 {% if late_filing_analysis and late_filing_analysis.late_returns %}
                                     {% set is_late = late_filing_analysis.late_returns|selectattr('return.dof', 'equalto', r.dof)|list %}
                                     {% if is_late %}
-                                        <span class="filing-status status-late">Late by {{ is_late[0].delay_days }} days</span>
+                                        <span class="filing-status status-late">
+                                            <i class="fas fa-exclamation-triangle" aria-hidden="true"></i>
+                                            Late by {{ is_late[0].delay_days }} days
+                                        </span>
                                     {% else %}
-                                        <span class="filing-status status-on-time">On Time</span>
+                                        <span class="filing-status status-on-time">
+                                            <i class="fas fa-check" aria-hidden="true"></i>
+                                            On Time
+                                        </span>
                                     {% endif %}
                                 {% else %}
-                                    <span class="filing-status status-on-time">Filed</span>
+                                    <span class="filing-status status-on-time">
+                                        <i class="fas fa-check" aria-hidden="true"></i>
+                                        Filed
+                                    </span>
                                 {% endif %}
+                            </td>
+                            <td>
+                                <button class="quick-action-btn" onclick="showReturnDetails('{{ r.rtntype }}', '{{ r.taxp }}', '{{ r.fy }}')" title="View return details">
+                                    <i class="fas fa-eye" aria-hidden="true"></i>
+                                    View
+                                </button>
                             </td>
                         </tr>
                         {% endfor %}
@@ -1019,28 +1778,32 @@
         <!-- Other Returns -->
         {% set other_returns = company_data.returns|rejectattr('rtntype', 'in', ['GSTR1', 'GSTR3B'])|list %}
         {% if other_returns %}
-        <div class="returns-category">
-            <div class="category-header" onclick="toggleCategory(this)">
+        <div class="returns-category" data-return-type="OTHER">
+            <div class="category-header" onclick="toggleCategory(this)" onkeydown="handleCategoryKeydown(event)" tabindex="0" role="button" aria-expanded="false">
                 <div class="category-info">
-                    <span class="category-title" data-tooltip="Other GST returns">Other Returns</span>
+                    <span class="category-title">
+                        Other Returns
+                        <i class="fas fa-info-circle category-tooltip" title="Other GST returns including annual returns" aria-hidden="true"></i>
+                    </span>
                     <span class="category-count">{{ other_returns|length }}</span>
                 </div>
-                <i class="fas fa-chevron-down category-toggle"></i>
+                <i class="fas fa-chevron-down category-toggle" aria-hidden="true"></i>
             </div>
             <div class="category-content">
-                <table class="returns-table">
+                <table class="returns-table" role="table" aria-label="Other GST returns">
                     <thead>
-                        <tr>
-                            <th>Return Type</th>
-                            <th>Tax Period</th>
-                            <th>Financial Year</th>
-                            <th>Filing Date</th>
-                            <th>Status</th>
+                        <tr role="row">
+                            <th scope="col">Return Type</th>
+                            <th scope="col">Tax Period</th>
+                            <th scope="col">Financial Year</th>
+                            <th scope="col">Filing Date</th>
+                            <th scope="col">Status</th>
+                            <th scope="col">Details</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for r in other_returns %}
-                        <tr>
+                        <tr role="row">
                             <td><span class="return-type-badge">{{ r.rtntype }}</span></td>
                             <td>{{ r.taxp }}</td>
                             <td>{{ r.fy }}</td>
@@ -1049,13 +1812,28 @@
                                 {% if late_filing_analysis and late_filing_analysis.late_returns %}
                                     {% set is_late = late_filing_analysis.late_returns|selectattr('return.dof', 'equalto', r.dof)|list %}
                                     {% if is_late %}
-                                        <span class="filing-status status-late">Late by {{ is_late[0].delay_days }} days</span>
+                                        <span class="filing-status status-late">
+                                            <i class="fas fa-exclamation-triangle" aria-hidden="true"></i>
+                                            Late by {{ is_late[0].delay_days }} days
+                                        </span>
                                     {% else %}
-                                        <span class="filing-status status-on-time">On Time</span>
+                                        <span class="filing-status status-on-time">
+                                            <i class="fas fa-check" aria-hidden="true"></i>
+                                            On Time
+                                        </span>
                                     {% endif %}
                                 {% else %}
-                                    <span class="filing-status status-on-time">Filed</span>
+                                    <span class="filing-status status-on-time">
+                                        <i class="fas fa-check" aria-hidden="true"></i>
+                                        Filed
+                                    </span>
                                 {% endif %}
+                            </td>
+                            <td>
+                                <button class="quick-action-btn" onclick="showReturnDetails('{{ r.rtntype }}', '{{ r.taxp }}', '{{ r.fy }}')" title="View return details">
+                                    <i class="fas fa-eye" aria-hidden="true"></i>
+                                    View
+                                </button>
                             </td>
                         </tr>
                         {% endfor %}
@@ -1065,98 +1843,686 @@
         </div>
         {% endif %}
     </div>
-</div>
+</section>
 {% endif %}
 
 <!-- Action Buttons -->
-<div class="action-buttons">
-    <form action="/generate-pdf" method="POST" style="margin: 0;">
+<section class="action-buttons">
+    <form action="/generate-pdf" method="POST" style="margin: 0;" onsubmit="showLoadingOverlay()">
         <input type="hidden" name="gstin" value="{{ company_data.gstin }}">
         <button type="submit" class="action-btn pdf-btn">
-            <i class="fas fa-file-pdf"></i>
-            Download PDF Report
+            <i class="fas fa-file-pdf" aria-hidden="true"></i>
+            <span>Download PDF Report</span>
         </button>
     </form>
     
-    <button class="action-btn share-btn" onclick="shareResults()">
-        <i class="fas fa-share-alt"></i>
-        Share Results
+    <button class="action-btn share-btn" onclick="shareResults()" aria-label="Share results">
+        <i class="fas fa-share-alt" aria-hidden="true"></i>
+        <span>Share Results</span>
     </button>
     
-    <button class="action-btn print-btn" onclick="window.print()">
-        <i class="fas fa-print"></i>
-        Print Report
+    <button class="action-btn print-btn" onclick="printReport()" aria-label="Print report">
+        <i class="fas fa-print" aria-hidden="true"></i>
+        <span>Print Report</span>
     </button>
+
+    <button class="action-btn bookmark-btn" onclick="bookmarkCompany()" aria-label="Bookmark this company">
+        <i class="fas fa-bookmark" aria-hidden="true"></i>
+        <span>Bookmark</span>
+    </button>
+</section>
+
+<!-- Loading Overlay -->
+<div class="loading-overlay" id="loadingOverlay">
+    <div class="loading-content">
+        <div class="loading-spinner"></div>
+        <div class="loading-text">Processing Request</div>
+        <div class="loading-subtext">Please wait while we prepare your report...</div>
+    </div>
 </div>
 {% endblock %}
 
 {% block extra_js %}
 <script>
-// Results-specific functionality
-function toggleCategory(header) {
-    const content = header.nextElementSibling;
-    const isActive = header.classList.contains('active');
+// =================================================================
+// RESULTS PAGE - COMPLETE JAVASCRIPT FUNCTIONALITY
+// =================================================================
+
+// Global state management
+const ResultsApp = {
+    data: {
+        companyData: {{ company_data | tojson | safe }},
+        complianceScore: {{ compliance_score }},
+        lateFilingAnalysis: {{ late_filing_analysis | tojson | safe }} || null
+    },
+    state: {
+        initialized: false,
+        accordionState: new Map(),
+        currentFilter: '',
+        isTableView: false
+    },
+    config: {
+        animationDuration: 2000,
+        scoreAnimationDelay: 500
+    }
+};
+
+// Initialize results page
+document.addEventListener('DOMContentLoaded', function() {
+    initializeResultsPage();
+});
+
+function initializeResultsPage() {
+    try {
+        console.log('📊 Initializing results page...');
+        
+        // Initialize components
+        initializeScoreAnimation();
+        setupEventListeners();
+        setupKeyboardNavigation();
+        setupReturnsFilter();
+        setupAccessibility();
+        
+        // Mark as initialized
+        ResultsApp.state.initialized = true;
+        
+        console.log('✅ Results page initialized successfully');
+        
+        // Show success notification
+        if (window.notificationManager) {
+            window.notificationManager.showSuccess('📋 Company analysis loaded successfully!', 3000);
+        }
+        
+    } catch (error) {
+        console.error('❌ Results page initialization failed:', error);
+        showError('Failed to initialize results page');
+    }
+}
+
+// =================================================================
+// SCORE ANIMATION
+// =================================================================
+
+function initializeScoreAnimation() {
+    const scoreElement = document.getElementById('scoreValue');
+    if (!scoreElement) return;
     
-    // Close all other categories
-    document.querySelectorAll('.category-header').forEach(h => {
-        if (h !== header) {
-            h.classList.remove('active');
-            const otherContent = h.nextElementSibling;
-            if (otherContent) {
-                otherContent.classList.remove('active');
-                otherContent.style.maxHeight = '0';
+    const targetScore = ResultsApp.data.complianceScore;
+    const progressElement = document.querySelector('.score-circle-progress');
+    
+    // Animate score value
+    setTimeout(() => {
+        animateScoreValue(scoreElement, 0, targetScore, ResultsApp.config.animationDuration);
+    }, ResultsApp.config.scoreAnimationDelay);
+    
+    // Animate progress circle
+    setTimeout(() => {
+        if (progressElement) {
+            progressElement.style.setProperty('--progress', targetScore);
+        }
+    }, ResultsApp.config.scoreAnimationDelay + 500);
+}
+
+function animateScoreValue(element, start, end, duration) {
+    const startTime = performance.now();
+    const difference = end - start;
+    
+    function update(currentTime) {
+        const elapsed = currentTime - startTime;
+        const progress = Math.min(elapsed / duration, 1);
+        
+        // Easing function for smooth animation
+        const easeOutQuart = 1 - Math.pow(1 - progress, 4);
+        const current = Math.floor(start + (difference * easeOutQuart));
+        
+        element.textContent = current + '%';
+        
+        if (progress < 1) {
+            requestAnimationFrame(update);
+        } else {
+            element.textContent = end + '%';
+            // Add completion effect
+            element.style.animation = 'scoreComplete 0.5s ease-out';
+            setTimeout(() => {
+                element.style.animation = '';
+            }, 500);
+        }
+    }
+    
+    requestAnimationFrame(update);
+}
+
+// =================================================================
+// EVENT LISTENERS AND INTERACTIONS
+// =================================================================
+
+function setupEventListeners() {
+    // Stat mini cards
+    document.querySelectorAll('.stat-mini').forEach(card => {
+        card.addEventListener('click', function() {
+            this.style.animation = 'cardPulse 0.3s ease-out';
+            setTimeout(() => {
+                this.style.animation = '';
+            }, 300);
+        });
+    });
+    
+    // Info cards hover effects
+    document.querySelectorAll('.info-card').forEach(card => {
+        card.addEventListener('mouseenter', function() {
+            this.style.transform = 'translateY(-6px) scale(1.02)';
+        });
+        
+        card.addEventListener('mouseleave', function() {
+            this.style.transform = 'translateY(0) scale(1)';
+        });
+    });
+    
+    // Copy GSTIN functionality
+    const gstinElement = document.querySelector('.company-gstin');
+    if (gstinElement) {
+        gstinElement.addEventListener('click', function() {
+            copyToClipboard(this.textContent);
+            showSuccess('GSTIN copied to clipboard!');
+            
+            // Visual feedback
+            this.style.transform = 'scale(1.05)';
+            setTimeout(() => {
+                this.style.transform = 'scale(1)';
+            }, 200);
+        });
+        
+        // Add tooltip
+        gstinElement.title = 'Click to copy GSTIN';
+        gstinElement.style.cursor = 'pointer';
+    }
+}
+
+function setupKeyboardNavigation() {
+    // Global keyboard shortcuts
+    document.addEventListener('keydown', function(e) {
+        if (e.ctrlKey || e.metaKey) {
+            switch (e.key) {
+                case 'p':
+                    e.preventDefault();
+                    printReport();
+                    break;
+                case 's':
+                    e.preventDefault();
+                    shareResults();
+                    break;
+                case 'b':
+                    e.preventDefault();
+                    bookmarkCompany();
+                    break;
             }
+        }
+        
+        // Escape key handling
+        if (e.key === 'Escape') {
+            hideLoadingOverlay();
         }
     });
     
-    // Toggle current category
+    // Category keyboard navigation
+    document.querySelectorAll('.category-header').forEach(header => {
+        header.addEventListener('keydown', handleCategoryKeydown);
+    });
+    
+    // Stat mini keyboard navigation
+    document.querySelectorAll('.stat-mini').forEach(stat => {
+        stat.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                this.click();
+            }
+        });
+    });
+}
+
+function setupReturnsFilter() {
+    const filterSelect = document.getElementById('returnsFilter');
+    if (!filterSelect) return;
+    
+    filterSelect.addEventListener('change', function() {
+        const filterValue = this.value;
+        ResultsApp.state.currentFilter = filterValue;
+        filterReturnsCategories(filterValue);
+    });
+}
+
+function setupAccessibility() {
+    // Add ARIA labels for dynamic content
+    const scoreValue = document.getElementById('scoreValue');
+    if (scoreValue) {
+        scoreValue.setAttribute('aria-label', `Compliance score ${ResultsApp.data.complianceScore} percent`);
+    }
+    
+    // Enhanced tooltips
+    document.querySelectorAll('[title]').forEach(element => {
+        element.addEventListener('mouseenter', function() {
+            showTooltip(this, this.title);
+        });
+        
+        element.addEventListener('mouseleave', function() {
+            hideTooltip();
+        });
+    });
+}
+
+// =================================================================
+// RETURNS ANALYSIS FUNCTIONALITY
+// =================================================================
+
+function toggleCategory(header) {
+    const content = header.nextElementSibling;
+    const isActive = header.classList.contains('active');
+    const categoryType = header.closest('.returns-category').dataset.returnType;
+    
+    // Store state
+    ResultsApp.state.accordionState.set(categoryType, !isActive);
+    
     if (!isActive) {
+        // Open category
         header.classList.add('active');
+        header.setAttribute('aria-expanded', 'true');
         content.classList.add('active');
         content.style.maxHeight = content.scrollHeight + 'px';
+        
+        // Smooth scroll to view
+        setTimeout(() => {
+            header.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }, 300);
+        
     } else {
+        // Close category
         header.classList.remove('active');
+        header.setAttribute('aria-expanded', 'false');
         content.classList.remove('active');
         content.style.maxHeight = '0';
     }
+    
+    // Analytics tracking
+    if (window.gtag) {
+        gtag('event', 'category_toggle', {
+            category_type: categoryType,
+            action: isActive ? 'close' : 'open'
+        });
+    }
 }
 
-// Share functionality
+function handleCategoryKeydown(event) {
+    if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        toggleCategory(event.target);
+    }
+}
+
+function filterReturnsCategories(filterType) {
+    const categories = document.querySelectorAll('.returns-category');
+    
+    categories.forEach(category => {
+        const categoryType = category.dataset.returnType;
+        
+        if (!filterType || filterType === categoryType || 
+            (filterType === 'OTHER' && !['GSTR1', 'GSTR3B'].includes(categoryType))) {
+            category.style.display = '';
+            
+            // Add filter highlight effect
+            category.style.animation = 'filterHighlight 0.5s ease-out';
+            setTimeout(() => {
+                category.style.animation = '';
+            }, 500);
+        } else {
+            category.style.display = 'none';
+        }
+    });
+    
+    // Show no results message if needed
+    const visibleCategories = Array.from(categories).filter(cat => cat.style.display !== 'none');
+    if (visibleCategories.length === 0) {
+        showNoResultsMessage();
+    } else {
+        hideNoResultsMessage();
+    }
+}
+
+function showReturnDetails(returnType, taxPeriod, fy) {
+    const details = {
+        type: returnType,
+        period: taxPeriod,
+        year: fy,
+        company: ResultsApp.data.companyData.lgnm,
+        gstin: ResultsApp.data.companyData.gstin
+    };
+    
+    if (window.notificationManager) {
+        window.notificationManager.showInfo(
+            `📄 ${returnType} details for ${taxPeriod} ${fy} - ${details.company}`,
+            5000
+        );
+    }
+    
+    // Could open a detailed modal here
+    console.log('Return details:', details);
+}
+
+// =================================================================
+// ACTION FUNCTIONS
+// =================================================================
+
 function shareResults() {
     const shareData = {
-        title: 'GST Compliance Report',
-        text: `Check out this GST compliance report for {{ company_data.lgnm }}`,
+        title: `GST Compliance Report - ${ResultsApp.data.companyData.lgnm}`,
+        text: `Check out this GST compliance analysis for ${ResultsApp.data.companyData.lgnm}. Compliance Score: ${ResultsApp.data.complianceScore}%`,
         url: window.location.href
     };
     
-    if (navigator.share) {
-        navigator.share(shareData);
+    if (navigator.share && navigator.canShare && navigator.canShare(shareData)) {
+        navigator.share(shareData).then(() => {
+            showSuccess('🔗 Report shared successfully!');
+        }).catch((error) => {
+            console.error('Share failed:', error);
+            fallbackShare();
+        });
     } else {
-        // Fallback - copy to clipboard
-        navigator.clipboard.writeText(window.location.href);
-        if (typeof notificationManager !== 'undefined') {
-            notificationManager.showToast('Link copied to clipboard!', 'success');
+        fallbackShare();
+    }
+}
+
+function fallbackShare() {
+    // Copy link to clipboard
+    copyToClipboard(window.location.href);
+    showSuccess('🔗 Report link copied to clipboard!');
+}
+
+function printReport() {
+    // Add print-specific styling
+    document.body.classList.add('printing');
+    
+    // Expand all accordion sections for printing
+    const headers = document.querySelectorAll('.category-header:not(.active)');
+    headers.forEach(header => {
+        if (!header.classList.contains('active')) {
+            toggleCategory(header);
+        }
+    });
+    
+    // Wait for animations to complete
+    setTimeout(() => {
+        window.print();
+        
+        // Restore state after printing
+        setTimeout(() => {
+            document.body.classList.remove('printing');
+            
+            // Restore accordion state
+            headers.forEach(header => {
+                toggleCategory(header);
+            });
+        }, 1000);
+    }, 500);
+}
+
+function bookmarkCompany() {
+    const companyData = {
+        gstin: ResultsApp.data.companyData.gstin,
+        name: ResultsApp.data.companyData.lgnm,
+        score: ResultsApp.data.complianceScore,
+        status: ResultsApp.data.companyData.sts,
+        bookmarkedAt: new Date().toISOString()
+    };
+    
+    try {
+        const bookmarks = JSON.parse(localStorage.getItem('gst_bookmarks') || '[]');
+        
+        // Check if already bookmarked
+        const existingIndex = bookmarks.findIndex(b => b.gstin === companyData.gstin);
+        
+        if (existingIndex > -1) {
+            bookmarks.splice(existingIndex, 1);
+            showSuccess('🔖 Bookmark removed!');
+        } else {
+            bookmarks.unshift(companyData);
+            // Keep only last 50 bookmarks
+            if (bookmarks.length > 50) {
+                bookmarks.splice(50);
+            }
+            showSuccess('🔖 Company bookmarked!');
+        }
+        
+        localStorage.setItem('gst_bookmarks', JSON.stringify(bookmarks));
+        
+        // Update button state
+        updateBookmarkButton(existingIndex === -1);
+        
+    } catch (error) {
+        console.error('Bookmark failed:', error);
+        showError('Failed to bookmark company');
+    }
+}
+
+function updateBookmarkButton(isBookmarked) {
+    const btn = document.querySelector('.bookmark-btn');
+    if (btn) {
+        const icon = btn.querySelector('i');
+        const text = btn.querySelector('span');
+        
+        if (isBookmarked) {
+            icon.className = 'fas fa-bookmark';
+            text.textContent = 'Bookmarked';
+            btn.style.background = 'linear-gradient(135deg, #10b981 0%, #059669 100%)';
+        } else {
+            icon.className = 'far fa-bookmark';
+            text.textContent = 'Bookmark';
+            btn.style.background = 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)';
         }
     }
 }
 
-// Initialize score animation
-document.addEventListener('DOMContentLoaded', function() {
-    const scoreElement = document.getElementById('scoreValue');
-    if (scoreElement) {
-        const targetScore = parseInt(scoreElement.textContent);
-        let currentScore = 0;
-        const increment = targetScore / 50;
+// =================================================================
+// UTILITY FUNCTIONS
+// =================================================================
+
+function showLoadingOverlay(message = 'Processing Request', subtext = 'Please wait...') {
+    const overlay = document.getElementById('loadingOverlay');
+    if (overlay) {
+        const textElement = overlay.querySelector('.loading-text');
+        const subtextElement = overlay.querySelector('.loading-subtext');
         
-        const animateScore = setInterval(() => {
-            currentScore += increment;
-            if (currentScore >= targetScore) {
-                currentScore = targetScore;
-                clearInterval(animateScore);
-            }
-            scoreElement.textContent = Math.round(currentScore) + '%';
-        }, 30);
+        if (textElement) textElement.textContent = message;
+        if (subtextElement) subtextElement.textContent = subtext;
+        
+        overlay.classList.add('active');
+    }
+}
+
+function hideLoadingOverlay() {
+    const overlay = document.getElementById('loadingOverlay');
+    if (overlay) {
+        overlay.classList.remove('active');
+    }
+}
+
+function copyToClipboard(text) {
+    if (navigator.clipboard && window.isSecureContext) {
+        return navigator.clipboard.writeText(text);
+    } else {
+        // Fallback for older browsers
+        const textArea = document.createElement('textarea');
+        textArea.value = text;
+        textArea.style.position = 'fixed';
+        textArea.style.left = '-999999px';
+        textArea.style.top = '-999999px';
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        
+        try {
+            document.execCommand('copy');
+            textArea.remove();
+            return Promise.resolve();
+        } catch (error) {
+            textArea.remove();
+            return Promise.reject(error);
+        }
+    }
+}
+
+function showSuccess(message) {
+    if (window.notificationManager) {
+        window.notificationManager.showSuccess(message, 3000);
+    } else {
+        console.log('SUCCESS:', message);
+    }
+}
+
+function showError(message) {
+    if (window.notificationManager) {
+        window.notificationManager.showError(message, 5000);
+    } else {
+        console.error('ERROR:', message);
+    }
+}
+
+function showInfo(message) {
+    if (window.notificationManager) {
+        window.notificationManager.showInfo(message, 4000);
+    } else {
+        console.log('INFO:', message);
+    }
+}
+
+function showNoResultsMessage() {
+    const accordion = document.getElementById('returnsAccordion');
+    let noResults = accordion.querySelector('.no-results-message');
+    
+    if (!noResults) {
+        noResults = document.createElement('div');
+        noResults.className = 'no-results-message';
+        noResults.style.cssText = `
+            text-align: center;
+            padding: 3rem;
+            color: var(--text-secondary);
+            background: var(--bg-card);
+            border-radius: 16px;
+            border: 1px solid var(--border-primary);
+            margin: 1rem;
+        `;
+        noResults.innerHTML = `
+            <i class="fas fa-filter" style="font-size: 3rem; margin-bottom: 1rem; opacity: 0.5;"></i>
+            <h4 style="color: var(--text-primary); margin-bottom: 0.5rem;">No Returns Found</h4>
+            <p>No returns match the selected filter criteria.</p>
+        `;
+        accordion.appendChild(noResults);
+    }
+    
+    noResults.style.display = 'block';
+}
+
+function hideNoResultsMessage() {
+    const noResults = document.querySelector('.no-results-message');
+    if (noResults) {
+        noResults.style.display = 'none';
+    }
+}
+
+function showTooltip(element, text) {
+    // Simple tooltip implementation
+    const tooltip = document.createElement('div');
+    tooltip.className = 'custom-tooltip';
+    tooltip.textContent = text;
+    tooltip.style.cssText = `
+        position: absolute;
+        background: var(--bg-card);
+        border: 1px solid var(--border-primary);
+        border-radius: 8px;
+        padding: 0.5rem 1rem;
+        font-size: 0.875rem;
+        color: var(--text-primary);
+        box-shadow: var(--shadow-lg);
+        z-index: 10000;
+        max-width: 200px;
+        word-wrap: break-word;
+        pointer-events: none;
+    `;
+    
+    document.body.appendChild(tooltip);
+    
+    const rect = element.getBoundingClientRect();
+    tooltip.style.left = (rect.left + rect.width / 2 - tooltip.offsetWidth / 2) + 'px';
+    tooltip.style.top = (rect.top - tooltip.offsetHeight - 8) + 'px';
+}
+
+function hideTooltip() {
+    const tooltip = document.querySelector('.custom-tooltip');
+    if (tooltip) {
+        tooltip.remove();
+    }
+}
+
+// =================================================================
+// ERROR HANDLING AND RECOVERY
+// =================================================================
+
+window.addEventListener('error', function(event) {
+    console.error('❌ Results page error:', event.error);
+    
+    if (ResultsApp.state.initialized && window.notificationManager) {
+        window.notificationManager.showError('An error occurred. Please refresh if issues persist.');
     }
 });
+
+window.addEventListener('unhandledrejection', function(event) {
+    console.error('❌ Unhandled promise rejection:', event.reason);
+    event.preventDefault();
+});
+
+// Page visibility handling
+document.addEventListener('visibilitychange', function() {
+    if (!document.hidden && ResultsApp.state.initialized) {
+        // Page became visible again, could refresh data here
+        console.log('🔄 Page became visible');
+    }
+});
+
+// Initialize bookmark button state on load
+document.addEventListener('DOMContentLoaded', function() {
+    try {
+        const bookmarks = JSON.parse(localStorage.getItem('gst_bookmarks') || '[]');
+        const isBookmarked = bookmarks.some(b => b.gstin === ResultsApp.data.companyData.gstin);
+        updateBookmarkButton(isBookmarked);
+    } catch (error) {
+        console.error('Error loading bookmark state:', error);
+    }
+});
+
+// Add required CSS animations
+if (!document.getElementById('results-animations')) {
+    const style = document.createElement('style');
+    style.id = 'results-animations';
+    style.textContent = `
+        @keyframes scoreComplete {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
+        
+        @keyframes cardPulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+        
+        @keyframes filterHighlight {
+            0% { background-color: transparent; }
+            50% { background-color: rgba(124, 58, 237, 0.1); }
+            100% { background-color: transparent; }
+        }
+    `;
+    document.head.appendChild(style);
+}
+
+console.log('📊 Results page JavaScript loaded successfully');
 </script>
 {% endblock %}
