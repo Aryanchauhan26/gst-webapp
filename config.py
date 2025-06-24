@@ -5,6 +5,7 @@ Configuration management for GST Intelligence Platform
 
 import os
 from typing import Optional
+from datetime import timedelta  # ← Add this missing import
 from dotenv import load_dotenv
 
 load_dotenv()
