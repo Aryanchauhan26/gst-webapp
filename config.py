@@ -33,4 +33,16 @@ class Settings:
     RATE_LIMIT_REQUESTS: int = int(os.getenv("RATE_LIMIT_REQUESTS", "60"))
     RATE_LIMIT_WINDOW: int = int(os.getenv("RATE_LIMIT_WINDOW", "60"))
 
+    # Loan Management Settings
+    RAZORPAY_KEY_ID: Optional[str] = os.getenv("RAZORPAY_KEY_ID")
+    RAZORPAY_KEY_SECRET: Optional[str] = os.getenv("RAZORPAY_KEY_SECRET") 
+    RAZORPAY_WEBHOOK_SECRET: Optional[str] = os.getenv("RAZORPAY_WEBHOOK_SECRET")
+    RAZORPAY_ENVIRONMENT: str = os.getenv("RAZORPAY_ENVIRONMENT", "test")
+    
+    # Loan Configuration
+    MIN_LOAN_AMOUNT: int = int(os.getenv("MIN_LOAN_AMOUNT", "50000"))
+    MAX_LOAN_AMOUNT: int = int(os.getenv("MAX_LOAN_AMOUNT", "5000000"))
+    MIN_COMPLIANCE_SCORE: int = int(os.getenv("MIN_COMPLIANCE_SCORE", "60"))
+    MIN_BUSINESS_VINTAGE_MONTHS: int = int(os.getenv("MIN_BUSINESS_VINTAGE_MONTHS", "6"))
+
 settings = Settings()
