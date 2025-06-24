@@ -15,6 +15,8 @@ import json
 import httpx
 from datetime import datetime, timedelta
 from functools import wraps
+from razorpay_lending import RazorpayLendingClient, LoanManager, LoanConfig, LoanStatus
+from decimal import Decimal
 from collections import defaultdict
 from typing import Optional, Dict, List, Any
 from fastapi import FastAPI, Request, Form, Depends, HTTPException, status, Response
@@ -53,6 +55,35 @@ from config import settings
 config = settings
 
 # Pydantic Models
+class LoanApplicationRequest(BaseModel):
+    gstin: str
+    company_name: str
+    loan_amount: float
+    purpose: str
+    tenure_months: int
+    annual_turnover: float
+    monthly_revenue: float
+    compliance_score: float
+    business_vintage_months: int
+    
+    @validator('loan_amount', 'annual_turnover', 'monthly_revenue')
+    def validate_positive_amounts(cls, v):
+        if v <= 0:
+            raise ValueError('Amount must be positive')
+        return v
+    
+    @validator('tenure_months', 'business_vintage_months')
+    def validate_positive_months(cls, v):
+        if v <= 0:
+            raise ValueError('Months must be positive')
+        return v
+    
+    @validator('compliance_score')
+    def validate_compliance_score(cls, v):
+        if not 0 <= v <= 100:
+            raise ValueError('Compliance score must be between 0 and 100')
+        return v
+    
 class ChangePasswordRequest(BaseModel):
     currentPassword: str
     newPassword: str
@@ -651,6 +682,18 @@ class DatabaseManager:
 
 # Initialize database
 db = DatabaseManager()
+
+# ADD THIS CODE HERE - Initialize Razorpay Lending
+razorpay_key = os.getenv("RAZORPAY_KEY_ID")
+razorpay_secret = os.getenv("RAZORPAY_KEY_SECRET")
+is_production = os.getenv("RAZORPAY_ENVIRONMENT", "test") == "live"
+
+if razorpay_key and razorpay_secret:
+    razorpay_lending_client = RazorpayLendingClient(razorpay_key, razorpay_secret, is_production)
+    loan_manager = LoanManager(razorpay_lending_client, db)
+else:
+    razorpay_lending_client = None
+    loan_manager = None
 
 # GST API Client
 class GSTAPIClient:
@@ -1397,6 +1440,40 @@ async def analytics_page(request: Request, current_user: str = Depends(require_a
         "avg_compliance": stats["avg_compliance"]
     })
 
+@app.get("/loans", response_class=HTMLResponse)
+async def loans_page(request: Request, current_user: str = Depends(require_auth)):
+    """Loans dashboard page"""
+    try:
+        # Get user's loan applications
+        applications = []
+        if loan_manager:
+            applications = await loan_manager.get_user_loan_applications(current_user)
+        
+        # Get user profile for pre-filling forms
+        user_profile = await db.get_user_profile(current_user)
+        user_display_name = await get_user_display_name(current_user)
+        
+        return templates.TemplateResponse("loans.html", {
+            "request": request,
+            "current_user": current_user,
+            "user_display_name": user_display_name,
+            "user_profile": user_profile,
+            "applications": applications,
+            "loan_config": {
+                "min_amount": LoanConfig.MIN_LOAN_AMOUNT,
+                "max_amount": LoanConfig.MAX_LOAN_AMOUNT,
+                "min_compliance": LoanConfig.MIN_COMPLIANCE_SCORE,
+                "min_vintage": LoanConfig.MIN_BUSINESS_VINTAGE_MONTHS
+            }
+        })
+    except Exception as e:
+        logger.error(f"Loans page error: {e}")
+        return templates.TemplateResponse("loans.html", {
+            "request": request,
+            "current_user": current_user,
+            "error": "Unable to load loans page"
+        })
+
 # API Routes
 @app.get("/api/user/stats")
 @handle_api_errors
@@ -2003,6 +2080,158 @@ async def get_service_worker():
         sw_content = f.read()
     return Response(content=sw_content, media_type="application/javascript")
 
+@app.post("/api/loans/apply")
+@handle_api_errors
+async def apply_for_loan(request: LoanApplicationRequest, current_user: str = Depends(require_auth)):
+    """Apply for a business loan"""
+    try:
+        if not loan_manager:
+            return JSONResponse(
+                status_code=503,
+                content={"success": False, "error": "Loan service not available"}
+            )
+        
+        # Validate application data
+        application_data = request.dict()
+        is_valid, message = LoanConfig.validate_loan_application(application_data)
+        
+        if not is_valid:
+            return JSONResponse(
+                status_code=400,
+                content={"success": False, "error": message}
+            )
+        
+        # Submit loan application
+        result = await loan_manager.submit_loan_application(current_user, application_data)
+        
+        if result["success"]:
+            return {"success": True, "data": result, "message": "Loan application submitted successfully"}
+        else:
+            return JSONResponse(
+                status_code=400,
+                content={"success": False, "error": result.get("error", "Application failed")}
+            )
+            
+    except Exception as e:
+        logger.error(f"Loan application error: {e}")
+        return JSONResponse(
+            status_code=500,
+            content={"success": False, "error": "Failed to process loan application"}
+        )
+
+@app.get("/api/loans/applications")
+@handle_api_errors
+async def get_loan_applications(current_user: str = Depends(require_auth)):
+    """Get user's loan applications"""
+    try:
+        if not loan_manager:
+            return {"success": True, "data": []}
+        
+        applications = await loan_manager.get_user_loan_applications(current_user)
+        return {"success": True, "data": applications}
+        
+    except Exception as e:
+        logger.error(f"Get loan applications error: {e}")
+        return JSONResponse(
+            status_code=500,
+            content={"success": False, "error": "Failed to fetch loan applications"}
+        )
+
+@app.get("/api/loans/applications/{application_id}/offers")
+@handle_api_errors
+async def get_loan_offers(application_id: int, current_user: str = Depends(require_auth)):
+    """Get loan offers for an application"""
+    try:
+        if not loan_manager:
+            return {"success": True, "data": []}
+        
+        # Verify application belongs to user
+        async with db.pool.acquire() as conn:
+            app_owner = await conn.fetchval(
+                "SELECT user_mobile FROM loan_applications WHERE id = $1",
+                application_id
+            )
+            
+            if app_owner != current_user:
+                return JSONResponse(
+                    status_code=403,
+                    content={"success": False, "error": "Access denied"}
+                )
+            
+            # Get offers from database
+            offers = await conn.fetch("""
+                SELECT razorpay_offer_id, loan_amount, interest_rate, 
+                       tenure_months, emi_amount, processing_fee, 
+                       is_accepted, created_at, offer_data
+                FROM loan_offers 
+                WHERE application_id = $1
+                ORDER BY created_at DESC
+            """, application_id)
+            
+            return {"success": True, "data": [dict(offer) for offer in offers]}
+            
+    except Exception as e:
+        logger.error(f"Get loan offers error: {e}")
+        return JSONResponse(
+            status_code=500,
+            content={"success": False, "error": "Failed to fetch loan offers"}
+        )
+
+@app.get("/api/loans/eligibility")
+@handle_api_errors
+async def check_loan_eligibility(
+    gstin: str, 
+    annual_turnover: float,
+    compliance_score: float,
+    business_vintage_months: int,
+    current_user: str = Depends(require_auth)
+):
+    """Check loan eligibility for a business"""
+    try:
+        # Basic eligibility check
+        eligibility = {
+            "eligible": True,
+            "reasons": [],
+            "max_loan_amount": 0,
+            "recommended_amount": 0
+        }
+        
+        # Check compliance score
+        if compliance_score < LoanConfig.MIN_COMPLIANCE_SCORE:
+            eligibility["eligible"] = False
+            eligibility["reasons"].append(f"Compliance score below minimum ({LoanConfig.MIN_COMPLIANCE_SCORE}%)")
+        
+        # Check business vintage
+        if business_vintage_months < LoanConfig.MIN_BUSINESS_VINTAGE_MONTHS:
+            eligibility["eligible"] = False
+            eligibility["reasons"].append(f"Business vintage below minimum ({LoanConfig.MIN_BUSINESS_VINTAGE_MONTHS} months)")
+        
+        # Check annual turnover
+        if annual_turnover < LoanConfig.MIN_ANNUAL_TURNOVER:
+            eligibility["eligible"] = False
+            eligibility["reasons"].append(f"Annual turnover below minimum (₹{LoanConfig.MIN_ANNUAL_TURNOVER:,})")
+        
+        if eligibility["eligible"]:
+            # Calculate maximum loan amount
+            max_by_turnover = annual_turnover * LoanConfig.MAX_LOAN_TO_TURNOVER_RATIO
+            eligibility["max_loan_amount"] = min(max_by_turnover, LoanConfig.MAX_LOAN_AMOUNT)
+            
+            # Recommended amount based on compliance score
+            score_multiplier = compliance_score / 100
+            eligibility["recommended_amount"] = min(
+                annual_turnover * 0.3 * score_multiplier,
+                eligibility["max_loan_amount"]
+            )
+        
+        return {"success": True, "data": eligibility}
+        
+    except Exception as e:
+        logger.error(f"Eligibility check error: {e}")
+        return JSONResponse(
+            status_code=500,
+            content={"success": False, "error": "Failed to check eligibility"}
+        )
+
 # Error handlers
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request: Request, exc: HTTPException):
@@ -2031,11 +2260,16 @@ async def startup():
     await db.initialize()
     await db.cleanup_expired_sessions()
     
+    # Initialize loan tables if loan manager is available
+    if loan_manager:
+        await loan_manager.initialize_loan_tables()
+        logger.info("Loan management system initialized")
+    
     # Store admin users for template access
     app.extra = {"ADMIN_USERS": os.getenv("ADMIN_USERS", "")}
     
     logger.info("Application startup complete")
-
+    
 @app.on_event("shutdown")
 async def shutdown():
     """Clean up on shutdown."""

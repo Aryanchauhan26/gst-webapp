@@ -9,3 +9,5 @@ __pycache__/
 .vscode/
 .idea/
 node_modules/
+.env
+.gitignore
