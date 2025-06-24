@@ -53,6 +53,7 @@ python-dateutil
 
 # Performance & Monitoring
 psutil
+redis
 
 # Utilities & Helpers
 python-slugify
