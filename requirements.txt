@@ -1,5 +1,6 @@
 # =============================================================================
 # GST Intelligence Platform - Production Dependencies
+# Enhanced with Loan Management System
 # =============================================================================
 
 # Core Web Framework
@@ -65,12 +66,88 @@ python-slugify
 pytz
 charset-normalizer
 
-# Additional Production Dependencies
+# Production Server
 gunicorn
 watchfiles
 
 # =============================================================================
-# Core Dependencies for Compatibility
+# NEW LOAN MANAGEMENT DEPENDENCIES
+# =============================================================================
+
+# Financial Calculations & Loan Processing
+decimal
+hmac
+hashlib
+
+# Payment Gateway Integration (Razorpay)
+razorpay
+
+# Enhanced Data Processing for Loan Analysis
+dataclasses
+enum34
+
+# JSON Web Tokens for Enhanced Security
+pyjwt
+
+# Rate Limiting for API Protection
+slowapi
+
+# Enhanced Logging for Loan Transactions
+structlog
+
+# Time & Date Processing for Loan Schedules
+arrow
+pendulum
+
+# Financial Calculations Library
+quantlib-python
+
+# Enhanced Number Formatting for Currency
+babel
+
+# Mathematical Operations for Risk Assessment
+sympy
+
+# =============================================================================
+# ENHANCED SECURITY FOR FINANCIAL DATA
+# =============================================================================
+
+# Advanced Encryption for Financial Data
+cryptography
+fernet
+
+# Secure Random Generation
+secrets
+
+# Input Validation & Sanitization
+bleach
+validators
+
+# CORS for API Security
+fastapi-cors
+
+# Rate Limiting & DDoS Protection
+limits
+flask-limiter
+
+# =============================================================================
+# MONITORING & OBSERVABILITY
+# =============================================================================
+
+# Application Performance Monitoring
+prometheus-client
+
+# Health Checks
+healthcheck
+
+# Memory Profiling
+memory-profiler
+
+# Database Connection Pooling
+asyncpg-pool
+
+# =============================================================================
+# ENHANCED DEVELOPMENT TOOLS
 # =============================================================================
 
 typing-extensions
@@ -78,58 +155,114 @@ anyio
 urllib3
 certifi
 
+# API Documentation
+sphinx
+sphinx-rtd-theme
+
+# Code Quality
+pre-commit
+
+# Environment Management
+python-decouple
+
+# Configuration Management
+dynaconf
+
 # =============================================================================
-# Development Dependencies (Install separately)
+# DEPLOYMENT & PRODUCTION
 # =============================================================================
 
-# For testing: pip install pytest pytest-asyncio pytest-cov
-# For code quality: pip install black isort flake8 mypy
-# For mocking HTTP: pip install respx
+# WSGI/ASGI Server
+gunicorn
+uvloop
+
+# Process Management
+supervisor
+
+# Environment Variables
+python-dotenv
+
+# Graceful Shutdown
+signal
 
 # =============================================================================
-# Optional Dependencies (Install manually if needed)
+# OPTIONAL DEPENDENCIES FOR ADVANCED FEATURES
 # =============================================================================
 
-# For advanced analytics (large dataset processing)
-# scipy
+# Machine Learning for Risk Assessment (Optional)
 # scikit-learn
-# matplotlib
+# tensorflow-lite
+# xgboost
 
-# For advanced PDF features
+# Advanced Charts & Visualization (Optional)
+# plotly
+# matplotlib
+# seaborn
+
+# Advanced PDF Features (Optional)
 # pdfplumber
 # PyMuPDF
 
-# For image processing (if needed for logo/charts)
+# Image Processing for Logos/Charts (Optional)
 # Pillow
 
-# For advanced database features
+# Advanced Database Features (Optional)
 # sqlalchemy
 # alembic
 
+# Real-time Features (Optional)
+# websockets
+# socketio
+
+# Background Tasks (Optional)
+# celery
+# rq
+
 # =============================================================================
-# Installation Commands
+# INSTALLATION COMMANDS
 # =============================================================================
 
 # Production install:
 # pip install -r requirements.txt
 
-# Development install:
+# Development install (with testing tools):
 # pip install -r requirements.txt
-# pip install pytest pytest-asyncio pytest-cov black isort flake8 mypy
+# pip install pytest pytest-asyncio pytest-cov black isort flake8 mypy respx
+
+# With optional ML features:
+# pip install -r requirements.txt scikit-learn plotly
 
 # =============================================================================
-# Dependencies explanation:
+# KEY NEW FEATURES SUPPORTED
 # =============================================================================
 
-# - fastapi: Modern web framework for APIs
-# - uvicorn: ASGI server for FastAPI  
-# - httpx: Async HTTP client for API calls
-# - asyncpg: Async PostgreSQL driver
-# - anthropic: AI integration for smart insights
-# - weasyprint: HTML to PDF conversion
-# - beautifulsoup4: Web scraping and HTML parsing
-# - cryptography: Security and encryption
-# - pydantic: Data validation and serialization
-# - redis: Caching and session management
-# - pandas: Data analysis and processing
-# - psutil: System monitoring and health checks
+# ✅ Loan Application Management
+# ✅ Razorpay Payment Integration  
+# ✅ Risk Assessment Algorithms
+# ✅ EMI Calculations
+# ✅ Financial Data Encryption
+# ✅ Enhanced API Security
+# ✅ Loan Disbursement Tracking
+# ✅ Repayment Schedule Management
+# ✅ Compliance Score Integration
+# ✅ Real-time Loan Processing
+# ✅ Advanced Financial Analytics
+# ✅ Secure Transaction Logging
+
+# =============================================================================
+# CORE DEPENDENCIES EXPLANATION
+# =============================================================================
+
+# fastapi: Modern async web framework
+# uvicorn: High-performance ASGI server
+# asyncpg: Async PostgreSQL driver for database
+# razorpay: Official Razorpay SDK for payments
+# anthropic: AI integration for smart analysis
+# weasyprint: HTML to PDF conversion for reports
+# pydantic: Data validation and serialization
+# cryptography: Security and encryption for financial data
+# redis: Caching and session management
+# pandas: Data analysis for financial metrics
+# decimal: Precise financial calculations
+# hmac/hashlib: Webhook signature verification
+# structlog: Enhanced logging for audit trails
