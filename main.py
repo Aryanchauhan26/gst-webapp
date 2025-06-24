@@ -1122,9 +1122,14 @@ async def dashboard(request: Request, current_user: str = Depends(require_auth))
 @app.get("/admin", response_class=HTMLResponse)
 async def admin_dashboard(request: Request, current_user: str = Depends(require_admin)):
     """Admin dashboard page."""
-    return templates.TemplateResponse("admin/dashboard.html", {
+    user_profile = await db.get_user_profile(current_user)
+    user_display_name = await get_user_display_name(current_user)
+    
+    return templates.TemplateResponse("admin_dashboard.html", {  # Use dashboard.html, not admin/dashboard.html
         "request": request,
-        "current_user": current_user
+        "current_user": current_user,
+        "user_display_name": user_display_name,
+        "user_profile": user_profile
     })
 
 @app.get("/login", response_class=HTMLResponse)
@@ -1242,6 +1247,7 @@ async def search_gstin_post(request: Request, gstin: str = Form(...), current_us
     """Handle POST search requests."""
     return await process_search(request, gstin, current_user)
 
+# Fix the process_search function to use web scraping + AI
 async def process_search(request: Request, gstin: str, current_user: str):
     """Process GST search request."""
     gstin = gstin.strip().upper()
@@ -1267,7 +1273,7 @@ async def process_search(request: Request, gstin: str, current_user: str):
         if not api_client:
             raise HTTPException(status_code=503, detail="GST API service not configured")
             
-        company_data = await api_client.fetch_gstin_data(gstin)
+        company_data = await get_cached_gstin_data(gstin)
         if not company_data:
             raise HTTPException(status_code=503, detail="GST API service not available")
         
@@ -1275,12 +1281,42 @@ async def process_search(request: Request, gstin: str, current_user: str):
         compliance_score = calculate_compliance_score(company_data)
         logger.info(f"Final compliance score for template: {compliance_score}")
         
+        # Enhanced AI synopsis with web scraping
         synopsis = None
         if config.ANTHROPIC_API_KEY:
             try:
-                synopsis = await get_anthropic_synopsis(company_data)
+                # Import and use the enhanced analyzer
+                from anthro_ai import CompanyAnalyzer
+                
+                analyzer = CompanyAnalyzer(config.ANTHROPIC_API_KEY)
+                
+                # Get company info from web first
+                company_name = company_data.get("lgnm", "")
+                location = None
+                if company_data.get('stj') and 'State - ' in str(company_data.get('stj')):
+                    try:
+                        location = company_data['stj'].split('State - ')[1].split(',')[0]
+                    except:
+                        pass
+                
+                # Gather web information
+                web_info = await analyzer.get_company_info_from_web(company_name, gstin, location)
+                
+                # Add web content to company data for AI processing
+                if web_info.get('web_content'):
+                    company_data['_web_content'] = web_info['web_content']
+                    company_data['_web_summary'] = web_info['summary']
+                    company_data['_web_keywords'] = web_info['keywords']
+                
+                # Generate enhanced synopsis
+                synopsis = await analyzer.get_anthropic_synopsis(company_data)
+                
+                logger.info(f"Generated enhanced synopsis with web data: {synopsis[:100]}...")
+                
             except Exception as e:
-                logger.error(f"Failed to get AI synopsis: {e}")
+                logger.error(f"Failed to get enhanced AI synopsis: {e}")
+                # Fallback to basic synopsis
+                synopsis = await get_anthropic_synopsis(company_data)
         
         # Add to search history
         await db.add_search_history(current_user, gstin, company_data.get("lgnm", "Unknown"), compliance_score)
@@ -1994,6 +2030,10 @@ async def startup():
     logger.info("GST Intelligence Platform starting up...")
     await db.initialize()
     await db.cleanup_expired_sessions()
+    
+    # Store admin users for template access
+    app.extra = {"ADMIN_USERS": os.getenv("ADMIN_USERS", "")}
+    
     logger.info("Application startup complete")
 
 @app.on_event("shutdown")
