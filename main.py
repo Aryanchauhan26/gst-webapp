@@ -14,6 +14,7 @@ import logging
 import json
 import httpx
 from datetime import datetime, timedelta
+from functools import wraps
 from collections import defaultdict
 from typing import Optional, Dict, List, Any
 from fastapi import FastAPI, Request, Form, Depends, HTTPException, status, Response
@@ -96,6 +97,7 @@ class ErrorLogRequest(BaseModel):
 
 def handle_api_errors(func):
     """Decorator for handling API errors consistently"""
+    @wraps(func)
     async def wrapper(*args, **kwargs):
         try:
             return await func(*args, **kwargs)
