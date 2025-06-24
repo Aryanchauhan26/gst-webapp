@@ -7,9 +7,21 @@ Run this to add loan tables to your existing database
 import asyncio
 import asyncpg
 import logging
+import os
+from pathlib import Path
 
-from config import settings
-POSTGRES_DSN = settings.POSTGRES_DSN
+# Add the project root to Python path
+import sys
+sys.path.append(str(Path(__file__).parent))
+
+# Try to import from config, fallback to environment variable
+try:
+    from config import settings
+    POSTGRES_DSN = settings.POSTGRES_DSN
+except ImportError:
+    POSTGRES_DSN = os.getenv("POSTGRES_DSN")
+    if not POSTGRES_DSN:
+        raise ValueError("POSTGRES_DSN not found in environment variables")
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -119,7 +131,7 @@ async def migrate_loan_tables():
         await conn.execute("CREATE INDEX IF NOT EXISTS idx_loan_repayments_status ON loan_repayments(status);")
         logger.info("✅ Database indexes created/verified")
         
-        # Add some useful views
+        # Add some useful views - FIXED VERSION
         await conn.execute("""
             CREATE OR REPLACE VIEW loan_summary AS
             SELECT 
@@ -131,17 +143,17 @@ async def migrate_loan_tables():
                 la.status as application_status,
                 la.created_at as applied_on,
                 COUNT(lo.id) as offers_count,
-                MAX(lo.is_accepted) as has_accepted_offer,
+                BOOL_OR(lo.is_accepted) as has_accepted_offer,
                 ld.disbursed_amount,
                 ld.disbursement_date,
                 COUNT(lr.id) as total_emis,
                 COUNT(CASE WHEN lr.status = 'paid' THEN 1 END) as paid_emis,
-                SUM(CASE WHEN lr.status = 'pending' AND lr.due_date < CURRENT_DATE THEN lr.due_amount ELSE 0 END) as overdue_amount
+                COALESCE(SUM(CASE WHEN lr.status = 'pending' AND lr.due_date < CURRENT_DATE THEN lr.due_amount ELSE 0 END), 0) as overdue_amount
             FROM loan_applications la
             LEFT JOIN loan_offers lo ON la.id = lo.application_id
             LEFT JOIN loan_disbursements ld ON la.id = ld.application_id
             LEFT JOIN loan_repayments lr ON ld.id = lr.disbursement_id
-            GROUP BY la.id, ld.id;
+            GROUP BY la.id, ld.id, ld.disbursed_amount, ld.disbursement_date;
         """)
         logger.info("✅ Loan summary view created")
         
