@@ -14,6 +14,28 @@ logger = logging.getLogger(__name__)
 from config import settings
 POSTGRES_DSN = settings.POSTGRES_DSN
 
+async def create_error_logs_table(conn):
+    """Create error logs table."""
+    await conn.execute("""
+        CREATE TABLE IF NOT EXISTS error_logs (
+            id SERIAL PRIMARY KEY,
+            error_type VARCHAR(100),
+            message TEXT,
+            stack_trace TEXT,
+            url TEXT,
+            user_agent TEXT,
+            user_mobile VARCHAR(10),
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            additional_data JSONB,
+            FOREIGN KEY (user_mobile) REFERENCES users(mobile) ON DELETE SET NULL
+        );
+        
+        CREATE INDEX IF NOT EXISTS idx_error_logs_created_at ON error_logs(created_at);
+        CREATE INDEX IF NOT EXISTS idx_error_logs_error_type ON error_logs(error_type);
+        CREATE INDEX IF NOT EXISTS idx_error_logs_user_mobile ON error_logs(user_mobile);
+    """)
+    logger.info("✅ Error logs table created/verified")
+
 async def initialize_database():
     """Initialize database with all required tables"""
     try:
@@ -70,38 +92,15 @@ async def initialize_database():
         """)
         logger.info("✅ User preferences table created/verified")
         
+        # Create error logs table
+        await create_error_logs_table(conn)
+        
         # Create indexes for better performance
         await conn.execute("CREATE INDEX IF NOT EXISTS idx_sessions_expires ON sessions(expires_at);")
         await conn.execute("CREATE INDEX IF NOT EXISTS idx_search_history_mobile ON search_history(mobile);")
         await conn.execute("CREATE INDEX IF NOT EXISTS idx_search_history_searched_at ON search_history(searched_at);")
         await conn.execute("CREATE INDEX IF NOT EXISTS idx_user_preferences_mobile ON user_preferences(mobile);")
         logger.info("✅ Database indexes created/verified")
-
-        async def create_error_logs_table():
-    """Create error logs table."""
-    conn = await asyncpg.connect(dsn=POSTGRES_DSN)
-    try:
-        await conn.execute("""
-            CREATE TABLE IF NOT EXISTS error_logs (
-                id SERIAL PRIMARY KEY,
-                error_type VARCHAR(100),
-                message TEXT,
-                stack_trace TEXT,
-                url TEXT,
-                user_agent TEXT,
-                user_mobile VARCHAR(10),
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                additional_data JSONB,
-                FOREIGN KEY (user_mobile) REFERENCES users(mobile) ON DELETE SET NULL
-            );
-            
-            CREATE INDEX IF NOT EXISTS idx_error_logs_created_at ON error_logs(created_at);
-            CREATE INDEX IF NOT EXISTS idx_error_logs_error_type ON error_logs(error_type);
-            CREATE INDEX IF NOT EXISTS idx_error_logs_user_mobile ON error_logs(user_mobile);
-        """)
-        print("✅ Error logs table created successfully")
-    finally:
-        await conn.close()
         
         # Clean up old sessions
         await conn.execute("DELETE FROM sessions WHERE expires_at < NOW();")

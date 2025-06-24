@@ -33,6 +33,7 @@ beautifulsoup4
 lxml
 html5lib
 bleach
+googlesearch
 
 # PDF Generation & Document Processing
 weasyprint
