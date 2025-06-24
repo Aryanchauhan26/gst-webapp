@@ -54,6 +54,8 @@ python-dateutil
 # Performance & Monitoring
 psutil
 redis
+celery
+flower
 
 # Utilities & Helpers
 python-slugify
