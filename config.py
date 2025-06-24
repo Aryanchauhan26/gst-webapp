@@ -27,6 +27,7 @@ class Settings:
     # App Settings
     DEBUG: bool = os.getenv("DEBUG", "false").lower() == "true"
     SESSION_DURATION_DAYS: int = int(os.getenv("SESSION_DURATION_DAYS", "7"))
+    SESSION_DURATION = timedelta(days=SESSION_DURATION_DAYS)
     MAX_SEARCH_HISTORY: int = int(os.getenv("MAX_SEARCH_HISTORY", "1000"))
     RATE_LIMIT_REQUESTS: int = int(os.getenv("RATE_LIMIT_REQUESTS", "60"))
     RATE_LIMIT_WINDOW: int = int(os.getenv("RATE_LIMIT_WINDOW", "60"))

@@ -12,6 +12,7 @@ import hashlib
 import secrets
 import logging
 import json
+import httpx
 from datetime import datetime, timedelta
 from collections import defaultdict
 from typing import Optional, Dict, List, Any
@@ -20,7 +21,16 @@ from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse, Stre
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 from io import BytesIO, StringIO
+import redis
+import fnmatch
 import csv
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO, 
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+
 try:
     from weasyprint import HTML
     HAS_WEASYPRINT = True
@@ -35,13 +45,6 @@ import html
 
 # Load environment variables
 load_dotenv()
-
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO, 
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-logger = logging.getLogger(__name__)
 
 # Configuration
 from config import settings
@@ -106,6 +109,109 @@ def handle_api_errors(func):
                 content={"success": False, "error": "Internal server error"}
             )
     return wrapper
+
+class CacheManager:
+    def __init__(self, redis_url: Optional[str] = None):
+        """Initialize cache manager with Redis fallback to in-memory."""
+        self.redis_client = None
+        self.memory_cache = {}
+        self.cache_ttl = 300  # 5 minutes default
+        
+        if redis_url:
+            try:
+                import redis
+                self.redis_client = redis.from_url(redis_url)
+                self.redis_client.ping()  # Test connection
+                logger.info("✅ Redis cache initialized")
+            except Exception as e:
+                logger.warning(f"Redis unavailable, using memory cache: {e}")
+        
+        # Cleanup old memory cache entries periodically
+        asyncio.create_task(self._cleanup_memory_cache())
+    
+    async def get(self, key: str) -> Optional[Any]:
+        """Get value from cache."""
+        try:
+            if self.redis_client:
+                value = self.redis_client.get(key)
+                if value:
+                    return json.loads(value.decode('utf-8'))
+            else:
+                # Memory cache with TTL check
+                if key in self.memory_cache:
+                    data, timestamp = self.memory_cache[key]
+                    if datetime.now().timestamp() - timestamp < self.cache_ttl:
+                        return data
+                    else:
+                        del self.memory_cache[key]
+        except Exception as e:
+            logger.error(f"Cache get error: {e}")
+        return None
+    
+    async def set(self, key: str, value: Any, ttl: Optional[int] = None) -> bool:
+        """Set value in cache."""
+        try:
+            ttl = ttl or self.cache_ttl
+            serialized_value = json.dumps(value)
+            
+            if self.redis_client:
+                self.redis_client.setex(key, ttl, serialized_value)
+            else:
+                # Memory cache with timestamp
+                self.memory_cache[key] = (value, datetime.now().timestamp())
+            return True
+        except Exception as e:
+            logger.error(f"Cache set error: {e}")
+            return False
+    
+    async def delete(self, key: str) -> bool:
+        """Delete key from cache."""
+        try:
+            if self.redis_client:
+                self.redis_client.delete(key)
+            else:
+                self.memory_cache.pop(key, None)
+            return True
+        except Exception as e:
+            logger.error(f"Cache delete error: {e}")
+            return False
+    
+    async def clear_pattern(self, pattern: str) -> int:
+        """Clear all keys matching pattern."""
+        try:
+            count = 0
+            if self.redis_client:
+                keys = self.redis_client.keys(pattern)
+                if keys:
+                    count = self.redis_client.delete(*keys)
+            else:
+                # Memory cache pattern matching
+                keys_to_delete = [k for k in self.memory_cache.keys() if fnmatch.fnmatch(k, pattern)]
+                for key in keys_to_delete:
+                    del self.memory_cache[key]
+                count = len(keys_to_delete)
+            return count
+        except Exception as e:
+            logger.error(f"Cache clear pattern error: {e}")
+            return 0
+    
+    async def _cleanup_memory_cache(self):
+        """Periodic cleanup of expired memory cache entries."""
+        while True:
+            try:
+                await asyncio.sleep(60)  # Cleanup every minute
+                if not self.redis_client:  # Only for memory cache
+                    current_time = datetime.now().timestamp()
+                    expired_keys = [
+                        key for key, (_, timestamp) in self.memory_cache.items()
+                        if current_time - timestamp > self.cache_ttl
+                    ]
+                    for key in expired_keys:
+                        del self.memory_cache[key]
+                    if expired_keys:
+                        logger.debug(f"Cleaned up {len(expired_keys)} expired cache entries")
+            except Exception as e:
+                logger.error(f"Cache cleanup error: {e}")
 
 # Initialize FastAPI app
 app = FastAPI(
@@ -476,6 +582,71 @@ class DatabaseManager:
         async with self.pool.acquire() as conn:
             await conn.execute('DELETE FROM sessions WHERE expires_at < $1', datetime.now())
 
+    async def log_error_to_db(self, error_data: Dict):
+        """Log errors to database for analysis."""
+        try:
+            async with self.pool.acquire() as conn:
+                await conn.execute("""
+                    INSERT INTO error_logs (
+                        error_type, message, stack_trace, url, user_agent, 
+                        user_mobile, created_at, additional_data
+                    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+                """, 
+                    error_data.get('type'),
+                    error_data.get('message'),
+                    error_data.get('stack'),
+                    error_data.get('url'),
+                    error_data.get('userAgent'),
+                    error_data.get('user_mobile'),
+                    datetime.now(),
+                    json.dumps(error_data.get('context', {}))
+                )
+        except Exception as e:
+            logger.error(f"Failed to log error to database: {e}")
+
+    async def get_error_analytics(self, days: int = 30) -> Dict:
+        """Get error analytics for the dashboard."""
+        try:
+            async with self.pool.acquire() as conn:
+                # Error count by type
+                error_types = await conn.fetch("""
+                    SELECT error_type, COUNT(*) as count
+                    FROM error_logs 
+                    WHERE created_at >= CURRENT_DATE - INTERVAL '%s days'
+                    GROUP BY error_type
+                    ORDER BY count DESC
+                    LIMIT 10
+                """, days)
+                
+                # Daily error counts
+                daily_errors = await conn.fetch("""
+                    SELECT DATE(created_at) as date, COUNT(*) as error_count
+                    FROM error_logs
+                    WHERE created_at >= CURRENT_DATE - INTERVAL '%s days'
+                    GROUP BY DATE(created_at)
+                    ORDER BY date
+                """, days)
+                
+                # Most frequent errors
+                frequent_errors = await conn.fetch("""
+                    SELECT message, COUNT(*) as count, MAX(created_at) as last_seen
+                    FROM error_logs
+                    WHERE created_at >= CURRENT_DATE - INTERVAL '%s days'
+                    GROUP BY message
+                    ORDER BY count DESC
+                    LIMIT 5
+                """, days)
+                
+                return {
+                    'error_types': [dict(row) for row in error_types],
+                    'daily_errors': [dict(row) for row in daily_errors],
+                    'frequent_errors': [dict(row) for row in frequent_errors],
+                    'total_errors': sum(row['count'] for row in error_types)
+                }
+        except Exception as e:
+            logger.error(f"Error getting analytics: {e}")
+            return {'error_types': [], 'daily_errors': [], 'frequent_errors': [], 'total_errors': 0}        
+
 # Initialize database
 db = DatabaseManager()
 
@@ -514,6 +685,34 @@ class GSTAPIClient:
 
 # Initialize API client
 api_client = GSTAPIClient(config.RAPIDAPI_KEY, config.RAPIDAPI_HOST) if config.RAPIDAPI_KEY else None
+
+# Add cache-aware API functions
+async def get_cached_gstin_data(gstin: str) -> Optional[Dict]:
+    """Get GSTIN data from cache first, then API."""
+    cache_key = f"gstin:{gstin}"
+    
+    # Try cache first
+    cached_data = await cache_manager.get(cache_key)
+    if cached_data:
+        logger.info(f"Cache hit for GSTIN: {gstin}")
+        return cached_data
+    
+    # Cache miss - fetch from API
+    if api_client:
+        try:
+            company_data = await api_client.fetch_gstin_data(gstin)
+            # Cache for 1 hour
+            await cache_manager.set(cache_key, company_data, ttl=3600)
+            logger.info(f"Cached GSTIN data: {gstin}")
+            return company_data
+        except Exception as e:
+            logger.error(f"API fetch failed for {gstin}: {e}")
+            raise
+    
+    return None
+
+# Initialize cache manager
+cache_manager = CacheManager(os.getenv("REDIS_URL"))
 
 # Validation utilities
 def validate_mobile(mobile: str) -> tuple[bool, str]:
@@ -849,6 +1048,20 @@ async def require_auth(request: Request) -> str:
         )
     return user
 
+# Admin authentication decorator
+async def require_admin(request: Request) -> str:
+    """Require admin authentication."""
+    user = await get_current_user(request)
+    if not user:
+        raise HTTPException(status_code=401, detail="Authentication required")
+    
+    # Check if user is admin (you can implement role-based system)
+    admin_users = os.getenv("ADMIN_USERS", "").split(",")
+    if user not in admin_users:
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    return user
+
 # Main Routes
 @app.get("/health")
 async def health_check():
@@ -865,7 +1078,8 @@ async def health_check():
             "checks": {
                 "database": "healthy",
                 "gst_api": "configured" if config.RAPIDAPI_KEY else "missing",
-                "ai_features": "configured" if config.ANTHROPIC_API_KEY else "disabled"
+                "ai_features": "configured" if config.ANTHROPIC_API_KEY else "disabled",
+                "cache": "redis" if cache_manager.redis_client else "memory"
             }
         }
     except Exception as e:
@@ -900,6 +1114,15 @@ async def dashboard(request: Request, current_user: str = Depends(require_auth))
         "user_profile": user_profile,
         "history": history,
         "searches_this_month": searches_this_month
+    })
+
+# Admin Dashboard Routes
+@app.get("/admin", response_class=HTMLResponse)
+async def admin_dashboard(request: Request, current_user: str = Depends(require_admin)):
+    """Admin dashboard page."""
+    return templates.TemplateResponse("admin/dashboard.html", {
+        "request": request,
+        "current_user": current_user
     })
 
 @app.get("/login", response_class=HTMLResponse)
@@ -1043,6 +1266,8 @@ async def process_search(request: Request, gstin: str, current_user: str):
             raise HTTPException(status_code=503, detail="GST API service not configured")
             
         company_data = await api_client.fetch_gstin_data(gstin)
+        if not company_data:
+            raise HTTPException(status_code=503, detail="GST API service not available")
         
         # Calculate compliance score
         compliance_score = calculate_compliance_score(company_data)
@@ -1193,65 +1418,115 @@ async def clear_user_data_api(current_user: str = Depends(require_auth)):
 @app.post("/api/search/batch")
 @handle_api_errors
 async def batch_search_api(request: BatchSearchRequest, current_user: str = Depends(require_auth)):
-    """Batch GSTIN search API."""
+    """Enhanced batch GSTIN search API with better error handling."""
     try:
-        gstins = request.gstins[:10]  # Limit to 10
+        gstins = [gstin.strip().upper() for gstin in request.gstins[:10]]  # Limit to 10
         results = []
         successful = 0
+        failed = 0
         
         if not api_client:
             raise HTTPException(status_code=503, detail="GST API service not configured")
         
-        for gstin in gstins:
-            gstin = gstin.strip().upper()
+        # Rate limiting check
+        if not api_limiter.is_allowed(current_user):
+            return JSONResponse(
+                status_code=429,
+                content={"success": False, "error": "Rate limit exceeded"}
+            )
+        
+        for i, gstin in enumerate(gstins):
             if not validate_gstin(gstin):
                 results.append({
                     'gstin': gstin,
                     'success': False,
                     'error': 'Invalid GSTIN format'
                 })
+                failed += 1
                 continue
             
             try:
+                # Add progress tracking
+                logger.info(f"Processing GSTIN {i+1}/{len(gstins)}: {gstin}")
+                
                 company_data = await api_client.fetch_gstin_data(gstin)
                 compliance_score = calculate_compliance_score(company_data)
                 
                 # Add to search history
-                await db.add_search_history(current_user, gstin, company_data.get("lgnm", "Unknown"), compliance_score)
+                await db.add_search_history(
+                    current_user, 
+                    gstin, 
+                    company_data.get("lgnm", "Unknown"), 
+                    compliance_score
+                )
                 
                 results.append({
                     'gstin': gstin,
                     'success': True,
                     'company_name': company_data.get('lgnm', 'Unknown'),
                     'compliance_score': compliance_score,
-                    'status': company_data.get('sts', 'Unknown')
+                    'status': company_data.get('sts', 'Unknown'),
+                    'registration_date': company_data.get('rgdt'),
+                    'state': company_data.get('stj', '').split('State - ')[1].split(',')[0] if 'State - ' in company_data.get('stj', '') else 'Unknown'
                 })
                 successful += 1
+                
+                # Small delay to avoid overwhelming the API
+                await asyncio.sleep(0.5)
+                
+            except HTTPException as he:
+                logger.error(f"HTTP error processing GSTIN {gstin}: {he.detail}")
+                results.append({
+                    'gstin': gstin,
+                    'success': False,
+                    'error': he.detail
+                })
+                failed += 1
                 
             except Exception as e:
                 logger.error(f"Error processing GSTIN {gstin}: {e}")
                 results.append({
                     'gstin': gstin,
                     'success': False,
-                    'error': str(e)
+                    'error': 'Processing failed'
                 })
+                failed += 1
         
         return {
             'success': True,
             'results': results,
-            'processed': len(gstins),
-            'successful': successful
+            'summary': {
+                'total': len(gstins),
+                'successful': successful,
+                'failed': failed,
+                'processing_time': f"{len(gstins) * 0.5:.1f}s estimated"
+            }
         }
         
     except Exception as e:
         logger.error(f"Batch search error: {e}")
-        return {
-            'success': False,
-            'error': 'Batch search failed',
-            'results': [],
-            'processed': 0,
-            'successful': 0
-        }
+        return JSONResponse(
+            status_code=500,
+            content={
+                'success': False,
+                'error': 'Batch search failed',
+                'results': [],
+                'summary': {'total': 0, 'successful': 0, 'failed': 0}
+            }
+        )
+    
+@app.get("/api/search/batch/status/{batch_id}")
+@handle_api_errors
+async def get_batch_status(batch_id: str, current_user: str = Depends(require_auth)):
+    """Get status of a batch search operation."""
+    # This would require implementing a background task system
+    # For now, return a simple response
+    return {
+        'success': True,
+        'batch_id': batch_id,
+        'status': 'completed',
+        'message': 'Batch processing completed'
+    }    
 
 @app.get("/api/search/suggestions")
 @handle_api_errors
@@ -1341,7 +1616,7 @@ async def get_system_status_api():
         status = {
             'database': 'healthy',
             'gst_api': 'configured' if config.RAPIDAPI_KEY else 'missing',
-            'ai_service': 'configured' if config.ANTHropic_API_KEY else 'disabled',
+            'ai_service': 'configured' if config.ANTHROPIC_API_KEY else 'disabled',
             'timestamp': datetime.now().isoformat()
         }
         
@@ -1363,6 +1638,247 @@ async def get_system_status_api():
             'success': False,
             'error': 'Failed to get system status'
         }
+    
+# Admin API Routes
+@app.get("/api/admin/stats")
+@handle_api_errors
+async def get_admin_stats(current_user: str = Depends(require_admin)):
+    """Get comprehensive admin statistics."""
+    try:
+        async with db.pool.acquire() as conn:
+            # User statistics
+            user_stats = await conn.fetchrow("""
+                SELECT 
+                    COUNT(*) as total_users,
+                    COUNT(CASE WHEN last_login >= CURRENT_DATE - INTERVAL '30 days' THEN 1 END) as active_users,
+                    COUNT(CASE WHEN created_at >= CURRENT_DATE - INTERVAL '7 days' THEN 1 END) as new_users_week
+                FROM users
+            """)
+            
+            # Search statistics
+            search_stats = await conn.fetchrow("""
+                SELECT 
+                    COUNT(*) as total_searches,
+                    COUNT(CASE WHEN searched_at >= CURRENT_DATE - INTERVAL '24 hours' THEN 1 END) as searches_today,
+                    COUNT(DISTINCT mobile) as unique_searchers,
+                    AVG(compliance_score) as avg_compliance
+                FROM search_history
+            """)
+            
+            # Top searched companies
+            top_companies = await conn.fetch("""
+                SELECT gstin, company_name, COUNT(*) as search_count
+                FROM search_history
+                GROUP BY gstin, company_name
+                ORDER BY search_count DESC
+                LIMIT 10
+            """)
+            
+            # Daily search trends (last 30 days)
+            daily_trends = await conn.fetch("""
+                SELECT DATE(searched_at) as date, COUNT(*) as searches
+                FROM search_history
+                WHERE searched_at >= CURRENT_DATE - INTERVAL '30 days'
+                GROUP BY DATE(searched_at)
+                ORDER BY date
+            """)
+            
+            return {
+                'success': True,
+                'user_stats': dict(user_stats) if user_stats else {},
+                'search_stats': dict(search_stats) if search_stats else {},
+                'top_companies': [dict(row) for row in top_companies],
+                'daily_trends': [dict(row) for row in daily_trends]
+            }
+    except Exception as e:
+        logger.error(f"Admin stats error: {e}")
+        return {'success': False, 'error': str(e)}
+
+@app.get("/api/admin/users")
+@handle_api_errors
+async def get_all_users(
+    page: int = 1, 
+    limit: int = 50,
+    search: str = "",
+    current_user: str = Depends(require_admin)
+):
+    """Get all users with pagination and search."""
+    try:
+        offset = (page - 1) * limit
+        
+        async with db.pool.acquire() as conn:
+            # Build search condition
+            search_condition = ""
+            params = [limit, offset]
+            if search:
+                search_condition = "WHERE mobile LIKE $3"
+                params.append(f"%{search}%")
+            
+            # Get users
+            query = f"""
+                SELECT mobile, created_at, last_login,
+                       (SELECT COUNT(*) FROM search_history WHERE search_history.mobile = users.mobile) as search_count
+                FROM users
+                {search_condition}
+                ORDER BY created_at DESC
+                LIMIT $1 OFFSET $2
+            """
+            
+            users = await conn.fetch(query, *params)
+            
+            # Get total count
+            count_query = f"SELECT COUNT(*) FROM users {search_condition}"
+            if search:
+                total = await conn.fetchval(count_query, f"%{search}%")
+            else:
+                total = await conn.fetchval(count_query)
+            
+            return {
+                'success': True,
+                'users': [dict(row) for row in users],
+                'pagination': {
+                    'page': page,
+                    'limit': limit,
+                    'total': total,
+                    'pages': (total + limit - 1) // limit
+                }
+            }
+    except Exception as e:
+        logger.error(f"Get users error: {e}")
+        return {'success': False, 'error': str(e)}
+
+@app.delete("/api/admin/users/{mobile}")
+@handle_api_errors
+async def delete_user(mobile: str, current_user: str = Depends(require_admin)):
+    """Delete a user and all their data."""
+    try:
+        async with db.pool.acquire() as conn:
+            # Check if user exists
+            user = await conn.fetchrow("SELECT mobile FROM users WHERE mobile = $1", mobile)
+            if not user:
+                return {'success': False, 'error': 'User not found'}
+            
+            # Delete user (cascade will handle related data)
+            await conn.execute("DELETE FROM users WHERE mobile = $1", mobile)
+            
+            return {'success': True, 'message': f'User {mobile} deleted successfully'}
+    except Exception as e:
+        logger.error(f"Delete user error: {e}")
+        return {'success': False, 'error': str(e)}
+
+@app.get("/api/admin/system/health")
+@handle_api_errors
+async def system_health_check(current_user: str = Depends(require_admin)):
+    """Comprehensive system health check."""
+    try:
+        health_data = {
+            'timestamp': datetime.now().isoformat(),
+            'database': 'unknown',
+            'api_service': 'unknown',
+            'cache': 'unknown',
+            'disk_space': 'unknown',
+            'memory_usage': 'unknown'
+        }
+        
+        # Database health
+        try:
+            async with db.pool.acquire() as conn:
+                await conn.execute("SELECT 1")
+            health_data['database'] = 'healthy'
+        except Exception as e:
+            health_data['database'] = f'unhealthy: {str(e)}'
+        
+        # API service health
+        if api_client and config.RAPIDAPI_KEY:
+            health_data['api_service'] = 'configured'
+        else:
+            health_data['api_service'] = 'not configured'
+        
+        # Cache health
+        try:
+            await cache_manager.set('health_check', True, ttl=60)
+            health_check_value = await cache_manager.get('health_check')
+            health_data['cache'] = 'healthy' if health_check_value else 'unhealthy'
+        except Exception as e:
+            health_data['cache'] = f'unhealthy: {str(e)}'
+        
+        # System resources
+        try:
+            import psutil
+            health_data['memory_usage'] = f"{psutil.virtual_memory().percent}%"
+            health_data['disk_space'] = f"{psutil.disk_usage('/').percent}%"
+        except ImportError:
+            health_data['memory_usage'] = 'psutil not available'
+            health_data['disk_space'] = 'psutil not available'
+        
+        return {'success': True, 'health': health_data}
+    except Exception as e:
+        logger.error(f"Health check error: {e}")
+        return {'success': False, 'error': str(e)}
+
+# Bulk operations
+@app.post("/api/admin/bulk/delete-old-searches")
+@handle_api_errors
+async def bulk_delete_old_searches(
+    days_old: int = 90,
+    current_user: str = Depends(require_admin)
+):
+    """Delete search history older than specified days."""
+    try:
+        async with db.pool.acquire() as conn:
+            result = await conn.fetchval("""
+                DELETE FROM search_history 
+                WHERE searched_at < CURRENT_DATE - INTERVAL '%s days'
+                RETURNING COUNT(*)
+            """, days_old)
+            
+            return {
+                'success': True,
+                'deleted_count': result or 0,
+                'days_old': days_old
+            }
+    except Exception as e:
+        logger.error(f"Bulk delete error: {e}")
+        return {'success': False, 'error': str(e)}    
+    
+@app.get("/api/admin/cache/stats")
+@handle_api_errors
+async def get_cache_stats(current_user: str = Depends(require_auth)):
+    """Get cache statistics."""
+    try:
+        if cache_manager.redis_client:
+            info = cache_manager.redis_client.info()
+            return {
+                'success': True,
+                'cache_type': 'redis',
+                'used_memory': info.get('used_memory_human'),
+                'connected_clients': info.get('connected_clients'),
+                'keyspace_hits': info.get('keyspace_hits'),
+                'keyspace_misses': info.get('keyspace_misses')
+            }
+        else:
+            return {
+                'success': True,
+                'cache_type': 'memory',
+                'entries': len(cache_manager.memory_cache),
+                'memory_usage': f"{len(str(cache_manager.memory_cache))} bytes (approx)"
+            }
+    except Exception as e:
+        return {'success': False, 'error': str(e)}
+
+@app.delete("/api/admin/cache/clear")
+@handle_api_errors  
+async def clear_cache(pattern: str = "*", current_user: str = Depends(require_auth)):
+    """Clear cache entries by pattern."""
+    try:
+        count = await cache_manager.clear_pattern(pattern)
+        return {
+            'success': True,
+            'cleared_count': count,
+            'pattern': pattern
+        }
+    except Exception as e:
+        return {'success': False, 'error': str(e)}    
 
 # Export and PDF Routes
 @app.get("/export/history")
