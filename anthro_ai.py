@@ -391,8 +391,7 @@ class CompanyAnalyzer:
     
     async def get_anthropic_synopsis(self, company_data: Dict) -> Optional[str]:
         """
-        Generate AI-powered business synopsis using Anthropic Claude
-        Returns concise, professional company description
+        Generate AI-powered business synopsis using web content + GST data
         """
         if not self.anthropic_client:
             logger.info("AI features not available - generating fallback synopsis")
@@ -403,6 +402,11 @@ class CompanyAnalyzer:
             company_name = company_data.get('lgnm', 'Unknown Company')
             nba = company_data.get('nba', [])
             business_activities = ', '.join(nba[:3]) if nba else 'General business services'
+            
+            # Get web content if available
+            web_content = company_data.get('_web_content', '')
+            web_summary = company_data.get('_web_summary', '')
+            web_keywords = company_data.get('_web_keywords', [])
             
             # Determine location
             location = 'India'
@@ -420,33 +424,41 @@ class CompanyAnalyzer:
             reg_date = company_data.get('rgdt', '')
             establishment_info = f"established {reg_date.split('/')[-1]}" if reg_date and '/' in reg_date else "an established entity"
             
-            # Build AI prompt
+            # Build enhanced prompt with web content
             prompt = f"""
-            Write a professional, concise business synopsis for this company:
+            Create a professional business synopsis using both official GST data and web research:
             
-            Company: {company_name}
-            Business Activities: {business_activities}
-            Location: {location}
-            Establishment: {establishment_info}
-            Compliance Status: {compliance_status}
-            GST Returns Filed: {returns_count}
+            COMPANY OFFICIAL DATA:
+            - Name: {company_name}
+            - Activities: {business_activities}
+            - Location: {location}
+            - Establishment: {establishment_info}
+            - GST Status: {compliance_status}
+            - Returns Filed: {returns_count}
+            
+            WEB RESEARCH INSIGHTS:
+            - Summary: {web_summary[:200] if web_summary else 'Limited web presence'}
+            - Keywords: {', '.join(web_keywords[:5]) if web_keywords else 'Standard business'}
+            
+            ADDITIONAL WEB CONTENT:
+            {web_content[:500] if web_content else 'No additional web information available'}
             
             Requirements:
-            - Maximum 250 characters
-            - Professional tone
-            - Include primary business focus
-            - Mention location
-            - Highlight key strength (compliance, experience, etc.)
-            - No promotional language
-            - Factual and informative
+            - Maximum 280 characters (Twitter-style)
+            - Professional business directory tone
+            - Combine GST data with web insights
+            - Focus on actual business activities found online
+            - Include location and key strength
+            - If web content available, prioritize it over GST categories
+            - No promotional language, factual only
             
-            Format: Single paragraph, business directory style.
+            Format: Single professional paragraph describing what the company actually does.
             """
             
             response = await self.anthropic_client.messages.create(
                 model="claude-3-haiku-20240307",
-                max_tokens=100,
-                temperature=0.3,  # Lower temperature for more consistent output
+                max_tokens=120,
+                temperature=0.2,  # Lower for more consistent output
                 messages=[{"role": "user", "content": prompt}]
             )
             
@@ -454,15 +466,15 @@ class CompanyAnalyzer:
                 synopsis = response.content[0].text.strip()
                 
                 # Ensure character limit
-                if len(synopsis) > 250:
-                    synopsis = synopsis[:247] + "..."
+                if len(synopsis) > 280:
+                    synopsis = synopsis[:277] + "..."
                 
-                logger.info(f"AI synopsis generated for {company_name}")
+                logger.info(f"AI synopsis with web content generated for {company_name}")
                 return synopsis
             
         except Exception as e:
-            logger.error(f"AI synopsis generation failed for {company_data.get('lgnm', 'Unknown')}: {e}")
-        
+            logger.error(f"Enhanced AI synopsis generation failed for {company_data.get('lgnm', 'Unknown')}: {e}")
+    
         # Fallback to rule-based synopsis
         return await self._generate_fallback_synopsis(company_data)
     
