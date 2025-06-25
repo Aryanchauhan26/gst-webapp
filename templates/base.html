@@ -1,629 +1,561 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="dark">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="GST Intelligence Platform - Advanced GST compliance analytics and business loan management">
+    <meta name="keywords" content="GST, compliance, analytics, business loans, India, tax, GSTIN">
+    <meta name="author" content="GST Intelligence Platform">
+    
+    <!-- Security Headers -->
+    <meta http-equiv="X-Content-Type-Options" content="nosniff">
+    <meta http-equiv="X-Frame-Options" content="DENY">
+    <meta http-equiv="X-XSS-Protection" content="1; mode=block">
+    <meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin">
+    
+    <!-- PWA Meta Tags -->
+    <meta name="theme-color" content="#7c3aed">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="GST Intelligence">
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
+    <link rel="apple-touch-icon" href="/static/icons/apple-touch-icon.png">
+    <link rel="manifest" href="/manifest.json">
+    
     <title>{% block title %}GST Intelligence Platform{% endblock %}</title>
     
-    <!-- Meta Tags -->
-    <meta name="description" content="Advanced GST Compliance Analytics Platform with AI-powered insights">
-    <meta name="theme-color" content="#7c3aed">
-    <link rel="canonical" href="{{ request.url }}">
-    
-    <!-- PWA Manifest -->
-    <link rel="manifest" href="/static/manifest.json">
-    
-    <!-- Icons -->
-    <link rel="icon" type="image/svg+xml" href="/static/icons/favicon.svg">
-    <link rel="icon" type="image/png" href="/static/icons/favicon.png">
-    <link rel="apple-touch-icon" href="/static/icons/apple-touch-icon.png">
-    
-    <!-- External CSS -->
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.min.js"></script>
-    
-    <!-- Internal CSS -->
+    <!-- Core Styles -->
     <link rel="stylesheet" href="/static/css/base.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     
-    <!-- Critical CSS -->
-    <style>
-        /* Theme Variables */
-        :root {
-            /* Brand Colors */
-            --primary-500: #7c3aed;
-            --primary-600: #6d28d9;
-            --primary-700: #5b21b6;
-            
-            /* Semantic Colors */
-            --success: #10b981;
-            --warning: #f59e0b;
-            --error: #ef4444;
-            --info: #3b82f6;
-            
-            /* Transitions */
-            --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
-            --transition-base: 200ms cubic-bezier(0.4, 0, 0.2, 1);
-        }
-
-        /* Dark Theme (Default) */
-        :root {
-            --bg-primary: #0f172a;
-            --bg-secondary: #1e293b;
-            --bg-card: #1e293b;
-            --bg-hover: #334155;
-            --bg-input: #334155;
-            
-            --text-primary: #f8fafc;
-            --text-secondary: #cbd5e1;
-            --text-tertiary: #94a3b8;
-            --text-muted: #64748b;
-            
-            --border-color: #334155;
-            --border-primary: #334155;
-            
-            --accent-primary: #7c3aed;
-            --accent-secondary: #a855f7;
-            --accent-gradient: linear-gradient(135deg, #7c3aed 0%, #a855f7 100%);
-            
-            --card-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
-            --hover-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
-        }
-
-        [data-theme="light"] {
-            --bg-primary: #ffffff;
-            --bg-secondary: #f8fafc;
-            --bg-card: #ffffff;
-            --bg-hover: #f1f5f9;
-            --bg-input: #f8fafc;
-            
-            --text-primary: #0f172a;
-            --text-secondary: #475569;
-            --text-tertiary: #64748b;
-            --text-muted: #94a3b8;
-            
-            --border-color: #e2e8f0;
-            --border-primary: #e2e8f0;
-        }
-
-        /* Header Styles */
-        .header {
-            position: sticky;
-            top: 0;
-            z-index: 1020;
-            background: var(--bg-card);
-            border-bottom: 1px solid var(--border-primary);
-            backdrop-filter: blur(10px);
-        }
-        
-        .header__container {
-            max-width: 1400px;
-            margin: 0 auto;
-            padding: 0 1rem;
-            height: 64px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 1rem;
-        }
-
-        .header__logo {
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-            color: var(--text-primary);
-            text-decoration: none;
-            font-weight: 700;
-            font-size: 1.125rem;
-        }
-
-        .header__logo-icon {
-            width: 40px;
-            height: 40px;
-            background: var(--accent-gradient);
-            border-radius: 12px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-size: 1.25rem;
-        }
-
-        .header__nav {
-            display: flex;
-            gap: 1rem;
-        }
-
-        .nav__link {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            padding: 0.5rem 1rem;
-            border-radius: 8px;
-            color: var(--text-secondary);
-            text-decoration: none;
-            transition: all var(--transition-fast);
-            font-weight: 500;
-        }
-
-        .nav__link:hover,
-        .nav__link--active {
-            background: var(--accent-primary);
-            color: white;
-        }
-
-        /* User Profile Section */
-        .user-profile-wrapper {
-            position: relative;
-            display: flex;
-            align-items: center;
-        }
-
-        .user__trigger {
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-            padding: 0.5rem;
-            background: none;
-            border: none;
-            border-radius: 12px;
-            cursor: pointer;
-            transition: all var(--transition-fast);
-            background: linear-gradient(45deg, rgba(124, 58, 237, 0.1), rgba(167, 139, 250, 0.1));
-            border: 1px solid rgba(124, 58, 237, 0.3);
-        }
-
-        .user__trigger:hover,
-        .user__trigger.active {
-            background: var(--accent-primary);
-            color: white;
-            border-color: var(--accent-primary);
-        }
-
-        .user__avatar {
-            width: 40px;
-            height: 40px;
-            background: var(--accent-gradient);
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-weight: 600;
-            transition: all var(--transition-fast);
-        }
-
-        .user__info {
-            display: flex;
-            flex-direction: column;
-            align-items: flex-start;
-        }
-
-        .user__name {
-            font-weight: 600;
-            color: var(--text-primary);
-            font-size: 0.875rem;
-        }
-
-        .user__status {
-            font-size: 0.75rem;
-            color: var(--text-secondary);
-            display: flex;
-            align-items: center;
-            gap: 0.25rem;
-        }
-
-        .user__chevron {
-            color: var(--text-secondary);
-            font-size: 0.75rem;
-            transition: transform var(--transition-fast);
-        }
-
-        .user__trigger.active .user__chevron {
-            transform: rotate(180deg);
-        }
-
-        /* Enhanced Dropdown */
-        .user__dropdown {
-            position: absolute;
-            top: calc(100% + 0.5rem);
-            right: 0;
-            background: var(--bg-card);
-            border: 1px solid var(--border-primary);
-            border-radius: 16px;
-            box-shadow: var(--hover-shadow);
-            padding: 1.5rem;
-            min-width: 320px;
-            opacity: 0;
-            visibility: hidden;
-            transform: translateY(-10px) scale(0.95);
-            transition: all var(--transition-base);
-            z-index: 1000;
-            backdrop-filter: blur(20px);
-        }
-
-        .user__dropdown.active {
-            opacity: 1;
-            visibility: visible;
-            transform: translateY(0) scale(1);
-        }
-
-        .auth-links {
-            display: flex;
-            gap: 0.75rem;
-            align-items: center;
-        }
-
-        .btn {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            gap: 0.5rem;
-            padding: 0.5rem 1rem;
-            border: 1px solid transparent;
-            border-radius: 8px;
-            font-size: 0.875rem;
-            font-weight: 500;
-            text-decoration: none;
-            cursor: pointer;
-            transition: all var(--transition-fast);
-            white-space: nowrap;
-        }
-
-        .btn--ghost {
-            background: transparent;
-            color: var(--text-secondary);
-        }
-
-        .btn--ghost:hover {
-            background: var(--bg-hover);
-            color: var(--text-primary);
-        }
-
-        .btn--primary {
-            background: var(--accent-gradient);
-            color: white;
-        }
-
-        .btn--primary:hover {
-            transform: translateY(-1px);
-            box-shadow: var(--card-shadow);
-        }
-
-        .main-content {
-            min-height: calc(100vh - 64px);
-            background: var(--bg-primary);
-        }
-
-        .container {
-            width: 100%;
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 2rem 1rem;
-        }
-
-        .status-indicator {
-            display: inline-block;
-            width: 6px;
-            height: 6px;
-            background: var(--success);
-            border-radius: 50%;
-            animation: pulse 2s infinite;
-        }
-
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.5; }
-        }
-
-        /* Mobile responsiveness */
-        @media (max-width: 768px) {
-            .header__nav {
-                display: none;
-            }
-            
-            .user__info {
-                display: none;
-            }
-            
-            .header__container {
-                padding: 0 1rem;
-            }
-            
-            .container {
-                padding: 1rem;
-            }
-
-            .user__dropdown {
-                right: -1rem;
-                left: -1rem;
-                min-width: auto;
-                width: auto;
-            }
-        }
-
-        /* Screen reader only */
-        .sr-only {
-            position: absolute;
-            width: 1px;
-            height: 1px;
-            padding: 0;
-            margin: -1px;
-            overflow: hidden;
-            clip: rect(0, 0, 0, 0);
-            white-space: nowrap;
-            border: 0;
-        }
-    </style>
+    <!-- Block for additional styles -->
+    {% block extra_css %}{% endblock %}
+    
+    <!-- Preload critical resources -->
+    <link rel="preload" href="/static/js/app.js" as="script">
+    <link rel="preload" href="/static/css/base.css" as="style">
+    
+    <!-- JSON-LD Structured Data -->
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "WebApplication",
+        "name": "GST Intelligence Platform",
+        "description": "Advanced GST compliance analytics and business loan management platform",
+        "url": "{{ request.url_root }}",
+        "applicationCategory": "BusinessApplication",
+        "operatingSystem": "Web Browser"
+    }
+    </script>
 </head>
-
-<body class="{% block body_class %}{% endblock %}" data-page="{{ request.url.path.split('/')[-1] or 'home' }}">
-    <!-- Skip to main content for accessibility -->
-    <a href="#main-content" class="sr-only">Skip to main content</a>
+<body class="{% block body_class %}{% endblock %}">
+    <!-- Skip Navigation Link -->
+    <a href="#main-content" class="skip-link">Skip to main content</a>
     
-    <!-- Header Component -->
-    {% if not request.url.path in ['/login', '/signup'] %}
-    {% block header %}
-    <header class="header" role="banner">
-        <div class="header__container">
-            <!-- Logo -->
-            <a href="/" class="header__logo" aria-label="GST Intelligence Platform Home">
-                <div class="header__logo-icon">
-                    <i class="fas fa-chart-line" aria-hidden="true"></i>
-                </div>
-                <span class="header__logo-text">GST Intelligence</span>
-            </a>
-
-            <!-- Navigation -->
-            {% if current_user %}
-            <nav class="header__nav" role="navigation" aria-label="Main navigation">
-                <a href="/" 
-                   class="nav__link {% if request.url.path == '/' %}nav__link--active{% endif %}"
-                   {% if request.url.path == '/' %}aria-current="page"{% endif %}>
-                    <i class="fas fa-home" aria-hidden="true"></i>
-                    <span>Dashboard</span>
-                </a>
-                <a href="/analytics" 
-                   class="nav__link {% if request.url.path == '/analytics' %}nav__link--active{% endif %}"
-                   {% if request.url.path == '/analytics' %}aria-current="page"{% endif %}>
-                    <i class="fas fa-chart-bar" aria-hidden="true"></i>
-                    <span>Analytics</span>
-                </a>
-                <a href="/history" 
-                   class="nav__link {% if request.url.path == '/history' %}nav__link--active{% endif %}"
-                   {% if request.url.path == '/history' %}aria-current="page"{% endif %}>
-                    <i class="fas fa-history" aria-hidden="true"></i>
-                    <span>History</span>
-                </a>
-                <a href="/admin" 
-                   class="nav__link {% if request.url.path.startswith('/admin') %}nav__link--active{% endif %}"
-                   {% if request.url.path.startswith('/admin') %}aria-current="page"{% endif %}>
-                    <i class="fas fa-cog" aria-hidden="true"></i>
-                    <span>Admin</span>
-                </a>
-                <a href="/loans" 
-                   class="nav__link {% if request.url.path == '/loans' %}nav__link--active{% endif %}"
-                   {% if request.url.path == '/loans' %}aria-current="page"{% endif %}>
-                    <i class="fas fa-coins" aria-hidden="true"></i>
-                    <span>Loans</span>
-                </a>
-            </nav>
-
-            <!-- User Menu -->
-            <div class="user-profile-wrapper">
-                <button class="user__trigger" 
-                        id="userProfileBtn"
-                        aria-expanded="false"
-                        aria-haspopup="true"
-                        aria-label="User menu">
-                    <div class="user__avatar" aria-hidden="true">
-                        {{ (user_display_name or current_user)[0]|upper if user_display_name else current_user[0]|upper }}
-                    </div>
-                    <div class="user__info">
-                        <div class="user__name" id="userDisplayName">
-                            {{ user_display_name or ("User " + current_user[-4:]) if current_user else "User" }}
-                        </div>
-                        <div class="user__status">
-                            <span class="status-indicator" aria-label="Online"></span>
-                            <span id="userRole">{{ user_profile.designation or "Member" if user_profile else "Member" }}</span>
-                        </div>
-                    </div>
-                    <i class="fas fa-chevron-down user__chevron" aria-hidden="true"></i>
-                </button>
-
-                <!-- Enhanced User Dropdown -->
-                <div id="userDropdownMenu" class="user__dropdown" role="menu">
-                    <!-- Dropdown content will be loaded here -->
-                </div>
-            </div>
-
-            {% else %}
-            <!-- Authentication Links -->
-            <div class="auth-links">
-                <a href="/login" class="btn btn--ghost">Login</a>
-                <a href="/signup" class="btn btn--primary">Sign Up</a>
-            </div>
-            {% endif %}
+    <!-- Loading Overlay -->
+    <div id="loading-overlay" class="loading-overlay" style="display: none;">
+        <div class="loading-spinner">
+            <div class="spinner"></div>
+            <p>Loading...</p>
         </div>
-    </header>
-    {% endblock %}
-    {% endif %}
-
+    </div>
+    
+    <!-- Navigation -->
+    <nav class="navbar" role="navigation" aria-label="Main navigation">
+        <div class="navbar-container">
+            <!-- Logo and Brand -->
+            <div class="navbar-brand">
+                <a href="/" class="brand-link" aria-label="GST Intelligence Platform Home">
+                    <div class="brand-icon">
+                        <i class="fas fa-chart-line"></i>
+                    </div>
+                    <span class="brand-text">GST Intelligence</span>
+                </a>
+            </div>
+            
+            <!-- Mobile Menu Toggle -->
+            <button class="navbar-toggle" type="button" aria-label="Toggle navigation menu" aria-expanded="false">
+                <span class="hamburger-line"></span>
+                <span class="hamburger-line"></span>
+                <span class="hamburger-line"></span>
+            </button>
+            
+            <!-- Navigation Links -->
+            <div class="navbar-menu">
+                <div class="navbar-nav">
+                    <a href="/" class="nav-link {{ 'active' if request.endpoint == 'dashboard' else '' }}">
+                        <i class="fas fa-home"></i>
+                        <span>Dashboard</span>
+                    </a>
+                    <a href="/history" class="nav-link {{ 'active' if request.endpoint == 'history_page' else '' }}">
+                        <i class="fas fa-history"></i>
+                        <span>History</span>
+                    </a>
+                    <a href="/analytics" class="nav-link {{ 'active' if request.endpoint == 'analytics_page' else '' }}">
+                        <i class="fas fa-chart-bar"></i>
+                        <span>Analytics</span>
+                    </a>
+                    <a href="/loans" class="nav-link {{ 'active' if request.endpoint == 'loans_page' else '' }}">
+                        <i class="fas fa-money-bill-wave"></i>
+                        <span>Loans</span>
+                    </a>
+                </div>
+                
+                <!-- User Menu -->
+                <div class="navbar-user">
+                    <div class="user-menu-trigger" role="button" tabindex="0" aria-label="User menu">
+                        <div class="user-avatar">
+                            <i class="fas fa-user"></i>
+                        </div>
+                        <span class="user-name">{{ user_display_name or 'User' }}</span>
+                        <i class="fas fa-chevron-down user-menu-arrow"></i>
+                    </div>
+                    
+                    <!-- User Dropdown Menu -->
+                    <div class="user-dropdown" role="menu">
+                        <div class="dropdown-header">
+                            <div class="user-info">
+                                <div class="user-name-display">{{ user_display_name or 'User' }}</div>
+                                <div class="user-mobile">{{ current_user }}</div>
+                            </div>
+                        </div>
+                        
+                        <div class="dropdown-divider"></div>
+                        
+                        <a href="#" class="dropdown-item" role="menuitem" data-action="profile">
+                            <i class="fas fa-user-edit"></i>
+                            <span>Profile Settings</span>
+                        </a>
+                        
+                        <a href="#" class="dropdown-item" role="menuitem" data-action="preferences">
+                            <i class="fas fa-cog"></i>
+                            <span>Preferences</span>
+                        </a>
+                        
+                        <a href="#" class="dropdown-item" role="menuitem" data-action="export">
+                            <i class="fas fa-download"></i>
+                            <span>Export Data</span>
+                        </a>
+                        
+                        {% if current_user in admin_users %}
+                        <div class="dropdown-divider"></div>
+                        <a href="/admin" class="dropdown-item" role="menuitem">
+                            <i class="fas fa-shield-alt"></i>
+                            <span>Admin Panel</span>
+                        </a>
+                        {% endif %}
+                        
+                        <div class="dropdown-divider"></div>
+                        
+                        <a href="/logout" class="dropdown-item logout-item" role="menuitem">
+                            <i class="fas fa-sign-out-alt"></i>
+                            <span>Logout</span>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+    
     <!-- Main Content -->
     <main id="main-content" class="main-content" role="main">
-        <!-- Flash Messages -->
-        {% block messages %}
-        {% if messages %}
-        <div class="messages-container">
-            <div class="container">
-                {% for message in messages %}
-                <div class="alert alert--{{ message.type }}" role="alert">
-                    <div class="alert__icon">
-                        {% if message.type == 'success' %}
-                        <i class="fas fa-check-circle" aria-hidden="true"></i>
-                        {% elif message.type == 'error' %}
-                        <i class="fas fa-exclamation-circle" aria-hidden="true"></i>
-                        {% elif message.type == 'warning' %}
-                        <i class="fas fa-exclamation-triangle" aria-hidden="true"></i>
-                        {% else %}
-                        <i class="fas fa-info-circle" aria-hidden="true"></i>
-                        {% endif %}
-                    </div>
-                    <div class="alert__content">
-                        <div class="alert__message">{{ message.content }}</div>
-                    </div>
-                    <button class="alert__close" aria-label="Close message">
-                        <i class="fas fa-times" aria-hidden="true"></i>
-                    </button>
-                </div>
-                {% endfor %}
-            </div>
-        </div>
-        {% endif %}
-        {% endblock %}
-
+        <!-- Page Header -->
+        {% block page_header %}{% endblock %}
+        
+        <!-- Flash Messages / Notifications -->
+        <div id="flash-messages" class="flash-messages" aria-live="polite"></div>
+        
         <!-- Page Content -->
-        <div class="{% block container_class %}container{% endblock %}">
+        <div class="content-wrapper">
             {% block content %}{% endblock %}
         </div>
     </main>
-
-    <!-- Core Scripts -->
+    
+    <!-- Footer -->
+    <footer class="footer" role="contentinfo">
+        <div class="footer-container">
+            <div class="footer-content">
+                <div class="footer-section">
+                    <h3>GST Intelligence Platform</h3>
+                    <p>Advanced GST compliance analytics and business loan management for Indian businesses.</p>
+                </div>
+                
+                <div class="footer-section">
+                    <h4>Features</h4>
+                    <ul>
+                        <li><a href="/">GST Search & Analysis</a></li>
+                        <li><a href="/loans">Business Loans</a></li>
+                        <li><a href="/analytics">Compliance Analytics</a></li>
+                        <li><a href="/history">Search History</a></li>
+                    </ul>
+                </div>
+                
+                <div class="footer-section">
+                    <h4>Support</h4>
+                    <ul>
+                        <li><a href="/help">Help Center</a></li>
+                        <li><a href="/contact">Contact Us</a></li>
+                        <li><a href="/privacy">Privacy Policy</a></li>
+                        <li><a href="/terms">Terms of Service</a></li>
+                    </ul>
+                </div>
+                
+                <div class="footer-section">
+                    <h4>Connect</h4>
+                    <div class="social-links">
+                        <a href="#" aria-label="Follow us on Twitter"><i class="fab fa-twitter"></i></a>
+                        <a href="#" aria-label="Follow us on LinkedIn"><i class="fab fa-linkedin"></i></a>
+                        <a href="#" aria-label="Like us on Facebook"><i class="fab fa-facebook"></i></a>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="footer-bottom">
+                <div class="footer-bottom-content">
+                    <p>&copy; {{ current_year or 2024 }} GST Intelligence Platform. All rights reserved.</p>
+                    <div class="footer-links">
+                        <a href="/health">System Status</a>
+                        <span class="divider">|</span>
+                        <a href="/api-docs">API Documentation</a>
+                        <span class="divider">|</span>
+                        <span class="version">v2.0.0</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </footer>
+    
+    <!-- Modals Container -->
+    <div id="modals-container"></div>
+    
+    <!-- Profile Settings Modal -->
+    <div id="profile-modal" class="modal" role="dialog" aria-labelledby="profile-modal-title" aria-hidden="true">
+        <div class="modal-overlay"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="profile-modal-title">Profile Settings</h2>
+                <button type="button" class="modal-close" aria-label="Close modal">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="profile-form">
+                    <div class="form-group">
+                        <label for="display_name">Display Name</label>
+                        <input type="text" id="display_name" name="display_name" placeholder="Your full name" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="company">Company</label>
+                        <input type="text" id="company" name="company" placeholder="Your company name">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="email">Email</label>
+                        <input type="email" id="email" name="email" placeholder="your.email@company.com">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="designation">Designation</label>
+                        <input type="text" id="designation" name="designation" placeholder="Your job title">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn--secondary" data-dismiss="modal">Cancel</button>
+                <button type="submit" form="profile-form" class="btn btn--primary">Save Changes</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Preferences Modal -->
+    <div id="preferences-modal" class="modal" role="dialog" aria-labelledby="preferences-modal-title" aria-hidden="true">
+        <div class="modal-overlay"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="preferences-modal-title">User Preferences</h2>
+                <button type="button" class="modal-close" aria-label="Close modal">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="preferences-form">
+                    <div class="preferences-section">
+                        <h3>Notifications</h3>
+                        <div class="form-group checkbox-group">
+                            <label class="checkbox-label">
+                                <input type="checkbox" name="emailNotifications">
+                                <span class="checkbox-custom"></span>
+                                Email notifications for important updates
+                            </label>
+                        </div>
+                        <div class="form-group checkbox-group">
+                            <label class="checkbox-label">
+                                <input type="checkbox" name="pushNotifications">
+                                <span class="checkbox-custom"></span>
+                                Browser push notifications
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <div class="preferences-section">
+                        <h3>Application</h3>
+                        <div class="form-group checkbox-group">
+                            <label class="checkbox-label">
+                                <input type="checkbox" name="autoSearch" checked>
+                                <span class="checkbox-custom"></span>
+                                Enable auto-search suggestions
+                            </label>
+                        </div>
+                        <div class="form-group checkbox-group">
+                            <label class="checkbox-label">
+                                <input type="checkbox" name="animations" checked>
+                                <span class="checkbox-custom"></span>
+                                Enable animations and transitions
+                            </label>
+                        </div>
+                        <div class="form-group checkbox-group">
+                            <label class="checkbox-label">
+                                <input type="checkbox" name="saveHistory" checked>
+                                <span class="checkbox-custom"></span>
+                                Save search history
+                            </label>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn--secondary" data-dismiss="modal">Cancel</button>
+                <button type="submit" form="preferences-form" class="btn btn--primary">Save Preferences</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- PWA Install Prompt -->
+    <div id="pwa-install-prompt" class="pwa-prompt" style="display: none;">
+        <div class="pwa-prompt-content">
+            <div class="pwa-prompt-icon">
+                <i class="fas fa-mobile-alt"></i>
+            </div>
+            <div class="pwa-prompt-text">
+                <h3>Install GST Intelligence</h3>
+                <p>Add to your home screen for quick access</p>
+            </div>
+            <div class="pwa-prompt-actions">
+                <button type="button" class="btn btn--secondary" id="pwa-dismiss">Not Now</button>
+                <button type="button" class="btn btn--primary" id="pwa-install">Install</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Core JavaScript -->
     <script>
-        // Theme management
-        function toggleTheme() {
-            const html = document.documentElement;
-            const currentTheme = html.getAttribute('data-theme');
-            const newTheme = currentTheme === 'light' ? null : 'light';
-            
-            document.body.classList.add('theme-transitioning');
-            html.setAttribute('data-theme', newTheme);
-            localStorage.setItem('theme', newTheme || 'dark');
-            
-            setTimeout(() => {
-                document.body.classList.remove('theme-transitioning');
-            }, 300);
+        // Global configuration
+        window.GST_CONFIG = {
+            currentUser: '{{ current_user }}',
+            userName: '{{ user_display_name or "User" }}',
+            csrfToken: '{{ csrf_token() if csrf_token else "" }}',
+            apiBaseUrl: '{{ request.url_root }}',
+            isAuthenticated: {{ 'true' if current_user else 'false' }},
+            features: {
+                loans: {{ 'true' if loan_management_enabled else 'false' }},
+                ai: {{ 'true' if ai_features_enabled else 'false' }},
+                analytics: true
+            }
+        };
+        
+        // Service Worker Registration
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', function() {
+                navigator.serviceWorker.register('/sw.js')
+                    .then(function(registration) {
+                        console.log('ServiceWorker registration successful');
+                    })
+                    .catch(function(err) {
+                        console.log('ServiceWorker registration failed: ', err);
+                    });
+            });
         }
-
-        // Load saved theme
-        (function() {
-            const savedTheme = localStorage.getItem('theme') || 'dark';
-            document.documentElement.setAttribute('data-theme', savedTheme === 'light' ? 'light' : null);
-        })();
-
-        // User profile dropdown
-        document.addEventListener('DOMContentLoaded', function() {
-            const userBtn = document.getElementById('userProfileBtn');
-            const dropdown = document.getElementById('userDropdownMenu');
+        
+        // PWA Install Prompt Handler
+        let deferredPrompt;
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
             
-            if (userBtn && dropdown) {
-                userBtn.addEventListener('click', function(e) {
-                    e.stopPropagation();
+            const installPrompt = document.getElementById('pwa-install-prompt');
+            if (installPrompt) {
+                installPrompt.style.display = 'block';
+            }
+        });
+        
+        // Modal System
+        window.ModalSystem = {
+            open: function(modalId) {
+                const modal = document.getElementById(modalId);
+                if (modal) {
+                    modal.classList.add('active');
+                    modal.setAttribute('aria-hidden', 'false');
+                    document.body.classList.add('modal-open');
                     
-                    const isOpen = dropdown.classList.contains('active');
-                    
-                    if (isOpen) {
-                        dropdown.classList.remove('active');
-                        userBtn.classList.remove('active');
-                        userBtn.setAttribute('aria-expanded', 'false');
-                    } else {
-                        dropdown.classList.add('active');
-                        userBtn.classList.add('active');
-                        userBtn.setAttribute('aria-expanded', 'true');
-                        loadUserDropdown();
+                    // Focus first focusable element
+                    const firstFocusable = modal.querySelector('input, button, select, textarea, [tabindex]:not([tabindex="-1"])');
+                    if (firstFocusable) {
+                        firstFocusable.focus();
                     }
+                }
+            },
+            
+            close: function(modalId) {
+                const modal = document.getElementById(modalId);
+                if (modal) {
+                    modal.classList.remove('active');
+                    modal.setAttribute('aria-hidden', 'true');
+                    document.body.classList.remove('modal-open');
+                }
+            }
+        };
+        
+        // User Menu Toggle
+        document.addEventListener('DOMContentLoaded', function() {
+            const userMenuTrigger = document.querySelector('.user-menu-trigger');
+            const userDropdown = document.querySelector('.user-dropdown');
+            
+            if (userMenuTrigger && userDropdown) {
+                userMenuTrigger.addEventListener('click', function() {
+                    userDropdown.classList.toggle('active');
                 });
                 
+                // Close dropdown when clicking outside
                 document.addEventListener('click', function(e) {
-                    if (!userBtn.contains(e.target) && !dropdown.contains(e.target)) {
-                        dropdown.classList.remove('active');
-                        userBtn.classList.remove('active');
-                        userBtn.setAttribute('aria-expanded', 'false');
+                    if (!userMenuTrigger.contains(e.target) && !userDropdown.contains(e.target)) {
+                        userDropdown.classList.remove('active');
                     }
+                });
+            }
+            
+            // Mobile menu toggle
+            const navbarToggle = document.querySelector('.navbar-toggle');
+            const navbarMenu = document.querySelector('.navbar-menu');
+            
+            if (navbarToggle && navbarMenu) {
+                navbarToggle.addEventListener('click', function() {
+                    const isExpanded = navbarToggle.getAttribute('aria-expanded') === 'true';
+                    navbarToggle.setAttribute('aria-expanded', !isExpanded);
+                    navbarMenu.classList.toggle('active');
+                });
+            }
+            
+            // Dropdown item handlers
+            document.addEventListener('click', function(e) {
+                const item = e.target.closest('.dropdown-item[data-action]');
+                if (item) {
+                    e.preventDefault();
+                    const action = item.dataset.action;
+                    
+                    switch (action) {
+                        case 'profile':
+                            window.ModalSystem.open('profile-modal');
+                            break;
+                        case 'preferences':
+                            window.ModalSystem.open('preferences-modal');
+                            break;
+                        case 'export':
+                            window.location.href = '/export/history';
+                            break;
+                    }
+                }
+            });
+            
+            // Modal close handlers
+            document.addEventListener('click', function(e) {
+                if (e.target.classList.contains('modal-overlay') || 
+                    e.target.classList.contains('modal-close') ||
+                    e.target.closest('.modal-close')) {
+                    const modal = e.target.closest('.modal');
+                    if (modal) {
+                        window.ModalSystem.close(modal.id);
+                    }
+                }
+                
+                if (e.target.hasAttribute('data-dismiss') && e.target.dataset.dismiss === 'modal') {
+                    const modal = e.target.closest('.modal');
+                    if (modal) {
+                        window.ModalSystem.close(modal.id);
+                    }
+                }
+            });
+            
+            // PWA Install handlers
+            const pwaInstallBtn = document.getElementById('pwa-install');
+            const pwaDismissBtn = document.getElementById('pwa-dismiss');
+            const pwaPrompt = document.getElementById('pwa-install-prompt');
+            
+            if (pwaInstallBtn) {
+                pwaInstallBtn.addEventListener('click', function() {
+                    if (deferredPrompt) {
+                        deferredPrompt.prompt();
+                        deferredPrompt.userChoice.then((choiceResult) => {
+                            if (choiceResult.outcome === 'accepted') {
+                                console.log('User accepted the A2HS prompt');
+                            }
+                            deferredPrompt = null;
+                            pwaPrompt.style.display = 'none';
+                        });
+                    }
+                });
+            }
+            
+            if (pwaDismissBtn) {
+                pwaDismissBtn.addEventListener('click', function() {
+                    pwaPrompt.style.display = 'none';
+                    deferredPrompt = null;
                 });
             }
         });
-
-        // Load user dropdown content
-        async function loadUserDropdown() {
-            const dropdown = document.getElementById('userDropdownMenu');
-            if (!dropdown) return;
-
-            dropdown.innerHTML = `
-                <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem; padding-bottom: 1rem; border-bottom: 1px solid var(--border-primary);">
-                    <div style="width: 48px; height: 48px; background: var(--accent-gradient); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: 600; font-size: 1.125rem;">
-                        {{ (user_display_name or current_user)[0]|upper if user_display_name else current_user[0]|upper }}
-                    </div>
-                    <div>
-                        <div style="font-weight: 600; color: var(--text-primary);">{{ user_display_name or ("User " + current_user[-4:]) if current_user else "User" }}</div>
-                        <div style="font-size: 0.875rem; color: var(--text-secondary);">{{ user_profile.company or "GST Intelligence Platform" if user_profile else "GST Intelligence Platform" }}</div>
-                    </div>
-                </div>
-
-                <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.75rem; margin-bottom: 1rem;">
-                    <div style="text-align: center; padding: 0.75rem; background: var(--bg-hover); border-radius: 8px;">
-                        <div style="font-size: 1.25rem; font-weight: 700; color: var(--accent-primary);" data-user-stat="total-searches">-</div>
-                        <div style="font-size: 0.75rem; color: var(--text-secondary);">Searches</div>
-                    </div>
-                    <div style="text-align: center; padding: 0.75rem; background: var(--bg-hover); border-radius: 8px;">
-                        <div style="font-size: 1.25rem; font-weight: 700; color: var(--accent-primary);" data-user-stat="avg-compliance">-</div>
-                        <div style="font-size: 0.75rem; color: var(--text-secondary);">Avg Score</div>
-                    </div>
-                </div>
-
-                <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.75rem 0; border-bottom: 1px solid var(--border-primary); margin-bottom: 1rem;">
-                    <span>Theme</span>
-                    <button style="background: var(--bg-hover); border: 1px solid var(--border-primary); border-radius: 20px; padding: 2px; cursor: pointer; display: flex; align-items: center; position: relative; width: 48px; height: 24px;" onclick="toggleTheme()">
-                        <div style="position: absolute; width: 20px; height: 20px; background: var(--accent-primary); border-radius: 50%; transition: transform 0.3s; display: flex; align-items: center; justify-content: center; color: white; font-size: 10px; left: 2px;">
-                            <i class="fas fa-moon"></i>
-                        </div>
-                    </button>
-                </div>
-
-                <div style="display: flex; flex-direction: column; gap: 0.5rem;">
-                    <a href="#" onclick="openEnhancedProfileModal(); return false;" style="display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem; border-radius: 8px; color: var(--text-secondary); text-decoration: none; transition: all 0.3s;">
-                        <i class="fas fa-user-edit"></i>
-                        <span>Edit Profile</span>
-                    </a>
-                    <a href="#" onclick="openSettingsModal(); return false;" style="display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem; border-radius: 8px; color: var(--text-secondary); text-decoration: none; transition: all 0.3s;">
-                        <i class="fas fa-cog"></i>
-                        <span>Settings</span>
-                    </a>
-                    <a href="/export/history" style="display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem; border-radius: 8px; color: var(--text-secondary); text-decoration: none; transition: all 0.3s;">
-                        <i class="fas fa-download"></i>
-                        <span>Export Data</span>
-                    </a>
-                    <hr style="border: none; border-top: 1px solid var(--border-primary); margin: 0.5rem 0;">
-                    <a href="/logout" style="display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem; border-radius: 8px; color: var(--error); text-decoration: none; transition: all 0.3s;">
-                        <i class="fas fa-sign-out-alt"></i>
-                        <span>Logout</span>
-                    </a>
-                </div>
-            `;
-
-            // Load user stats
-            try {
-                const response = await fetch('/api/user/stats');
-                const result = await response.json();
-                
-                if (result.success && result.data) {
-                    const totalSearches = dropdown.querySelector('[data-user-stat="total-searches"]');
-                    const avgCompliance = dropdown.querySelector('[data-user-stat="avg-compliance"]');
-                    
-                    if (totalSearches) totalSearches.textContent = result.data.total_searches || 0;
-                    if (avgCompliance) avgCompliance.textContent = Math.round(result.data.avg_compliance || 0) + '%';
-                }
-            } catch (error) {
-                console.error('Error loading user stats:', error);
-            }
-        }
+        
+        // Error Reporting Function
+        window.reportError = function(errorData) {
+            fetch('/api/system/error', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(errorData)
+            }).catch(function(err) {
+                console.error('Failed to report error:', err);
+            });
+        };
+        
+        // Loading Overlay
+        window.showLoading = function() {
+            document.getElementById('loading-overlay').style.display = 'flex';
+        };
+        
+        window.hideLoading = function() {
+            document.getElementById('loading-overlay').style.display = 'none';
+        };
     </script>
-
-    <!-- Core Implementation Scripts -->
-    <script src="/static/js/missing-implementations.js"></script>
-    <script src="/static/js/integration-fixes.js"></script>
-    <script src="/static/js/app.js"></script>
     
-    <!-- Page-specific JavaScript -->
+    <!-- Application JavaScript -->
+    <script src="/static/js/app.js"></script>
+    <script src="/static/js/integration-fixes.js"></script>
+    <script src="/static/js/missing-implementations.js"></script>
+    
+    <!-- Block for additional scripts -->
     {% block extra_js %}{% endblock %}
+    
+    <!-- Performance monitoring -->
+    <script>
+        // Performance monitoring
+        window.addEventListener('load', function() {
+            if ('performance' in window) {
+                const perfData = performance.getEntriesByType('navigation')[0];
+                console.log('Page load time:', perfData.loadEventEnd - perfData.loadEventStart, 'ms');
+            }
+        });
+    </script>
 </body>
 </html>
