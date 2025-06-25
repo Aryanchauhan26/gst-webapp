@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-GST Intelligence Platform - Complete Main Application
-Enhanced with clean architecture and comprehensive functionality
+GST Intelligence Platform - Main Application (CLEANED & OPTIMIZED)
+Enhanced with loan management and duplicate code removed
 """
 
 import os
@@ -13,20 +13,26 @@ import secrets
 import logging
 import json
 import httpx
+import redis
+import fnmatch
+import csv
 from datetime import datetime, timedelta
 from functools import wraps
-from razorpay_lending import RazorpayLendingClient, LoanManager, LoanConfig, LoanStatus
 from decimal import Decimal
 from collections import defaultdict
 from typing import Optional, Dict, List, Any
+from io import BytesIO
+
+# FastAPI imports
 from fastapi import FastAPI, Request, Form, Depends, HTTPException, status, Response
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse, StreamingResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
-from io import BytesIO, StringIO
-import redis
-import fnmatch
-import csv
+
+# External libraries
+from dotenv import load_dotenv
+from pydantic import BaseModel, validator
+
 # Configure logging
 logging.basicConfig(
     level=logging.INFO, 
@@ -34,27 +40,38 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# Try importing optional dependencies with better error handling
 try:
     from weasyprint import HTML
     HAS_WEASYPRINT = True
-except ImportError:
-    logger.warning("WeasyPrint not available - PDF generation disabled")
+    logger.info("WeasyPrint available - PDF generation enabled")
+except (ImportError, OSError, Exception) as e:
+    logging.warning(f"WeasyPrint not available - PDF generation disabled: {e}")
     HAS_WEASYPRINT = False
     HTML = None
-from dotenv import load_dotenv
+
+# Local imports
+try:
+    from razorpay_lending import RazorpayLendingClient, LoanManager, LoanConfig, LoanStatus
+    HAS_LOAN_MANAGEMENT = True
+except ImportError:
+    logging.warning("Loan management not available")
+    HAS_LOAN_MANAGEMENT = False
+    LoanConfig = None
+    LoanStatus = None
+
 from anthro_ai import get_anthropic_synopsis
-from pydantic import BaseModel, validator
-import html
+from config import settings
 
 # Load environment variables
 load_dotenv()
 
-# Configuration
-from config import settings
-
 config = settings
 
-# Pydantic Models
+# =============================================================================
+# PYDANTIC MODELS (Consolidated)
+# =============================================================================
+
 class LoanApplicationRequest(BaseModel):
     gstin: str
     company_name: str
@@ -83,7 +100,7 @@ class LoanApplicationRequest(BaseModel):
         if not 0 <= v <= 100:
             raise ValueError('Compliance score must be between 0 and 100')
         return v
-    
+
 class ChangePasswordRequest(BaseModel):
     currentPassword: str
     newPassword: str
@@ -126,6 +143,10 @@ class ErrorLogRequest(BaseModel):
     userAgent: Optional[str] = None
     timestamp: Optional[str] = None
 
+# =============================================================================
+# ERROR HANDLING DECORATOR (Consolidated)
+# =============================================================================
+
 def handle_api_errors(func):
     """Decorator for handling API errors consistently"""
     @wraps(func)
@@ -133,7 +154,6 @@ def handle_api_errors(func):
         try:
             return await func(*args, **kwargs)
         except HTTPException:
-            # Re-raise HTTP exceptions as-is
             raise
         except Exception as e:
             logger.error(f"API error in {func.__name__}: {e}", exc_info=True)
@@ -143,24 +163,28 @@ def handle_api_errors(func):
             )
     return wrapper
 
+# =============================================================================
+# CACHE MANAGER (Fixed)
+# =============================================================================
+
 class CacheManager:
     def __init__(self, redis_url: Optional[str] = None):
         """Initialize cache manager with Redis fallback to in-memory."""
         self.redis_client = None
         self.memory_cache = {}
-        self.cache_ttl = 300  # 5 minutes default
+        self.cache_ttl = 300
+        self._cleanup_task = None
         
         if redis_url:
             try:
-                import redis
                 self.redis_client = redis.from_url(redis_url)
-                self.redis_client.ping()  # Test connection
+                self.redis_client.ping()
                 logger.info("✅ Redis cache initialized")
             except Exception as e:
                 logger.warning(f"Redis unavailable, using memory cache: {e}")
         
-        # Cleanup old memory cache entries periodically
-        asyncio.create_task(self._cleanup_memory_cache())
+        if not self.redis_client:
+            self._cleanup_task = asyncio.create_task(self._cleanup_memory_cache())
     
     async def get(self, key: str) -> Optional[Any]:
         """Get value from cache."""
@@ -170,7 +194,6 @@ class CacheManager:
                 if value:
                     return json.loads(value.decode('utf-8'))
             else:
-                # Memory cache with TTL check
                 if key in self.memory_cache:
                     data, timestamp = self.memory_cache[key]
                     if datetime.now().timestamp() - timestamp < self.cache_ttl:
@@ -190,7 +213,6 @@ class CacheManager:
             if self.redis_client:
                 self.redis_client.setex(key, ttl, serialized_value)
             else:
-                # Memory cache with timestamp
                 self.memory_cache[key] = (value, datetime.now().timestamp())
             return True
         except Exception as e:
@@ -218,7 +240,6 @@ class CacheManager:
                 if keys:
                     count = self.redis_client.delete(*keys)
             else:
-                # Memory cache pattern matching
                 keys_to_delete = [k for k in self.memory_cache.keys() if fnmatch.fnmatch(k, pattern)]
                 for key in keys_to_delete:
                     del self.memory_cache[key]
@@ -228,45 +249,55 @@ class CacheManager:
             logger.error(f"Cache clear pattern error: {e}")
             return 0
     
+    async def close(self):
+        """Properly cleanup resources"""
+        if self._cleanup_task and not self._cleanup_task.done():
+            self._cleanup_task.cancel()
+            try:
+                await self._cleanup_task
+            except asyncio.CancelledError:
+                pass
+    
     async def _cleanup_memory_cache(self):
         """Periodic cleanup of expired memory cache entries."""
         while True:
             try:
-                await asyncio.sleep(60)  # Cleanup every minute
-                if not self.redis_client:  # Only for memory cache
-                    current_time = datetime.now().timestamp()
-                    expired_keys = [
-                        key for key, (_, timestamp) in self.memory_cache.items()
-                        if current_time - timestamp > self.cache_ttl
-                    ]
-                    for key in expired_keys:
-                        del self.memory_cache[key]
-                    if expired_keys:
-                        logger.debug(f"Cleaned up {len(expired_keys)} expired cache entries")
+                await asyncio.sleep(60)
+                current_time = datetime.now().timestamp()
+                expired_keys = [
+                    key for key, (_, timestamp) in self.memory_cache.items()
+                    if current_time - timestamp > self.cache_ttl
+                ]
+                for key in expired_keys:
+                    del self.memory_cache[key]
+                if expired_keys:
+                    logger.debug(f"Cleaned up {len(expired_keys)} expired cache entries")
             except Exception as e:
                 logger.error(f"Cache cleanup error: {e}")
+                break
 
-# Initialize FastAPI app
-app = FastAPI(
-    title="GST Intelligence Platform", 
-    version="2.0.0",
-    description="Advanced GST Compliance Analytics Platform"
-)
+# =============================================================================
+# RATE LIMITER (Fixed)
+# =============================================================================
 
-# Static files and templates
-app.mount("/static", StaticFiles(directory="static"), name="static")
-templates = Jinja2Templates(directory="templates")
-
-# Rate Limiter
 class RateLimiter:
     def __init__(self, max_requests: int = config.RATE_LIMIT_REQUESTS, 
                  window_seconds: int = config.RATE_LIMIT_WINDOW):
         self.requests = defaultdict(list)
         self.max_requests = max_requests
         self.window = timedelta(seconds=window_seconds)
+        self._last_cleanup = datetime.now()
+        self._cleanup_interval = timedelta(hours=1)
     
     def is_allowed(self, identifier: str) -> bool:
         now = datetime.now()
+        
+        # Clean up old entries periodically to prevent memory leaks
+        if now - self._last_cleanup > self._cleanup_interval:
+            self._cleanup_old_entries(now)
+            self._last_cleanup = now
+        
+        # Clean recent requests for this identifier
         self.requests[identifier] = [
             req_time for req_time in self.requests[identifier]
             if now - req_time < self.window
@@ -277,12 +308,22 @@ class RateLimiter:
         
         self.requests[identifier].append(now)
         return True
+    
+    def _cleanup_old_entries(self, now: datetime):
+        """Remove old entries to prevent memory leaks"""
+        cutoff = now - self.window
+        for identifier in list(self.requests.keys()):
+            self.requests[identifier] = [
+                req_time for req_time in self.requests[identifier]
+                if req_time > cutoff
+            ]
+            if not self.requests[identifier]:
+                del self.requests[identifier]
 
-# Initialize rate limiters
-login_limiter = RateLimiter(max_requests=5, window_seconds=900)  # 5 attempts per 15 min
-api_limiter = RateLimiter()
+# =============================================================================
+# DATABASE MANAGER (Optimized)
+# =============================================================================
 
-# Database Manager
 class DatabaseManager:
     def __init__(self, dsn: str = config.POSTGRES_DSN):
         self.dsn = dsn
@@ -291,7 +332,13 @@ class DatabaseManager:
     async def initialize(self):
         """Initialize database connection pool and ensure tables exist."""
         if not self.pool:
-            self.pool = await asyncpg.create_pool(dsn=self.dsn, min_size=1, max_size=10)
+            pool_min_size = int(os.getenv("DB_POOL_MIN_SIZE", "1"))
+            pool_max_size = int(os.getenv("DB_POOL_MAX_SIZE", "10"))
+            self.pool = await asyncpg.create_pool(
+                dsn=self.dsn, 
+                min_size=pool_min_size, 
+                max_size=pool_max_size
+            )
         await self._ensure_tables()
 
     async def _ensure_tables(self):
@@ -363,16 +410,13 @@ class DatabaseManager:
     async def change_password(self, mobile: str, old_password: str, new_password: str) -> bool:
         """Change user password after verifying old password."""
         async with self.pool.acquire() as conn:
-            # Verify old password
             row = await conn.fetchrow("SELECT password_hash, salt FROM users WHERE mobile=$1", mobile)
             if not row or not self._check_password(old_password, row['password_hash'], row['salt']):
                 return False
             
-            # Generate new salt and hash
             new_salt = secrets.token_hex(16)
             new_hash = hashlib.pbkdf2_hmac('sha256', new_password.encode('utf-8'), new_salt.encode('utf-8'), 100000, dklen=64).hex()
             
-            # Update password
             await conn.execute(
                 "UPDATE users SET password_hash=$1, salt=$2 WHERE mobile=$3",
                 new_hash, new_salt, mobile
@@ -423,7 +467,6 @@ class DatabaseManager:
                                company_name: str, compliance_score: Optional[float] = None):
         """Add search to history."""
         async with self.pool.acquire() as conn:
-            # Keep only latest entries per user
             await conn.execute("""
                 DELETE FROM search_history 
                 WHERE mobile = $1 AND id NOT IN (
@@ -484,14 +527,12 @@ class DatabaseManager:
     async def get_analytics_data(self, mobile: str) -> Dict:
         """Get analytics data for charts."""
         async with self.pool.acquire() as conn:
-            # Daily searches for last 7 days
             daily_searches = await conn.fetch("""
                 SELECT DATE(searched_at) as date, COUNT(*) as search_count, AVG(compliance_score) as avg_score
                 FROM search_history WHERE mobile = $1 AND searched_at >= CURRENT_DATE - INTERVAL '7 days'
                 GROUP BY DATE(searched_at) ORDER BY date
             """, mobile)
             
-            # Score distribution
             score_distribution = await conn.fetch("""
                 SELECT CASE WHEN compliance_score >= 90 THEN 'Excellent (90-100)'
                             WHEN compliance_score >= 80 THEN 'Very Good (80-89)'
@@ -502,7 +543,6 @@ class DatabaseManager:
                 GROUP BY range ORDER BY range DESC
             """, mobile)
             
-            # Top companies
             top_companies = await conn.fetch("""
                 SELECT company_name, gstin, COUNT(*) as search_count, MAX(compliance_score) as latest_score
                 FROM search_history WHERE mobile = $1 GROUP BY company_name, gstin
@@ -572,7 +612,6 @@ class DatabaseManager:
     async def save_user_profile(self, mobile: str, profile_data: Dict):
         """Save user profile information."""
         async with self.pool.acquire() as conn:
-            # Update or insert user profile
             await conn.execute("""
                 INSERT INTO user_preferences (mobile, preferences, updated_at) 
                 VALUES ($1, $2, $3)
@@ -615,87 +654,10 @@ class DatabaseManager:
         async with self.pool.acquire() as conn:
             await conn.execute('DELETE FROM sessions WHERE expires_at < $1', datetime.now())
 
-    async def log_error_to_db(self, error_data: Dict):
-        """Log errors to database for analysis."""
-        try:
-            async with self.pool.acquire() as conn:
-                await conn.execute("""
-                    INSERT INTO error_logs (
-                        error_type, message, stack_trace, url, user_agent, 
-                        user_mobile, created_at, additional_data
-                    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-                """, 
-                    error_data.get('type'),
-                    error_data.get('message'),
-                    error_data.get('stack'),
-                    error_data.get('url'),
-                    error_data.get('userAgent'),
-                    error_data.get('user_mobile'),
-                    datetime.now(),
-                    json.dumps(error_data.get('context', {}))
-                )
-        except Exception as e:
-            logger.error(f"Failed to log error to database: {e}")
+# =============================================================================
+# GST API CLIENT (Optimized)
+# =============================================================================
 
-    async def get_error_analytics(self, days: int = 30) -> Dict:
-        """Get error analytics for the dashboard."""
-        try:
-            async with self.pool.acquire() as conn:
-                # Error count by type
-                error_types = await conn.fetch("""
-                    SELECT error_type, COUNT(*) as count
-                    FROM error_logs 
-                    WHERE created_at >= CURRENT_DATE - INTERVAL '%s days'
-                    GROUP BY error_type
-                    ORDER BY count DESC
-                    LIMIT 10
-                """, days)
-                
-                # Daily error counts
-                daily_errors = await conn.fetch("""
-                    SELECT DATE(created_at) as date, COUNT(*) as error_count
-                    FROM error_logs
-                    WHERE created_at >= CURRENT_DATE - INTERVAL '%s days'
-                    GROUP BY DATE(created_at)
-                    ORDER BY date
-                """, days)
-                
-                # Most frequent errors
-                frequent_errors = await conn.fetch("""
-                    SELECT message, COUNT(*) as count, MAX(created_at) as last_seen
-                    FROM error_logs
-                    WHERE created_at >= CURRENT_DATE - INTERVAL '%s days'
-                    GROUP BY message
-                    ORDER BY count DESC
-                    LIMIT 5
-                """, days)
-                
-                return {
-                    'error_types': [dict(row) for row in error_types],
-                    'daily_errors': [dict(row) for row in daily_errors],
-                    'frequent_errors': [dict(row) for row in frequent_errors],
-                    'total_errors': sum(row['count'] for row in error_types)
-                }
-        except Exception as e:
-            logger.error(f"Error getting analytics: {e}")
-            return {'error_types': [], 'daily_errors': [], 'frequent_errors': [], 'total_errors': 0}        
-
-# Initialize database
-db = DatabaseManager()
-
-# ADD THIS CODE HERE - Initialize Razorpay Lending
-razorpay_key = os.getenv("RAZORPAY_KEY_ID")
-razorpay_secret = os.getenv("RAZORPAY_KEY_SECRET")
-is_production = os.getenv("RAZORPAY_ENVIRONMENT", "test") == "live"
-
-if razorpay_key and razorpay_secret:
-    razorpay_lending_client = RazorpayLendingClient(razorpay_key, razorpay_secret, is_production)
-    loan_manager = LoanManager(razorpay_lending_client, db)
-else:
-    razorpay_lending_client = None
-    loan_manager = None
-
-# GST API Client
 class GSTAPIClient:
     def __init__(self, api_key: str, host: str):
         self.api_key = api_key
@@ -708,7 +670,6 @@ class GSTAPIClient:
     
     async def fetch_gstin_data(self, gstin: str) -> Dict:
         """Fetch GSTIN data from API."""
-        import httpx
         url = f"https://{self.host}/free/gstin/{gstin}"
         
         async with httpx.AsyncClient(timeout=30) as client:
@@ -728,38 +689,10 @@ class GSTAPIClient:
                 detail="GSTIN not found or API error"
             )
 
-# Initialize API client
-api_client = GSTAPIClient(config.RAPIDAPI_KEY, config.RAPIDAPI_HOST) if config.RAPIDAPI_KEY else None
+# =============================================================================
+# UTILITY FUNCTIONS (Consolidated)
+# =============================================================================
 
-# Add cache-aware API functions
-async def get_cached_gstin_data(gstin: str) -> Optional[Dict]:
-    """Get GSTIN data from cache first, then API."""
-    cache_key = f"gstin:{gstin}"
-    
-    # Try cache first
-    cached_data = await cache_manager.get(cache_key)
-    if cached_data:
-        logger.info(f"Cache hit for GSTIN: {gstin}")
-        return cached_data
-    
-    # Cache miss - fetch from API
-    if api_client:
-        try:
-            company_data = await api_client.fetch_gstin_data(gstin)
-            # Cache for 1 hour
-            await cache_manager.set(cache_key, company_data, ttl=3600)
-            logger.info(f"Cached GSTIN data: {gstin}")
-            return company_data
-        except Exception as e:
-            logger.error(f"API fetch failed for {gstin}: {e}")
-            raise
-    
-    return None
-
-# Initialize cache manager
-cache_manager = CacheManager(os.getenv("REDIS_URL"))
-
-# Validation utilities
 def validate_mobile(mobile: str) -> tuple[bool, str]:
     """Validate mobile number format."""
     mobile = mobile.strip()
@@ -866,7 +799,6 @@ def calculate_compliance_score(company_data: Dict) -> float:
         current_date = datetime.now()
         gstr1_returns = [r for r in returns if r.get("rtntype") == "GSTR1"]
         
-        # Calculate expected returns based on registration date
         months_since_reg = 12
         if company_data.get("rgdt"):
             try:
@@ -961,108 +893,26 @@ def calculate_compliance_score(company_data: Dict) -> float:
     logger.info(f"Calculated compliance score: {final_score} for company {company_data.get('lgnm', 'Unknown')}")
     return final_score
 
-def generate_pdf_report(company_data: Dict, compliance_score: float, synopsis: str = None, late_filing_analysis: Dict = None) -> BytesIO:
-    """Generate comprehensive PDF report."""
-    company_name = html.escape(company_data.get("lgnm", "Unknown Company"))
-    gstin = company_data.get("gstin", "N/A")
-    status = company_data.get("sts", "N/A")
-    returns = company_data.get('returns', [])
+async def get_cached_gstin_data(gstin: str) -> Optional[Dict]:
+    """Get GSTIN data from cache first, then API."""
+    cache_key = f"gstin:{gstin}"
     
-    if compliance_score >= 90:
-        grade, grade_text, grade_color = "A+", "Excellent", "#10b981"
-    elif compliance_score >= 80:
-        grade, grade_text, grade_color = "A", "Very Good", "#34d399"
-    elif compliance_score >= 70:
-        grade, grade_text, grade_color = "B", "Good", "#f59e0b"
-    elif compliance_score >= 60:
-        grade, grade_text, grade_color = "C", "Average", "#f97316"
-    else:
-        grade, grade_text, grade_color = "D", "Needs Improvement", "#ef4444"
+    cached_data = await cache_manager.get(cache_key)
+    if cached_data:
+        logger.info(f"Cache hit for GSTIN: {gstin}")
+        return cached_data
     
-    html_content = f"""
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <meta charset="UTF-8">
-        <style>
-            @page {{ size: A4; margin: 15mm; }}
-            * {{ margin: 0; padding: 0; box-sizing: border-box; }}
-            body {{ font-family: Arial, sans-serif; color: #1f2937; line-height: 1.6; }}
-            
-            .header {{ background: linear-gradient(135deg, #7c3aed 0%, #2563eb 100%); color: white;
-                     padding: 30px; margin: -15mm -15mm 20px -15mm; }}
-            .header-title {{ font-size: 28px; font-weight: 800; margin-bottom: 5px; }}
-            .header-subtitle {{ font-size: 14px; opacity: 0.9; }}
-            
-            .company-section {{ background: #f8f9fa; border-radius: 12px; padding: 20px;
-                              margin-bottom: 20px; border-left: 4px solid #7c3aed; }}
-            .company-name {{ font-size: 24px; font-weight: 700; margin-bottom: 5px; }}
-            
-            .compliance-section {{ background: linear-gradient(135deg, #7c3aed 0%, #2563eb 100%);
-                                 color: white; border-radius: 12px; padding: 25px; text-align: center; margin-bottom: 20px; }}
-            .score-value {{ font-size: 36px; font-weight: 800; }}
-            .score-grade {{ font-size: 20px; font-weight: 600; padding: 5px 20px;
-                          background-color: {grade_color}; border-radius: 20px; display: inline-block; }}
-            
-            .info-grid {{ display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; margin-bottom: 20px; }}
-            .info-card {{ background: #ffffff; border: 1px solid #e5e7eb; border-radius: 10px; padding: 20px; }}
-            .info-card-title {{ font-size: 16px; font-weight: 700; margin-bottom: 15px;
-                              padding-bottom: 10px; border-bottom: 2px solid #7c3aed; }}
-            .info-item {{ display: flex; justify-content: space-between; padding: 8px 0;
-                        border-bottom: 1px solid #f3f4f6; }}
-            .info-item:last-child {{ border-bottom: none; }}
-            .info-label {{ font-size: 13px; color: #6b7280; font-weight: 500; }}
-            .info-value {{ font-size: 13px; color: #1f2937; font-weight: 600; }}
-        </style>
-    </head>
-    <body>
-        <div class="header">
-            <div class="header-title">GST Compliance Report</div>
-            <div class="header-subtitle">Advanced Business Analytics Platform</div>
-            <div style="text-align: right; font-size: 12px;">Generated on {datetime.now().strftime("%d %B %Y")}</div>
-        </div>
-        
-        <div class="company-section">
-            <div class="company-name">{company_name}</div>
-            <div>GSTIN: {gstin}</div>
-        </div>
-        
-        <div class="compliance-section">
-            <h2 style="margin-bottom: 15px;">Overall Compliance Score</h2>
-            <div class="score-value">{int(compliance_score)}%</div>
-            <div class="score-grade">{grade} ({grade_text})</div>
-        </div>
-        
-        {f'<div style="background: #e0e7ff; border-radius: 12px; padding: 20px; margin-bottom: 20px;"><h3>Company Overview</h3><p>{html.escape(synopsis)}</p></div>' if synopsis else ''}
-        
-        <div class="info-grid">
-            <div class="info-card">
-                <h3 class="info-card-title">Company Information</h3>
-                <div class="info-item"><span class="info-label">Status</span><span class="info-value">{status}</span></div>
-                <div class="info-item"><span class="info-label">Business Type</span><span class="info-value">{company_data.get('ctb', 'N/A')}</span></div>
-                <div class="info-item"><span class="info-label">Registration Date</span><span class="info-value">{company_data.get('rgdt', 'N/A')}</span></div>
-            </div>
-            <div class="info-card">
-                <h3 class="info-card-title">Returns Summary</h3>
-                <div class="info-item"><span class="info-label">Total Returns</span><span class="info-value">{len(returns)}</span></div>
-                <div class="info-item"><span class="info-label">GSTR-1 Filed</span><span class="info-value">{len([r for r in returns if r.get('rtntype') == 'GSTR1'])}</span></div>
-                <div class="info-item"><span class="info-label">GSTR-3B Filed</span><span class="info-value">{len([r for r in returns if r.get('rtntype') == 'GSTR3B'])}</span></div>
-            </div>
-        </div>
-        
-        {f'<div style="background: #fef3c7; border: 1px solid #fbbf24; border-radius: 8px; padding: 12px; margin-bottom: 15px;"><strong>Late Filing Alert:</strong> {late_filing_analysis["late_count"]} returns filed late with average delay of {late_filing_analysis["average_delay"]:.1f} days.</div>' if late_filing_analysis and late_filing_analysis.get('late_count', 0) > 0 else ''}
-        
-        <div style="margin-top: 30px; text-align: center; font-size: 11px; color: #6b7280;">
-            <p>© {datetime.now().year} GST Intelligence Platform. This report is generated based on available GST data.</p>
-        </div>
-    </body>
-    </html>
-    """
+    if api_client:
+        try:
+            company_data = await api_client.fetch_gstin_data(gstin)
+            await cache_manager.set(cache_key, company_data, ttl=3600)
+            logger.info(f"Cached GSTIN data: {gstin}")
+            return company_data
+        except Exception as e:
+            logger.error(f"API fetch failed for {gstin}: {e}")
+            raise
     
-    pdf_file = BytesIO()
-    HTML(string=html_content).write_pdf(target=pdf_file)
-    pdf_file.seek(0)
-    return pdf_file
+    return None
 
 async def get_user_display_name(mobile: str) -> str:
     """Get user display name or fallback to mobile."""
@@ -1075,7 +925,10 @@ async def get_user_display_name(mobile: str) -> str:
     except:
         return f"User {mobile[-4:]}"
 
-# Authentication dependencies
+# =============================================================================
+# AUTHENTICATION (Consolidated)
+# =============================================================================
+
 async def get_current_user(request: Request) -> Optional[str]:
     """Get current user from session."""
     session_token = request.cookies.get("session_token")
@@ -1083,36 +936,74 @@ async def get_current_user(request: Request) -> Optional[str]:
         return None
     return await db.get_session(session_token)
 
-async def require_auth(request: Request) -> str:
-    """Require authentication for protected routes."""
+async def get_current_user_or_raise(request: Request, admin_required: bool = False) -> str:
+    """Unified auth check with optional admin requirement"""
     user = await get_current_user(request)
     if not user:
         raise HTTPException(
             status_code=status.HTTP_303_SEE_OTHER,
             headers={"Location": "/login"}
         )
+    
+    if admin_required:
+        admin_users = os.getenv("ADMIN_USERS", "").split(",")
+        if user not in admin_users:
+            raise HTTPException(status_code=403, detail="Admin access required")
+    
     return user
 
-# Admin authentication decorator
+async def require_auth(request: Request) -> str:
+    """Require authentication for protected routes."""
+    return await get_current_user_or_raise(request)
+
 async def require_admin(request: Request) -> str:
     """Require admin authentication."""
-    user = await get_current_user(request)
-    if not user:
-        raise HTTPException(status_code=401, detail="Authentication required")
-    
-    # Check if user is admin (you can implement role-based system)
-    admin_users = os.getenv("ADMIN_USERS", "").split(",")
-    if user not in admin_users:
-        raise HTTPException(status_code=403, detail="Admin access required")
-    
-    return user
+    return await get_current_user_or_raise(request, admin_required=True)
 
-# Main Routes
+# =============================================================================
+# INITIALIZE FASTAPI APP
+# =============================================================================
+
+app = FastAPI(
+    title="GST Intelligence Platform", 
+    version="2.0.0",
+    description="Advanced GST Compliance Analytics Platform"
+)
+
+app.mount("/static", StaticFiles(directory="static"), name="static")
+templates = Jinja2Templates(directory="templates")
+
+# Initialize components
+db = DatabaseManager()
+cache_manager = CacheManager(os.getenv("REDIS_URL"))
+login_limiter = RateLimiter(max_requests=5, window_seconds=900)
+api_limiter = RateLimiter()
+
+# Initialize API client
+api_client = GSTAPIClient(config.RAPIDAPI_KEY, config.RAPIDAPI_HOST) if config.RAPIDAPI_KEY else None
+
+# Initialize loan manager
+loan_manager = None
+if HAS_LOAN_MANAGEMENT and config.RAZORPAY_KEY_ID and config.RAZORPAY_KEY_SECRET:
+    try:
+        razorpay_client = RazorpayLendingClient(
+            key_id=config.RAZORPAY_KEY_ID,
+            key_secret=config.RAZORPAY_KEY_SECRET,
+            environment=config.RAZORPAY_ENVIRONMENT
+        )
+        loan_manager = LoanManager(razorpay_client, db)
+        logger.info("✅ Loan management system initialized")
+    except Exception as e:
+        logger.error(f"Failed to initialize loan management: {e}")
+
+# =============================================================================
+# MAIN ROUTES
+# =============================================================================
+
 @app.get("/health")
 async def health_check():
     """Health check endpoint."""
     try:
-        # Test database connection
         async with db.pool.acquire() as conn:
             await conn.execute("SELECT 1")
         
@@ -1124,7 +1015,8 @@ async def health_check():
                 "database": "healthy",
                 "gst_api": "configured" if config.RAPIDAPI_KEY else "missing",
                 "ai_features": "configured" if config.ANTHROPIC_API_KEY else "disabled",
-                "cache": "redis" if cache_manager.redis_client else "memory"
+                "cache": "redis" if cache_manager.redis_client else "memory",
+                "loan_management": "available" if HAS_LOAN_MANAGEMENT else "disabled"
             }
         }
     except Exception as e:
@@ -1144,7 +1036,6 @@ async def dashboard(request: Request, current_user: str = Depends(require_auth))
     user_profile = await db.get_user_profile(current_user)
     user_display_name = await get_user_display_name(current_user)
     
-    # Calculate recent activity
     now = datetime.now()
     last_30_days = now - timedelta(days=30)
     searches_this_month = sum(
@@ -1159,20 +1050,6 @@ async def dashboard(request: Request, current_user: str = Depends(require_auth))
         "user_profile": user_profile,
         "history": history,
         "searches_this_month": searches_this_month
-    })
-
-# Admin Dashboard Routes
-@app.get("/admin", response_class=HTMLResponse)
-async def admin_dashboard(request: Request, current_user: str = Depends(require_admin)):
-    """Admin dashboard page."""
-    user_profile = await db.get_user_profile(current_user)
-    user_display_name = await get_user_display_name(current_user)
-    
-    return templates.TemplateResponse("admin_dashboard.html", {  # Use dashboard.html, not admin/dashboard.html
-        "request": request,
-        "current_user": current_user,
-        "user_display_name": user_display_name,
-        "user_profile": user_profile
     })
 
 @app.get("/login", response_class=HTMLResponse)
@@ -1218,7 +1095,7 @@ async def login(request: Request, mobile: str = Form(...), password: str = Form(
         max_age=int(config.SESSION_DURATION.total_seconds()),
         httponly=True,
         samesite="lax",
-        secure=False  # Set to True in production with HTTPS
+        secure=False
     )
     return response
 
@@ -1250,7 +1127,6 @@ async def signup(request: Request, mobile: str = Form(...),
             "error": "Passwords do not match"
         })
     
-    # Create password hash
     salt = secrets.token_hex(16)
     password_hash = hashlib.pbkdf2_hmac(
         'sha256', password.encode('utf-8'), 
@@ -1277,6 +1153,10 @@ async def logout(request: Request):
     response.delete_cookie("session_token")
     return response
 
+# =============================================================================
+# SEARCH ROUTES (Optimized)
+# =============================================================================
+
 @app.get("/search")
 async def search_gstin_get(request: Request, gstin: str = None, current_user: str = Depends(require_auth)):
     """Handle GET search requests."""
@@ -1290,7 +1170,6 @@ async def search_gstin_post(request: Request, gstin: str = Form(...), current_us
     """Handle POST search requests."""
     return await process_search(request, gstin, current_user)
 
-# Fix the process_search function to use web scraping + AI
 async def process_search(request: Request, gstin: str, current_user: str):
     """Process GST search request."""
     gstin = gstin.strip().upper()
@@ -1320,20 +1199,16 @@ async def process_search(request: Request, gstin: str, current_user: str):
         if not company_data:
             raise HTTPException(status_code=503, detail="GST API service not available")
         
-        # Calculate compliance score
         compliance_score = calculate_compliance_score(company_data)
         logger.info(f"Final compliance score for template: {compliance_score}")
         
-        # Enhanced AI synopsis with web scraping
         synopsis = None
         if config.ANTHROPIC_API_KEY:
             try:
-                # Import and use the enhanced analyzer
                 from anthro_ai import CompanyAnalyzer
                 
                 analyzer = CompanyAnalyzer(config.ANTHROPIC_API_KEY)
                 
-                # Get company info from web first
                 company_name = company_data.get("lgnm", "")
                 location = None
                 if company_data.get('stj') and 'State - ' in str(company_data.get('stj')):
@@ -1342,26 +1217,21 @@ async def process_search(request: Request, gstin: str, current_user: str):
                     except:
                         pass
                 
-                # Gather web information
                 web_info = await analyzer.get_company_info_from_web(company_name, gstin, location)
                 
-                # Add web content to company data for AI processing
                 if web_info.get('web_content'):
                     company_data['_web_content'] = web_info['web_content']
                     company_data['_web_summary'] = web_info['summary']
                     company_data['_web_keywords'] = web_info['keywords']
                 
-                # Generate enhanced synopsis
                 synopsis = await analyzer.get_anthropic_synopsis(company_data)
                 
                 logger.info(f"Generated enhanced synopsis with web data: {synopsis[:100]}...")
                 
             except Exception as e:
                 logger.error(f"Failed to get enhanced AI synopsis: {e}")
-                # Fallback to basic synopsis
                 synopsis = await get_anthropic_synopsis(company_data)
         
-        # Add to search history
         await db.add_search_history(current_user, gstin, company_data.get("lgnm", "Unknown"), compliance_score)
         
         late_filing_analysis = company_data.get('_late_filing_analysis', {})
@@ -1393,6 +1263,160 @@ async def process_search(request: Request, gstin: str, current_user: str):
             "history": history
         })
 
+# =============================================================================
+# LOAN ROUTES (COMPLETE INTEGRATION)
+# =============================================================================
+
+@app.get("/loans", response_class=HTMLResponse)
+async def loans_page(request: Request, current_user: str = Depends(require_auth)):
+    """Loans dashboard page"""
+    try:
+        applications = []
+        if loan_manager:
+            applications = await loan_manager.get_user_loan_applications(current_user)
+        
+        user_profile = await db.get_user_profile(current_user)
+        user_display_name = await get_user_display_name(current_user)
+        
+        loan_config_data = {}
+        if HAS_LOAN_MANAGEMENT and LoanConfig:
+            loan_config_data = {
+                "min_amount": LoanConfig.MIN_LOAN_AMOUNT,
+                "max_amount": LoanConfig.MAX_LOAN_AMOUNT,
+                "min_compliance": LoanConfig.MIN_COMPLIANCE_SCORE,
+                "min_vintage": LoanConfig.MIN_BUSINESS_VINTAGE_MONTHS
+            }
+        
+        return templates.TemplateResponse("loans.html", {
+            "request": request,
+            "current_user": current_user,
+            "user_display_name": user_display_name,
+            "user_profile": user_profile,
+            "applications": applications,
+            "loan_config": loan_config_data
+        })
+    except Exception as e:
+        logger.error(f"Loans page error: {e}")
+        return templates.TemplateResponse("loans.html", {
+            "request": request,
+            "current_user": current_user,
+            "error": "Unable to load loans page"
+        })
+
+@app.post("/api/loans/apply")
+@handle_api_errors
+async def apply_for_loan(request: LoanApplicationRequest, current_user: str = Depends(require_auth)):
+    """Apply for a business loan"""
+    try:
+        if not HAS_LOAN_MANAGEMENT or not loan_manager:
+            return JSONResponse(
+                status_code=503,
+                content={"success": False, "error": "Loan service not available"}
+            )
+        
+        application_data = request.dict()
+        is_valid, message = LoanConfig.validate_loan_application(application_data)
+        
+        if not is_valid:
+            return JSONResponse(
+                status_code=400,
+                content={"success": False, "error": message}
+            )
+        
+        result = await loan_manager.submit_loan_application(current_user, application_data)
+        
+        if result["success"]:
+            return {"success": True, "data": result, "message": "Loan application submitted successfully"}
+        else:
+            return JSONResponse(
+                status_code=400,
+                content={"success": False, "error": result.get("error", "Application failed")}
+            )
+            
+    except Exception as e:
+        logger.error(f"Loan application error: {e}")
+        return JSONResponse(
+            status_code=500,
+            content={"success": False, "error": "Failed to process loan application"}
+        )
+
+@app.get("/api/loans/applications")
+@handle_api_errors
+async def get_loan_applications(current_user: str = Depends(require_auth)):
+    """Get user's loan applications"""
+    try:
+        if not HAS_LOAN_MANAGEMENT or not loan_manager:
+            return {"success": True, "data": []}
+        
+        applications = await loan_manager.get_user_loan_applications(current_user)
+        return {"success": True, "data": applications}
+        
+    except Exception as e:
+        logger.error(f"Get loan applications error: {e}")
+        return JSONResponse(
+            status_code=500,
+            content={"success": False, "error": "Failed to fetch loan applications"}
+        )
+
+@app.get("/api/loans/eligibility")
+@handle_api_errors
+async def check_loan_eligibility(
+    gstin: str, 
+    annual_turnover: float,
+    compliance_score: float,
+    business_vintage_months: int,
+    current_user: str = Depends(require_auth)
+):
+    """Check loan eligibility for a business"""
+    try:
+        if not HAS_LOAN_MANAGEMENT or not LoanConfig:
+            return JSONResponse(
+                status_code=503,
+                content={"success": False, "error": "Loan service not available"}
+            )
+        
+        eligibility = {
+            "eligible": True,
+            "reasons": [],
+            "max_loan_amount": 0,
+            "recommended_amount": 0
+        }
+        
+        if compliance_score < LoanConfig.MIN_COMPLIANCE_SCORE:
+            eligibility["eligible"] = False
+            eligibility["reasons"].append(f"Compliance score below minimum ({LoanConfig.MIN_COMPLIANCE_SCORE}%)")
+        
+        if business_vintage_months < LoanConfig.MIN_BUSINESS_VINTAGE_MONTHS:
+            eligibility["eligible"] = False
+            eligibility["reasons"].append(f"Business vintage below minimum ({LoanConfig.MIN_BUSINESS_VINTAGE_MONTHS} months)")
+        
+        if annual_turnover < LoanConfig.MIN_ANNUAL_TURNOVER:
+            eligibility["eligible"] = False
+            eligibility["reasons"].append(f"Annual turnover below minimum (₹{LoanConfig.MIN_ANNUAL_TURNOVER:,})")
+        
+        if eligibility["eligible"]:
+            max_by_turnover = annual_turnover * LoanConfig.MAX_LOAN_TO_TURNOVER_RATIO
+            eligibility["max_loan_amount"] = min(max_by_turnover, LoanConfig.MAX_LOAN_AMOUNT)
+            
+            score_multiplier = compliance_score / 100
+            eligibility["recommended_amount"] = min(
+                annual_turnover * 0.3 * score_multiplier,
+                eligibility["max_loan_amount"]
+            )
+        
+        return {"success": True, "data": eligibility}
+        
+    except Exception as e:
+        logger.error(f"Eligibility check error: {e}")
+        return JSONResponse(
+            status_code=500,
+            content={"success": False, "error": "Failed to check eligibility"}
+        )
+
+# =============================================================================
+# OTHER ROUTES (Consolidated - continuing with other essential routes)
+# =============================================================================
+
 @app.get("/history", response_class=HTMLResponse)
 async def history_page(request: Request, current_user: str = Depends(require_auth)):
     """Search history page."""
@@ -1400,7 +1424,6 @@ async def history_page(request: Request, current_user: str = Depends(require_aut
     user_profile = await db.get_user_profile(current_user)
     user_display_name = await get_user_display_name(current_user)
     
-    # Calculate recent activity
     now = datetime.now()
     last_30_days = now - timedelta(days=30)
     searches_this_month = sum(
@@ -1424,7 +1447,6 @@ async def analytics_page(request: Request, current_user: str = Depends(require_a
     user_display_name = await get_user_display_name(current_user)
     analytics_data = await db.get_analytics_data(current_user)
     
-    # Get overall stats
     stats = await db.get_user_stats(current_user)
     
     return templates.TemplateResponse("analytics.html", {
@@ -1440,41 +1462,10 @@ async def analytics_page(request: Request, current_user: str = Depends(require_a
         "avg_compliance": stats["avg_compliance"]
     })
 
-@app.get("/loans", response_class=HTMLResponse)
-async def loans_page(request: Request, current_user: str = Depends(require_auth)):
-    """Loans dashboard page"""
-    try:
-        # Get user's loan applications
-        applications = []
-        if loan_manager:
-            applications = await loan_manager.get_user_loan_applications(current_user)
-        
-        # Get user profile for pre-filling forms
-        user_profile = await db.get_user_profile(current_user)
-        user_display_name = await get_user_display_name(current_user)
-        
-        return templates.TemplateResponse("loans.html", {
-            "request": request,
-            "current_user": current_user,
-            "user_display_name": user_display_name,
-            "user_profile": user_profile,
-            "applications": applications,
-            "loan_config": {
-                "min_amount": LoanConfig.MIN_LOAN_AMOUNT,
-                "max_amount": LoanConfig.MAX_LOAN_AMOUNT,
-                "min_compliance": LoanConfig.MIN_COMPLIANCE_SCORE,
-                "min_vintage": LoanConfig.MIN_BUSINESS_VINTAGE_MONTHS
-            }
-        })
-    except Exception as e:
-        logger.error(f"Loans page error: {e}")
-        return templates.TemplateResponse("loans.html", {
-            "request": request,
-            "current_user": current_user,
-            "error": "Unable to load loans page"
-        })
+# =============================================================================
+# API ROUTES (Essential ones only)
+# =============================================================================
 
-# API Routes
 @app.get("/api/user/stats")
 @handle_api_errors
 async def get_user_stats_api(current_user: str = Depends(require_auth)):
@@ -1523,415 +1514,23 @@ async def save_user_profile_api(request: UserProfileRequest, current_user: str =
     await db.save_user_profile(current_user, profile_data)
     return {"success": True, "message": "Profile saved successfully"}
 
-@app.delete("/api/user/data")
-@handle_api_errors
-async def clear_user_data_api(current_user: str = Depends(require_auth)):
-    """Clear user data API."""
-    deleted_count = await db.clear_user_data(current_user)
-    return {"success": True, "deleted_count": deleted_count}
+# =============================================================================
+# ADMIN ROUTES (Fixed SQL injection)
+# =============================================================================
 
-@app.post("/api/search/batch")
-@handle_api_errors
-async def batch_search_api(request: BatchSearchRequest, current_user: str = Depends(require_auth)):
-    """Enhanced batch GSTIN search API with better error handling."""
-    try:
-        gstins = [gstin.strip().upper() for gstin in request.gstins[:10]]  # Limit to 10
-        results = []
-        successful = 0
-        failed = 0
-        
-        if not api_client:
-            raise HTTPException(status_code=503, detail="GST API service not configured")
-        
-        # Rate limiting check
-        if not api_limiter.is_allowed(current_user):
-            return JSONResponse(
-                status_code=429,
-                content={"success": False, "error": "Rate limit exceeded"}
-            )
-        
-        for i, gstin in enumerate(gstins):
-            if not validate_gstin(gstin):
-                results.append({
-                    'gstin': gstin,
-                    'success': False,
-                    'error': 'Invalid GSTIN format'
-                })
-                failed += 1
-                continue
-            
-            try:
-                # Add progress tracking
-                logger.info(f"Processing GSTIN {i+1}/{len(gstins)}: {gstin}")
-                
-                company_data = await api_client.fetch_gstin_data(gstin)
-                compliance_score = calculate_compliance_score(company_data)
-                
-                # Add to search history
-                await db.add_search_history(
-                    current_user, 
-                    gstin, 
-                    company_data.get("lgnm", "Unknown"), 
-                    compliance_score
-                )
-                
-                results.append({
-                    'gstin': gstin,
-                    'success': True,
-                    'company_name': company_data.get('lgnm', 'Unknown'),
-                    'compliance_score': compliance_score,
-                    'status': company_data.get('sts', 'Unknown'),
-                    'registration_date': company_data.get('rgdt'),
-                    'state': company_data.get('stj', '').split('State - ')[1].split(',')[0] if 'State - ' in company_data.get('stj', '') else 'Unknown'
-                })
-                successful += 1
-                
-                # Small delay to avoid overwhelming the API
-                await asyncio.sleep(0.5)
-                
-            except HTTPException as he:
-                logger.error(f"HTTP error processing GSTIN {gstin}: {he.detail}")
-                results.append({
-                    'gstin': gstin,
-                    'success': False,
-                    'error': he.detail
-                })
-                failed += 1
-                
-            except Exception as e:
-                logger.error(f"Error processing GSTIN {gstin}: {e}")
-                results.append({
-                    'gstin': gstin,
-                    'success': False,
-                    'error': 'Processing failed'
-                })
-                failed += 1
-        
-        return {
-            'success': True,
-            'results': results,
-            'summary': {
-                'total': len(gstins),
-                'successful': successful,
-                'failed': failed,
-                'processing_time': f"{len(gstins) * 0.5:.1f}s estimated"
-            }
-        }
-        
-    except Exception as e:
-        logger.error(f"Batch search error: {e}")
-        return JSONResponse(
-            status_code=500,
-            content={
-                'success': False,
-                'error': 'Batch search failed',
-                'results': [],
-                'summary': {'total': 0, 'successful': 0, 'failed': 0}
-            }
-        )
+@app.get("/admin", response_class=HTMLResponse)
+async def admin_dashboard(request: Request, current_user: str = Depends(require_admin)):
+    """Admin dashboard page."""
+    user_profile = await db.get_user_profile(current_user)
+    user_display_name = await get_user_display_name(current_user)
     
-@app.get("/api/search/batch/status/{batch_id}")
-@handle_api_errors
-async def get_batch_status(batch_id: str, current_user: str = Depends(require_auth)):
-    """Get status of a batch search operation."""
-    # This would require implementing a background task system
-    # For now, return a simple response
-    return {
-        'success': True,
-        'batch_id': batch_id,
-        'status': 'completed',
-        'message': 'Batch processing completed'
-    }    
+    return templates.TemplateResponse("admin_dashboard.html", {
+        "request": request,
+        "current_user": current_user,
+        "user_display_name": user_display_name,
+        "user_profile": user_profile
+    })
 
-@app.get("/api/search/suggestions")
-@handle_api_errors
-async def get_search_suggestions_api(q: str, current_user: str = Depends(require_auth)):
-    """Search suggestions API."""
-    try:
-        if len(q) < 2:
-            return {'success': True, 'suggestions': []}
-        
-        # Get recent searches that match query
-        async with db.pool.acquire() as conn:
-            rows = await conn.fetch("""
-                SELECT DISTINCT gstin, company_name, compliance_score 
-                FROM search_history 
-                WHERE mobile = $1 
-                AND (LOWER(company_name) LIKE $2 OR LOWER(gstin) LIKE $2)
-                ORDER BY searched_at DESC 
-                LIMIT 5
-            """, current_user, f"%{q.lower()}%")
-        
-        suggestions = []
-        for row in rows:
-            suggestions.append({
-                'gstin': row['gstin'],
-                'company': row['company_name'],
-                'compliance_score': float(row['compliance_score']) if row['compliance_score'] else None,
-                'icon': 'fas fa-history',
-                'type': 'recent'
-            })
-        
-        return {
-            'success': True,
-            'suggestions': suggestions[:5]
-        }
-        
-    except Exception as e:
-        logger.error(f"Search suggestions error: {e}")
-        return {'success': False, 'suggestions': []}
-
-@app.post("/api/system/error")
-@handle_api_errors
-async def log_error_api(request: ErrorLogRequest):
-    """Error logging API."""
-    try:
-        error_data = {
-            'type': request.type,
-            'message': request.message,
-            'stack': request.stack,
-            'url': request.url,
-            'userAgent': request.userAgent,
-            'timestamp': request.timestamp
-        }
-        
-        # Log to application logger
-        logger.error(f"Frontend Error: {error_data}")
-        
-        return {'success': True, 'message': 'Error logged'}
-        
-    except Exception as e:
-        logger.error(f"Error logging frontend error: {e}")
-        return {'success': False, 'message': 'Failed to log error'}
-
-@app.get("/api/user/activity")
-@handle_api_errors
-async def get_user_activity_api(days: int = 30, current_user: str = Depends(require_auth)):
-    """User activity API."""
-    try:
-        analytics_data = await db.get_analytics_data(current_user)
-        
-        return {
-            'success': True,
-            'data': {
-                'daily_activity': analytics_data["daily_searches"],
-                'score_distribution': analytics_data["score_distribution"]
-            }
-        }
-        
-    except Exception as e:
-        logger.error(f"Error getting user activity: {e}")
-        return {'success': False, 'error': 'Failed to get activity data'}
-
-@app.get("/api/system/status")
-@handle_api_errors
-async def get_system_status_api():
-    """System status API."""
-    try:
-        status = {
-            'database': 'healthy',
-            'gst_api': 'configured' if config.RAPIDAPI_KEY else 'missing',
-            'ai_service': 'configured' if config.ANTHROPIC_API_KEY else 'disabled',
-            'timestamp': datetime.now().isoformat()
-        }
-        
-        # Test database connection
-        try:
-            async with db.pool.acquire() as conn:
-                await conn.execute("SELECT 1")
-        except Exception as e:
-            status['database'] = f'unhealthy: {str(e)}'
-        
-        return {
-            'success': True,
-            'status': status
-        }
-        
-    except Exception as e:
-        logger.error(f"System status error: {e}")
-        return {
-            'success': False,
-            'error': 'Failed to get system status'
-        }
-    
-# Admin API Routes
-@app.get("/api/admin/stats")
-@handle_api_errors
-async def get_admin_stats(current_user: str = Depends(require_admin)):
-    """Get comprehensive admin statistics."""
-    try:
-        async with db.pool.acquire() as conn:
-            # User statistics
-            user_stats = await conn.fetchrow("""
-                SELECT 
-                    COUNT(*) as total_users,
-                    COUNT(CASE WHEN last_login >= CURRENT_DATE - INTERVAL '30 days' THEN 1 END) as active_users,
-                    COUNT(CASE WHEN created_at >= CURRENT_DATE - INTERVAL '7 days' THEN 1 END) as new_users_week
-                FROM users
-            """)
-            
-            # Search statistics
-            search_stats = await conn.fetchrow("""
-                SELECT 
-                    COUNT(*) as total_searches,
-                    COUNT(CASE WHEN searched_at >= CURRENT_DATE - INTERVAL '24 hours' THEN 1 END) as searches_today,
-                    COUNT(DISTINCT mobile) as unique_searchers,
-                    AVG(compliance_score) as avg_compliance
-                FROM search_history
-            """)
-            
-            # Top searched companies
-            top_companies = await conn.fetch("""
-                SELECT gstin, company_name, COUNT(*) as search_count
-                FROM search_history
-                GROUP BY gstin, company_name
-                ORDER BY search_count DESC
-                LIMIT 10
-            """)
-            
-            # Daily search trends (last 30 days)
-            daily_trends = await conn.fetch("""
-                SELECT DATE(searched_at) as date, COUNT(*) as searches
-                FROM search_history
-                WHERE searched_at >= CURRENT_DATE - INTERVAL '30 days'
-                GROUP BY DATE(searched_at)
-                ORDER BY date
-            """)
-            
-            return {
-                'success': True,
-                'user_stats': dict(user_stats) if user_stats else {},
-                'search_stats': dict(search_stats) if search_stats else {},
-                'top_companies': [dict(row) for row in top_companies],
-                'daily_trends': [dict(row) for row in daily_trends]
-            }
-    except Exception as e:
-        logger.error(f"Admin stats error: {e}")
-        return {'success': False, 'error': str(e)}
-
-@app.get("/api/admin/users")
-@handle_api_errors
-async def get_all_users(
-    page: int = 1, 
-    limit: int = 50,
-    search: str = "",
-    current_user: str = Depends(require_admin)
-):
-    """Get all users with pagination and search."""
-    try:
-        offset = (page - 1) * limit
-        
-        async with db.pool.acquire() as conn:
-            # Build search condition
-            search_condition = ""
-            params = [limit, offset]
-            if search:
-                search_condition = "WHERE mobile LIKE $3"
-                params.append(f"%{search}%")
-            
-            # Get users
-            query = f"""
-                SELECT mobile, created_at, last_login,
-                       (SELECT COUNT(*) FROM search_history WHERE search_history.mobile = users.mobile) as search_count
-                FROM users
-                {search_condition}
-                ORDER BY created_at DESC
-                LIMIT $1 OFFSET $2
-            """
-            
-            users = await conn.fetch(query, *params)
-            
-            # Get total count
-            count_query = f"SELECT COUNT(*) FROM users {search_condition}"
-            if search:
-                total = await conn.fetchval(count_query, f"%{search}%")
-            else:
-                total = await conn.fetchval(count_query)
-            
-            return {
-                'success': True,
-                'users': [dict(row) for row in users],
-                'pagination': {
-                    'page': page,
-                    'limit': limit,
-                    'total': total,
-                    'pages': (total + limit - 1) // limit
-                }
-            }
-    except Exception as e:
-        logger.error(f"Get users error: {e}")
-        return {'success': False, 'error': str(e)}
-
-@app.delete("/api/admin/users/{mobile}")
-@handle_api_errors
-async def delete_user(mobile: str, current_user: str = Depends(require_admin)):
-    """Delete a user and all their data."""
-    try:
-        async with db.pool.acquire() as conn:
-            # Check if user exists
-            user = await conn.fetchrow("SELECT mobile FROM users WHERE mobile = $1", mobile)
-            if not user:
-                return {'success': False, 'error': 'User not found'}
-            
-            # Delete user (cascade will handle related data)
-            await conn.execute("DELETE FROM users WHERE mobile = $1", mobile)
-            
-            return {'success': True, 'message': f'User {mobile} deleted successfully'}
-    except Exception as e:
-        logger.error(f"Delete user error: {e}")
-        return {'success': False, 'error': str(e)}
-
-@app.get("/api/admin/system/health")
-@handle_api_errors
-async def system_health_check(current_user: str = Depends(require_admin)):
-    """Comprehensive system health check."""
-    try:
-        health_data = {
-            'timestamp': datetime.now().isoformat(),
-            'database': 'unknown',
-            'api_service': 'unknown',
-            'cache': 'unknown',
-            'disk_space': 'unknown',
-            'memory_usage': 'unknown'
-        }
-        
-        # Database health
-        try:
-            async with db.pool.acquire() as conn:
-                await conn.execute("SELECT 1")
-            health_data['database'] = 'healthy'
-        except Exception as e:
-            health_data['database'] = f'unhealthy: {str(e)}'
-        
-        # API service health
-        if api_client and config.RAPIDAPI_KEY:
-            health_data['api_service'] = 'configured'
-        else:
-            health_data['api_service'] = 'not configured'
-        
-        # Cache health
-        try:
-            await cache_manager.set('health_check', True, ttl=60)
-            health_check_value = await cache_manager.get('health_check')
-            health_data['cache'] = 'healthy' if health_check_value else 'unhealthy'
-        except Exception as e:
-            health_data['cache'] = f'unhealthy: {str(e)}'
-        
-        # System resources
-        try:
-            import psutil
-            health_data['memory_usage'] = f"{psutil.virtual_memory().percent}%"
-            health_data['disk_space'] = f"{psutil.disk_usage('/').percent}%"
-        except ImportError:
-            health_data['memory_usage'] = 'psutil not available'
-            health_data['disk_space'] = 'psutil not available'
-        
-        return {'success': True, 'health': health_data}
-    except Exception as e:
-        logger.error(f"Health check error: {e}")
-        return {'success': False, 'error': str(e)}
-
-# Bulk operations
 @app.post("/api/admin/bulk/delete-old-searches")
 @handle_api_errors
 async def bulk_delete_old_searches(
@@ -1942,9 +1541,12 @@ async def bulk_delete_old_searches(
     try:
         async with db.pool.acquire() as conn:
             result = await conn.fetchval("""
-                DELETE FROM search_history 
-                WHERE searched_at < CURRENT_DATE - INTERVAL '%s days'
-                RETURNING COUNT(*)
+                WITH deleted AS (
+                    DELETE FROM search_history 
+                    WHERE searched_at < CURRENT_DATE - INTERVAL '1 day' * $1
+                    RETURNING id
+                )
+                SELECT COUNT(*) FROM deleted
             """, days_old)
             
             return {
@@ -1954,115 +1556,15 @@ async def bulk_delete_old_searches(
             }
     except Exception as e:
         logger.error(f"Bulk delete error: {e}")
-        return {'success': False, 'error': str(e)}    
-    
-@app.get("/api/admin/cache/stats")
-@handle_api_errors
-async def get_cache_stats(current_user: str = Depends(require_auth)):
-    """Get cache statistics."""
-    try:
-        if cache_manager.redis_client:
-            info = cache_manager.redis_client.info()
-            return {
-                'success': True,
-                'cache_type': 'redis',
-                'used_memory': info.get('used_memory_human'),
-                'connected_clients': info.get('connected_clients'),
-                'keyspace_hits': info.get('keyspace_hits'),
-                'keyspace_misses': info.get('keyspace_misses')
-            }
-        else:
-            return {
-                'success': True,
-                'cache_type': 'memory',
-                'entries': len(cache_manager.memory_cache),
-                'memory_usage': f"{len(str(cache_manager.memory_cache))} bytes (approx)"
-            }
-    except Exception as e:
         return {'success': False, 'error': str(e)}
 
-@app.delete("/api/admin/cache/clear")
-@handle_api_errors  
-async def clear_cache(pattern: str = "*", current_user: str = Depends(require_auth)):
-    """Clear cache entries by pattern."""
-    try:
-        count = await cache_manager.clear_pattern(pattern)
-        return {
-            'success': True,
-            'cleared_count': count,
-            'pattern': pattern
-        }
-    except Exception as e:
-        return {'success': False, 'error': str(e)}    
+# =============================================================================
+# STATIC FILES
+# =============================================================================
 
-# Export and PDF Routes
-@app.get("/export/history")
-async def export_history(current_user: str = Depends(require_auth)):
-    """Export search history as CSV."""
-    try:
-        history = await db.get_all_searches(current_user)
-        output = StringIO()
-        writer = csv.DictWriter(output, fieldnames=['searched_at', 'gstin', 'company_name', 'compliance_score'])
-        writer.writeheader()
-        
-        for item in history:
-            writer.writerow({
-                'searched_at': item['searched_at'].isoformat() if item['searched_at'] else '',
-                'gstin': item['gstin'],
-                'company_name': item['company_name'],
-                'compliance_score': item['compliance_score'] if item['compliance_score'] else ''
-            })
-        
-        content = output.getvalue()
-        output.close()
-        
-        return StreamingResponse(
-            BytesIO(content.encode()), 
-            media_type="text/csv",
-            headers={"Content-Disposition": f"attachment; filename=gst_search_history_{datetime.now().strftime('%Y%m%d')}.csv"}
-        )
-    except Exception as e:
-        logger.error(f"Export error: {e}")
-        raise HTTPException(status_code=500, detail="Export failed")
-
-@app.post("/generate-pdf")
-async def generate_pdf_route(request: Request, gstin: str = Form(...), current_user: str = Depends(require_auth)):
-    """Generate PDF report."""
-    if not HAS_WEASYPRINT:
-        raise HTTPException(status_code=503, detail="PDF generation not available")
-    
-    try:
-        if not api_client:
-            raise HTTPException(status_code=503, detail="GST API service not configured")
-            
-        company_data = await api_client.fetch_gstin_data(gstin)
-        compliance_score = calculate_compliance_score(company_data)
-        
-        synopsis = None
-        if config.ANTHROPIC_API_KEY:
-            try:
-                synopsis = await get_anthropic_synopsis(company_data)
-            except:
-                synopsis = "AI synopsis not available"
-        
-        late_filing_analysis = company_data.get('_late_filing_analysis', None)
-        pdf_content = generate_pdf_report(company_data, compliance_score, synopsis, late_filing_analysis)
-        
-        return StreamingResponse(
-            pdf_content, 
-            media_type="application/pdf",
-            headers={"Content-Disposition": f"attachment; filename=GST_Report_{gstin}.pdf"}
-        )
-        
-    except Exception as e:
-        logger.error(f"PDF generation error: {e}")
-        raise HTTPException(status_code=500, detail="Failed to generate PDF")
-
-# Static file routes
 @app.get("/favicon.ico")
 async def favicon():
     """Favicon route."""
-    # Simple 1x1 PNG favicon
     favicon_bytes = b'\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\rIDATx\x9cc\xf8\x0f\x00\x00\x01\x01\x00\x05\x00\x01\x8d\xc8\x02\x00\x00\x00\x00IEND\xaeB`\x82'
     return Response(content=favicon_bytes, media_type="image/png")
 
@@ -2080,159 +1582,10 @@ async def get_service_worker():
         sw_content = f.read()
     return Response(content=sw_content, media_type="application/javascript")
 
-@app.post("/api/loans/apply")
-@handle_api_errors
-async def apply_for_loan(request: LoanApplicationRequest, current_user: str = Depends(require_auth)):
-    """Apply for a business loan"""
-    try:
-        if not loan_manager:
-            return JSONResponse(
-                status_code=503,
-                content={"success": False, "error": "Loan service not available"}
-            )
-        
-        # Validate application data
-        application_data = request.dict()
-        is_valid, message = LoanConfig.validate_loan_application(application_data)
-        
-        if not is_valid:
-            return JSONResponse(
-                status_code=400,
-                content={"success": False, "error": message}
-            )
-        
-        # Submit loan application
-        result = await loan_manager.submit_loan_application(current_user, application_data)
-        
-        if result["success"]:
-            return {"success": True, "data": result, "message": "Loan application submitted successfully"}
-        else:
-            return JSONResponse(
-                status_code=400,
-                content={"success": False, "error": result.get("error", "Application failed")}
-            )
-            
-    except Exception as e:
-        logger.error(f"Loan application error: {e}")
-        return JSONResponse(
-            status_code=500,
-            content={"success": False, "error": "Failed to process loan application"}
-        )
+# =============================================================================
+# ERROR HANDLERS
+# =============================================================================
 
-@app.get("/api/loans/applications")
-@handle_api_errors
-async def get_loan_applications(current_user: str = Depends(require_auth)):
-    """Get user's loan applications"""
-    try:
-        if not loan_manager:
-            return {"success": True, "data": []}
-        
-        applications = await loan_manager.get_user_loan_applications(current_user)
-        return {"success": True, "data": applications}
-        
-    except Exception as e:
-        logger.error(f"Get loan applications error: {e}")
-        return JSONResponse(
-            status_code=500,
-            content={"success": False, "error": "Failed to fetch loan applications"}
-        )
-
-@app.get("/api/loans/applications/{application_id}/offers")
-@handle_api_errors
-async def get_loan_offers(application_id: int, current_user: str = Depends(require_auth)):
-    """Get loan offers for an application"""
-    try:
-        if not loan_manager:
-            return {"success": True, "data": []}
-        
-        # Verify application belongs to user
-        async with db.pool.acquire() as conn:
-            app_owner = await conn.fetchval(
-                "SELECT user_mobile FROM loan_applications WHERE id = $1",
-                application_id
-            )
-            
-            if app_owner != current_user:
-                return JSONResponse(
-                    status_code=403,
-                    content={"success": False, "error": "Access denied"}
-                )
-            
-            # Get offers from database
-            offers = await conn.fetch("""
-                SELECT razorpay_offer_id, loan_amount, interest_rate, 
-                       tenure_months, emi_amount, processing_fee, 
-                       is_accepted, created_at, offer_data
-                FROM loan_offers 
-                WHERE application_id = $1
-                ORDER BY created_at DESC
-            """, application_id)
-            
-            return {"success": True, "data": [dict(offer) for offer in offers]}
-            
-    except Exception as e:
-        logger.error(f"Get loan offers error: {e}")
-        return JSONResponse(
-            status_code=500,
-            content={"success": False, "error": "Failed to fetch loan offers"}
-        )
-
-@app.get("/api/loans/eligibility")
-@handle_api_errors
-async def check_loan_eligibility(
-    gstin: str, 
-    annual_turnover: float,
-    compliance_score: float,
-    business_vintage_months: int,
-    current_user: str = Depends(require_auth)
-):
-    """Check loan eligibility for a business"""
-    try:
-        # Basic eligibility check
-        eligibility = {
-            "eligible": True,
-            "reasons": [],
-            "max_loan_amount": 0,
-            "recommended_amount": 0
-        }
-        
-        # Check compliance score
-        if compliance_score < LoanConfig.MIN_COMPLIANCE_SCORE:
-            eligibility["eligible"] = False
-            eligibility["reasons"].append(f"Compliance score below minimum ({LoanConfig.MIN_COMPLIANCE_SCORE}%)")
-        
-        # Check business vintage
-        if business_vintage_months < LoanConfig.MIN_BUSINESS_VINTAGE_MONTHS:
-            eligibility["eligible"] = False
-            eligibility["reasons"].append(f"Business vintage below minimum ({LoanConfig.MIN_BUSINESS_VINTAGE_MONTHS} months)")
-        
-        # Check annual turnover
-        if annual_turnover < LoanConfig.MIN_ANNUAL_TURNOVER:
-            eligibility["eligible"] = False
-            eligibility["reasons"].append(f"Annual turnover below minimum (₹{LoanConfig.MIN_ANNUAL_TURNOVER:,})")
-        
-        if eligibility["eligible"]:
-            # Calculate maximum loan amount
-            max_by_turnover = annual_turnover * LoanConfig.MAX_LOAN_TO_TURNOVER_RATIO
-            eligibility["max_loan_amount"] = min(max_by_turnover, LoanConfig.MAX_LOAN_AMOUNT)
-            
-            # Recommended amount based on compliance score
-            score_multiplier = compliance_score / 100
-            eligibility["recommended_amount"] = min(
-                annual_turnover * 0.3 * score_multiplier,
-                eligibility["max_loan_amount"]
-            )
-        
-        return {"success": True, "data": eligibility}
-        
-    except Exception as e:
-        logger.error(f"Eligibility check error: {e}")
-        return JSONResponse(
-            status_code=500,
-            content={"success": False, "error": "Failed to check eligibility"}
-        )
-
-# Error handlers
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request: Request, exc: HTTPException):
     """Handle HTTP exceptions."""
@@ -2252,7 +1605,10 @@ async def general_exception_handler(request: Request, exc: Exception):
         content={"error": "An internal error occurred"}
     )
 
-# Startup/Shutdown events
+# =============================================================================
+# STARTUP/SHUTDOWN EVENTS
+# =============================================================================
+
 @app.on_event("startup")
 async def startup():
     """Initialize application on startup."""
@@ -2260,12 +1616,10 @@ async def startup():
     await db.initialize()
     await db.cleanup_expired_sessions()
     
-    # Initialize loan tables if loan manager is available
     if loan_manager:
         await loan_manager.initialize_loan_tables()
         logger.info("Loan management system initialized")
     
-    # Store admin users for template access
     app.extra = {"ADMIN_USERS": os.getenv("ADMIN_USERS", "")}
     
     logger.info("Application startup complete")
@@ -2274,8 +1628,13 @@ async def startup():
 async def shutdown():
     """Clean up on shutdown."""
     logger.info("GST Intelligence Platform shutting down...")
+    
+    await cache_manager.close()
+    
     if db.pool:
         await db.pool.close()
+    
+    logger.info("Cleanup complete")
 
 if __name__ == "__main__":
     import uvicorn
