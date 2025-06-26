@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>You're Offline - GST Intelligence Platform</title>
+    <link rel="stylesheet" href="/static/css/base.css">
+    <style>
+        .page-offline {
+            background: var(--bg-primary);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: var(--font-primary);
+        }
+        
+        .error-container {
+            max-width: 600px;
+            padding: var(--space-6);
+            text-align: center;
+        }
+        
+        .error-animation {
+            position: relative;
+            margin-bottom: var(--space-8);
+            height: 120px;
+        }
+        
+        .floating-icon {
+            position: absolute;
+            animation: float 3s ease-in-out infinite;
+            color: var(--text-secondary);
+        }
+        
+        .floating-icon:nth-child(1) {
+            top: 0;
+            left: 20%;
+            animation-delay: 0s;
+        }
+        
+        .floating-icon:nth-child(2) {
+            top: 30px;
+            right: 20%;
+            animation-delay: 1s;
+        }
+        
+        .floating-icon:nth-child(3) {
+            bottom: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            animation-delay: 2s;
+        }
+        
+        @keyframes float {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-20px); }
+        }
+        
+        .error-code {
+            font-size: 4rem;
+            margin-bottom: var(--space-4);
+        }
+        
+        .error-title {
+            font-size: var(--text-3xl);
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-bottom: var(--space-4);
+        }
+        
+        .error-description {
+            font-size: var(--text-lg);
+            color: var(--text-secondary);
+            margin-bottom: var(--space-8);
+            line-height: 1.6;
+        }
+        
+        .error-actions {
+            display: flex;
+            gap: var(--space-4);
+            justify-content: center;
+            margin-bottom: var(--space-8);
+            flex-wrap: wrap;
+        }
+        
+        .error-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: var(--space-2);
+            padding: var(--space-3) var(--space-6);
+            border-radius: var(--radius-md);
+            text-decoration: none;
+            font-weight: 600;
+            transition: var(--transition);
+            border: none;
+            cursor: pointer;
+            font-size: var(--text-base);
+        }
+        
+        .error-btn.primary {
+            background: var(--accent-primary);
+            color: white;
+        }
+        
+        .error-btn.primary:hover {
+            background: var(--accent-secondary);
+            transform: translateY(-2px);
+        }
+        
+        .error-btn.secondary {
+            background: var(--bg-card);
+            color: var(--text-primary);
+            border: 1px solid var(--border-primary);
+        }
+        
+        .error-btn.secondary:hover {
+            background: var(--bg-hover);
+            transform: translateY(-2px);
+        }
+        
+        .error-suggestions {
+            background: var(--bg-card);
+            border: 1px solid var(--border-primary);
+            border-radius: var(--radius-lg);
+            padding: var(--space-6);
+            text-align: left;
+        }
+        
+        .suggestions-title {
+            font-size: var(--text-lg);
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: var(--space-4);
+            display: flex;
+            align-items: center;
+            gap: var(--space-2);
+        }
+        
+        .suggestions-list {
+            list-style: none;
+            margin: 0;
+            padding: 0;
+        }
+        
+        .suggestions-list li {
+            display: flex;
+            align-items: center;
+            gap: var(--space-3);
+            padding: var(--space-3) 0;
+            border-bottom: 1px solid var(--border-secondary);
+        }
+        
+        .suggestions-list li:last-child {
+            border-bottom: none;
+        }
+        
+        .suggestions-list i {
+            color: var(--accent-primary);
+            width: 20px;
+            text-align: center;
+        }
+        
+        .connection-status {
+            position: fixed;
+            top: var(--space-4);
+            right: var(--space-4);
+            padding: var(--space-2) var(--space-4);
+            border-radius: var(--radius-full);
+            font-size: var(--text-sm);
+            font-weight: 600;
+            background: var(--error);
+            color: white;
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+        
+        /* Mobile responsive */
+        @media (max-width: 768px) {
+            .error-container {
+                padding: var(--space-4);
+            }
+            
+            .error-code {
+                font-size: 3rem;
+            }
+            
+            .error-title {
+                font-size: var(--text-2xl);
+            }
+            
+            .error-actions {
+                flex-direction: column;
+                align-items: center;
+            }
+            
+            .error-btn {
+                width: 100%;
+                max-width: 300px;
+                justify-content: center;
+            }
+        }
+    </style>
+</head>
+<body class="page-offline">
+    <div class="connection-status" id="connectionStatus">
+        📡 Offline
+    </div>
+    
+    <div class="error-container">
+        <div class="error-content">
+            <div class="error-animation">
+                <div class="floating-icon">
+                    <i class="fas fa-wifi" style="font-size: 2rem; opacity: 0.3;"></i>
+                </div>
+                <div class="floating-icon">
+                    <i class="fas fa-globe" style="font-size: 1.5rem; opacity: 0.3;"></i>
+                </div>
+                <div class="floating-icon">
+                    <i class="fas fa-signal" style="font-size: 1.8rem; opacity: 0.3;"></i>
+                </div>
+            </div>
+            
+            <div class="error-code">📡</div>
+            
+            <h1 class="error-title">You're Offline</h1>
+            <p class="error-description">
+                It looks like you've lost your internet connection. Don't worry, 
+                you can still browse your search history and view cached data.
+                Your work will sync automatically when you're back online.
+            </p>
+            
+            <div class="error-actions">
+                <button onclick="checkConnection()" class="error-btn primary">
+                    <i class="fas fa-redo"></i>
+                    Try Again
+                </button>
+                <a href="/history" class="error-btn secondary">
+                    <i class="fas fa-history"></i>
+                    View History
+                </a>
+                <a href="/analytics" class="error-btn secondary">
+                    <i class="fas fa-chart-bar"></i>
+                    Analytics
+                </a>
+            </div>
+            
+            <div class="error-suggestions">
+                <h3 class="suggestions-title">
+                    <i class="fas fa-wifi"></i>
+                    While you're offline:
+                </h3>
+                <ul class="suggestions-list">
+                    <li>
+                        <i class="fas fa-history"></i>
+                        <span>Browse your <a href="/history">search history</a> (cached)</span>
+                    </li>
+                    <li>
+                        <i class="fas fa-save"></i>
+                        <span>View previously saved search results</span>
+                    </li>
+                    <li>
+                        <i class="fas fa-chart-bar"></i>
+                        <span>Check your offline <a href="/analytics">analytics dashboard</a></span>
+                    </li>
+                    <li>
+                        <i class="fas fa-sync"></i>
+                        <span>Data will sync automatically when connected</span>
+                    </li>
+                    <li>
+                        <i class="fas fa-search"></i>
+                        <span>New searches will be queued for when you're online</span>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // Connection status management
+        function updateConnectionStatus() {
+            const statusEl = document.getElementById('connectionStatus');
+            if (navigator.onLine) {
+                statusEl.textContent = '🌐 Online';
+                statusEl.style.background = 'var(--success)';
+                statusEl.style.animation = 'none';
+            } else {
+                statusEl.textContent = '📡 Offline';
+                statusEl.style.background = 'var(--error)';
+                statusEl.style.animation = 'pulse 2s infinite';
+            }
+        }
+        
+        function checkConnection() {
+            if (navigator.onLine) {
+                window.location.reload();
+            } else {
+                // Show temporary feedback
+                const btn = event.target;
+                const originalText = btn.innerHTML;
+                btn.innerHTML = '<i class="fas fa-times"></i> Still Offline';
+                btn.disabled = true;
+                
+                setTimeout(() => {
+                    btn.innerHTML = originalText;
+                    btn.disabled = false;
+                }, 2000);
+            }
+        }
+        
+        // Event listeners
+        window.addEventListener('online', () => {
+            updateConnectionStatus();
+            setTimeout(() => {
+                window.location.reload();
+            }, 1000);
+        });
+        
+        window.addEventListener('offline', updateConnectionStatus);
+        
+        // Periodic connection check
+        setInterval(() => {
+            if (navigator.onLine) {
+                window.location.reload();
+            }
+        }, 10000); // Check every 10 seconds
+        
+        // Initialize status
+        updateConnectionStatus();
+        
+        // Service worker messaging for cache updates
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.addEventListener('message', event => {
+                if (event.data.type === 'CACHE_UPDATED') {
+                    console.log('Cache updated while offline');
+                }
+            });
+        }
+        
+        // Store offline actions for later sync
+        function queueOfflineAction(action) {
+            const offlineQueue = JSON.parse(localStorage.getItem('offlineQueue') || '[]');
+            offlineQueue.push({
+                ...action,
+                timestamp: Date.now()
+            });
+            localStorage.setItem('offlineQueue', JSON.stringify(offlineQueue));
+        }
+        
+        // Auto-sync when online
+        window.addEventListener('online', async () => {
+            const offlineQueue = JSON.parse(localStorage.getItem('offlineQueue') || '[]');
+            if (offlineQueue.length > 0) {
+                console.log(`Syncing ${offlineQueue.length} offline actions...`);
+                // Let the main app handle the sync
+                window.dispatchEvent(new CustomEvent('sync-offline-queue', {
+                    detail: { queue: offlineQueue }
+                }));
+            }
+        });
+    </script>
+</body>
+</html>

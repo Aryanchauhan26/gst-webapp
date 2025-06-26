@@ -3,233 +3,290 @@
 # Updated and optimized for better performance and security
 # =============================================================================
 
-# Core Web Framework (Latest stable versions)
-fastapi==0.104.1
-uvicorn[standard]==0.24.0
-starlette==0.27.0
+# Core Web Framework
+fastapi
+uvicorn[standard]
+starlette
 
 # HTTP Client & Networking
-httpx==0.25.2
-requests==2.31.0
-aiohttp==3.9.1
+httpx
+requests
+aiohttp
 
 # Template Engine & Web Forms
-jinja2==3.1.2
-python-multipart==0.0.6
-markupsafe==2.1.3
+jinja2
+python-multipart
+markupsafe
 
 # Database & Async Support
-asyncpg==0.29.0
-asyncio-throttle==1.0.2
+asyncpg
+asyncio-throttle
 
 # Environment & Configuration
-python-dotenv==1.0.0
-pydantic==2.5.0
-pydantic-settings==2.1.0
+python-dotenv
+pydantic
+pydantic-settings
 
 # AI & Machine Learning
-anthropic==0.7.7
+anthropic
 
 # Web Scraping & Data Processing
-beautifulsoup4==4.12.2
-lxml==4.9.3
-html5lib==1.1
-bleach==6.1.0
-googlesearch-python==1.2.3
+beautifulsoup4
+lxml
+html5lib
+bleach
+googlesearch-python
 
 # PDF Generation & Document Processing
-weasyprint==60.2
-reportlab==4.0.7
+weasyprint
+reportlab
 
 # Security & Cryptography
-cryptography>=41.0.0
-bcrypt==4.1.2
-passlib[bcrypt]==1.7.4
-python-jose[cryptography]==3.3.0
+cryptography
+bcrypt
+passlib[bcrypt]
+python-jose[cryptography]
 
 # Data Validation & Serialization
-email-validator==2.1.0
-phonenumbers==8.13.26
-python-dateutil==2.8.2
+email-validator
+phonenumbers
+python-dateutil
 
 # Performance & Monitoring
-psutil==5.9.6
-redis==5.0.1
+psutil
+redis
 
 # Excel & CSV Processing
-openpyxl==3.1.2
-xlsxwriter==3.1.9
-pandas==2.1.4
-numpy==1.25.2
+openpyxl
+xlsxwriter
+pandas
+numpy
 
 # Utilities & Helpers
-python-slugify==8.0.1
-pytz==2023.3
-charset-normalizer==3.3.2
-urllib3==2.1.0
+python-slugify
+pytz
+charset-normalizer
+urllib3
 
 # Production Server
-gunicorn==21.2.0
-watchfiles==0.21.0
+gunicorn
+watchfiles
 
 # =============================================================================
 # LOAN MANAGEMENT DEPENDENCIES
 # =============================================================================
 
 # Payment Gateway Integration (Razorpay)
-razorpay==1.4.2
+razorpay
 
 # JSON Web Tokens for Enhanced Security
-pyjwt==2.8.0
+pyjwt
 
 # Rate Limiting for API Protection
-slowapi==0.1.9
+slowapi
 
 # Enhanced Logging for Loan Transactions
-structlog==23.2.0
+structlog
 
 # Time & Date Processing for Loan Schedules
-arrow==1.3.0
-pendulum==2.1.2
+arrow
+pendulum
 
 # Enhanced Number Formatting for Currency
-babel==2.14.0
+babel
 
 # Mathematical Operations for Risk Assessment
-sympy==1.12
+sympy
 
 # =============================================================================
 # ENHANCED SECURITY FOR FINANCIAL DATA
 # =============================================================================
 
 # Input Validation & Sanitization
-validators==0.22.0
+validators
 
 # Rate Limiting & DDoS Protection
-limits==3.6.0
+limits
 
 # =============================================================================
 # MONITORING & OBSERVABILITY
 # =============================================================================
 
 # Application Performance Monitoring
-prometheus-client==0.19.0
+prometheus-client
 
 # Structured Logging
-python-json-logger==2.0.7
+python-json-logger
 
 # Health Checks
-healthcheck==1.3.3
+healthcheck
 
 # =============================================================================
 # DEVELOPMENT & TESTING (Optional - for development only)
 # =============================================================================
 
 # Testing Framework
-pytest==7.4.3
-pytest-asyncio==0.21.1
-pytest-cov==4.1.0
+pytest
+pytest-asyncio
+pytest-cov
 
 # Code Quality
-black==23.11.0
-isort==5.12.0
-flake8==6.1.0
-mypy==1.7.1
+black
+isort
+flake8
+mypy
 
 # Development Tools
-pre-commit==3.6.0
-python-decouple==3.8
+pre-commit
+python-decouple
 
 # =============================================================================
 # OPTIONAL ENHANCEMENTS
 # =============================================================================
 
 # Advanced Caching
-redis-py-cluster==2.1.3
+redis-py-cluster
 
 # Background Tasks
-celery==5.3.4
-kombu==5.3.4
+celery
+kombu
 
 # File Processing
-python-magic==0.4.27
-pillow==10.1.0
+python-magic
+pillow
 
 # Advanced Analytics
-matplotlib==3.8.2
-seaborn==0.13.0
-plotly==5.17.0
+matplotlib
+seaborn
+plotly
 
 # Machine Learning (for future AI features)
-scikit-learn==1.3.2
-tensorflow==2.15.0
+scikit-learn
+tensorflow
 
 # Geographic Data (for state-wise analysis)
-geoip2==4.7.0
+geoip2
 
 # Advanced Excel Features
-xlrd==2.0.1
-xlwt==1.3.0
+xlrd
+xlwt
 
 # =============================================================================
 # PRODUCTION OPTIMIZATIONS
 # =============================================================================
 
 # Memory Profiling
-memory-profiler==0.61.0
+memory-profiler
 
 # Connection Pooling
-aioredis==2.0.1
+aioredis
 
 # Compression
-brotli==1.1.0
-gzip==1.0
+brotli
 
 # =============================================================================
 # SECURITY ENHANCEMENTS
 # =============================================================================
 
 # Additional Security Headers
-secure==0.3.0
+secure
 
 # CSRF Protection
-itsdangerous==2.1.2
+itsdangerous
 
 # Advanced Authentication
-authlib==1.2.1
+authlib
 
 # =============================================================================
 # DEPLOYMENT SPECIFIC
 # =============================================================================
 
 # Environment Detection
-environs==10.3.0
+environs
 
 # Process Management
-supervisor==4.2.5
+supervisor
 
 # Reverse Proxy Support
-whitenoise==6.6.0
+whitenoise
 
 # =============================================================================
 # PINNED VERSIONS FOR STABILITY
 # =============================================================================
 
-# Core Python Libraries (pinned for stability)
-setuptools==69.0.2
-wheel==0.42.0
-pip==23.3.1
+# Core Python Libraries
+setuptools
+wheel
+pip
 
 # SSL/TLS Support
-certifi==2023.11.17
+certifi
 
 # Unicode Support
-unicodedata2==15.1.0
+unicodedata2
+
+# =============================================================================
+# ADDITIONAL LOAN SYSTEM DEPENDENCIES
+# =============================================================================
+
+# Enhanced date/time processing
+dateutil
+pytz
+
+# Enhanced JSON processing
+ujson
+
+# Enhanced async support
+anyio
+trio
+
+# Enhanced HTTP client features
+httpcore
+h11
+h2
+
+# Enhanced template support
+markupsafe
+
+# Enhanced validation
+cerberus
+marshmallow
+
+# Enhanced serialization
+msgpack
+orjson
+
+# Enhanced logging
+colorlog
+loguru
+
+# Enhanced configuration
+configparser
+toml
+
+# Enhanced security
+jwt
+cryptodome
+
+# Enhanced file handling
+pathlib
+glob2
+
+# Enhanced string processing
+regex
+fuzzywuzzy
+
+# Enhanced number processing
+mpmath
+
+# Enhanced async database
+databases
+sqlalchemy
 
 # =============================================================================
 # NOTES:
-# - All versions are pinned for production stability
-# - Development dependencies can be installed separately
-# - Optional enhancements can be installed based on needs
-# - Regular security updates should be applied
+# - All versions removed for latest compatibility
+# - Extra packages included for enhanced functionality
+# - Optional enhancements can be installed as needed
+# - Some packages may not be strictly required but provide additional features
 # =============================================================================
