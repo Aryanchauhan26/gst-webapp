@@ -212,3 +212,18 @@ if __name__ == "__main__":
         print("🚀 Production mode - ensure all secrets are properly configured")
     else:
         print("🔧 Development mode - some features may use fallbacks")
+
+    # =============================================================================
+# MODULE-LEVEL ATTRIBUTES FOR BACKWARD COMPATIBILITY
+# =============================================================================
+
+RATE_LIMIT_REQUESTS = settings.RATE_LIMIT_REQUESTS
+RATE_LIMIT_WINDOW = settings.RATE_LIMIT_WINDOW
+SECRET_KEY = settings.SECRET_KEY
+ADMIN_USERS = settings.ADMIN_USERS
+SESSION_DURATION = settings.SESSION_DURATION
+POSTGRES_DSN = settings.POSTGRES_DSN
+RAPIDAPI_KEY = settings.RAPIDAPI_KEY
+RAPIDAPI_HOST = settings.RAPIDAPI_HOST
+REDIS_URL = settings.REDIS_URL
+is_production = settings.is_production    
