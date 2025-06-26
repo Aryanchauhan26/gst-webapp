@@ -302,17 +302,16 @@
             </div>
             {% endif %}
             
-            {% if request.args.get('registered') == 'true' %}
-            <div class="success-message">
-                <i class="fas fa-check-circle"></i>
-                Registration successful! Please login with your credentials.
-            </div>
-            {% endif %}
-            
-            {% if request.args.get('logout') == 'true' %}
+            {% if request.query_params.get('logout') == 'true' %}
             <div class="success-message">
                 <i class="fas fa-check-circle"></i>
                 You have been logged out successfully.
+            </div>
+            {% endif %}
+            {% if request.query_params.get('registered') == 'true' %}
+            <div class="success-message">
+                <i class="fas fa-check-circle"></i>
+                Registration successful! Please login with your credentials.
             </div>
             {% endif %}
             
