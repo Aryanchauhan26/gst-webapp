@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Data Models and Validation for GST Intelligence Platform
-Pydantic models for request/response validation
+Unified Data Models and Validation for GST Intelligence Platform
+Fixed Pydantic v2 compatibility and removed duplicates
 """
 
 from pydantic import BaseModel, Field, validator
@@ -134,7 +134,7 @@ class UserProfileRequest(BaseModel):
         return v
 
 # =============================================
-# PREFERENCES MODELS
+# PREFERENCES MODELS (FIXED)
 # =============================================
 
 class UserPreferences(BaseModel):
@@ -144,7 +144,7 @@ class UserPreferences(BaseModel):
     email_alerts: bool = False
     auto_export: bool = False
     search_history_limit: int = Field(default=100, ge=10, le=1000)
-    default_export_format: str = Field(default="csv", regex="^(csv|excel|pdf)$")
+    default_export_format: str = Field(default="csv", pattern="^(csv|excel|pdf)$")  # FIXED: regex -> pattern
 
 class UserPreferencesRequest(BaseModel):
     """User preferences update request model."""
@@ -153,7 +153,7 @@ class UserPreferencesRequest(BaseModel):
     email_alerts: Optional[bool] = None
     auto_export: Optional[bool] = None
     search_history_limit: Optional[int] = Field(None, ge=10, le=1000)
-    default_export_format: Optional[str] = Field(None, regex="^(csv|excel|pdf)$")
+    default_export_format: Optional[str] = Field(None, pattern="^(csv|excel|pdf)$")  # FIXED: regex -> pattern
 
 # =============================================
 # SEARCH MODELS
@@ -175,6 +175,21 @@ class GSTINSearchRequest(BaseModel):
             raise ValueError('Invalid GSTIN format')
         
         return clean_gstin
+
+class BatchSearchRequest(BaseModel):
+    """Batch GSTIN search request model."""
+    gstins: List[str] = Field(..., min_items=1, max_items=10)
+    
+    @validator('gstins')
+    def validate_gstins(cls, v):
+        """Validate batch GSTINs."""
+        validated = []
+        for gstin in v:
+            gstin = gstin.upper().strip()
+            if not re.match(r'^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$', gstin):
+                raise ValueError(f'Invalid GSTIN format: {gstin}')
+            validated.append(gstin)
+        return validated
 
 class CompanyInfo(BaseModel):
     """Company information model."""
@@ -205,6 +220,37 @@ class SearchResponse(BaseModel):
     error: Optional[str] = None
     cached: bool = False
     search_time_ms: Optional[int] = None
+
+# =============================================
+# EXPORT MODELS (FIXED)
+# =============================================
+
+class ExportRequest(BaseModel):
+    """Export request model."""
+    format: str = Field(..., pattern="^(csv|excel|pdf)$")  # FIXED: regex -> pattern
+    type: str = Field(..., pattern="^(history|analytics|all)$")  # FIXED: regex -> pattern
+    date_range: Optional[str] = Field(None, pattern="^(7days|30days|90days|all)$")  # FIXED: regex -> pattern
+    date_from: Optional[str] = None
+    date_to: Optional[str] = None
+    include_raw_data: bool = False
+    
+    @validator('date_from', 'date_to')
+    def validate_dates(cls, v):
+        """Validate date format."""
+        if v:
+            try:
+                datetime.fromisoformat(v)
+            except ValueError:
+                raise ValueError('Invalid date format. Use YYYY-MM-DD')
+        return v
+
+class ExportResponse(BaseModel):
+    """Export response model."""
+    success: bool
+    download_url: Optional[str] = None
+    file_size: Optional[int] = None
+    record_count: Optional[int] = None
+    error: Optional[str] = None
 
 # =============================================
 # ANALYTICS MODELS
@@ -264,16 +310,16 @@ class UserListResponse(BaseModel):
 
 class BulkActionRequest(BaseModel):
     """Bulk action request model."""
-    action: str = Field(..., regex="^(delete|activate|deactivate)$")
+    action: str = Field(..., pattern="^(delete|activate|deactivate)$")  # FIXED: regex -> pattern
     user_ids: List[str] = Field(..., min_items=1, max_items=100)
 
 # =============================================
-# SYSTEM MODELS
+# SYSTEM MODELS (FIXED)
 # =============================================
 
 class SystemHealth(BaseModel):
     """System health model."""
-    status: str = Field(..., regex="^(healthy|degraded|unhealthy)$")
+    status: str = Field(..., pattern="^(healthy|degraded|unhealthy)$")  # FIXED: regex -> pattern
     timestamp: datetime
     checks: Dict[str, str]
     metrics: Optional[Dict[str, Any]] = None
@@ -288,37 +334,17 @@ class ErrorLog(BaseModel):
     timestamp: datetime = Field(default_factory=datetime.now)
     context: Optional[Dict[str, Any]] = None
 
-# =============================================
-# EXPORT MODELS
-# =============================================
-
-class ExportRequest(BaseModel):
-    """Export request model."""
-    format: str = Field(..., regex="^(csv|excel|pdf)$")
-    date_from: Optional[str] = None
-    date_to: Optional[str] = None
-    include_raw_data: bool = False
-    
-    @validator('date_from', 'date_to')
-    def validate_dates(cls, v):
-        """Validate date format."""
-        if v:
-            try:
-                datetime.fromisoformat(v)
-            except ValueError:
-                raise ValueError('Invalid date format. Use YYYY-MM-DD')
-        return v
-
-class ExportResponse(BaseModel):
-    """Export response model."""
-    success: bool
-    download_url: Optional[str] = None
-    file_size: Optional[int] = None
-    record_count: Optional[int] = None
-    error: Optional[str] = None
+class ErrorLogRequest(BaseModel):
+    """Error log request model."""
+    type: str
+    message: str
+    stack: Optional[str] = None
+    url: Optional[str] = None
+    userAgent: Optional[str] = None
+    timestamp: Optional[str] = None
 
 # =============================================
-# NOTIFICATION MODELS
+# NOTIFICATION MODELS (FIXED)
 # =============================================
 
 class NotificationSettings(BaseModel):
@@ -335,7 +361,7 @@ class Notification(BaseModel):
     id: Optional[str] = None
     title: str
     message: str
-    type: str = Field(..., regex="^(info|success|warning|error)$")
+    type: str = Field(..., pattern="^(info|success|warning|error)$")  # FIXED: regex -> pattern
     read: bool = False
     created_at: datetime = Field(default_factory=datetime.now)
     expires_at: Optional[datetime] = None
@@ -360,38 +386,6 @@ class APIError(BaseModel):
     message: str
     code: Optional[str] = None
     details: Optional[Dict[str, Any]] = None
-
-# =============================================
-# LOAN MANAGEMENT MODELS (if enabled)
-# =============================================
-
-class LoanApplicationRequest(BaseModel):
-    """Loan application request model."""
-    amount: float = Field(..., gt=0, le=10000000, description="Loan amount in INR")
-    purpose: str = Field(..., min_length=3, max_length=200)
-    tenure_months: int = Field(..., ge=3, le=60, description="Tenure in months")
-    income: Optional[float] = Field(None, gt=0)
-    company_gstin: Optional[str] = None
-    
-    @validator('company_gstin')
-    def validate_company_gstin(cls, v):
-        """Validate company GSTIN if provided."""
-        if v:
-            pattern = r'^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$'
-            if not re.match(pattern, v.replace(' ', '').upper()):
-                raise ValueError('Invalid GSTIN format')
-        return v
-
-class LoanApplication(BaseModel):
-    """Loan application model."""
-    id: Optional[str] = None
-    mobile: str
-    amount: float
-    purpose: str
-    tenure_months: int
-    status: str = "pending"
-    created_at: datetime = Field(default_factory=datetime.now)
-    updated_at: Optional[datetime] = None
 
 # =============================================
 # VALIDATION HELPERS
@@ -427,9 +421,10 @@ def dict_to_model(data: Dict[str, Any], model_class: BaseModel) -> BaseModel:
 __all__ = [
     'UserSignupRequest', 'UserLoginRequest', 'ChangePasswordRequest',
     'UserProfile', 'UserProfileRequest', 'UserPreferences', 'UserPreferencesRequest',
-    'GSTINSearchRequest', 'CompanyInfo', 'SearchHistoryItem', 'SearchResponse',
+    'GSTINSearchRequest', 'BatchSearchRequest', 'CompanyInfo', 'SearchHistoryItem', 'SearchResponse',
     'UserStats', 'AnalyticsData', 'AdminStats', 'UserListResponse',
-    'SystemHealth', 'ErrorLog', 'ExportRequest', 'ExportResponse',
+    'SystemHealth', 'ErrorLog', 'ErrorLogRequest', 'ExportRequest', 'ExportResponse',
     'BaseResponse', 'ErrorResponse', 'SuccessResponse',
-    'ValidationError', 'validate_request_data'
+    'ValidationError', 'validate_request_data', 'NotificationSettings', 'Notification',
+    'PaginatedResponse', 'APIError', 'BulkActionRequest'
 ]
