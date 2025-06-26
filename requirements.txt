@@ -20,7 +20,6 @@ markupsafe
 
 # Database & Async Support
 asyncpg
-asyncio-throttle
 
 # Environment & Configuration
 python-dotenv
@@ -115,78 +114,32 @@ limits
 # Application Performance Monitoring
 prometheus-client
 
-# Structured Logging
-python-json-logger
+# Enhanced JSON processing
+ujson
 
-# Health Checks
-healthcheck
+# Enhanced async support
+anyio
 
-# =============================================================================
-# DEVELOPMENT & TESTING (Optional - for development only)
-# =============================================================================
+# Enhanced HTTP client features
+httpcore
 
-# Testing Framework
-pytest
-pytest-asyncio
-pytest-cov
+# Enhanced validation
+cerberus
 
-# Code Quality
-black
-isort
-flake8
-mypy
+# Enhanced serialization
+msgpack
 
-# Development Tools
-pre-commit
-python-decouple
+# Enhanced logging
+colorlog
 
-# =============================================================================
-# OPTIONAL ENHANCEMENTS
-# =============================================================================
+# Enhanced configuration
+toml
 
-# Advanced Caching
-redis-py-cluster
+# Enhanced string processing
+regex
 
-# Background Tasks
-celery
-kombu
-
-# File Processing
-python-magic
-pillow
-
-# Advanced Analytics
-matplotlib
-seaborn
-plotly
-
-# Machine Learning (for future AI features)
-scikit-learn
-tensorflow
-
-# Geographic Data (for state-wise analysis)
-geoip2
-
-# Advanced Excel Features
-xlrd
-xlwt
-
-# =============================================================================
-# PRODUCTION OPTIMIZATIONS
-# =============================================================================
-
-# Memory Profiling
-memory-profiler
-
-# Connection Pooling
-aioredis
-
-# Compression
-brotli
-
-# =============================================================================
-# SECURITY ENHANCEMENTS
-# =============================================================================
+# SSL/TLS Support
+certifi
 
 # Additional Security Headers
 secure
@@ -194,99 +147,54 @@ secure
 # CSRF Protection
 itsdangerous
 
-# Advanced Authentication
-authlib
+# =============================================================================
+# OPTIONAL ENHANCEMENTS (Install only if needed)
+# =============================================================================
 
-# =============================================================================
-# DEPLOYMENT SPECIFIC
-# =============================================================================
+# Advanced Caching
+# redis-py-cluster
+
+# Background Tasks
+# celery
+
+# File Processing
+# python-magic
+# pillow
+
+# Advanced Analytics
+# matplotlib
+# seaborn
+# plotly
+
+# Machine Learning (for future AI features)
+# scikit-learn
+
+# Advanced Excel Features
+# xlrd
+# xlwt
+
+# Memory Profiling
+# memory-profiler
+
+# Connection Pooling
+# aioredis
+
+# Advanced Authentication
+# authlib
 
 # Environment Detection
-environs
+# environs
 
-# Process Management
-supervisor
+# Process Management (system level)
+# supervisor
 
 # Reverse Proxy Support
-whitenoise
-
-# =============================================================================
-# PINNED VERSIONS FOR STABILITY
-# =============================================================================
-
-# Core Python Libraries
-setuptools
-wheel
-pip
-
-# SSL/TLS Support
-certifi
-
-# Unicode Support
-unicodedata2
-
-# =============================================================================
-# ADDITIONAL LOAN SYSTEM DEPENDENCIES
-# =============================================================================
-
-# Enhanced date/time processing
-dateutil
-pytz
-
-# Enhanced JSON processing
-ujson
-
-# Enhanced async support
-anyio
-trio
-
-# Enhanced HTTP client features
-httpcore
-h11
-h2
-
-# Enhanced template support
-markupsafe
-
-# Enhanced validation
-cerberus
-marshmallow
-
-# Enhanced serialization
-msgpack
-orjson
-
-# Enhanced logging
-colorlog
-loguru
-
-# Enhanced configuration
-configparser
-toml
-
-# Enhanced security
-jwt
-cryptodome
-
-# Enhanced file handling
-pathlib
-glob2
-
-# Enhanced string processing
-regex
-fuzzywuzzy
-
-# Enhanced number processing
-mpmath
-
-# Enhanced async database
-databases
-sqlalchemy
+# whitenoise
 
 # =============================================================================
 # NOTES:
 # - All versions removed for latest compatibility
-# - Extra packages included for enhanced functionality
-# - Optional enhancements can be installed as needed
-# - Some packages may not be strictly required but provide additional features
+# - Fixed package names and removed incompatible packages
+# - Optional enhancements are commented out - uncomment if needed
+# - Some packages may require specific Python versions
 # =============================================================================
