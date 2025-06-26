@@ -1,0 +1,717 @@
+<!-- Navigation Component -->
+<nav class="nav" role="navigation" aria-label="Main navigation">
+    <div class="nav__container">
+        <!-- Logo -->
+        <a href="/" class="nav__logo" aria-label="GST Intelligence Platform Home">
+            <div class="nav__logo-icon">
+                <i class="fas fa-chart-line" aria-hidden="true"></i>
+            </div>
+            <span class="nav__logo-text">GST Intelligence</span>
+        </a>
+        
+        <!-- Mobile Menu Toggle -->
+        <button class="nav__mobile-toggle" id="mobileMenuToggle" aria-label="Toggle mobile menu" aria-expanded="false">
+            <span class="hamburger"></span>
+            <span class="hamburger"></span>
+            <span class="hamburger"></span>
+        </button>
+        
+        <!-- Navigation Links -->
+        <div class="nav__links" id="navLinks">
+            <a href="/" class="nav__link" data-page="dashboard" aria-label="Dashboard">
+                <i class="fas fa-home" aria-hidden="true"></i>
+                <span>Dashboard</span>
+            </a>
+            
+            <a href="/history" class="nav__link" data-page="history" aria-label="Search History">
+                <i class="fas fa-history" aria-hidden="true"></i>
+                <span>History</span>
+            </a>
+            
+            <a href="/analytics" class="nav__link" data-page="analytics" aria-label="Analytics">
+                <i class="fas fa-chart-bar" aria-hidden="true"></i>
+                <span>Analytics</span>
+            </a>
+            
+            {% if loan_management_enabled %}
+            <a href="/loans" class="nav__link" data-page="loans" aria-label="Loan Management">
+                <i class="fas fa-money-bill-wave" aria-hidden="true"></i>
+                <span>Loans</span>
+            </a>
+            {% endif %}
+            
+            <!-- Quick Search (Desktop Only) -->
+            <div class="nav__search" id="navSearch">
+                <form method="post" action="/search" class="nav__search-form">
+                    <input 
+                        type="text" 
+                        name="gstin" 
+                        class="nav__search-input" 
+                        placeholder="Quick GSTIN search..." 
+                        maxlength="15"
+                        id="navSearchInput"
+                        autocomplete="off"
+                        aria-label="Quick GSTIN search"
+                    >
+                    <button type="submit" class="nav__search-btn" aria-label="Search">
+                        <i class="fas fa-search" aria-hidden="true"></i>
+                    </button>
+                </form>
+                <div class="nav__search-suggestions" id="navSearchSuggestions"></div>
+            </div>
+        </div>
+        
+        <!-- User Menu -->
+        <div class="nav__user" id="userMenu">
+            <button class="user__trigger" id="userMenuTrigger" aria-label="User menu" aria-expanded="false">
+                <div class="user__avatar">
+                    <i class="fas fa-user" aria-hidden="true"></i>
+                </div>
+                <span class="user__name">{{ user_display_name or 'User' }}</span>
+                <i class="fas fa-chevron-down user__arrow" aria-hidden="true"></i>
+            </button>
+            
+            <!-- User Dropdown -->
+            <div class="user__dropdown" id="userDropdown" role="menu">
+                <!-- User Info -->
+                <div class="dropdown__header">
+                    <div class="user__info">
+                        <div class="user__display-name">{{ user_display_name or 'Guest User' }}</div>
+                        <div class="user__mobile">{{ current_user or 'Not logged in' }}</div>
+                    </div>
+                </div>
+                
+                <div class="dropdown__divider"></div>
+                
+                <!-- Profile & Settings -->
+                <a href="#" class="dropdown__item" role="menuitem" data-action="profile" aria-label="Edit Profile">
+                    <i class="fas fa-user-edit" aria-hidden="true"></i>
+                    <span>Profile Settings</span>
+                </a>
+                
+                <a href="#" class="dropdown__item" role="menuitem" data-action="preferences" aria-label="User Preferences">
+                    <i class="fas fa-cog" aria-hidden="true"></i>
+                    <span>Preferences</span>
+                </a>
+                
+                <a href="#" class="dropdown__item" role="menuitem" data-action="notifications" aria-label="Notification Settings">
+                    <i class="fas fa-bell" aria-hidden="true"></i>
+                    <span>Notifications</span>
+                    {% if unread_notifications > 0 %}
+                    <span class="notification-badge">{{ unread_notifications }}</span>
+                    {% endif %}
+                </a>
+                
+                <div class="dropdown__divider"></div>
+                
+                <!-- Data Management -->
+                <a href="#" class="dropdown__item" role="menuitem" data-action="export" aria-label="Export Data">
+                    <i class="fas fa-download" aria-hidden="true"></i>
+                    <span>Export Data</span>
+                </a>
+                
+                <a href="#" class="dropdown__item" role="menuitem" data-action="import" aria-label="Import Data">
+                    <i class="fas fa-upload" aria-hidden="true"></i>
+                    <span>Import Data</span>
+                </a>
+                
+                <div class="dropdown__divider"></div>
+                
+                <!-- Theme Toggle -->
+                <a href="#" class="dropdown__item" role="menuitem" data-action="theme" aria-label="Toggle Theme">
+                    <i class="fas fa-moon theme-icon" aria-hidden="true"></i>
+                    <span>Toggle Theme</span>
+                </a>
+                
+                <!-- Help & Support -->
+                <a href="/help" class="dropdown__item" role="menuitem" aria-label="Help & Support">
+                    <i class="fas fa-question-circle" aria-hidden="true"></i>
+                    <span>Help & Support</span>
+                </a>
+                
+                {% if current_user in admin_users %}
+                <div class="dropdown__divider"></div>
+                
+                <!-- Admin Panel -->
+                <a href="/admin" class="dropdown__item admin-item" role="menuitem" aria-label="Admin Panel">
+                    <i class="fas fa-shield-alt" aria-hidden="true"></i>
+                    <span>Admin Panel</span>
+                </a>
+                {% endif %}
+                
+                <div class="dropdown__divider"></div>
+                
+                <!-- Logout -->
+                <a href="/logout" class="dropdown__item logout-item" role="menuitem" aria-label="Logout">
+                    <i class="fas fa-sign-out-alt" aria-hidden="true"></i>
+                    <span>Logout</span>
+                </a>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Mobile Overlay -->
+    <div class="nav__overlay" id="navOverlay"></div>
+</nav>
+
+<!-- Navigation Styles (if not in base.css) -->
+<style>
+    /* Mobile Navigation Enhancements */
+    .nav__mobile-toggle {
+        display: none;
+        flex-direction: column;
+        background: transparent;
+        border: none;
+        padding: 0.5rem;
+        cursor: pointer;
+        position: relative;
+        z-index: 1001;
+    }
+    
+    .hamburger {
+        width: 20px;
+        height: 2px;
+        background: var(--text-primary);
+        margin: 2px 0;
+        transition: all 0.3s ease;
+        border-radius: 1px;
+    }
+    
+    .nav__mobile-toggle.active .hamburger:nth-child(1) {
+        transform: rotate(45deg) translate(5px, 5px);
+    }
+    
+    .nav__mobile-toggle.active .hamburger:nth-child(2) {
+        opacity: 0;
+    }
+    
+    .nav__mobile-toggle.active .hamburger:nth-child(3) {
+        transform: rotate(-45deg) translate(7px, -6px);
+    }
+    
+    .nav__overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.5);
+        z-index: 999;
+        opacity: 0;
+        visibility: hidden;
+        transition: all 0.3s ease;
+    }
+    
+    .nav__overlay.active {
+        opacity: 1;
+        visibility: visible;
+    }
+    
+    /* Quick Search Enhancements */
+    .nav__search {
+        position: relative;
+        margin: 0 1rem;
+    }
+    
+    .nav__search-form {
+        position: relative;
+        display: flex;
+    }
+    
+    .nav__search-input {
+        width: 200px;
+        padding: 0.5rem 2.5rem 0.5rem 1rem;
+        border: 1px solid var(--border-primary);
+        border-radius: 20px;
+        background: var(--bg-input);
+        color: var(--text-primary);
+        font-size: 0.875rem;
+        transition: all 0.3s ease;
+    }
+    
+    .nav__search-input:focus {
+        outline: none;
+        border-color: var(--accent-primary);
+        width: 250px;
+        box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+    }
+    
+    .nav__search-btn {
+        position: absolute;
+        right: 0.5rem;
+        top: 50%;
+        transform: translateY(-50%);
+        background: transparent;
+        border: none;
+        color: var(--text-secondary);
+        cursor: pointer;
+        padding: 0.25rem;
+        border-radius: 50%;
+        transition: color 0.3s ease;
+    }
+    
+    .nav__search-btn:hover {
+        color: var(--accent-primary);
+    }
+    
+    .nav__search-suggestions {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        background: var(--bg-card);
+        border: 1px solid var(--border-primary);
+        border-radius: 8px;
+        box-shadow: var(--card-shadow);
+        max-height: 200px;
+        overflow-y: auto;
+        z-index: 1000;
+        display: none;
+        margin-top: 0.25rem;
+    }
+    
+    /* User Menu Enhancements */
+    .dropdown__header {
+        padding: 1rem;
+        border-bottom: 1px solid var(--border-primary);
+    }
+    
+    .user__display-name {
+        font-weight: 600;
+        color: var(--text-primary);
+        margin-bottom: 0.25rem;
+    }
+    
+    .user__mobile {
+        font-size: 0.75rem;
+        color: var(--text-secondary);
+        font-family: 'Monaco', 'Menlo', monospace;
+    }
+    
+    .notification-badge {
+        background: var(--error);
+        color: white;
+        border-radius: 10px;
+        padding: 0.125rem 0.375rem;
+        font-size: 0.625rem;
+        font-weight: 600;
+        margin-left: auto;
+    }
+    
+    .admin-item {
+        background: rgba(99, 102, 241, 0.1);
+        border-left: 3px solid var(--accent-primary);
+    }
+    
+    .admin-item:hover {
+        background: rgba(99, 102, 241, 0.15);
+    }
+    
+    .logout-item {
+        color: var(--error);
+    }
+    
+    .logout-item:hover {
+        background: rgba(239, 68, 68, 0.1);
+    }
+    
+    /* Active Link Indicator */
+    .nav__link.active {
+        background: var(--accent-primary);
+        color: white;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+    }
+    
+    .nav__link.active::after {
+        content: '';
+        position: absolute;
+        bottom: -8px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 6px;
+        height: 6px;
+        background: var(--accent-primary);
+        border-radius: 50%;
+    }
+    
+    /* Mobile Responsive */
+    @media (max-width: 768px) {
+        .nav__mobile-toggle {
+            display: flex;
+        }
+        
+        .nav__links {
+            position: fixed;
+            top: 70px;
+            left: -100%;
+            width: 280px;
+            height: calc(100vh - 70px);
+            background: var(--bg-card);
+            border-right: 1px solid var(--border-primary);
+            flex-direction: column;
+            padding: 1rem 0;
+            transition: left 0.3s ease;
+            z-index: 1000;
+            overflow-y: auto;
+        }
+        
+        .nav__links.active {
+            left: 0;
+        }
+        
+        .nav__link {
+            width: 100%;
+            justify-content: flex-start;
+            padding: 1rem 1.5rem;
+            border-radius: 0;
+            margin: 0;
+        }
+        
+        .nav__search {
+            margin: 1rem;
+            order: -1;
+        }
+        
+        .nav__search-input {
+            width: 100%;
+        }
+        
+        .nav__search-input:focus {
+            width: 100%;
+        }
+        
+        .user__name {
+            display: none;
+        }
+    }
+    
+    /* Accessibility Improvements */
+    @media (prefers-reduced-motion: reduce) {
+        .nav__link,
+        .nav__search-input,
+        .hamburger,
+        .nav__overlay {
+            transition: none;
+        }
+    }
+    
+    /* High Contrast Mode */
+    @media (prefers-contrast: high) {
+        .nav {
+            border-bottom: 2px solid var(--text-primary);
+        }
+        
+        .nav__link {
+            border: 1px solid transparent;
+        }
+        
+        .nav__link:focus {
+            border-color: var(--text-primary);
+        }
+    }
+</style>
+
+<!-- Navigation JavaScript -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    initializeNavigation();
+});
+
+function initializeNavigation() {
+    setupMobileMenu();
+    setupUserMenu();
+    setupQuickSearch();
+    setActiveNavLink();
+    setupKeyboardNavigation();
+}
+
+function setupMobileMenu() {
+    const mobileToggle = document.getElementById('mobileMenuToggle');
+    const navLinks = document.getElementById('navLinks');
+    const navOverlay = document.getElementById('navOverlay');
+    
+    if (mobileToggle && navLinks && navOverlay) {
+        mobileToggle.addEventListener('click', () => {
+            const isActive = navLinks.classList.contains('active');
+            
+            if (isActive) {
+                closeMobileMenu();
+            } else {
+                openMobileMenu();
+            }
+        });
+        
+        navOverlay.addEventListener('click', closeMobileMenu);
+        
+        // Close on escape key
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && navLinks.classList.contains('active')) {
+                closeMobileMenu();
+            }
+        });
+    }
+}
+
+function openMobileMenu() {
+    const mobileToggle = document.getElementById('mobileMenuToggle');
+    const navLinks = document.getElementById('navLinks');
+    const navOverlay = document.getElementById('navOverlay');
+    
+    mobileToggle.classList.add('active');
+    mobileToggle.setAttribute('aria-expanded', 'true');
+    navLinks.classList.add('active');
+    navOverlay.classList.add('active');
+    document.body.style.overflow = 'hidden';
+}
+
+function closeMobileMenu() {
+    const mobileToggle = document.getElementById('mobileMenuToggle');
+    const navLinks = document.getElementById('navLinks');
+    const navOverlay = document.getElementById('navOverlay');
+    
+    mobileToggle.classList.remove('active');
+    mobileToggle.setAttribute('aria-expanded', 'false');
+    navLinks.classList.remove('active');
+    navOverlay.classList.remove('active');
+    document.body.style.overflow = '';
+}
+
+function setupUserMenu() {
+    const userTrigger = document.getElementById('userMenuTrigger');
+    const userDropdown = document.getElementById('userDropdown');
+    
+    if (userTrigger && userDropdown) {
+        userTrigger.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const isActive = userDropdown.classList.contains('active');
+            
+            // Close any other open dropdowns
+            document.querySelectorAll('.dropdown.active').forEach(dropdown => {
+                dropdown.classList.remove('active');
+            });
+            
+            if (!isActive) {
+                userDropdown.classList.add('active');
+                userTrigger.classList.add('active');
+                userTrigger.setAttribute('aria-expanded', 'true');
+            } else {
+                userDropdown.classList.remove('active');
+                userTrigger.classList.remove('active');
+                userTrigger.setAttribute('aria-expanded', 'false');
+            }
+        });
+        
+        // Close dropdown when clicking outside
+        document.addEventListener('click', () => {
+            userDropdown.classList.remove('active');
+            userTrigger.classList.remove('active');
+            userTrigger.setAttribute('aria-expanded', 'false');
+        });
+        
+        // Handle dropdown actions
+        userDropdown.addEventListener('click', (e) => {
+            const action = e.target.closest('[data-action]')?.dataset.action;
+            if (action) {
+                e.preventDefault();
+                handleUserAction(action);
+                // Close dropdown
+                userDropdown.classList.remove('active');
+                userTrigger.classList.remove('active');
+                userTrigger.setAttribute('aria-expanded', 'false');
+            }
+        });
+    }
+}
+
+function setupQuickSearch() {
+    const searchInput = document.getElementById('navSearchInput');
+    const searchForm = document.querySelector('.nav__search-form');
+    const suggestionsContainer = document.getElementById('navSearchSuggestions');
+    
+    if (searchInput && searchForm) {
+        // Auto-format GSTIN input
+        searchInput.addEventListener('input', (e) => {
+            let value = e.target.value.toUpperCase().replace(/[^0-9A-Z]/g, '');
+            if (value.length > 15) value = value.substr(0, 15);
+            e.target.value = value;
+            
+            // Show suggestions
+            if (value.length >= 2 && suggestionsContainer) {
+                showQuickSearchSuggestions(value, suggestionsContainer);
+            } else if (suggestionsContainer) {
+                suggestionsContainer.style.display = 'none';
+            }
+        });
+        
+        // Validate on submit
+        searchForm.addEventListener('submit', (e) => {
+            const gstin = searchInput.value.trim();
+            if (!isValidGSTIN(gstin)) {
+                e.preventDefault();
+                if (window.notificationManager) {
+                    window.notificationManager.showError('Please enter a valid 15-digit GSTIN');
+                }
+                searchInput.focus();
+            }
+        });
+        
+        // Hide suggestions when clicking outside
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.nav__search') && suggestionsContainer) {
+                suggestionsContainer.style.display = 'none';
+            }
+        });
+    }
+}
+
+function showQuickSearchSuggestions(query, container) {
+    const recentSearches = JSON.parse(localStorage.getItem('recentGSTINSearches') || '[]');
+    const suggestions = recentSearches
+        .filter(gstin => gstin.toLowerCase().includes(query.toLowerCase()))
+        .slice(0, 3);
+    
+    if (suggestions.length === 0) {
+        container.style.display = 'none';
+        return;
+    }
+    
+    container.innerHTML = suggestions
+        .map(gstin => `
+            <div class="search-suggestion-item" style="padding: 0.75rem; cursor: pointer; border-bottom: 1px solid var(--border-primary);" 
+                 onclick="selectQuickSearchSuggestion('${gstin}')">
+                <div style="font-weight: 600; color: var(--accent-primary);">${formatGSTIN(gstin)}</div>
+            </div>
+        `)
+        .join('');
+    
+    container.style.display = 'block';
+}
+
+function selectQuickSearchSuggestion(gstin) {
+    const searchInput = document.getElementById('navSearchInput');
+    if (searchInput) {
+        searchInput.value = gstin;
+        searchInput.focus();
+        // Submit the form
+        document.querySelector('.nav__search-form').submit();
+    }
+}
+
+function setActiveNavLink() {
+    const currentPath = window.location.pathname;
+    const navLinks = document.querySelectorAll('.nav__link');
+    
+    navLinks.forEach(link => {
+        link.classList.remove('active');
+        const linkPath = new URL(link.href).pathname;
+        
+        if (currentPath === linkPath || 
+            (linkPath === '/' && currentPath === '/') ||
+            (linkPath !== '/' && currentPath.startsWith(linkPath))) {
+            link.classList.add('active');
+        }
+    });
+}
+
+function setupKeyboardNavigation() {
+    // Global keyboard shortcuts
+    document.addEventListener('keydown', (e) => {
+        // Alt + S for quick search
+        if (e.altKey && e.key === 's') {
+            e.preventDefault();
+            const searchInput = document.getElementById('navSearchInput');
+            if (searchInput) {
+                searchInput.focus();
+                searchInput.select();
+            }
+        }
+        
+        // Alt + M for mobile menu toggle
+        if (e.altKey && e.key === 'm') {
+            e.preventDefault();
+            const mobileToggle = document.getElementById('mobileMenuToggle');
+            if (mobileToggle && window.innerWidth <= 768) {
+                mobileToggle.click();
+            }
+        }
+        
+        // Alt + U for user menu
+        if (e.altKey && e.key === 'u') {
+            e.preventDefault();
+            const userTrigger = document.getElementById('userMenuTrigger');
+            if (userTrigger) {
+                userTrigger.click();
+            }
+        }
+    });
+}
+
+function handleUserAction(action) {
+    switch (action) {
+        case 'profile':
+            if (window.openEnhancedProfileModal) {
+                window.openEnhancedProfileModal();
+            }
+            break;
+        case 'preferences':
+            if (window.openSettingsModal) {
+                window.openSettingsModal();
+            }
+            break;
+        case 'notifications':
+            // Handle notifications
+            console.log('Open notifications');
+            break;
+        case 'export':
+            if (window.exportAllData) {
+                window.exportAllData();
+            }
+            break;
+        case 'import':
+            // Handle import
+            console.log('Handle import');
+            break;
+        case 'theme':
+            if (window.themeManager) {
+                window.themeManager.toggleTheme();
+            } else {
+                // Fallback theme toggle
+                const html = document.documentElement;
+                const themeIcon = document.querySelector('.theme-icon');
+                
+                if (html.getAttribute('data-theme') === 'light') {
+                    html.removeAttribute('data-theme');
+                    if (themeIcon) themeIcon.className = 'fas fa-moon theme-icon';
+                    localStorage.setItem('theme', 'dark');
+                } else {
+                    html.setAttribute('data-theme', 'light');
+                    if (themeIcon) themeIcon.className = 'fas fa-sun theme-icon';
+                    localStorage.setItem('theme', 'light');
+                }
+            }
+            break;
+        default:
+            console.log('Unknown action:', action);
+    }
+}
+
+// Utility functions
+function isValidGSTIN(gstin) {
+    if (!gstin || gstin.length !== 15) return false;
+    const pattern = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/;
+    return pattern.test(gstin);
+}
+
+function formatGSTIN(gstin) {
+    if (!gstin || gstin.length !== 15) return gstin;
+    return `${gstin.substr(0, 2)} ${gstin.substr(2, 5)} ${gstin.substr(7, 4)} ${gstin.substr(11, 4)}`;
+}
+
+// Handle window resize
+window.addEventListener('resize', () => {
+    if (window.innerWidth > 768) {
+        closeMobileMenu();
+    }
+});
+</script>

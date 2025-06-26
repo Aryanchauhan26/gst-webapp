@@ -1,929 +1,956 @@
-{% extends "base.html" %}
-
-{% block title %}Analytics - GST Intelligence Platform{% endblock %}
-{% block body_class %}page-analytics{% endblock %}
-
-{% block content %}
-<main class="container">
-    <!-- Live Indicator -->
-    <div class="live-indicator">
-        <div class="live-dot"></div>
-        <span>Live Analytics</span>
-        <div class="last-updated" id="lastUpdated">
-            Updated just now
-        </div>
-    </div>
-
-    <!-- Stats Overview -->
-    <div class="stats-grid">
-        <div class="stat-card" data-stat="total-searches">
-            <div class="stat-icon">
-                <i class="fas fa-search"></i>
-            </div>
-            <div class="stat-content">
-                <div class="stat-value">{{ total_searches or 0 }}</div>
-                <div class="stat-label">Total Searches</div>
-                <div class="stat-change positive">+{{ searches_this_month or 0 }} this month</div>
-            </div>
-        </div>
-
-        <div class="stat-card" data-stat="unique-companies">
-            <div class="stat-icon">
-                <i class="fas fa-building"></i>
-            </div>
-            <div class="stat-content">
-                <div class="stat-value">{{ unique_companies or 0 }}</div>
-                <div class="stat-label">Unique Companies</div>
-                <div class="stat-change neutral">Companies analyzed</div>
-            </div>
-        </div>
-
-        <div class="stat-card" data-stat="avg-compliance">
-            <div class="stat-icon">
-                <i class="fas fa-chart-line"></i>
-            </div>
-            <div class="stat-content">
-                <div class="stat-value">{{ avg_compliance or 0 }}%</div>
-                <div class="stat-label">Avg Compliance</div>
-                <div class="stat-change {{ 'positive' if (avg_compliance or 0) >= 75 else 'neutral' }}">
-                    {{ 'Excellent' if (avg_compliance or 0) >= 90 else 'Good' if (avg_compliance or 0) >= 75 else 'Average' }}
-                </div>
-            </div>
-        </div>
-
-        <div class="stat-card" data-stat="searches-monthly">
-            <div class="stat-icon">
-                <i class="fas fa-calendar-alt"></i>
-            </div>
-            <div class="stat-content">
-                <div class="stat-value">{{ searches_this_month or 0 }}</div>
-                <div class="stat-label">This Month</div>
-                <div class="stat-change positive">{{ ((searches_this_month or 0) / 30) | round(1) }}/day avg</div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Charts Section -->
-    <div class="charts-grid">
-        <!-- Search Trends Chart -->
-        <div class="chart-card card--glass glow-md">
-            <div class="chart-header">
-                <h3 class="chart-title">
-                    <i class="fas fa-chart-line"></i>
-                    Search Trends
-                </h3>
-                <div class="chart-controls">
-                    <button class="chart-btn active" data-period="7d">7D</button>
-                    <button class="chart-btn" data-period="30d">30D</button>
-                    <button class="chart-btn" data-period="90d">90D</button>
-                </div>
-            </div>
-            <div class="chart-container">
-                <canvas id="trendsChart" width="400" height="200"></canvas>
-            </div>
-        </div>
-
-        <!-- Compliance Distribution Chart -->
-        <div class="chart-card card--glass glow-md">
-            <div class="chart-header">
-                <h3 class="chart-title">
-                    <i class="fas fa-chart-pie"></i>
-                    Compliance Distribution
-                </h3>
-            </div>
-            <div class="chart-container">
-                <canvas id="distributionChart" width="400" height="200"></canvas>
-                <div class="chart-legend">
-                    <div class="legend-item excellent">Excellent (90-100%)</div>
-                    <div class="legend-item good">Good (70-89%)</div>
-                    <div class="legend-item average">Average (50-69%)</div>
-                    <div class="legend-item poor">Poor (<50%)</div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Top Companies Section -->
-    <div class="chart-card card--glass glow-md">
-        <div class="chart-header">
-            <h3 class="chart-title">
-                <i class="fas fa-trophy"></i>
-                Top Searched Companies
-            </h3>
-        </div>
-        <div class="companies-list">
-            {% if top_companies %}
-                {% for company in top_companies %}
-                <div class="company-row" data-gstin="{{ company.gstin }}" onclick="searchCompany('{{ company.gstin }}')">
-                    <div class="company-info">
-                        <div class="company-name">{{ company.company_name }}</div>
-                        <div class="company-gstin">{{ company.gstin }}</div>
-                    </div>
-                    <div class="company-stats">
-                        <div class="search-count">
-                            <i class="fas fa-search"></i>
-                            {{ company.search_count }} searches
-                        </div>
-                        <div class="compliance-score">
-                            <div class="score-badge score-{{ 'excellent' if company.latest_score >= 90 else 'good' if company.latest_score >= 70 else 'average' }}">
-                                {{ company.latest_score or 'N/A' }}{{ '%' if company.latest_score else '' }}
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                {% endfor %}
-            {% else %}
-                <div class="empty-state">
-                    <i class="fas fa-chart-bar"></i>
-                    <p>No search data available yet. Start searching companies to see analytics!</p>
-                </div>
-            {% endif %}
-        </div>
-    </div>
-
-    <!-- Insights Panel -->
-    <div class="insights-panel">
-        <div class="insight-card">
-            <div class="insight-icon">
-                <i class="fas fa-lightbulb"></i>
-            </div>
-            <div class="insight-content">
-                <h4>Smart Insights</h4>
-                <ul>
-                    {% if avg_compliance >= 80 %}
-                    <li>✅ Your searches focus on high-compliance companies</li>
-                    {% elif avg_compliance >= 60 %}
-                    <li>⚠️ Mixed compliance in your search history</li>
-                    {% else %}
-                    <li>🔍 Consider focusing on higher compliance companies</li>
-                    {% endif %}
-                    
-                    {% if searches_this_month >= 20 %}
-                    <li>🚀 High search activity this month</li>
-                    {% elif searches_this_month >= 5 %}
-                    <li>📊 Moderate search activity</li>
-                    {% else %}
-                    <li>💡 Explore more companies to gain insights</li>
-                    {% endif %}
-                    
-                    {% if unique_companies >= 10 %}
-                    <li>🎯 Good diversity in company research</li>
-                    {% endif %}
-                </ul>
-            </div>
-        </div>
-    </div>
-</main>
-{% endblock %}
-
-{% block extra_js %}
-<script>
-// Enhanced Analytics Dashboard with Chart.js integration
-document.addEventListener('DOMContentLoaded', function() {
-    // Ensure Chart.js is loaded
-    if (typeof Chart === 'undefined') {
-        console.error('Chart.js is not loaded! Analytics charts will not work.');
-        showChartError();
-        return;
-    }
-    
-    // Set Chart.js defaults for dark theme
-    Chart.defaults.color = '#a1a1aa';
-    Chart.defaults.borderColor = '#27272a';
-    Chart.defaults.backgroundColor = 'rgba(124, 58, 237, 0.1)';
-    
-    // Initialize charts with error handling
-    try {
-        initializeTrendsChart();
-        initializeDistributionChart();
-        
-        console.log('📊 Analytics dashboard charts initialized successfully');
-    } catch (error) {
-        console.error('Error initializing charts:', error);
-        showChartError();
-    }
-    
-    // Update timestamps
-    updateTimestamps();
-    
-    // Auto-refresh data every 30 seconds
-    setInterval(updateTimestamps, 30000);
-    
-    // Initialize chart controls
-    initializeChartControls();
-    
-    console.log('📊 Analytics dashboard initialized');
-});
-
-function showChartError() {
-    // Show error message in chart containers
-    const chartContainers = document.querySelectorAll('.chart-container');
-    chartContainers.forEach(container => {
-        const canvas = container.querySelector('canvas');
-        if (canvas) {
-            canvas.style.display = 'none';
-            container.innerHTML += '<div class="chart-error"><i class="fas fa-exclamation-triangle"></i><p>Chart could not be loaded</p></div>';
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Search History - GST Intelligence Platform</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/base.css">
+    <style>
+        .history-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
         }
-    });
-}
-
-function initializeTrendsChart() {
-    const trendsData = {{ daily_searches | tojson | safe }};
-    const trendsCtx = document.getElementById('trendsChart');
-    
-    if (!trendsCtx) {
-        console.warn('Trends chart canvas not found');
-        return;
-    }
-    
-    // Validate and prepare data
-    let chartData = [];
-    let chartLabels = [];
-    
-    if (trendsData && Array.isArray(trendsData) && trendsData.length > 0) {
-        chartLabels = trendsData.map(item => {
-            const date = new Date(item.date);
-            return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-        });
-        chartData = trendsData.map(item => item.search_count || 0);
-    } else {
-        // Generate sample data for empty state
-        const today = new Date();
-        for (let i = 6; i >= 0; i--) {
-            const date = new Date(today);
-            date.setDate(date.getDate() - i);
-            chartLabels.push(date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }));
-            chartData.push(0);
-        }
-    }
-    
-    const ctx = trendsCtx.getContext('2d');
-    
-    // Create gradient
-    const gradient = ctx.createLinearGradient(0, 0, 0, 200);
-    gradient.addColorStop(0, 'rgba(124, 58, 237, 0.3)');
-    gradient.addColorStop(1, 'rgba(124, 58, 237, 0.05)');
-    
-    new Chart(ctx, {
-        type: 'line',
-        data: {
-            labels: chartLabels,
-            datasets: [{
-                label: 'Daily Searches',
-                data: chartData,
-                borderColor: '#7c3aed',
-                backgroundColor: gradient,
-                borderWidth: 2,
-                fill: true,
-                tension: 0.4,
-                pointBackgroundColor: '#7c3aed',
-                pointBorderColor: '#ffffff',
-                pointBorderWidth: 2,
-                pointRadius: 4,
-                pointHoverRadius: 6
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            interaction: {
-                intersect: false,
-                mode: 'index'
-            },
-            plugins: {
-                legend: {
-                    display: false
-                },
-                tooltip: {
-                    backgroundColor: 'rgba(26, 26, 26, 0.95)',
-                    titleColor: '#ffffff',
-                    bodyColor: '#a1a1aa',
-                    borderColor: '#7c3aed',
-                    borderWidth: 1,
-                    cornerRadius: 8,
-                    displayColors: false,
-                    callbacks: {
-                        title: function(context) {
-                            return context[0].label;
-                        },
-                        label: function(context) {
-                            return `${context.parsed.y} searches`;
-                        }
-                    }
-                }
-            },
-            scales: {
-                x: {
-                    grid: {
-                        color: 'rgba(39, 39, 42, 0.3)',
-                        drawBorder: false
-                    },
-                    ticks: {
-                        color: '#a1a1aa',
-                        font: {
-                            size: 11
-                        }
-                    }
-                },
-                y: {
-                    beginAtZero: true,
-                    grid: {
-                        color: 'rgba(39, 39, 42, 0.3)',
-                        drawBorder: false
-                    },
-                    ticks: {
-                        color: '#a1a1aa',
-                        font: {
-                            size: 11
-                        },
-                        stepSize: 1
-                    }
-                }
-            }
-        });
-}
-
-function initializeDistributionChart() {
-    const distributionData = {{ score_distribution | tojson | safe }};
-    const distributionCtx = document.getElementById('distributionChart');
-    
-    if (!distributionCtx) {
-        console.warn('Distribution chart canvas not found');
-        return;
-    }
-    
-    // Prepare data with validation
-    let chartData = [];
-    let chartLabels = [];
-    let hasData = false;
-    
-    if (distributionData && Array.isArray(distributionData) && distributionData.length > 0) {
-        chartLabels = distributionData.map(item => item.range || 'Unknown');
-        chartData = distributionData.map(item => item.count || 0);
-        hasData = chartData.some(value => value > 0);
-    }
-    
-    // If no data, show placeholder
-    if (!hasData) {
-        chartLabels = ['No Data Yet'];
-        chartData = [1];
-    }
-    
-    const ctx = distributionCtx.getContext('2d');
-    
-    new Chart(ctx, {
-        type: 'doughnut',
-        data: {
-            labels: chartLabels,
-            datasets: [{
-                data: chartData,
-                backgroundColor: hasData ? [
-                    '#10b981', // Excellent - Green
-                    '#3b82f6', // Very Good - Blue  
-                    '#f59e0b', // Good - Yellow
-                    '#f97316', // Average - Orange
-                    '#ef4444'  // Poor - Red
-                ] : ['#374151'], // Gray for no data
-                borderColor: '#1a1a1a',
-                borderWidth: 2,
-                hoverBorderWidth: 3
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            cutout: '60%',
-            plugins: {
-                legend: {
-                    display: false // We use custom legend
-                },
-                tooltip: {
-                    backgroundColor: 'rgba(26, 26, 26, 0.95)',
-                    titleColor: '#ffffff',
-                    bodyColor: '#a1a1aa',
-                    borderColor: '#7c3aed',
-                    borderWidth: 1,
-                    cornerRadius: 8,
-                    displayColors: true,
-                    callbacks: {
-                        label: function(context) {
-                            if (!hasData) return 'Start searching to see distribution';
-                            const total = context.dataset.data.reduce((a, b) => a + b, 0);
-                            const percentage = ((context.parsed / total) * 100).toFixed(1);
-                            return `${context.label}: ${context.parsed} (${percentage}%)`;
-                        }
-                    }
-                }
-            }
-        });
-}
-
-function initializeChartControls() {
-    // Chart period buttons
-    document.querySelectorAll('.chart-btn').forEach(btn => {
-        btn.addEventListener('click', function() {
-            // Remove active class from all buttons in the same group
-            const parentControls = this.closest('.chart-controls');
-            parentControls.querySelectorAll('.chart-btn').forEach(b => b.classList.remove('active'));
-            
-            // Add active class to clicked button
-            this.classList.add('active');
-            
-            const period = this.dataset.period;
-            console.log('Chart period changed to:', period);
-            
-            // You can implement period-based data loading here
-            // Example: loadChartData(period);
-        });
-    });
-}
-
-function updateTimestamps() {
-    const now = new Date();
-    const timeString = now.toLocaleTimeString('en-IN', { 
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit'
-    });
-    
-    const lastUpdatedElement = document.getElementById('lastUpdated');
-    if (lastUpdatedElement) {
-        lastUpdatedElement.textContent = `Updated at ${timeString}`;
-    }
-}
-
-// Company search function
-function searchCompany(gstin) {
-    if (gstin) {
-        // Navigate to search with the GSTIN
-        const form = document.createElement('form');
-        form.method = 'GET';
-        form.action = '/search';
         
-        const input = document.createElement('input');
-        input.type = 'hidden';
-        input.name = 'gstin';
-        input.value = gstin;
-        
-        form.appendChild(input);
-        document.body.appendChild(form);
-        form.submit();
-    }
-}
-
-// Company row click handlers
-document.addEventListener('click', function(e) {
-    const companyRow = e.target.closest('.company-row');
-    if (companyRow) {
-        const gstin = companyRow.dataset.gstin;
-        if (gstin) {
-            searchCompany(gstin);
+        .history-header {
+            margin-bottom: 2rem;
         }
-    }
-});
-
-// Refresh analytics data
-function refreshAnalytics() {
-    // Show loading state
-    const liveIndicator = document.querySelector('.live-indicator');
-    if (liveIndicator) {
-        liveIndicator.classList.add('loading');
-    }
-    
-    // Reload the page to get fresh data
-    setTimeout(() => {
-        window.location.reload();
-    }, 500);
-}
-
-// Add refresh button functionality if exists
-document.addEventListener('click', function(e) {
-    if (e.target.matches('[data-action="refresh"]')) {
-        e.preventDefault();
-        refreshAnalytics();
-    }
-});
-</script>
-
-<!-- Analytics-specific styles -->
-<style>
-    .live-indicator {
-        display: flex;
-        align-items: center;
-        gap: 0.75rem;
-        padding: 1rem;
-        background: var(--bg-card);
-        border: 1px solid var(--border-color);
-        border-radius: 12px;
-        margin-bottom: 2rem;
-        box-shadow: var(--shadow-sm);
-    }
-
-    .live-dot {
-        width: 8px;
-        height: 8px;
-        background: #10b981;
-        border-radius: 50%;
-        animation: blink 2s infinite;
-    }
-
-    .last-updated {
-        margin-left: auto;
-        font-size: 0.875rem;
-        color: var(--text-secondary);
-    }
-
-    @keyframes blink {
-        0%, 50% { opacity: 1; }
-        51%, 100% { opacity: 0.3; }
-    }
-
-    .stats-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-        gap: 1.5rem;
-        margin-bottom: 2rem;
-    }
-
-    .stat-card {
-        display: flex;
-        align-items: center;
-        gap: 1rem;
-        padding: 1.5rem;
-        background: var(--bg-card);
-        border: 1px solid var(--border-color);
-        border-radius: 12px;
-        position: relative;
-        overflow: hidden;
-        transition: all 0.3s ease;
-        cursor: pointer;
-    }
-
-    .stat-card::before {
-        content: '';
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        height: 3px;
-        background: var(--accent-gradient);
-        opacity: 0;
-        transition: opacity 0.3s ease;
-    }
-
-    .stat-card:hover {
-        transform: translateY(-2px);
-        box-shadow: var(--shadow-lg);
-        border-color: var(--accent-primary);
-    }
-
-    .stat-card:hover::before {
-        opacity: 1;
-    }
-
-    .stat-icon {
-        width: 48px;
-        height: 48px;
-        background: var(--accent-gradient);
-        border-radius: 12px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 1.25rem;
-        color: white;
-        flex-shrink: 0;
-    }
-
-    .stat-content {
-        flex: 1;
-        min-width: 0;
-    }
-
-    .stat-value {
-        font-size: 2rem;
-        font-weight: 700;
-        color: var(--text-primary);
-        line-height: 1;
-        margin-bottom: 0.25rem;
-    }
-
-    .stat-label {
-        font-size: 0.875rem;
-        color: var(--text-secondary);
-        margin-bottom: 0.5rem;
-    }
-
-    .stat-change {
-        font-size: 0.75rem;
-        font-weight: 600;
-        padding: 0.25rem 0.5rem;
-        border-radius: 6px;
-        display: inline-block;
-    }
-
-    .stat-change.positive {
-        background: rgba(16, 185, 129, 0.1);
-        color: #10b981;
-    }
-
-    .stat-change.neutral {
-        background: rgba(161, 161, 170, 0.1);
-        color: #a1a1aa;
-    }
-
-    .charts-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
-        gap: 2rem;
-        margin-bottom: 2rem;
-    }
-
-    .chart-card {
-        background: var(--bg-card);
-        border: 1px solid var(--border-color);
-        border-radius: 16px;
-        padding: 1.5rem;
-        box-shadow: var(--shadow-sm);
-    }
-
-    .chart-header {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        margin-bottom: 1.5rem;
-        padding-bottom: 1rem;
-        border-bottom: 1px solid var(--border-color);
-    }
-
-    .chart-title {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-        font-size: 1.125rem;
-        font-weight: 600;
-        color: var(--text-primary);
-        margin: 0;
-    }
-
-    .chart-controls {
-        display: flex;
-        gap: 0.5rem;
-    }
-
-    .chart-btn {
-        padding: 0.375rem 0.75rem;
-        background: var(--bg-secondary);
-        border: 1px solid var(--border-color);
-        border-radius: 6px;
-        font-size: 0.75rem;
-        font-weight: 600;
-        color: var(--text-secondary);
-        cursor: pointer;
-        transition: all 0.2s ease;
-    }
-
-    .chart-btn.active,
-    .chart-btn:hover {
-        background: var(--accent-primary);
-        border-color: var(--accent-primary);
-        color: white;
-    }
-
-    .chart-container {
-        position: relative;
-        height: 300px;
-        margin-bottom: 1rem;
-    }
-
-    .chart-legend {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 1rem;
-        justify-content: center;
-    }
-
-    .legend-item {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-        font-size: 0.875rem;
-        color: var(--text-secondary);
-    }
-
-    .legend-item::before {
-        content: '';
-        width: 12px;
-        height: 12px;
-        border-radius: 2px;
-        flex-shrink: 0;
-    }
-
-    .legend-item.excellent::before { background: #10b981; }
-    .legend-item.good::before { background: #3b82f6; }
-    .legend-item.average::before { background: #f59e0b; }
-    .legend-item.poor::before { background: #ef4444; }
-
-    .companies-list {
-        max-height: 400px;
-        overflow-y: auto;
-    }
-
-    .company-row {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        padding: 1rem;
-        border-bottom: 1px solid var(--border-color);
-        cursor: pointer;
-        transition: all 0.2s ease;
-    }
-
-    .company-row:hover {
-        background: var(--bg-hover);
-    }
-
-    .company-row:last-child {
-        border-bottom: none;
-    }
-
-    .company-info {
-        flex: 1;
-        min-width: 0;
-    }
-
-    .company-name {
-        font-weight: 600;
-        color: var(--text-primary);
-        margin-bottom: 0.25rem;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-    }
-
-    .company-gstin {
-        font-size: 0.875rem;
-        color: var(--text-secondary);
-        font-family: monospace;
-    }
-
-    .company-stats {
-        display: flex;
-        align-items: center;
-        gap: 1rem;
-        flex-shrink: 0;
-    }
-
-    .search-count {
-        display: flex;
-        align-items: center;
-        gap: 0.25rem;
-        font-size: 0.875rem;
-        color: var(--text-secondary);
-    }
-
-    .score-badge {
-        padding: 0.25rem 0.5rem;
-        border-radius: 6px;
-        font-size: 0.75rem;
-        font-weight: 600;
-        text-align: center;
-        min-width: 50px;
-    }
-
-    .score-excellent {
-        background: rgba(16, 185, 129, 0.1);
-        color: #10b981;
-    }
-
-    .score-good {
-        background: rgba(59, 130, 246, 0.1);
-        color: #3b82f6;
-    }
-
-    .score-average {
-        background: rgba(245, 158, 11, 0.1);
-        color: #f59e0b;
-    }
-
-    .empty-state {
-        text-align: center;
-        padding: 3rem 1rem;
-        color: var(--text-secondary);
-    }
-
-    .empty-state i {
-        font-size: 3rem;
-        margin-bottom: 1rem;
-        opacity: 0.5;
-    }
-
-    .insights-panel {
-        margin-top: 2rem;
-    }
-
-    .insight-card {
-        display: flex;
-        gap: 1rem;
-        padding: 1.5rem;
-        background: var(--bg-card);
-        border: 1px solid var(--border-color);
-        border-radius: 12px;
-        box-shadow: var(--shadow-sm);
-    }
-
-    .insight-icon {
-        width: 48px;
-        height: 48px;
-        background: linear-gradient(135deg, #f59e0b, #f97316);
-        border-radius: 12px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 1.25rem;
-        color: white;
-        flex-shrink: 0;
-    }
-
-    .insight-content h4 {
-        font-size: 1.125rem;
-        font-weight: 600;
-        color: var(--text-primary);
-        margin: 0 0 1rem 0;
-    }
-
-    .insight-content ul {
-        list-style: none;
-        padding: 0;
-        margin: 0;
-    }
-
-    .insight-content li {
-        padding: 0.5rem 0;
-        color: var(--text-secondary);
-        font-size: 0.875rem;
-    }
-
-    .chart-error {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        height: 200px;
-        color: var(--text-secondary);
-        opacity: 0.7;
-    }
-
-    .chart-error i {
-        font-size: 2rem;
-        margin-bottom: 0.5rem;
-    }
-
-    /* Loading state */
-    .live-indicator.loading .live-dot {
-        background: #f59e0b;
-        animation: pulse 1s infinite;
-    }
-
-    @keyframes pulse {
-        0% { transform: scale(1); opacity: 1; }
-        50% { transform: scale(1.2); opacity: 0.7; }
-        100% { transform: scale(1); opacity: 1; }
-    }
-
-    /* Responsive Design */
-    @media (max-width: 768px) {
-        .stats-grid {
-            grid-template-columns: 1fr;
+        
+        .history-title {
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-bottom: 0.5rem;
+            display: flex;
+            align-items: center;
             gap: 1rem;
         }
-
-        .charts-grid {
-            grid-template-columns: 1fr;
-            gap: 1.5rem;
+        
+        .history-subtitle {
+            color: var(--text-secondary);
+            font-size: 1rem;
         }
-
-        .stat-card {
-            padding: 1rem;
+        
+        .history-controls {
+            background: var(--bg-card);
+            border: 1px solid var(--border-primary);
+            border-radius: 16px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+            box-shadow: var(--card-shadow);
         }
-
-        .chart-card {
-            padding: 1rem;
+        
+        .controls-row {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+            flex-wrap: wrap;
         }
-
-        .chart-container {
-            height: 250px;
+        
+        .search-input {
+            flex: 1;
+            min-width: 200px;
+            padding: 0.75rem 1rem;
+            border: 1px solid var(--border-primary);
+            border-radius: 10px;
+            background: var(--bg-input);
+            color: var(--text-primary);
+            font-size: 0.875rem;
         }
-
-        .company-row {
-            flex-direction: column;
-            align-items: flex-start;
+        
+        .search-input:focus {
+            outline: none;
+            border-color: var(--accent-primary);
+        }
+        
+        .filter-select {
+            padding: 0.75rem 1rem;
+            border: 1px solid var(--border-primary);
+            border-radius: 10px;
+            background: var(--bg-input);
+            color: var(--text-primary);
+            font-size: 0.875rem;
+            cursor: pointer;
+        }
+        
+        .action-btn {
+            padding: 0.75rem 1rem;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-primary);
+            border-radius: 10px;
+            color: var(--text-primary);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
             gap: 0.5rem;
+            font-size: 0.875rem;
+            transition: all 0.3s ease;
+        }
+        
+        .action-btn:hover {
+            background: var(--accent-primary);
+            color: white;
+            border-color: var(--accent-primary);
+        }
+        
+        .action-btn.danger:hover {
+            background: var(--error);
+            border-color: var(--error);
+        }
+        
+        .history-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+        
+        .stat-item {
+            background: var(--bg-card);
+            border: 1px solid var(--border-primary);
+            border-radius: 12px;
+            padding: 1rem;
+            text-align: center;
+            box-shadow: var(--card-shadow);
+        }
+        
+        .stat-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-bottom: 0.25rem;
+        }
+        
+        .stat-label {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .history-list {
+            background: var(--bg-card);
+            border: 1px solid var(--border-primary);
+            border-radius: 16px;
+            box-shadow: var(--card-shadow);
+            overflow: hidden;
+        }
+        
+        .history-item {
+            padding: 1.5rem;
+            border-bottom: 1px solid var(--border-primary);
+            transition: background 0.3s ease;
+            cursor: pointer;
+        }
+        
+        .history-item:hover {
+            background: var(--bg-hover);
+        }
+        
+        .history-item:last-child {
+            border-bottom: none;
+        }
+        
+        .history-item-header {
+            display: flex;
+            justify-content: between;
+            align-items: flex-start;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+        
+        .history-item-main {
+            flex: 1;
+        }
+        
+        .history-gstin {
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--accent-primary);
+            margin-bottom: 0.5rem;
+        }
+        
+        .history-company {
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 0.25rem;
+        }
+        
+        .history-meta {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        
+        .history-status {
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .history-status.active {
+            background: rgba(34, 197, 94, 0.2);
+            color: #22c55e;
+        }
+        
+        .history-status.cancelled {
+            background: rgba(239, 68, 68, 0.2);
+            color: #ef4444;
+        }
+        
+        .history-status.suspended {
+            background: rgba(251, 191, 36, 0.2);
+            color: #fbbf24;
+        }
+        
+        .history-status.unknown {
+            background: rgba(156, 163, 175, 0.2);
+            color: #9ca3af;
+        }
+        
+        .history-score {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.875rem;
+        }
+        
+        .score-badge {
+            padding: 0.25rem 0.5rem;
+            border-radius: 6px;
+            font-weight: 600;
+            min-width: 45px;
+            text-align: center;
+        }
+        
+        .score-badge.high {
+            background: rgba(34, 197, 94, 0.2);
+            color: #22c55e;
+        }
+        
+        .score-badge.medium {
+            background: rgba(251, 191, 36, 0.2);
+            color: #fbbf24;
+        }
+        
+        .score-badge.low {
+            background: rgba(239, 68, 68, 0.2);
+            color: #ef4444;
+        }
+        
+        .history-date {
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+        }
+        
+        .history-actions {
+            display: flex;
+            gap: 0.5rem;
+            margin-left: auto;
+        }
+        
+        .history-action {
+            width: 36px;
+            height: 36px;
+            border: 1px solid var(--border-primary);
+            border-radius: 8px;
+            background: var(--bg-secondary);
+            color: var(--text-secondary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 0.875rem;
+        }
+        
+        .history-action:hover {
+            background: var(--accent-primary);
+            color: white;
+            border-color: var(--accent-primary);
+        }
+        
+        .history-action.danger:hover {
+            background: var(--error);
+            border-color: var(--error);
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 4rem 2rem;
+            color: var(--text-secondary);
+        }
+        
+        .empty-state-icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            opacity: 0.5;
+        }
+        
+        .empty-state-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 0.5rem;
+        }
+        
+        .empty-state-text {
+            margin-bottom: 2rem;
+        }
+        
+        .empty-state-action {
+            padding: 0.75rem 1.5rem;
+            background: var(--accent-gradient);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.3s ease;
+        }
+        
+        .empty-state-action:hover {
+            transform: translateY(-2px);
+        }
+        
+        .pagination {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 0.5rem;
+            margin-top: 2rem;
+        }
+        
+        .pagination-btn {
+            width: 40px;
+            height: 40px;
+            border: 1px solid var(--border-primary);
+            border-radius: 8px;
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .pagination-btn:hover:not(.disabled) {
+            background: var(--accent-primary);
+            color: white;
+            border-color: var(--accent-primary);
+        }
+        
+        .pagination-btn.active {
+            background: var(--accent-primary);
+            color: white;
+            border-color: var(--accent-primary);
+        }
+        
+        .pagination-btn.disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .pagination-info {
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+            margin: 0 1rem;
+        }
+        
+        .loading-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 16px;
+        }
+        
+        .loading-spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-top: 3px solid white;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        /* Mobile Responsive */
+        @media (max-width: 768px) {
+            .history-container {
+                padding: 1rem;
+            }
+            
+            .controls-row {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            
+            .search-input {
+                min-width: unset;
+            }
+            
+            .history-item-header {
+                flex-direction: column;
+                gap: 1rem;
+            }
+            
+            .history-actions {
+                margin-left: 0;
+                justify-content: flex-start;
+            }
+            
+            .history-meta {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 0.5rem;
+            }
+        }
+    </style>
+</head>
+<body class="page-history">
+    <!-- Navigation -->
+    {% include 'components/nav.html' %}
+
+    <main class="main">
+        <div class="history-container">
+            <!-- Header -->
+            <div class="history-header">
+                <h1 class="history-title">
+                    <i class="fas fa-history"></i>
+                    Search History
+                </h1>
+                <p class="history-subtitle">
+                    View and manage your GST search history
+                </p>
+            </div>
+
+            <!-- Controls -->
+            <div class="history-controls">
+                <div class="controls-row">
+                    <input 
+                        type="text" 
+                        class="search-input" 
+                        placeholder="Search by GSTIN or company name..." 
+                        id="searchInput"
+                    >
+                    
+                    <select class="filter-select" id="statusFilter">
+                        <option value="">All Status</option>
+                        <option value="active">Active</option>
+                        <option value="cancelled">Cancelled</option>
+                        <option value="suspended">Suspended</option>
+                        <option value="unknown">Unknown</option>
+                    </select>
+                    
+                    <select class="filter-select" id="scoreFilter">
+                        <option value="">All Scores</option>
+                        <option value="high">High (80-100%)</option>
+                        <option value="medium">Medium (50-79%)</option>
+                        <option value="low">Low (0-49%)</option>
+                    </select>
+                    
+                    <button class="action-btn" onclick="exportHistory()">
+                        <i class="fas fa-download"></i>
+                        Export
+                    </button>
+                    
+                    <button class="action-btn danger" onclick="clearHistory()">
+                        <i class="fas fa-trash"></i>
+                        Clear All
+                    </button>
+                </div>
+            </div>
+
+            <!-- Stats -->
+            <div class="history-stats">
+                <div class="stat-item">
+                    <div class="stat-value" id="totalSearches">{{ history|length or 0 }}</div>
+                    <div class="stat-label">Total Searches</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="uniqueCompanies">-</div>
+                    <div class="stat-label">Unique Companies</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="avgScore">-</div>
+                    <div class="stat-label">Avg Score</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="thisMonth">-</div>
+                    <div class="stat-label">This Month</div>
+                </div>
+            </div>
+
+            <!-- History List -->
+            <div class="history-list" style="position: relative;">
+                <div id="historyContent">
+                    {% if history %}
+                        {% for item in history %}
+                        <div class="history-item" data-gstin="{{ item.gstin }}">
+                            <div class="history-item-header">
+                                <div class="history-item-main">
+                                    <div class="history-gstin">{{ item.gstin }}</div>
+                                    <div class="history-company">{{ item.company_name or 'Unknown Company' }}</div>
+                                    <div class="history-meta">
+                                        <span class="history-status {{ item.status.lower() if item.status else 'unknown' }}">
+                                            {{ item.status or 'Unknown' }}
+                                        </span>
+                                        <div class="history-score">
+                                            <span>Score:</span>
+                                            <span class="score-badge {{ 'high' if item.compliance_score >= 80 else 'medium' if item.compliance_score >= 50 else 'low' }}">
+                                                {{ item.compliance_score }}%
+                                            </span>
+                                        </div>
+                                        <span class="history-date">
+                                            {{ item.searched_at.strftime('%d %b %Y, %I:%M %p') if item.searched_at else 'Recently' }}
+                                        </span>
+                                    </div>
+                                </div>
+                                <div class="history-actions">
+                                    <button class="history-action" onclick="searchAgain('{{ item.gstin }}')" title="Search Again">
+                                        <i class="fas fa-redo"></i>
+                                    </button>
+                                    <button class="history-action" onclick="viewDetails('{{ item.gstin }}')" title="View Details">
+                                        <i class="fas fa-eye"></i>
+                                    </button>
+                                    <button class="history-action danger" onclick="deleteItem('{{ item.gstin }}')" title="Delete">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="empty-state">
+                            <div class="empty-state-icon">
+                                <i class="fas fa-search"></i>
+                            </div>
+                            <div class="empty-state-title">No Search History</div>
+                            <div class="empty-state-text">
+                                You haven't performed any GST searches yet. Start by searching for a GSTIN.
+                            </div>
+                            <button class="empty-state-action" onclick="goToSearch()">
+                                Start Searching
+                            </button>
+                        </div>
+                    {% endif %}
+                </div>
+                
+                <div class="loading-overlay" id="loadingOverlay" style="display: none;">
+                    <div class="loading-spinner"></div>
+                </div>
+            </div>
+
+            <!-- Pagination -->
+            {% if history and history|length > 20 %}
+            <div class="pagination" id="pagination">
+                <button class="pagination-btn" id="prevBtn">
+                    <i class="fas fa-chevron-left"></i>
+                </button>
+                <span class="pagination-info" id="paginationInfo">1 of 1</span>
+                <button class="pagination-btn" id="nextBtn">
+                    <i class="fas fa-chevron-right"></i>
+                </button>
+            </div>
+            {% endif %}
+        </div>
+    </main>
+
+    <!-- Scripts -->
+    <script src="/static/js/app.js"></script>
+    <script src="/static/js/missing-implementations.js"></script>
+    <script src="/static/js/integration-fixes.js"></script>
+    
+    <script>
+        let currentPage = 1;
+        let totalPages = 1;
+        let allHistory = [];
+        let filteredHistory = [];
+        
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeHistory();
+        });
+
+        async function initializeHistory() {
+            try {
+                await loadHistoryData();
+                setupFilters();
+                updateStats();
+            } catch (error) {
+                console.error('History initialization failed:', error);
+            }
         }
 
-        .company-stats {
-            align-self: stretch;
-            justify-content: space-between;
+        async function loadHistoryData() {
+            try {
+                const response = await fetch('/api/user/history');
+                const data = await response.json();
+                
+                if (data.success) {
+                    allHistory = data.history || [];
+                    filteredHistory = [...allHistory];
+                    renderHistory();
+                }
+            } catch (error) {
+                console.error('Failed to load history:', error);
+            }
         }
-    }
-</style>
-{% endblock %}
+
+        function setupFilters() {
+            const searchInput = document.getElementById('searchInput');
+            const statusFilter = document.getElementById('statusFilter');
+            const scoreFilter = document.getElementById('scoreFilter');
+            
+            // Debounced search
+            let searchTimeout;
+            searchInput.addEventListener('input', function() {
+                clearTimeout(searchTimeout);
+                searchTimeout = setTimeout(applyFilters, 300);
+            });
+            
+            statusFilter.addEventListener('change', applyFilters);
+            scoreFilter.addEventListener('change', applyFilters);
+        }
+
+        function applyFilters() {
+            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+            const statusFilter = document.getElementById('statusFilter').value;
+            const scoreFilter = document.getElementById('scoreFilter').value;
+            
+            filteredHistory = allHistory.filter(item => {
+                // Search filter
+                const matchesSearch = !searchTerm || 
+                    item.gstin.toLowerCase().includes(searchTerm) ||
+                    (item.company_name && item.company_name.toLowerCase().includes(searchTerm));
+                
+                // Status filter
+                const matchesStatus = !statusFilter || 
+                    (item.status && item.status.toLowerCase() === statusFilter);
+                
+                // Score filter
+                let matchesScore = true;
+                if (scoreFilter) {
+                    const score = item.compliance_score || 0;
+                    switch (scoreFilter) {
+                        case 'high':
+                            matchesScore = score >= 80;
+                            break;
+                        case 'medium':
+                            matchesScore = score >= 50 && score < 80;
+                            break;
+                        case 'low':
+                            matchesScore = score < 50;
+                            break;
+                    }
+                }
+                
+                return matchesSearch && matchesStatus && matchesScore;
+            });
+            
+            currentPage = 1;
+            renderHistory();
+            updateStats();
+        }
+
+        function renderHistory() {
+            const content = document.getElementById('historyContent');
+            
+            if (filteredHistory.length === 0) {
+                content.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">
+                            <i class="fas fa-search"></i>
+                        </div>
+                        <div class="empty-state-title">No Results Found</div>
+                        <div class="empty-state-text">
+                            Try adjusting your search criteria or clearing filters.
+                        </div>
+                    </div>
+                `;
+                return;
+            }
+            
+            const itemsPerPage = 20;
+            const startIndex = (currentPage - 1) * itemsPerPage;
+            const endIndex = startIndex + itemsPerPage;
+            const pageItems = filteredHistory.slice(startIndex, endIndex);
+            
+            content.innerHTML = pageItems.map(item => `
+                <div class="history-item" data-gstin="${item.gstin}">
+                    <div class="history-item-header">
+                        <div class="history-item-main">
+                            <div class="history-gstin">${item.gstin}</div>
+                            <div class="history-company">${item.company_name || 'Unknown Company'}</div>
+                            <div class="history-meta">
+                                <span class="history-status ${(item.status || 'unknown').toLowerCase()}">
+                                    ${item.status || 'Unknown'}
+                                </span>
+                                <div class="history-score">
+                                    <span>Score:</span>
+                                    <span class="score-badge ${getScoreClass(item.compliance_score)}">
+                                        ${item.compliance_score || 0}%
+                                    </span>
+                                </div>
+                                <span class="history-date">
+                                    ${formatDate(item.searched_at)}
+                                </span>
+                            </div>
+                        </div>
+                        <div class="history-actions">
+                            <button class="history-action" onclick="searchAgain('${item.gstin}')" title="Search Again">
+                                <i class="fas fa-redo"></i>
+                            </button>
+                            <button class="history-action" onclick="viewDetails('${item.gstin}')" title="View Details">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                            <button class="history-action danger" onclick="deleteItem('${item.gstin}')" title="Delete">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+            
+            updatePagination();
+        }
+
+        function updateStats() {
+            const uniqueCompanies = new Set(filteredHistory.map(item => item.gstin)).size;
+            const avgScore = filteredHistory.length > 0 
+                ? Math.round(filteredHistory.reduce((sum, item) => sum + (item.compliance_score || 0), 0) / filteredHistory.length)
+                : 0;
+            
+            const thisMonth = filteredHistory.filter(item => {
+                if (!item.searched_at) return false;
+                const searchDate = new Date(item.searched_at);
+                const now = new Date();
+                return searchDate.getMonth() === now.getMonth() && searchDate.getFullYear() === now.getFullYear();
+            }).length;
+            
+            document.getElementById('totalSearches').textContent = filteredHistory.length;
+            document.getElementById('uniqueCompanies').textContent = uniqueCompanies;
+            document.getElementById('avgScore').textContent = avgScore + '%';
+            document.getElementById('thisMonth').textContent = thisMonth;
+        }
+
+        function updatePagination() {
+            const itemsPerPage = 20;
+            totalPages = Math.ceil(filteredHistory.length / itemsPerPage);
+            
+            const pagination = document.getElementById('pagination');
+            if (!pagination) return;
+            
+            if (totalPages <= 1) {
+                pagination.style.display = 'none';
+                return;
+            }
+            
+            pagination.style.display = 'flex';
+            
+            const prevBtn = document.getElementById('prevBtn');
+            const nextBtn = document.getElementById('nextBtn');
+            const paginationInfo = document.getElementById('paginationInfo');
+            
+            prevBtn.disabled = currentPage === 1;
+            nextBtn.disabled = currentPage === totalPages;
+            
+            prevBtn.className = `pagination-btn ${currentPage === 1 ? 'disabled' : ''}`;
+            nextBtn.className = `pagination-btn ${currentPage === totalPages ? 'disabled' : ''}`;
+            
+            paginationInfo.textContent = `${currentPage} of ${totalPages}`;
+            
+            // Add event listeners
+            prevBtn.onclick = () => {
+                if (currentPage > 1) {
+                    currentPage--;
+                    renderHistory();
+                }
+            };
+            
+            nextBtn.onclick = () => {
+                if (currentPage < totalPages) {
+                    currentPage++;
+                    renderHistory();
+                }
+            };
+        }
+
+        function getScoreClass(score) {
+            if (score >= 80) return 'high';
+            if (score >= 50) return 'medium';
+            return 'low';
+        }
+
+        function formatDate(dateStr) {
+            if (!dateStr) return 'Recently';
+            
+            try {
+                const date = new Date(dateStr);
+                return date.toLocaleDateString('en-IN', {
+                    day: '2-digit',
+                    month: 'short',
+                    year: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+            } catch {
+                return 'Recently';
+            }
+        }
+
+        function searchAgain(gstin) {
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = '/search';
+            
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = 'gstin';
+            input.value = gstin;
+            
+            form.appendChild(input);
+            document.body.appendChild(form);
+            form.submit();
+        }
+
+        function viewDetails(gstin) {
+            const item = allHistory.find(h => h.gstin === gstin);
+            if (!item) return;
+            
+            // Create a simple modal or redirect to search result
+            searchAgain(gstin);
+        }
+
+        async function deleteItem(gstin) {
+            if (!confirm('Are you sure you want to delete this search from your history?')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/user/history', {
+                    method: 'DELETE',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ gstin })
+                });
+                
+                if (response.ok) {
+                    // Remove from local arrays
+                    allHistory = allHistory.filter(item => item.gstin !== gstin);
+                    applyFilters(); // This will update filteredHistory and re-render
+                    
+                    if (window.notificationManager) {
+                        window.notificationManager.showSuccess('Search deleted from history');
+                    }
+                } else {
+                    throw new Error('Delete failed');
+                }
+            } catch (error) {
+                console.error('Delete error:', error);
+                if (window.notificationManager) {
+                    window.notificationManager.showError('Failed to delete search');
+                }
+            }
+        }
+
+        async function clearHistory() {
+            if (!confirm('Are you sure you want to clear all search history? This action cannot be undone.')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/user/history/clear', {
+                    method: 'POST'
+                });
+                
+                if (response.ok) {
+                    allHistory = [];
+                    filteredHistory = [];
+                    renderHistory();
+                    updateStats();
+                    
+                    if (window.notificationManager) {
+                        window.notificationManager.showSuccess('Search history cleared');
+                    }
+                } else {
+                    throw new Error('Clear failed');
+                }
+            } catch (error) {
+                console.error('Clear error:', error);
+                if (window.notificationManager) {
+                    window.notificationManager.showError('Failed to clear history');
+                }
+            }
+        }
+
+        async function exportHistory() {
+            try {
+                if (window.gstApp) {
+                    window.gstApp.showLoading('Preparing export...');
+                }
+                
+                const response = await fetch('/api/user/export', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        format: 'csv',
+                        type: 'history'
+                    })
+                });
+                
+                if (response.ok) {
+                    const blob = await response.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `search_history_${new Date().toISOString().split('T')[0]}.csv`;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    window.URL.revokeObjectURL(url);
+                    
+                    if (window.notificationManager) {
+                        window.notificationManager.showSuccess('History exported successfully');
+                    }
+                } else {
+                    throw new Error('Export failed');
+                }
+            } catch (error) {
+                console.error('Export error:', error);
+                if (window.notificationManager) {
+                    window.notificationManager.showError('Export failed. Please try again.');
+                }
+            } finally {
+                if (window.gstApp) {
+                    window.gstApp.hideLoading();
+                }
+            }
+        }
+
+        function goToSearch() {
+            window.location.href = '/';
+        }
+    </script>
+</body>
+</html>

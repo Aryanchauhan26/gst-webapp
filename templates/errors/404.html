@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Page Not Found - GST Intelligence Platform</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/base.css">
+    <style>
+        .error-container {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 2rem;
+            background: linear-gradient(135deg, var(--bg-primary) 0%, var(--bg-secondary) 100%);
+        }
+        
+        .error-content {
+            max-width: 600px;
+            width: 100%;
+        }
+        
+        .error-code {
+            font-size: 8rem;
+            font-weight: 900;
+            background: var(--accent-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 1rem;
+            line-height: 1;
+        }
+        
+        .error-title {
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-bottom: 1rem;
+        }
+        
+        .error-description {
+            font-size: 1.25rem;
+            color: var(--text-secondary);
+            margin-bottom: 2rem;
+            line-height: 1.6;
+        }
+        
+        .error-actions {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin-bottom: 3rem;
+        }
+        
+        .error-btn {
+            padding: 1rem 2rem;
+            border-radius: 12px;
+            font-weight: 600;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            transition: all 0.3s ease;
+            border: none;
+            cursor: pointer;
+            font-size: 1rem;
+        }
+        
+        .error-btn.primary {
+            background: var(--accent-gradient);
+            color: white;
+        }
+        
+        .error-btn.primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(99, 102, 241, 0.3);
+        }
+        
+        .error-btn.secondary {
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            border: 1px solid var(--border-primary);
+        }
+        
+        .error-btn.secondary:hover {
+            background: var(--bg-hover);
+            border-color: var(--accent-primary);
+        }
+        
+        .error-suggestions {
+            background: var(--bg-card);
+            border: 1px solid var(--border-primary);
+            border-radius: 16px;
+            padding: 2rem;
+            box-shadow: var(--card-shadow);
+            text-align: left;
+        }
+        
+        .suggestions-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .suggestions-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        
+        .suggestions-list li {
+            padding: 0.75rem 0;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            color: var(--text-secondary);
+            border-bottom: 1px solid var(--border-primary);
+        }
+        
+        .suggestions-list li:last-child {
+            border-bottom: none;
+        }
+        
+        .suggestions-list li i {
+            color: var(--accent-primary);
+            width: 20px;
+        }
+        
+        .suggestions-list li a {
+            color: var(--accent-primary);
+            text-decoration: none;
+        }
+        
+        .suggestions-list li a:hover {
+            text-decoration: underline;
+        }
+        
+        .error-animation {
+            width: 200px;
+            height: 200px;
+            margin: 0 auto 2rem;
+            position: relative;
+        }
+        
+        .floating-icon {
+            position: absolute;
+            color: var(--accent-primary);
+            animation: float 3s ease-in-out infinite;
+            opacity: 0.7;
+        }
+        
+        .floating-icon:nth-child(1) {
+            top: 20%;
+            left: 10%;
+            animation-delay: 0s;
+        }
+        
+        .floating-icon:nth-child(2) {
+            top: 60%;
+            right: 20%;
+            animation-delay: 1s;
+        }
+        
+        .floating-icon:nth-child(3) {
+            bottom: 20%;
+            left: 30%;
+            animation-delay: 2s;
+        }
+        
+        @keyframes float {
+            0%, 100% {
+                transform: translateY(0px);
+            }
+            50% {
+                transform: translateY(-20px);
+            }
+        }
+        
+        /* Mobile responsive */
+        @media (max-width: 768px) {
+            .error-code {
+                font-size: 6rem;
+            }
+            
+            .error-title {
+                font-size: 2rem;
+            }
+            
+            .error-description {
+                font-size: 1.1rem;
+            }
+            
+            .error-actions {
+                flex-direction: column;
+                align-items: center;
+            }
+            
+            .error-btn {
+                width: 100%;
+                max-width: 300px;
+                justify-content: center;
+            }
+            
+            .error-suggestions {
+                padding: 1.5rem;
+            }
+        }
+    </style>
+</head>
+<body class="page-error">
+    <div class="error-container">
+        <div class="error-content">
+            <!-- Animation -->
+            <div class="error-animation">
+                <div class="floating-icon">
+                    <i class="fas fa-search" style="font-size: 2rem;"></i>
+                </div>
+                <div class="floating-icon">
+                    <i class="fas fa-chart-line" style="font-size: 1.5rem;"></i>
+                </div>
+                <div class="floating-icon">
+                    <i class="fas fa-question-circle" style="font-size: 1.8rem;"></i>
+                </div>
+            </div>
+            
+            <!-- Error code -->
+            <div class="error-code">404</div>
+            
+            <!-- Error message -->
+            <h1 class="error-title">Page Not Found</h1>
+            <p class="error-description">
+                Oops! The page you're looking for seems to have wandered off into the digital void. 
+                Don't worry, it happens to the best of us.
+            </p>
+            
+            <!-- Action buttons -->
+            <div class="error-actions">
+                <a href="/" class="error-btn primary">
+                    <i class="fas fa-home"></i>
+                    Back to Dashboard
+                </a>
+                <button onclick="history.back()" class="error-btn secondary">
+                    <i class="fas fa-arrow-left"></i>
+                    Go Back
+                </button>
+                <a href="/search" class="error-btn secondary">
+                    <i class="fas fa-search"></i>
+                    Start Search
+                </a>
+            </div>
+            
+            <!-- Suggestions -->
+            <div class="error-suggestions">
+                <h3 class="suggestions-title">
+                    <i class="fas fa-lightbulb"></i>
+                    What you can do:
+                </h3>
+                <ul class="suggestions-list">
+                    <li>
+                        <i class="fas fa-home"></i>
+                        <span>Go to the <a href="/">main dashboard</a> to access all features</span>
+                    </li>
+                    <li>
+                        <i class="fas fa-search"></i>
+                        <span>Try searching for a <a href="/">GSTIN</a> to get started</span>
+                    </li>
+                    <li>
+                        <i class="fas fa-history"></i>
+                        <span>Check your <a href="/history">search history</a> for recent searches</span>
+                    </li>
+                    <li>
+                        <i class="fas fa-chart-bar"></i>
+                        <span>View your <a href="/analytics">analytics dashboard</a> for insights</span>
+                    </li>
+                    <li>
+                        <i class="fas fa-question-circle"></i>
+                        <span>Contact <a href="/help">support</a> if you need assistance</span>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Scripts -->
+    <script>
+        // Apply saved theme
+        (function() {
+            const savedTheme = localStorage.getItem('theme');
+            if (savedTheme === 'light') {
+                document.documentElement.setAttribute('data-theme', 'light');
+            }
+        })();
+        
+        // Report 404 error for analytics
+        if (typeof gtag !== 'undefined') {
+            gtag('event', 'page_not_found', {
+                'event_category': 'Error',
+                'event_label': window.location.pathname,
+                'value': 404
+            });
+        }
+        
+        // Keyboard shortcuts
+        document.addEventListener('keydown', function(e) {
+            // Home key - go to dashboard
+            if (e.key === 'Home' || (e.ctrlKey && e.key === 'h')) {
+                e.preventDefault();
+                window.location.href = '/';
+            }
+            
+            // Escape key - go back
+            if (e.key === 'Escape') {
+                e.preventDefault();
+                history.back();
+            }
+            
+            // S key - go to search
+            if (e.key === 's' || e.key === 'S') {
+                e.preventDefault();
+                window.location.href = '/';
+            }
+        });
+        
+        // Auto-redirect timer (optional)
+        let redirectTimer = 30;
+        const showRedirectTimer = false; // Set to true to enable auto-redirect
+        
+        if (showRedirectTimer) {
+            const timerElement = document.createElement('div');
+            timerElement.style.cssText = `
+                position: fixed;
+                bottom: 2rem;
+                right: 2rem;
+                background: var(--bg-card);
+                border: 1px solid var(--border-primary);
+                border-radius: 10px;
+                padding: 1rem;
+                color: var(--text-secondary);
+                font-size: 0.875rem;
+            `;
+            document.body.appendChild(timerElement);
+            
+            const updateTimer = () => {
+                timerElement.textContent = `Auto-redirect in ${redirectTimer}s`;
+                redirectTimer--;
+                
+                if (redirectTimer < 0) {
+                    window.location.href = '/';
+                } else {
+                    setTimeout(updateTimer, 1000);
+                }
+            };
+            
+            updateTimer();
+        }
+    </script>
+</body>
+</html>
+
+<!-- ============================================================================= -->
+<!-- 500.html - Server Error Page -->
+<!-- ============================================================================= -->
+<!--
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Server Error - GST Intelligence Platform</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/base.css">
+    <style>
+        /* Same styles as 404.html */
+    </style>
+</head>
+<body class="page-error">
+    <div class="error-container">
+        <div class="error-content">
+            <div class="error-animation">
+                <div class="floating-icon">
+                    <i class="fas fa-server" style="font-size: 2rem;"></i>
+                </div>
+                <div class="floating-icon">
+                    <i class="fas fa-exclamation-triangle" style="font-size: 1.5rem;"></i>
+                </div>
+                <div class="floating-icon">
+                    <i class="fas fa-tools" style="font-size: 1.8rem;"></i>
+                </div>
+            </div>
+            
+            <div class="error-code">500</div>
+            
+            <h1 class="error-title">Server Error</h1>
+            <p class="error-description">
+                Something went wrong on our end. Our technical team has been notified 
+                and is working to fix the issue. Please try again in a few minutes.
+            </p>
+            
+            <div class="error-actions">
+                <button onclick="location.reload()" class="error-btn primary">
+                    <i class="fas fa-redo"></i>
+                    Try Again
+                </button>
+                <a href="/" class="error-btn secondary">
+                    <i class="fas fa-home"></i>
+                    Back to Dashboard
+                </a>
+                <a href="/help" class="error-btn secondary">
+                    <i class="fas fa-life-ring"></i>
+                    Get Help
+                </a>
+            </div>
+            
+            <div class="error-suggestions">
+                <h3 class="suggestions-title">
+                    <i class="fas fa-info-circle"></i>
+                    What happened:
+                </h3>
+                <ul class="suggestions-list">
+                    <li>
+                        <i class="fas fa-server"></i>
+                        <span>Our servers are experiencing technical difficulties</span>
+                    </li>
+                    <li>
+                        <i class="fas fa-bell"></i>
+                        <span>Our technical team has been automatically notified</span>
+                    </li>
+                    <li>
+                        <i class="fas fa-clock"></i>
+                        <span>Please try again in a few minutes</span>
+                    </li>
+                    <li>
+                        <i class="fas fa-envelope"></i>
+                        <span>Contact <a href="mailto:support@gst-intelligence.com">support</a> if the issue persists</span>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
+-->
+
+<!-- ============================================================================= -->
+<!-- offline.html - PWA Offline Page -->
+<!-- ============================================================================= -->
+<!--
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>You're Offline - GST Intelligence Platform</title>
+    <link rel="stylesheet" href="/static/css/base.css">
+    <style>
+        /* Same styles as above with offline-specific content */
+    </style>
+</head>
+<body class="page-offline">
+    <div class="error-container">
+        <div class="error-content">
+            <div class="error-animation">
+                <div class="floating-icon">
+                    <i class="fas fa-wifi" style="font-size: 2rem; opacity: 0.3;"></i>
+                </div>
+                <div class="floating-icon">
+                    <i class="fas fa-globe" style="font-size: 1.5rem; opacity: 0.3;"></i>
+                </div>
+                <div class="floating-icon">
+                    <i class="fas fa-signal" style="font-size: 1.8rem; opacity: 0.3;"></i>
+                </div>
+            </div>
+            
+            <div class="error-code">📡</div>
+            
+            <h1 class="error-title">You're Offline</h1>
+            <p class="error-description">
+                It looks like you've lost your internet connection. Don't worry, 
+                you can still browse your search history and view cached data.
+            </p>
+            
+            <div class="error-actions">
+                <button onclick="location.reload()" class="error-btn primary">
+                    <i class="fas fa-redo"></i>
+                    Try Again
+                </button>
+                <a href="/history" class="error-btn secondary">
+                    <i class="fas fa-history"></i>
+                    View History
+                </a>
+            </div>
+            
+            <div class="error-suggestions">
+                <h3 class="suggestions-title">
+                    <i class="fas fa-wifi"></i>
+                    While you're offline:
+                </h3>
+                <ul class="suggestions-list">
+                    <li>
+                        <i class="fas fa-history"></i>
+                        <span>Browse your <a href="/history">search history</a></span>
+                    </li>
+                    <li>
+                        <i class="fas fa-save"></i>
+                        <span>View previously cached search results</span>
+                    </li>
+                    <li>
+                        <i class="fas fa-chart-bar"></i>
+                        <span>Check your offline <a href="/analytics">analytics</a></span>
+                    </li>
+                    <li>
+                        <i class="fas fa-sync"></i>
+                        <span>Data will sync automatically when you're back online</span>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // Auto-retry connection
+        const checkConnection = () => {
+            if (navigator.onLine) {
+                location.reload();
+            }
+        };
+        
+        window.addEventListener('online', checkConnection);
+        
+        // Periodic retry
+        setInterval(checkConnection, 5000);
+    </script>
+</body>
+</html>
+-->

@@ -1,0 +1,389 @@
+# =============================================================================
+# GST Intelligence Platform - Docker Compose Configuration
+# Development and Production Environment Setup
+# =============================================================================
+
+version: '3.8'
+
+# =============================================================================
+# SERVICES CONFIGURATION
+# =============================================================================
+services:
+  # =============================================================================
+  # Main Application Service
+  # =============================================================================
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: ${BUILD_TARGET:-production}
+      args:
+        VERSION: ${VERSION:-2.0.0}
+        BUILD_DATE: ${BUILD_DATE}
+        ENVIRONMENT: ${ENVIRONMENT:-production}
+    
+    container_name: gst-intelligence-app
+    restart: unless-stopped
+    
+    ports:
+      - "${PORT:-8000}:8000"
+    
+    environment:
+      # Application Configuration
+      - ENVIRONMENT=${ENVIRONMENT:-production}
+      - DEBUG=${DEBUG:-false}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - SECRET_KEY=${SECRET_KEY}
+      
+      # Database Configuration
+      - POSTGRES_DSN=postgresql://${POSTGRES_USER:-gstuser}:${POSTGRES_PASSWORD:-gstpassword}@postgres:5432/${POSTGRES_DB:-gstintelligence}
+      
+      # Redis Configuration
+      - REDIS_URL=redis://redis:6379/0
+      
+      # API Configuration
+      - RAPIDAPI_KEY=${RAPIDAPI_KEY}
+      - RAPIDAPI_HOST=${RAPIDAPI_HOST:-gst-return-status.p.rapidapi.com}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      
+      # Loan Management (Optional)
+      - RAZORPAY_KEY_ID=${RAZORPAY_KEY_ID}
+      - RAZORPAY_KEY_SECRET=${RAZORPAY_KEY_SECRET}
+      - RAZORPAY_ENVIRONMENT=${RAZORPAY_ENVIRONMENT:-sandbox}
+      
+      # Feature Flags
+      - ENABLE_AI_FEATURES=${ENABLE_AI_FEATURES:-true}
+      - ENABLE_LOAN_MANAGEMENT=${ENABLE_LOAN_MANAGEMENT:-false}
+      - ENABLE_PDF_GENERATION=${ENABLE_PDF_GENERATION:-true}
+      - ENABLE_CACHING=${ENABLE_CACHING:-true}
+      
+      # Performance Configuration
+      - WORKERS=${WORKERS:-1}
+      - TIMEOUT=${TIMEOUT:-30}
+      - MAX_REQUESTS=${MAX_REQUESTS:-1000}
+    
+    volumes:
+      # Data persistence
+      - app_data:/app/data
+      - app_logs:/app/logs
+      - app_uploads:/app/static/uploads
+      
+      # Development only (uncomment for development)
+      # - .:/app
+      # - /app/__pycache__
+      # - /app/.pytest_cache
+    
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    
+    networks:
+      - gst-network
+    
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    
+    # Resource limits (adjust based on your needs)
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+  # =============================================================================
+  # PostgreSQL Database Service
+  # =============================================================================
+  postgres:
+    image: postgres:15-alpine
+    container_name: gst-intelligence-postgres
+    restart: unless-stopped
+    
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB:-gstintelligence}
+      - POSTGRES_USER=${POSTGRES_USER:-gstuser}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-gstpassword}
+      - POSTGRES_INITDB_ARGS=--encoding=UTF-8 --lc-collate=C --lc-ctype=C
+    
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-scripts:/docker-entrypoint-initdb.d
+    
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    
+    networks:
+      - gst-network
+    
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-gstuser} -d ${POSTGRES_DB:-gstintelligence}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    
+    # Performance tuning
+    command: >
+      postgres
+      -c shared_buffers=256MB
+      -c max_connections=100
+      -c work_mem=4MB
+      -c maintenance_work_mem=64MB
+      -c effective_cache_size=1GB
+      -c checkpoint_completion_target=0.7
+      -c wal_buffers=7864kB
+      -c default_statistics_target=100
+
+  # =============================================================================
+  # Redis Cache Service
+  # =============================================================================
+  redis:
+    image: redis:7-alpine
+    container_name: gst-intelligence-redis
+    restart: unless-stopped
+    
+    command: >
+      redis-server
+      --appendonly yes
+      --appendfsync everysec
+      --maxmemory 256mb
+      --maxmemory-policy allkeys-lru
+      --tcp-keepalive 60
+      --timeout 300
+    
+    volumes:
+      - redis_data:/data
+    
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    
+    networks:
+      - gst-network
+    
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+  # =============================================================================
+  # Nginx Reverse Proxy (Production)
+  # =============================================================================
+  nginx:
+    image: nginx:alpine
+    container_name: gst-intelligence-nginx
+    restart: unless-stopped
+    
+    ports:
+      - "${NGINX_PORT:-80}:80"
+      - "${NGINX_SSL_PORT:-443}:443"
+    
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./ssl:/etc/nginx/ssl:ro
+      - app_uploads:/var/www/uploads:ro
+    
+    depends_on:
+      - app
+    
+    networks:
+      - gst-network
+    
+    profiles:
+      - production
+
+  # =============================================================================
+  # Database Migration Service (One-time)
+  # =============================================================================
+  migrate:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    
+    container_name: gst-intelligence-migrate
+    
+    environment:
+      - POSTGRES_DSN=postgresql://${POSTGRES_USER:-gstuser}:${POSTGRES_PASSWORD:-gstpassword}@postgres:5432/${POSTGRES_DB:-gstintelligence}
+      - ENVIRONMENT=${ENVIRONMENT:-production}
+    
+    command: python init_database.py
+    
+    depends_on:
+      postgres:
+        condition: service_healthy
+    
+    networks:
+      - gst-network
+    
+    profiles:
+      - migration
+
+  # =============================================================================
+  # Database Backup Service (Optional)
+  # =============================================================================
+  backup:
+    image: postgres:15-alpine
+    container_name: gst-intelligence-backup
+    
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB:-gstintelligence}
+      - POSTGRES_USER=${POSTGRES_USER:-gstuser}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-gstpassword}
+      - BACKUP_SCHEDULE=${BACKUP_SCHEDULE:-0 2 * * *}  # Daily at 2 AM
+    
+    volumes:
+      - postgres_backups:/backups
+      - ./scripts/backup.sh:/backup.sh:ro
+    
+    command: >
+      sh -c "
+      echo '${BACKUP_SCHEDULE} /backup.sh' | crontab - &&
+      crond -f"
+    
+    depends_on:
+      - postgres
+    
+    networks:
+      - gst-network
+    
+    profiles:
+      - backup
+
+  # =============================================================================
+  # Monitoring Services (Optional)
+  # =============================================================================
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: gst-intelligence-prometheus
+    restart: unless-stopped
+    
+    ports:
+      - "${PROMETHEUS_PORT:-9090}:9090"
+    
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+      - '--web.enable-lifecycle'
+      - '--web.enable-admin-api'
+    
+    networks:
+      - gst-network
+    
+    profiles:
+      - monitoring
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: gst-intelligence-grafana
+    restart: unless-stopped
+    
+    ports:
+      - "${GRAFANA_PORT:-3000}:3000"
+    
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_USER:-admin}
+    
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources:ro
+    
+    depends_on:
+      - prometheus
+    
+    networks:
+      - gst-network
+    
+    profiles:
+      - monitoring
+
+# =============================================================================
+# VOLUMES CONFIGURATION
+# =============================================================================
+volumes:
+  # Application data
+  app_data:
+    driver: local
+  app_logs:
+    driver: local
+  app_uploads:
+    driver: local
+  
+  # Database data
+  postgres_data:
+    driver: local
+  postgres_backups:
+    driver: local
+  
+  # Cache data
+  redis_data:
+    driver: local
+  
+  # Monitoring data
+  prometheus_data:
+    driver: local
+  grafana_data:
+    driver: local
+
+# =============================================================================
+# NETWORKS CONFIGURATION
+# =============================================================================
+networks:
+  gst-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+
+# =============================================================================
+# USAGE EXAMPLES:
+# =============================================================================
+# 
+# Development setup:
+# docker-compose up -d postgres redis
+# docker-compose up app
+# 
+# Production setup:
+# docker-compose --profile production up -d
+# 
+# Run database migration:
+# docker-compose --profile migration up migrate
+# 
+# Enable backup service:
+# docker-compose --profile backup up -d backup
+# 
+# Enable monitoring:
+# docker-compose --profile monitoring up -d prometheus grafana
+# 
+# Complete production deployment:
+# docker-compose --profile production --profile backup --profile monitoring up -d
+# 
+# View logs:
+# docker-compose logs -f app
+# 
+# Scale application:
+# docker-compose up -d --scale app=3
+# 
+# Stop all services:
+# docker-compose down
+# 
+# Stop and remove volumes:
+# docker-compose down -v
+# 
+# =============================================================================
