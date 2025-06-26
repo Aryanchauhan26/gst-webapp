@@ -162,7 +162,7 @@ class ChangePasswordRequest(BaseModel):
     newPassword: str = Field(..., min_length=6)
 
 class UserPreferencesRequest(BaseModel):
-    theme: Optional[str] = Field(None, regex=r'^(light|dark)$')
+    theme: Optional[str] = Field(None, pattern=r'^(light|dark)$')
     notifications: Optional[bool] = None
     analytics: Optional[bool] = None
     auto_export: Optional[bool] = None
@@ -180,9 +180,9 @@ class UserProfileRequest(BaseModel):
         return v
 
 class ExportRequest(BaseModel):
-    format: str = Field(..., regex=r'^(csv|excel|pdf)$')
-    type: str = Field(..., regex=r'^(history|analytics|all)$')
-    date_range: Optional[str] = Field(None, regex=r'^(7days|30days|90days|all)$')
+    format: str = Field(..., pattern=r'^(csv|excel|pdf)$')
+    type: str = Field(..., pattern=r'^(history|analytics|all)$')
+    date_range: Optional[str] = Field(None, pattern=r'^(7days|30days|90days|all)$')
 
 class ErrorLogRequest(BaseModel):
     type: str
