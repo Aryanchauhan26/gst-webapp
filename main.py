@@ -557,6 +557,22 @@ async def require_admin(request: Request) -> str:
 # HELPER FUNCTIONS
 # =============================================================================
 
+async def get_template_context(request: Request, current_user: str = None, **kwargs):
+    """Get common template context variables for all pages"""
+    context = {
+        "request": request,
+        "current_user": current_user,
+        "loan_management_enabled": bool(loan_manager),
+        "ai_features_enabled": bool(config.ANTHROPIC_API_KEY),
+        "admin_users": config.ADMIN_USERS.split(",") if config.ADMIN_USERS else [],
+        **kwargs
+    }
+    
+    if current_user:
+        context["user_display_name"] = await get_user_display_name(current_user)
+    
+    return context
+
 async def fetch_company_data(gstin: str) -> Optional[dict]:
     """Fetch and cache company data."""
     cache_key = f"gstin:{gstin}"
@@ -629,18 +645,17 @@ async def health_check():
 async def dashboard(request: Request, current_user: str = Depends(require_auth)):
     """Main dashboard page."""
     user_profile = await db.get_user_profile(current_user)
-    user_display_name = await get_user_display_name(current_user)
     stats = await db.get_user_stats(current_user)
     recent_searches = await db.get_search_history(current_user, limit=5)
     
-    return templates.TemplateResponse("index.html", {
-        "request": request,
-        "current_user": current_user,
-        "user_display_name": user_display_name,
+    context = await get_template_context(request, current_user)
+    context.update({
         "user_profile": user_profile,
         "stats": stats,
         "recent_searches": recent_searches
     })
+    
+    return templates.TemplateResponse("index.html", context)
 
 # =============================================================================
 # AUTHENTICATION ROUTES
@@ -649,12 +664,12 @@ async def dashboard(request: Request, current_user: str = Depends(require_auth))
 @app.get("/login", response_class=HTMLResponse)
 async def login_page(request: Request):
     """Login page."""
-    # Check if already logged in
     user = await get_current_user(request)
     if user:
         return RedirectResponse(url="/", status_code=302)
     
-    return templates.TemplateResponse("login.html", {"request": request})
+    context = await get_template_context(request)
+    return templates.TemplateResponse("login.html", context)
 
 @app.post("/login")
 async def login(request: Request, mobile: str = Form(...), password: str = Form(...)):
@@ -694,7 +709,8 @@ async def login(request: Request, mobile: str = Form(...), password: str = Form(
 @app.get("/signup", response_class=HTMLResponse)
 async def signup_page(request: Request):
     """Signup page."""
-    return templates.TemplateResponse("signup.html", {"request": request})
+    context = await get_template_context(request)
+    return templates.TemplateResponse("signup.html", context)
 
 @app.post("/signup")
 async def signup(request: Request, mobile: str = Form(...), 
@@ -1152,8 +1168,6 @@ async def parse_excel_for_gstins(contents: bytes) -> List[str]:
 async def history_page(request: Request, current_user: str = Depends(require_auth)):
     """Search history page."""
     history = await db.get_all_searches(current_user)
-    user_profile = await db.get_user_profile(current_user)
-    user_display_name = await get_user_display_name(current_user)
     
     now = datetime.now()
     last_30_days = now - timedelta(days=30)
@@ -1162,29 +1176,22 @@ async def history_page(request: Request, current_user: str = Depends(require_aut
         if item.get('searched_at') and item['searched_at'] >= last_30_days
     )
     
-    return templates.TemplateResponse("history.html", {
-        "request": request, 
-        "current_user": current_user,
-        "user_display_name": user_display_name,
-        "user_profile": user_profile,
+    context = await get_template_context(request, current_user)
+    context.update({
         "history": history,
         "searches_this_month": searches_this_month
     })
+    
+    return templates.TemplateResponse("history.html", context)
 
 @app.get("/analytics", response_class=HTMLResponse)
 async def analytics_page(request: Request, current_user: str = Depends(require_auth)):
     """Analytics dashboard page."""
-    user_profile = await db.get_user_profile(current_user)
-    user_display_name = await get_user_display_name(current_user)
     analytics_data = await db.get_analytics_data(current_user)
-    
     stats = await db.get_user_stats(current_user)
     
-    return templates.TemplateResponse("analytics.html", {
-        "request": request, 
-        "current_user": current_user,
-        "user_display_name": user_display_name,
-        "user_profile": user_profile,
+    context = await get_template_context(request, current_user)
+    context.update({
         "daily_searches": analytics_data["daily_searches"],
         "score_distribution": analytics_data["score_distribution"],
         "top_companies": analytics_data["top_companies"],
@@ -1192,6 +1199,8 @@ async def analytics_page(request: Request, current_user: str = Depends(require_a
         "unique_companies": stats["unique_companies"],
         "avg_compliance": stats["avg_compliance"]
     })
+    
+    return templates.TemplateResponse("analytics.html", context)
 
 # =============================================================================
 # LOAN ROUTES
@@ -1205,9 +1214,6 @@ async def loans_page(request: Request, current_user: str = Depends(require_auth)
         if loan_manager:
             applications = await loan_manager.get_user_loan_applications(current_user)
         
-        user_profile = await db.get_user_profile(current_user)
-        user_display_name = await get_user_display_name(current_user)
-        
         loan_config_data = {}
         if HAS_LOAN_MANAGEMENT and LoanConfig:
             loan_config_data = {
@@ -1217,21 +1223,18 @@ async def loans_page(request: Request, current_user: str = Depends(require_auth)
                 "min_vintage": LoanConfig.MIN_BUSINESS_VINTAGE_MONTHS
             }
         
-        return templates.TemplateResponse("loans.html", {
-            "request": request,
-            "current_user": current_user,
-            "user_display_name": user_display_name,
-            "user_profile": user_profile,
+        context = await get_template_context(request, current_user)
+        context.update({
             "applications": applications,
             "loan_config": loan_config_data
         })
+        
+        return templates.TemplateResponse("loans.html", context)
     except Exception as e:
         logger.error(f"Loans page error: {e}")
-        return templates.TemplateResponse("loans.html", {
-            "request": request,
-            "current_user": current_user,
-            "error": "Failed to load loan data"
-        })
+        context = await get_template_context(request, current_user)
+        context["error"] = "Failed to load loan data"
+        return templates.TemplateResponse("loans.html", context)
 
 @app.post("/api/loans/eligibility")
 @handle_api_errors
@@ -1362,17 +1365,14 @@ async def log_client_error(
 @app.get("/admin", response_class=HTMLResponse)
 async def admin_dashboard(request: Request, current_user: str = Depends(require_admin)):
     """Admin dashboard page."""
-    user_profile = await db.get_user_profile(current_user)
-    user_display_name = await get_user_display_name(current_user)
     system_stats = await db.get_system_stats()
     
-    return templates.TemplateResponse("admin_dashboard.html", {
-        "request": request,
-        "current_user": current_user,
-        "user_display_name": user_display_name,
-        "user_profile": user_profile,
+    context = await get_template_context(request, current_user)
+    context.update({
         "system_stats": system_stats
     })
+    
+    return templates.TemplateResponse("admin_dashboard.html", context)
 
 @app.post("/api/admin/bulk/delete-old-searches")
 @handle_api_errors
