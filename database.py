@@ -158,12 +158,12 @@ class DatabaseManager:
                 is_valid = password_hash == row['password_hash']
                 
                 if is_valid:
-                    # Update last login
+                    # Update last login with timezone-aware datetime
                     await conn.execute("""
                         UPDATE users SET last_login = $1 WHERE mobile = $2
                     """, datetime.now(timezone.utc), mobile)
                 
-                return is_valid
+                    return is_valid
                 
         except Exception as e:
             logger.error(f"Verify user error: {e}")
@@ -708,6 +708,9 @@ class DatabaseManager:
                     );
                 """)
                 
+                # Use timezone-aware datetime
+                current_time = datetime.now(timezone.utc)
+                
                 if mobile_exists:
                     # Use the full insert with mobile column
                     await conn.execute("""
@@ -721,7 +724,7 @@ class DatabaseManager:
                     error_data.get('url'),
                     error_data.get('userAgent'),
                     error_data.get('mobile'),
-                    datetime.now(timezone.utc))
+                    current_time)
                 else:
                     # Use insert without mobile column
                     await conn.execute("""
@@ -734,7 +737,7 @@ class DatabaseManager:
                     error_data.get('stack'),
                     error_data.get('url'),
                     error_data.get('userAgent'),
-                    datetime.now(timezone.utc))
+                    current_time)
             
             return True
         except Exception as e:
