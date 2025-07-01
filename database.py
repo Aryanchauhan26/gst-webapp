@@ -700,18 +700,41 @@ class DatabaseManager:
         """Log application error to database."""
         try:
             async with self.pool.acquire() as conn:
-                await conn.execute("""
-                    INSERT INTO error_logs 
-                    (error_type, message, stack_trace, url, user_agent, mobile, created_at)
-                    VALUES ($1, $2, $3, $4, $5, $6, $7)
-                """, 
-                error_data.get('type'),
-                error_data.get('message'),
-                error_data.get('stack'),
-                error_data.get('url'),
-                error_data.get('userAgent'),
-                error_data.get('mobile'),
-                datetime.now(timezone.utc))
+                # First check if mobile column exists
+                mobile_exists = await conn.fetchval("""
+                    SELECT EXISTS (
+                        SELECT FROM information_schema.columns 
+                        WHERE table_name = 'error_logs' AND column_name = 'mobile'
+                    );
+                """)
+                
+                if mobile_exists:
+                    # Use the full insert with mobile column
+                    await conn.execute("""
+                        INSERT INTO error_logs 
+                        (error_type, message, stack_trace, url, user_agent, mobile, created_at)
+                        VALUES ($1, $2, $3, $4, $5, $6, $7)
+                    """, 
+                    error_data.get('type'),
+                    error_data.get('message'),
+                    error_data.get('stack'),
+                    error_data.get('url'),
+                    error_data.get('userAgent'),
+                    error_data.get('mobile'),
+                    datetime.now(timezone.utc))
+                else:
+                    # Use insert without mobile column
+                    await conn.execute("""
+                        INSERT INTO error_logs 
+                        (error_type, message, stack_trace, url, user_agent, created_at)
+                        VALUES ($1, $2, $3, $4, $5, $6)
+                    """, 
+                    error_data.get('type'),
+                    error_data.get('message'),
+                    error_data.get('stack'),
+                    error_data.get('url'),
+                    error_data.get('userAgent'),
+                    datetime.now(timezone.utc))
             
             return True
         except Exception as e:
