@@ -223,30 +223,20 @@ class LoanConfig:
             return (cls.MIN_INTEREST_RATE + cls.MAX_INTEREST_RATE) / 2  # Default to mid-range
 
 class RazorpayLendingClient:
-    """
-    Razorpay Lending API Client with enhanced error handling and integration
-    """
+    """Razorpay Capital API client for loan management."""
     
     def __init__(self, api_key: str, api_secret: str, environment: str = "test"):
+        """Initialize Razorpay client with correct parameters."""
         self.api_key = api_key
         self.api_secret = api_secret
         self.environment = environment
+        self.base_url = "https://api.razorpay.com/v1" if environment == "live" else "https://api.razorpay.com/v1"
         
-        # API endpoints
-        if environment == "live":
-            self.base_url = "https://api.razorpay.com/v1"
-        else:
-            self.base_url = "https://api.razorpay.com/v1"  # Same URL, different keys
+        # Initialize Razorpay client with correct parameter names
+        import razorpay
+        self.client = razorpay.Client(auth=(api_key, api_secret))
         
-        self.headers = {
-            "Content-Type": "application/json",
-        }
-        
-        # Rate limiting
-        self.last_request_time = 0
-        self.min_request_interval = 0.1  # 100ms between requests
-        
-        logger.info(f"Razorpay client initialized for {environment} environment")
+        logger.info(f"✅ Razorpay client initialized for {environment} environment")
     
     async def _make_request(self, method: str, endpoint: str, data: dict = None) -> dict:
         """Make authenticated request to Razorpay API with retry logic"""

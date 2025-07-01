@@ -497,17 +497,24 @@ api_client = GSTAPIClient(config.RAPIDAPI_KEY, config.RAPIDAPI_HOST) if config.R
 
 # Initialize loan manager
 loan_manager = None
-if HAS_LOAN_MANAGEMENT and config.RAZORPAY_KEY_ID and config.RAZORPAY_KEY_SECRET:
-    try:
-        razorpay_client = RazorpayLendingClient(
-            key_id=config.RAZORPAY_KEY_ID,
-            key_secret=config.RAZORPAY_KEY_SECRET,
-            environment=config.RAZORPAY_ENVIRONMENT
+try:
+    if config.RAZORPAY_KEY_ID and config.RAZORPAY_KEY_SECRET:
+        from razorpay_lending import RazorpayLendingClient
+        loan_manager = RazorpayLendingClient(
+            api_key=config.RAZORPAY_KEY_ID,      # Changed from 'key_id'
+            api_secret=config.RAZORPAY_KEY_SECRET, # Changed from 'key_secret'
+            environment=config.RAZORPAY_ENVIRONMENT or "test"
         )
-        loan_manager = LoanManager(razorpay_client, db)
-        logger.info("✅ Loan management system initialized")
-    except Exception as e:
-        logger.error(f"Failed to initialize loan management: {e}")
+        HAS_LOAN_MANAGEMENT = True
+        logger.info("✅ Loan management available")
+    else:
+        loan_manager = None
+        HAS_LOAN_MANAGEMENT = False
+        logger.warning("⚠️ Loan management disabled - missing Razorpay credentials")
+except Exception as e:
+    logger.error(f"Failed to initialize loan management: {e}")
+    loan_manager = None
+    HAS_LOAN_MANAGEMENT = False
 
 # Initialize AI client
 ai_client = None
