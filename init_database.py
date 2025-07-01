@@ -443,7 +443,7 @@ class DatabaseInitializer:
             '8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92',  # admin123 hash
             'sample_salt_for_admin',
             'admin',
-            datetime.now(timezone.utc)
+            datetime.now()
             )
             logger.info("✅ Sample admin user created (mobile: 9999999999, password: admin123)")
         except Exception as e:
