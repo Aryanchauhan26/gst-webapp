@@ -209,83 +209,58 @@ class DatabaseManager:
     # =============================================
     # SESSION MANAGEMENT
     # =============================================
+
+async def create_session(self, mobile: str, expires_at: datetime) -> str:
+    """Create a new user session."""
+    session_token = secrets.token_urlsafe(32)
     
-    async def create_session(self, mobile: str) -> str:
-        """Create new session and return token."""
-        try:
-            token = secrets.token_urlsafe(32)
-            expires_at = datetime.now(timezone.utc) + timedelta(days=30)
-            
-            async with self.pool.acquire() as conn:
-                await conn.execute("""
-                    INSERT INTO sessions (token, mobile, expires_at)
-                    VALUES ($1, $2, $3)
-                """, token, mobile, expires_at)
-            
-            return token
-        except Exception as e:
-            logger.error(f"Create session error: {e}")
-            return None
+    async with self.pool.acquire() as conn:
+        await conn.execute("""
+            INSERT INTO sessions (session_token, mobile, expires_at)
+            VALUES ($1, $2, $3)
+            ON CONFLICT (session_token) DO UPDATE SET
+                mobile = EXCLUDED.mobile,
+                expires_at = EXCLUDED.expires_at,
+                updated_at = CURRENT_TIMESTAMP
+        """, session_token, mobile, expires_at)
     
-    async def get_session(self, token: str) -> Optional[str]:
-        """Get user mobile from valid session token."""
-        cache_key = self._cache_key("session", token)
-        cached = self._get_cache(cache_key)
-        if cached:
-            return cached
-        
-        try:
-            async with self.pool.acquire() as conn:
-                row = await conn.fetchrow("""
-                    SELECT mobile FROM sessions 
-                    WHERE token = $1 AND expires_at > $2
-                """, token, datetime.now(timezone.utc))
-                
-                if row:
-                    mobile = row['mobile']
-                    self._set_cache(cache_key, mobile, 300)  # Cache for 5 minutes
-                    return mobile
-                
-                return None
-        except Exception as e:
-            logger.error(f"Get session error: {e}")
-            return None
+    logger.info(f"✅ Session created for {mobile}")
+    return session_token
+
+async def get_session(self, session_token: str) -> Optional[str]:
+    """Get user mobile from session token."""
+    async with self.pool.acquire() as conn:
+        result = await conn.fetchrow("""
+            SELECT mobile, expires_at 
+            FROM sessions 
+            WHERE session_token = $1 AND expires_at > NOW()
+        """, session_token)
     
-    async def delete_session(self, token: str) -> bool:
-        """Delete session."""
-        try:
-            # Clear from cache
-            cache_key = self._cache_key("session", token)
-            self._cache.pop(cache_key, None)
-            self._cache_ttl.pop(cache_key, None)
-            
-            async with self.pool.acquire() as conn:
-                await conn.execute("DELETE FROM sessions WHERE token = $1", token)
-            return True
-        except Exception as e:
-            logger.error(f"Delete session error: {e}")
-            return False
+    if result:
+        return result["mobile"]
+    return None
+
+async def delete_session(self, session_token: str) -> bool:
+    """Delete a user session."""
+    async with self.pool.acquire() as conn:
+        result = await conn.execute("""
+            DELETE FROM sessions WHERE session_token = $1
+        """, session_token)
     
-    async def cleanup_expired_sessions(self) -> int:
-        """Clean up expired sessions."""
-        try:
-            async with self.pool.acquire() as conn:
-                result = await conn.fetchval("""
-                    WITH deleted AS (
-                        DELETE FROM sessions 
-                        WHERE expires_at <= $1
-                        RETURNING token
-                    )
-                    SELECT COUNT(*) FROM deleted
-                """, datetime.now(timezone.utc))
-                
-                if result > 0:
-                    logger.info(f"Cleaned up {result} expired sessions")
-                
-                return result or 0
-        except Exception as e:
-            logger.error(f"Cleanup sessions error: {e}")
-            return 0
+    return result != "DELETE 0"
+
+async def cleanup_expired_sessions(self):
+    """Remove expired sessions."""
+    try:
+        async with self.pool.acquire() as conn:
+            result = await conn.execute("""
+                DELETE FROM sessions WHERE expires_at <= NOW()
+            """)
+            count = int(result.split()[-1]) if result.split() else 0
+            if count > 0:
+                logger.info(f"🧹 Cleaned up {count} expired sessions")
+    except Exception as e:
+        logger.error(f"Cleanup sessions error: {e}")
     
     # =============================================
     # SEARCH HISTORY

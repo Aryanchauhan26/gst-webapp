@@ -74,10 +74,12 @@ class DatabaseInitializer:
         # Sessions table
         await self.conn.execute("""
             CREATE TABLE IF NOT EXISTS sessions (
-                token VARCHAR(64) PRIMARY KEY,
+                id SERIAL PRIMARY KEY,
+                token VARCHAR(64) UNIQUE NOT NULL,
                 mobile VARCHAR(10) NOT NULL,
                 expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
                 created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (mobile) REFERENCES users(mobile) ON DELETE CASCADE
             );
         """)
