@@ -651,18 +651,34 @@ async def health_check():
 @app.get("/", response_class=HTMLResponse)
 async def dashboard(request: Request, current_user: str = Depends(require_auth)):
     """Main dashboard page."""
-    user_profile = await db.get_user_profile(current_user)
-    stats = await db.get_user_stats(current_user)
-    recent_searches = await db.get_search_history(current_user, limit=5)
-    
-    context = await get_template_context(request, current_user)
-    context.update({
-        "user_profile": user_profile,
-        "stats": stats,
-        "recent_searches": recent_searches
-    })
-    
-    return templates.TemplateResponse("index.html", context)
+    try:
+        user_profile = await db.get_user_profile(current_user)
+        stats = await db.get_user_stats(current_user)
+        recent_searches = await db.get_search_history(current_user, limit=5)
+        
+        # Calculate searches this month
+        from datetime import datetime
+        current_month = datetime.now().month
+        searches_this_month = len([s for s in recent_searches if s.get('searched_at') and 
+                                 datetime.fromisoformat(str(s['searched_at'])).month == current_month])
+        
+        context = {
+            "request": request,
+            "current_user": current_user,
+            "user_display_name": await get_user_display_name(current_user),
+            "user_profile": user_profile,
+            "stats": stats,
+            "history": recent_searches,
+            "searches_this_month": searches_this_month,
+            "loan_management_enabled": HAS_LOAN_MANAGEMENT,
+            "ai_features_enabled": HAS_AI_FEATURES,
+            "admin_users": config.ADMIN_USERS.split(",") if config.ADMIN_USERS else []
+        }
+        
+        return templates.TemplateResponse("index.html", context)
+    except Exception as e:
+        logger.error(f"Dashboard error: {e}")
+        return RedirectResponse(url="/login", status_code=302)
 
 # =============================================================================
 # AUTHENTICATION ROUTES
@@ -675,7 +691,24 @@ async def login_page(request: Request):
     if user:
         return RedirectResponse(url="/", status_code=302)
     
-    context = await get_template_context(request)
+    # Get error from query params
+    error = None
+    error_param = request.query_params.get("error")
+    if error_param:
+        error_messages = {
+            "missing_fields": "Please fill in all required fields",
+            "invalid_mobile": "Please enter a valid mobile number",
+            "invalid_credentials": "Invalid mobile number or password",
+            "system_error": "System error. Please try again"
+        }
+        error = error_messages.get(error_param, "An error occurred")
+    
+    context = {
+        "request": request,
+        "error": error,
+        "current_user": None
+    }
+    
     return templates.TemplateResponse("login.html", context)
 
 @app.post("/login")
@@ -724,7 +757,30 @@ async def login(request: Request):
 @app.get("/signup", response_class=HTMLResponse)
 async def signup_page(request: Request):
     """Signup page."""
-    context = await get_template_context(request)
+    user = await get_current_user(request)
+    if user:
+        return RedirectResponse(url="/", status_code=302)
+    
+    # Get error from query params
+    error = None
+    error_param = request.query_params.get("error")
+    if error_param:
+        error_messages = {
+            "missing_fields": "Please fill in all required fields",
+            "invalid_mobile": "Please enter a valid mobile number",
+            "password_too_short": "Password must be at least 6 characters",
+            "password_mismatch": "Passwords do not match",
+            "user_exists": "User already exists with this mobile number",
+            "creation_failed": "Account creation failed. Please try again"
+        }
+        error = error_messages.get(error_param, "An error occurred")
+    
+    context = {
+        "request": request,
+        "error": error,
+        "current_user": None
+    }
+    
     return templates.TemplateResponse("signup.html", context)
 
 @app.post("/signup")
@@ -1203,40 +1259,53 @@ async def parse_excel_for_gstins(contents: bytes) -> List[str]:
 @app.get("/history", response_class=HTMLResponse)
 async def history_page(request: Request, current_user: str = Depends(require_auth)):
     """Search history page."""
-    history = await db.get_all_searches(current_user)
-    
-    now = datetime.now()
-    last_30_days = now - timedelta(days=30)
-    searches_this_month = sum(
-        1 for item in history
-        if item.get('searched_at') and item['searched_at'] >= last_30_days
-    )
-    
-    context = await get_template_context(request, current_user)
-    context.update({
-        "history": history,
-        "searches_this_month": searches_this_month
-    })
-    
-    return templates.TemplateResponse("history.html", context)
+    try:
+        history = await db.get_search_history(current_user)
+        
+        # Calculate searches this month
+        from datetime import datetime
+        current_month = datetime.now().month
+        searches_this_month = len([s for s in history if s.get('searched_at') and 
+                                 datetime.fromisoformat(str(s['searched_at'])).month == current_month])
+        
+        context = {
+            "request": request,
+            "current_user": current_user,
+            "user_display_name": await get_user_display_name(current_user),
+            "history": history,
+            "searches_this_month": searches_this_month,
+            "loan_management_enabled": HAS_LOAN_MANAGEMENT,
+            "ai_features_enabled": HAS_AI_FEATURES,
+            "admin_users": config.ADMIN_USERS.split(",") if config.ADMIN_USERS else []
+        }
+        
+        return templates.TemplateResponse("history.html", context)
+    except Exception as e:
+        logger.error(f"History page error: {e}")
+        return RedirectResponse(url="/login", status_code=302)
 
 @app.get("/analytics", response_class=HTMLResponse)
 async def analytics_page(request: Request, current_user: str = Depends(require_auth)):
-    """Analytics dashboard page."""
-    analytics_data = await db.get_analytics_data(current_user)
-    stats = await db.get_user_stats(current_user)
-    
-    context = await get_template_context(request, current_user)
-    context.update({
-        "daily_searches": analytics_data["daily_searches"],
-        "score_distribution": analytics_data["score_distribution"],
-        "top_companies": analytics_data["top_companies"],
-        "total_searches": stats["total_searches"],
-        "unique_companies": stats["unique_companies"],
-        "avg_compliance": stats["avg_compliance"]
-    })
-    
-    return templates.TemplateResponse("analytics.html", context)
+    """Analytics page."""
+    try:
+        stats = await db.get_user_stats(current_user)
+        history = await db.get_search_history(current_user)
+        
+        context = {
+            "request": request,
+            "current_user": current_user,
+            "user_display_name": await get_user_display_name(current_user),
+            "stats": stats,
+            "history": history,
+            "loan_management_enabled": HAS_LOAN_MANAGEMENT,
+            "ai_features_enabled": HAS_AI_FEATURES,
+            "admin_users": config.ADMIN_USERS.split(",") if config.ADMIN_USERS else []
+        }
+        
+        return templates.TemplateResponse("analytics.html", context)
+    except Exception as e:
+        logger.error(f"Analytics page error: {e}")
+        return RedirectResponse(url="/login", status_code=302)
 
 # =============================================================================
 # LOAN ROUTES
@@ -1244,33 +1313,21 @@ async def analytics_page(request: Request, current_user: str = Depends(require_a
 
 @app.get("/loans", response_class=HTMLResponse)
 async def loans_page(request: Request, current_user: str = Depends(require_auth)):
-    """Loans dashboard page"""
+    """Loans page."""
     try:
-        applications = []
-        if loan_manager:
-            applications = await loan_manager.get_user_loan_applications(current_user)
-        
-        loan_config_data = {}
-        if HAS_LOAN_MANAGEMENT and LoanConfig:
-            loan_config_data = {
-                "min_amount": LoanConfig.MIN_LOAN_AMOUNT,
-                "max_amount": LoanConfig.MAX_LOAN_AMOUNT,
-                "min_compliance": LoanConfig.MIN_COMPLIANCE_SCORE,
-                "min_vintage": LoanConfig.MIN_BUSINESS_VINTAGE_MONTHS
-            }
-        
-        context = await get_template_context(request, current_user)
-        context.update({
-            "applications": applications,
-            "loan_config": loan_config_data
-        })
+        context = {
+            "request": request,
+            "current_user": current_user,
+            "user_display_name": await get_user_display_name(current_user),
+            "loan_management_enabled": HAS_LOAN_MANAGEMENT,
+            "ai_features_enabled": HAS_AI_FEATURES,
+            "admin_users": config.ADMIN_USERS.split(",") if config.ADMIN_USERS else []
+        }
         
         return templates.TemplateResponse("loans.html", context)
     except Exception as e:
         logger.error(f"Loans page error: {e}")
-        context = await get_template_context(request, current_user)
-        context["error"] = "Failed to load loan data"
-        return templates.TemplateResponse("loans.html", context)
+        return RedirectResponse(url="/login", status_code=302)
 
 @app.post("/api/loans/eligibility")
 @handle_api_errors

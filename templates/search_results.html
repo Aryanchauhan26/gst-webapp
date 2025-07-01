@@ -1,840 +1,847 @@
-<!DOCTYPE html>
-<html lang="en" data-theme="dark">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% if company_data %}{{ company_data.company_name }} - {% endif %}Search Result - GST Intelligence</title>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="/static/css/base.css">
-    <style>
-        .search-result-container {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 2rem;
-        }
-        
-        .result-header {
-            background: var(--bg-card);
-            border: 1px solid var(--border-primary);
-            border-radius: 20px;
-            padding: 2rem;
-            margin-bottom: 2rem;
-            box-shadow: var(--card-shadow);
-        }
-        
-        .result-breadcrumb {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            color: var(--text-secondary);
-            font-size: 0.875rem;
-            margin-bottom: 1.5rem;
-        }
-        
-        .result-breadcrumb a {
-            color: var(--accent-primary);
-            text-decoration: none;
-        }
-        
-        .result-breadcrumb a:hover {
-            text-decoration: underline;
-        }
-        
-        .gstin-display {
-            font-family: 'Monaco', 'Menlo', monospace;
-            font-size: 1.5rem;
-            font-weight: 700;
-            color: var(--accent-primary);
-            margin-bottom: 1rem;
-            letter-spacing: 2px;
-        }
-        
-        .company-name {
-            font-size: 2rem;
-            font-weight: 700;
-            color: var(--text-primary);
-            margin-bottom: 1rem;
-            line-height: 1.2;
-        }
-        
-        .status-compliance {
-            display: flex;
-            gap: 1rem;
-            align-items: center;
-            flex-wrap: wrap;
-        }
-        
-        .status-badge {
-            padding: 0.5rem 1rem;
-            border-radius: 25px;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            font-size: 0.875rem;
-        }
-        
-        .status-badge.active {
-            background: rgba(34, 197, 94, 0.2);
-            color: #22c55e;
-            border: 1px solid rgba(34, 197, 94, 0.3);
-        }
-        
-        .status-badge.cancelled {
-            background: rgba(239, 68, 68, 0.2);
-            color: #ef4444;
-            border: 1px solid rgba(239, 68, 68, 0.3);
-        }
-        
-        .status-badge.suspended {
-            background: rgba(251, 191, 36, 0.2);
-            color: #fbbf24;
-            border: 1px solid rgba(251, 191, 36, 0.3);
-        }
-        
-        .status-badge.unknown {
-            background: rgba(156, 163, 175, 0.2);
-            color: #9ca3af;
-            border: 1px solid rgba(156, 163, 175, 0.3);
-        }
-        
-        .compliance-score {
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-            background: var(--bg-secondary);
-            padding: 0.75rem 1.25rem;
-            border-radius: 15px;
-            border: 1px solid var(--border-primary);
-        }
-        
-        .score-circle {
-            width: 60px;
-            height: 60px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: 700;
-            font-size: 1.1rem;
-            color: white;
-            position: relative;
-        }
-        
-        .score-circle.high {
-            background: conic-gradient(#22c55e 0deg, #22c55e var(--score-deg), #1f2937 var(--score-deg), #1f2937 360deg);
-        }
-        
-        .score-circle.medium {
-            background: conic-gradient(#fbbf24 0deg, #fbbf24 var(--score-deg), #1f2937 var(--score-deg), #1f2937 360deg);
-        }
-        
-        .score-circle.low {
-            background: conic-gradient(#ef4444 0deg, #ef4444 var(--score-deg), #1f2937 var(--score-deg), #1f2937 360deg);
-        }
-        
-        .score-circle::after {
-            content: '';
-            position: absolute;
-            width: 44px;
-            height: 44px;
-            background: var(--bg-secondary);
-            border-radius: 50%;
-            z-index: -1;
-        }
-        
-        .score-text {
-            color: var(--text-secondary);
-            font-size: 0.875rem;
-        }
-        
-        .result-actions {
-            display: flex;
-            gap: 1rem;
-            margin-top: 1.5rem;
-            flex-wrap: wrap;
-        }
-        
-        .action-btn {
-            padding: 0.75rem 1.5rem;
-            border-radius: 10px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            text-decoration: none;
-            border: none;
-            font-size: 0.875rem;
-        }
-        
-        .action-btn.primary {
-            background: var(--accent-gradient);
-            color: white;
-        }
-        
-        .action-btn.primary:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 10px 30px rgba(99, 102, 241, 0.3);
-        }
-        
-        .action-btn.secondary {
-            background: var(--bg-secondary);
-            color: var(--text-primary);
-            border: 1px solid var(--border-primary);
-        }
-        
-        .action-btn.secondary:hover {
-            background: var(--bg-hover);
-            border-color: var(--accent-primary);
-        }
-        
-        .details-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
-            gap: 2rem;
-            margin-bottom: 2rem;
-        }
-        
-        .detail-card {
-            background: var(--bg-card);
-            border: 1px solid var(--border-primary);
-            border-radius: 16px;
-            padding: 1.5rem;
-            box-shadow: var(--card-shadow);
-        }
-        
-        .detail-card-title {
-            font-size: 1.25rem;
-            font-weight: 600;
-            color: var(--text-primary);
-            margin-bottom: 1.5rem;
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-        }
-        
-        .detail-card-icon {
-            width: 40px;
-            height: 40px;
-            border-radius: 10px;
-            background: var(--accent-gradient);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-        }
-        
-        .detail-row {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 0.75rem 0;
-            border-bottom: 1px solid var(--border-primary);
-        }
-        
-        .detail-row:last-child {
-            border-bottom: none;
-        }
-        
-        .detail-label {
-            color: var(--text-secondary);
-            font-size: 0.875rem;
-            font-weight: 500;
-        }
-        
-        .detail-value {
-            color: var(--text-primary);
-            font-weight: 600;
-            text-align: right;
-        }
-        
-        .detail-value.highlight {
-            color: var(--accent-primary);
-        }
-        
-        .ai-insights {
-            background: var(--bg-card);
-            border: 1px solid var(--border-primary);
-            border-radius: 16px;
-            padding: 1.5rem;
-            margin-bottom: 2rem;
-            box-shadow: var(--card-shadow);
-        }
-        
-        .ai-insights-header {
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-            margin-bottom: 1.5rem;
-        }
-        
-        .ai-icon {
-            width: 50px;
-            height: 50px;
-            border-radius: 12px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-size: 1.5rem;
-        }
-        
-        .ai-insights-title {
-            font-size: 1.5rem;
-            font-weight: 700;
-            color: var(--text-primary);
-        }
-        
-        .ai-insights-content {
-            color: var(--text-secondary);
-            line-height: 1.7;
-            font-size: 1rem;
-        }
-        
-        .insights-list {
-            list-style: none;
-            padding: 0;
-            margin: 1rem 0 0 0;
-        }
-        
-        .insights-list li {
-            padding: 0.75rem 0;
-            display: flex;
-            align-items: flex-start;
-            gap: 0.75rem;
-            color: var(--text-primary);
-            border-bottom: 1px solid var(--border-primary);
-        }
-        
-        .insights-list li:last-child {
-            border-bottom: none;
-        }
-        
-        .insights-list li i {
-            color: var(--accent-primary);
-            margin-top: 0.25rem;
-            width: 16px;
-        }
-        
-        .error-state {
-            background: rgba(239, 68, 68, 0.1);
-            border: 1px solid rgba(239, 68, 68, 0.2);
-            border-radius: 16px;
-            padding: 2rem;
-            text-align: center;
-            color: #ef4444;
-        }
-        
-        .error-icon {
-            font-size: 3rem;
-            margin-bottom: 1rem;
-            opacity: 0.7;
-        }
-        
-        .error-title {
-            font-size: 1.5rem;
-            font-weight: 600;
-            margin-bottom: 0.5rem;
-        }
-        
-        .error-message {
-            margin-bottom: 1.5rem;
-            line-height: 1.6;
-        }
-        
-        .related-searches {
-            background: var(--bg-card);
-            border: 1px solid var(--border-primary);
-            border-radius: 16px;
-            padding: 1.5rem;
-            box-shadow: var(--card-shadow);
-        }
-        
-        .related-title {
-            font-size: 1.25rem;
-            font-weight: 600;
-            color: var(--text-primary);
-            margin-bottom: 1rem;
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-        }
-        
-        .related-list {
-            display: flex;
-            flex-direction: column;
-            gap: 0.75rem;
-        }
-        
-        .related-item {
-            padding: 1rem;
-            background: var(--bg-secondary);
-            border: 1px solid var(--border-primary);
-            border-radius: 10px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            transition: all 0.3s ease;
-            cursor: pointer;
-        }
-        
-        .related-item:hover {
-            background: var(--bg-hover);
-            border-color: var(--accent-primary);
-        }
-        
-        .related-gstin {
-            font-family: 'Monaco', 'Menlo', monospace;
-            font-weight: 600;
-            color: var(--accent-primary);
-        }
-        
-        .related-company {
-            color: var(--text-secondary);
-            font-size: 0.875rem;
-        }
-        
-        .related-score {
-            font-weight: 600;
-            padding: 0.25rem 0.5rem;
-            border-radius: 6px;
-            font-size: 0.75rem;
-        }
-        
-        .related-score.high {
-            background: rgba(34, 197, 94, 0.2);
-            color: #22c55e;
-        }
-        
-        .related-score.medium {
-            background: rgba(251, 191, 36, 0.2);
-            color: #fbbf24;
-        }
-        
-        .related-score.low {
-            background: rgba(239, 68, 68, 0.2);
-            color: #ef4444;
-        }
-        
-        /* Mobile Responsive */
-        @media (max-width: 768px) {
-            .search-result-container {
-                padding: 1rem;
-            }
-            
-            .result-header {
-                padding: 1.5rem;
-            }
-            
-            .company-name {
-                font-size: 1.5rem;
-            }
-            
-            .gstin-display {
-                font-size: 1.2rem;
-                letter-spacing: 1px;
-            }
-            
-            .status-compliance {
-                flex-direction: column;
-                align-items: flex-start;
-                gap: 1rem;
-            }
-            
-            .details-grid {
-                grid-template-columns: 1fr;
-            }
-            
-            .result-actions {
-                flex-direction: column;
-            }
-        }
-    </style>
-</head>
-<body class="page-search-result">
-    <!-- Navigation -->
-    {% include 'components/nav.html' %}
+{% extends "base.html" %}
 
-    <main class="main">
-        <div class="search-result-container">
-            {% if error %}
-            <!-- Error State -->
-            <div class="error-state">
-                <div class="error-icon">
-                    <i class="fas fa-exclamation-triangle"></i>
+{% block title %}Search Results - GST Intelligence Platform{% endblock %}
+
+{% block extra_css %}
+<style>
+.search-header {
+    background: var(--bg-card);
+    border: 1px solid var(--border-primary);
+    border-radius: var(--radius-lg);
+    padding: var(--space-6);
+    margin-bottom: var(--space-6);
+}
+
+.search-summary {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--space-4);
+}
+
+.search-query {
+    font-size: var(--text-lg);
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.search-count {
+    color: var(--text-muted);
+    font-size: var(--text-sm);
+}
+
+.search-filters {
+    display: flex;
+    gap: var(--space-4);
+    flex-wrap: wrap;
+}
+
+.filter-group {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+}
+
+.filter-select {
+    padding: var(--space-2) var(--space-3);
+    border: 1px solid var(--border-primary);
+    border-radius: var(--radius-md);
+    background: var(--bg-input);
+    color: var(--text-primary);
+    font-size: var(--text-sm);
+}
+
+.company-grid {
+    display: grid;
+    gap: var(--space-6);
+}
+
+.company-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-primary);
+    border-radius: var(--radius-lg);
+    padding: var(--space-6);
+    transition: var(--transition);
+}
+
+.company-card:hover {
+    border-color: var(--accent-primary);
+    box-shadow: var(--shadow-md);
+}
+
+.company-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: var(--space-4);
+}
+
+.company-info h3 {
+    color: var(--text-primary);
+    margin-bottom: var(--space-1);
+    font-size: var(--text-lg);
+}
+
+.company-gstin {
+    color: var(--text-muted);
+    font-family: var(--font-mono);
+    font-size: var(--text-sm);
+}
+
+.compliance-badge {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-width: 80px;
+}
+
+.compliance-score {
+    width: 60px;
+    height: 60px;
+    border-radius: var(--radius-full);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: var(--text-lg);
+    color: white;
+    margin-bottom: var(--space-1);
+}
+
+.score-excellent { background: var(--success); }
+.score-good { background: var(--info); }
+.score-average { background: var(--warning); }
+.score-poor { background: var(--error); }
+
+.compliance-label {
+    font-size: var(--text-xs);
+    color: var(--text-muted);
+    text-align: center;
+}
+
+.company-details {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: var(--space-4);
+    margin-bottom: var(--space-4);
+}
+
+.detail-item {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+}
+
+.detail-label {
+    font-size: var(--text-xs);
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.detail-value {
+    color: var(--text-primary);
+    font-weight: 500;
+}
+
+.company-actions {
+    display: flex;
+    gap: var(--space-3);
+    align-items: center;
+    padding-top: var(--space-4);
+    border-top: 1px solid var(--border-primary);
+}
+
+.loan-eligibility-card {
+    background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+    border-radius: var(--radius-lg);
+    padding: var(--space-4);
+    color: white;
+    margin-top: var(--space-4);
+}
+
+.loan-eligible {
+    background: linear-gradient(135deg, var(--success), #16a34a);
+}
+
+.loan-not-eligible {
+    background: linear-gradient(135deg, var(--error), #dc2626);
+}
+
+.loan-card-header {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    margin-bottom: var(--space-3);
+}
+
+.loan-card-content {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: var(--space-3);
+    margin-bottom: var(--space-3);
+}
+
+.loan-detail {
+    text-align: center;
+}
+
+.loan-detail-value {
+    font-size: var(--text-lg);
+    font-weight: 700;
+    margin-bottom: var(--space-1);
+}
+
+.loan-detail-label {
+    font-size: var(--text-xs);
+    opacity: 0.9;
+}
+
+.loan-actions {
+    display: flex;
+    gap: var(--space-2);
+}
+
+.btn-loan {
+    background: rgba(255, 255, 255, 0.2);
+    color: white;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    padding: var(--space-2) var(--space-4);
+    border-radius: var(--radius-md);
+    font-size: var(--text-sm);
+    font-weight: 500;
+    text-decoration: none;
+    transition: var(--transition);
+}
+
+.btn-loan:hover {
+    background: rgba(255, 255, 255, 0.3);
+    color: white;
+}
+
+.pagination {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: var(--space-2);
+    margin-top: var(--space-8);
+}
+
+.pagination-item {
+    padding: var(--space-2) var(--space-3);
+    border: 1px solid var(--border-primary);
+    border-radius: var(--radius-md);
+    background: var(--bg-card);
+    color: var(--text-primary);
+    text-decoration: none;
+    transition: var(--transition);
+}
+
+.pagination-item:hover,
+.pagination-item.active {
+    background: var(--accent-primary);
+    color: white;
+    border-color: var(--accent-primary);
+}
+
+.no-results {
+    text-align: center;
+    padding: var(--space-12);
+    color: var(--text-muted);
+}
+
+.no-results i {
+    font-size: 4rem;
+    margin-bottom: var(--space-4);
+    opacity: 0.5;
+}
+
+@media (max-width: 768px) {
+    .search-summary {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: var(--space-2);
+    }
+    
+    .search-filters {
+        width: 100%;
+    }
+    
+    .filter-group {
+        flex: 1;
+        min-width: 120px;
+    }
+    
+    .company-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: var(--space-3);
+    }
+    
+    .company-actions {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
+    .loan-card-content {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    
+    .loan-actions {
+        flex-direction: column;
+    }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <!-- Search Header -->
+    <div class="search-header">
+        <div class="search-summary">
+            <div>
+                <div class="search-query">
+                    Search Results for "{{ search_query }}"
                 </div>
-                <div class="error-title">Search Failed</div>
-                <div class="error-message">{{ error }}</div>
-                <a href="/" class="action-btn primary">
+                <div class="search-count">
+                    Found {{ total_results }} companies
+                </div>
+            </div>
+            <div>
+                <a href="/" class="btn btn--secondary">
                     <i class="fas fa-search"></i>
-                    Try Another Search
+                    New Search
                 </a>
             </div>
-            {% else %}
-            <!-- Success State -->
-            <div class="result-header">
-                <div class="result-breadcrumb">
-                    <a href="/"><i class="fas fa-home"></i> Dashboard</a>
-                    <i class="fas fa-chevron-right"></i>
-                    <span>Search Result</span>
+        </div>
+        
+        <!-- Search Filters -->
+        <div class="search-filters">
+            <div class="filter-group">
+                <label>Sort by:</label>
+                <select class="filter-select" id="sortFilter">
+                    <option value="relevance">Relevance</option>
+                    <option value="compliance_score">Compliance Score</option>
+                    <option value="company_name">Company Name</option>
+                    <option value="registration_date">Registration Date</option>
+                </select>
+            </div>
+            
+            <div class="filter-group">
+                <label>Status:</label>
+                <select class="filter-select" id="statusFilter">
+                    <option value="">All Status</option>
+                    <option value="active">Active</option>
+                    <option value="inactive">Inactive</option>
+                    <option value="suspended">Suspended</option>
+                </select>
+            </div>
+            
+            <div class="filter-group">
+                <label>State:</label>
+                <select class="filter-select" id="stateFilter">
+                    <option value="">All States</option>
+                    {% for state in available_states %}
+                    <option value="{{ state.code }}">{{ state.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+    </div>
+
+    <!-- Results Grid -->
+    <div class="company-grid" id="resultsContainer">
+        {% for company in companies %}
+        <div class="company-card" data-gstin="{{ company.gstin }}">
+            <div class="company-header">
+                <div class="company-info">
+                    <h3>{{ company.company_name }}</h3>
+                    <div class="company-gstin">{{ company.gstin }}</div>
                 </div>
                 
-                <div class="gstin-display">{{ company_data.gstin }}</div>
-                <div class="company-name">{{ company_data.company_name or 'Unknown Company' }}</div>
+                <div class="compliance-badge">
+                    <div class="compliance-score score-{{ 'excellent' if company.compliance_score >= 90 else 'good' if company.compliance_score >= 75 else 'average' if company.compliance_score >= 60 else 'poor' }}">
+                        {{ company.compliance_score }}%
+                    </div>
+                    <div class="compliance-label">Compliance Score</div>
+                </div>
+            </div>
+            
+            <div class="company-details">
+                <div class="detail-item">
+                    <span class="detail-label">Registration Date</span>
+                    <span class="detail-value">{{ company.registration_date.strftime('%d %b %Y') if company.registration_date else 'N/A' }}</span>
+                </div>
                 
-                <div class="status-compliance">
-                    <div class="status-badge {{ company_data.status.lower() if company_data.status else 'unknown' }}">
-                        <i class="fas fa-{{ 'check-circle' if company_data.status == 'Active' else 'times-circle' if company_data.status == 'Cancelled' else 'pause-circle' if company_data.status == 'Suspended' else 'question-circle' }}"></i>
-                        {{ company_data.status or 'Unknown' }}
+                <div class="detail-item">
+                    <span class="detail-label">Business Type</span>
+                    <span class="detail-value">{{ company.business_type or 'N/A' }}</span>
+                </div>
+                
+                <div class="detail-item">
+                    <span class="detail-label">Status</span>
+                    <span class="detail-value">
+                        <span class="badge badge--{{ 'success' if company.status == 'Active' else 'error' if company.status == 'Cancelled' else 'warning' }}">
+                            {{ company.status }}
+                        </span>
+                    </span>
+                </div>
+                
+                <div class="detail-item">
+                    <span class="detail-label">State</span>
+                    <span class="detail-value">{{ company.state_name or 'N/A' }}</span>
+                </div>
+            </div>
+            
+            <!-- Loan Eligibility Card -->
+            {% if loan_management_enabled %}
+            <div class="loan-eligibility-card {{ 'loan-eligible' if company.compliance_score >= 60 else 'loan-not-eligible' }}">
+                <div class="loan-card-header">
+                    <i class="fas fa-{{ 'check-circle' if company.compliance_score >= 60 else 'times-circle' }}"></i>
+                    <span>
+                        {% if company.compliance_score >= 60 %}
+                            Loan Eligible
+                        {% else %}
+                            Not Eligible
+                        {% endif %}
+                    </span>
+                </div>
+                
+                {% if company.compliance_score >= 60 %}
+                <div class="loan-card-content">
+                    <div class="loan-detail">
+                        <div class="loan-detail-value">
+                            ₹{{ (50 if company.compliance_score >= 80 else 30 if company.compliance_score >= 70 else 15) }}L
+                        </div>
+                        <div class="loan-detail-label">Max Amount</div>
                     </div>
                     
-                    <div class="compliance-score">
-                        <div class="score-circle {{ 'high' if company_data.compliance_score >= 80 else 'medium' if company_data.compliance_score >= 50 else 'low' }}"
-                             style="--score-deg: {{ (company_data.compliance_score or 0) * 3.6 }}deg;">
-                            {{ company_data.compliance_score or 0 }}%
+                    <div class="loan-detail">
+                        <div class="loan-detail-value">
+                            {{ 12 if company.compliance_score >= 80 else 15 if company.compliance_score >= 70 else 18 }}%
                         </div>
-                        <div class="score-text">
-                            Compliance Score<br>
-                            <strong>{{ 'Excellent' if company_data.compliance_score >= 80 else 'Good' if company_data.compliance_score >= 60 else 'Fair' if company_data.compliance_score >= 40 else 'Poor' }}</strong>
-                        </div>
+                        <div class="loan-detail-label">Interest Rate</div>
+                    </div>
+                    
+                    <div class="loan-detail">
+                        <div class="loan-detail-value">24-48hrs</div>
+                        <div class="loan-detail-label">Approval</div>
                     </div>
                 </div>
                 
-                <div class="result-actions">
-                    <button class="action-btn primary" onclick="generatePDF()">
-                        <i class="fas fa-file-pdf"></i>
-                        Download PDF
+                <div class="loan-actions">
+                    <button onclick="checkLoanEligibility('{{ company.gstin }}')" class="btn-loan">
+                        <i class="fas fa-calculator"></i>
+                        Check Eligibility
                     </button>
-                    <button class="action-btn secondary" onclick="shareResult()">
-                        <i class="fas fa-share"></i>
-                        Share Result
-                    </button>
-                    <button class="action-btn secondary" onclick="saveToHistory()">
-                        <i class="fas fa-bookmark"></i>
-                        Save to History
-                    </button>
-                    <a href="/" class="action-btn secondary">
-                        <i class="fas fa-search"></i>
-                        New Search
+                    <a href="/loans/apply?gstin={{ company.gstin }}" class="btn-loan">
+                        <i class="fas fa-arrow-right"></i>
+                        Apply Now
                     </a>
                 </div>
+                {% else %}
+                <p style="margin: 0; font-size: var(--text-sm); opacity: 0.9;">
+                    Minimum 60% compliance score required for loan eligibility.
+                    <br>Current score: {{ company.compliance_score }}%
+                </p>
+                {% endif %}
             </div>
+            {% endif %}
+            
+            <div class="company-actions">
+                <a href="/company/{{ company.gstin }}" class="btn btn--primary">
+                    <i class="fas fa-eye"></i>
+                    View Details
+                </a>
+                
+                <button onclick="saveToHistory('{{ company.gstin }}')" class="btn btn--secondary">
+                    <i class="fas fa-bookmark"></i>
+                    Save
+                </button>
+                
+                <button onclick="downloadReport('{{ company.gstin }}')" class="btn btn--outline">
+                    <i class="fas fa-download"></i>
+                    Report
+                </button>
+                
+                <button onclick="shareCompany('{{ company.gstin }}')" class="btn btn--outline">
+                    <i class="fas fa-share"></i>
+                    Share
+                </button>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
 
-            <!-- Details Grid -->
-            <div class="details-grid">
-                <!-- Basic Information -->
-                <div class="detail-card">
-                    <div class="detail-card-title">
-                        <div class="detail-card-icon">
-                            <i class="fas fa-info-circle"></i>
-                        </div>
-                        Basic Information
-                    </div>
-                    
-                    <div class="detail-row">
-                        <span class="detail-label">GSTIN</span>
-                        <span class="detail-value highlight">{{ company_data.gstin }}</span>
-                    </div>
-                    
-                    <div class="detail-row">
-                        <span class="detail-label">Trade Name</span>
-                        <span class="detail-value">{{ company_data.company_name or 'Not Available' }}</span>
-                    </div>
-                    
-                    <div class="detail-row">
-                        <span class="detail-label">Status</span>
-                        <span class="detail-value">{{ company_data.status or 'Unknown' }}</span>
-                    </div>
-                    
-                    <div class="detail-row">
-                        <span class="detail-label">Registration Date</span>
-                        <span class="detail-value">{{ company_data.registration_date or 'Not Available' }}</span>
-                    </div>
-                    
-                    <div class="detail-row">
-                        <span class="detail-label">Business Type</span>
-                        <span class="detail-value">{{ company_data.business_type or 'Not Available' }}</span>
-                    </div>
+    <!-- No Results State -->
+    {% if not companies %}
+    <div class="no-results">
+        <i class="fas fa-search"></i>
+        <h3>No Companies Found</h3>
+        <p>Try adjusting your search criteria or filters</p>
+        <a href="/" class="btn btn--primary">
+            Start New Search
+        </a>
+    </div>
+    {% endif %}
+
+    <!-- Pagination -->
+    {% if total_pages > 1 %}
+    <div class="pagination">
+        {% if current_page > 1 %}
+            <a href="?page={{ current_page - 1 }}&q={{ search_query }}" class="pagination-item">
+                <i class="fas fa-chevron-left"></i>
+            </a>
+        {% endif %}
+        
+        {% for page in range(1, total_pages + 1) %}
+            {% if page == current_page %}
+                <span class="pagination-item active">{{ page }}</span>
+            {% elif page <= 3 or page >= total_pages - 2 or (current_page - 2 <= page <= current_page + 2) %}
+                <a href="?page={{ page }}&q={{ search_query }}" class="pagination-item">{{ page }}</a>
+            {% elif page == 4 and current_page > 6 %}
+                <span class="pagination-item">...</span>
+            {% elif page == total_pages - 3 and current_page < total_pages - 5 %}
+                <span class="pagination-item">...</span>
+            {% endif %}
+        {% endfor %}
+        
+        {% if current_page < total_pages %}
+            <a href="?page={{ current_page + 1 }}&q={{ search_query }}" class="pagination-item">
+                <i class="fas fa-chevron-right"></i>
+            </a>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
+
+<!-- Loan Eligibility Modal -->
+<div id="loanEligibilityModal" class="modal">
+    <div class="modal-overlay"></div>
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Loan Eligibility Details</h3>
+            <button type="button" class="modal-close">&times;</button>
+        </div>
+        <div class="modal-body" id="loanEligibilityContent">
+            <!-- Content will be populated dynamically -->
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn--secondary" onclick="closeLoanModal()">Close</button>
+            <a href="#" id="applyLoanBtn" class="btn btn--primary">Apply for Loan</a>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    initializeSearchResults();
+    setupFilters();
+});
+
+function initializeSearchResults() {
+    // Setup search result interactions
+    setupCompanyCards();
+    setupPagination();
+}
+
+function setupFilters() {
+    const sortFilter = document.getElementById('sortFilter');
+    const statusFilter = document.getElementById('statusFilter');
+    const stateFilter = document.getElementById('stateFilter');
+    
+    [sortFilter, statusFilter, stateFilter].forEach(filter => {
+        if (filter) {
+            filter.addEventListener('change', applyFilters);
+        }
+    });
+}
+
+function applyFilters() {
+    const sortBy = document.getElementById('sortFilter')?.value || 'relevance';
+    const status = document.getElementById('statusFilter')?.value || '';
+    const state = document.getElementById('stateFilter')?.value || '';
+    
+    const urlParams = new URLSearchParams(window.location.search);
+    const currentQuery = urlParams.get('q') || '';
+    
+    // Build new URL with filters
+    const newParams = new URLSearchParams();
+    newParams.set('q', currentQuery);
+    newParams.set('sort', sortBy);
+    if (status) newParams.set('status', status);
+    if (state) newParams.set('state', state);
+    newParams.set('page', '1'); // Reset to first page
+    
+    window.location.href = `${window.location.pathname}?${newParams.toString()}`;
+}
+
+function setupCompanyCards() {
+    const companyCards = document.querySelectorAll('.company-card');
+    
+    companyCards.forEach(card => {
+        // Add click tracking
+        card.addEventListener('click', function(e) {
+            if (!e.target.closest('.company-actions') && !e.target.closest('.loan-eligibility-card')) {
+                const gstin = this.dataset.gstin;
+                window.location.href = `/company/${gstin}`;
+            }
+        });
+        
+        // Add hover effects
+        card.addEventListener('mouseenter', function() {
+            this.style.transform = 'translateY(-2px)';
+        });
+        
+        card.addEventListener('mouseleave', function() {
+            this.style.transform = 'translateY(0)';
+        });
+    });
+}
+
+async function checkLoanEligibility(gstin) {
+    try {
+        window.showLoading && window.showLoading('Checking loan eligibility...');
+        
+        const response = await fetch('/api/loans/eligibility', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ gstin })
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            showLoanEligibilityModal(result);
+        } else {
+            alert(result.error || 'Failed to check eligibility');
+        }
+    } catch (error) {
+        console.error('Eligibility check failed:', error);
+        alert('Failed to check loan eligibility. Please try again.');
+    } finally {
+        window.hideLoading && window.hideLoading();
+    }
+}
+
+function showLoanEligibilityModal(data) {
+    const modal = document.getElementById('loanEligibilityModal');
+    const content = document.getElementById('loanEligibilityContent');
+    const applyBtn = document.getElementById('applyLoanBtn');
+    
+    if (data.eligible) {
+        content.innerHTML = `
+            <div class="eligibility-result eligible">
+                <div style="text-align: center; margin-bottom: 2rem;">
+                    <i class="fas fa-check-circle" style="font-size: 3rem; color: var(--success); margin-bottom: 1rem;"></i>
+                    <h4 style="color: var(--success); margin-bottom: 0.5rem;">Congratulations!</h4>
+                    <p style="color: var(--text-muted);">This company is eligible for a business loan</p>
                 </div>
                 
-                <!-- Location & Address -->
-                <div class="detail-card">
-                    <div class="detail-card-title">
-                        <div class="detail-card-icon">
-                            <i class="fas fa-map-marker-alt"></i>
+                <div class="eligibility-details">
+                    <div class="detail-grid" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 1.5rem; margin-bottom: 2rem;">
+                        <div class="detail-card" style="background: var(--bg-secondary); padding: 1rem; border-radius: 8px; text-align: center;">
+                            <div style="font-size: 1.5rem; font-weight: 700; color: var(--accent-primary); margin-bottom: 0.5rem;">
+                                ₹${data.max_loan_amount.toLocaleString()}
+                            </div>
+                            <div style="font-size: 0.875rem; color: var(--text-muted);">Maximum Loan Amount</div>
                         </div>
-                        Location Details
-                    </div>
-                    
-                    <div class="detail-row">
-                        <span class="detail-label">State</span>
-                        <span class="detail-value">{{ company_data.state or 'Not Available' }}</span>
-                    </div>
-                    
-                    <div class="detail-row">
-                        <span class="detail-label">Address</span>
-                        <span class="detail-value">{{ company_data.address or 'Not Available' }}</span>
-                    </div>
-                    
-                    <div class="detail-row">
-                        <span class="detail-label">Jurisdiction</span>
-                        <span class="detail-value">{{ company_data.jurisdiction or 'Not Available' }}</span>
-                    </div>
-                    
-                    <div class="detail-row">
-                        <span class="detail-label">Center Jurisdiction</span>
-                        <span class="detail-value">{{ company_data.center_jurisdiction or 'Not Available' }}</span>
-                    </div>
-                    
-                    <div class="detail-row">
-                        <span class="detail-label">State Jurisdiction</span>
-                        <span class="detail-value">{{ company_data.state_jurisdiction or 'Not Available' }}</span>
-                    </div>
-                </div>
-                
-                <!-- Compliance Analysis -->
-                <div class="detail-card">
-                    <div class="detail-card-title">
-                        <div class="detail-card-icon">
-                            <i class="fas fa-shield-alt"></i>
+                        
+                        <div class="detail-card" style="background: var(--bg-secondary); padding: 1rem; border-radius: 8px; text-align: center;">
+                            <div style="font-size: 1.5rem; font-weight: 700; color: var(--accent-primary); margin-bottom: 0.5rem;">
+                                ${data.interest_rate}% p.a.
+                            </div>
+                            <div style="font-size: 0.875rem; color: var(--text-muted);">Interest Rate</div>
                         </div>
-                        Compliance Analysis
+                        
+                        <div class="detail-card" style="background: var(--bg-secondary); padding: 1rem; border-radius: 8px; text-align: center;">
+                            <div style="font-size: 1.5rem; font-weight: 700; color: var(--accent-primary); margin-bottom: 0.5rem;">
+                                ${data.compliance_score}%
+                            </div>
+                            <div style="font-size: 0.875rem; color: var(--text-muted);">Compliance Score</div>
+                        </div>
+                        
+                        <div class="detail-card" style="background: var(--bg-secondary); padding: 1rem; border-radius: 8px; text-align: center;">
+                            <div style="font-size: 1.5rem; font-weight: 700; color: var(--accent-primary); margin-bottom: 0.5rem;">
+                                24-48 hrs
+                            </div>
+                            <div style="font-size: 0.875rem; color: var(--text-muted);">Processing Time</div>
+                        </div>
                     </div>
                     
-                    <div class="detail-row">
-                        <span class="detail-label">Compliance Score</span>
-                        <span class="detail-value highlight">{{ company_data.compliance_score or 0 }}%</span>
-                    </div>
-                    
-                    <div class="detail-row">
-                        <span class="detail-label">Risk Level</span>
-                        <span class="detail-value">
-                            {{ 'Low' if company_data.compliance_score >= 80 else 'Medium' if company_data.compliance_score >= 50 else 'High' }}
-                        </span>
-                    </div>
-                    
-                    <div class="detail-row">
-                        <span class="detail-label">Last Updated</span>
-                        <span class="detail-value">{{ company_data.last_updated.strftime('%d %b %Y') if company_data.last_updated else 'Recently' }}</span>
-                    </div>
-                    
-                    <div class="detail-row">
-                        <span class="detail-label">Data Source</span>
-                        <span class="detail-value">GST Portal</span>
-                    </div>
-                    
-                    <div class="detail-row">
-                        <span class="detail-label">Verification</span>
-                        <span class="detail-value">
-                            <i class="fas fa-check-circle" style="color: var(--success);"></i>
-                            Verified
-                        </span>
+                    <div style="background: var(--info-light); padding: 1rem; border-radius: 8px; border-left: 4px solid var(--info);">
+                        <h5 style="color: var(--info); margin-bottom: 0.5rem;">Key Benefits:</h5>
+                        <ul style="margin: 0; padding-left: 1.5rem; color: var(--text-primary);">
+                            <li>No collateral required</li>
+                            <li>Quick approval process</li>
+                            <li>Flexible repayment options</li>
+                            <li>Competitive interest rates</li>
+                        </ul>
                     </div>
                 </div>
             </div>
-
-            <!-- AI Insights -->
-            {% if ai_insights %}
-            <div class="ai-insights">
-                <div class="ai-insights-header">
-                    <div class="ai-icon">
-                        <i class="fas fa-brain"></i>
-                    </div>
-                    <div>
-                        <div class="ai-insights-title">AI-Powered Insights</div>
-                        <div style="color: var(--text-secondary); font-size: 0.875rem;">
-                            Intelligent analysis based on compliance patterns
-                        </div>
-                    </div>
+        `;
+        
+        applyBtn.href = `/loans/apply?gstin=${data.gstin}`;
+        applyBtn.style.display = 'inline-flex';
+    } else {
+        content.innerHTML = `
+            <div class="eligibility-result not-eligible">
+                <div style="text-align: center; margin-bottom: 2rem;">
+                    <i class="fas fa-times-circle" style="font-size: 3rem; color: var(--error); margin-bottom: 1rem;"></i>
+                    <h4 style="color: var(--error); margin-bottom: 0.5rem;">Not Eligible</h4>
+                    <p style="color: var(--text-muted);">This company doesn't meet current loan criteria</p>
                 </div>
                 
-                <div class="ai-insights-content">
-                    <p>{{ ai_insights.summary or 'AI analysis provides comprehensive insights into this business entity.' }}</p>
-                    
-                    <ul class="insights-list">
-                        {% for insight in ai_insights.points or [] %}
-                        <li>
-                            <i class="fas fa-lightbulb"></i>
-                            <span>{{ insight }}</span>
+                <div style="background: var(--error-light); padding: 1rem; border-radius: 8px; border-left: 4px solid var(--error); margin-bottom: 1.5rem;">
+                    <p style="color: var(--error); margin: 0;">${data.reason || 'Compliance score below minimum requirement'}</p>
+                </div>
+                
+                <div>
+                    <h5 style="margin-bottom: 1rem;">Requirements for Eligibility:</h5>
+                    <ul style="margin: 0; padding-left: 1.5rem;">
+                        <li style="color: ${data.requirements_met?.min_compliance_score ? 'var(--success)' : 'var(--error)'};">
+                            <i class="fas fa-${data.requirements_met?.min_compliance_score ? 'check' : 'times'}"></i>
+                            Minimum 60% compliance score
                         </li>
-                        {% else %}
-                        <li>
-                            <i class="fas fa-info-circle"></i>
-                            <span>This entity shows {{ 'strong' if company_data.compliance_score >= 80 else 'moderate' if company_data.compliance_score >= 50 else 'concerning' }} compliance indicators.</span>
+                        <li style="color: ${data.requirements_met?.active_gst_status ? 'var(--success)' : 'var(--error)'};">
+                            <i class="fas fa-${data.requirements_met?.active_gst_status ? 'check' : 'times'}"></i>
+                            Active GST status
                         </li>
-                        <li>
-                            <i class="fas fa-chart-line"></i>
-                            <span>{{ 'Recommended for business partnerships' if company_data.compliance_score >= 70 else 'Consider additional due diligence' if company_data.compliance_score >= 40 else 'Exercise caution in business dealings' }}.</span>
+                        <li style="color: ${data.requirements_met?.regular_filing ? 'var(--success)' : 'var(--error)'};">
+                            <i class="fas fa-${data.requirements_met?.regular_filing ? 'check' : 'times'}"></i>
+                            Regular filing history
                         </li>
-                        <li>
-                            <i class="fas fa-clock"></i>
-                            <span>Monitor compliance status regularly for any changes.</span>
+                        <li style="color: ${data.requirements_met?.business_vintage ? 'var(--success)' : 'var(--error)'};">
+                            <i class="fas fa-${data.requirements_met?.business_vintage ? 'check' : 'times'}"></i>
+                            Minimum 6 months business vintage
                         </li>
-                        {% endfor %}
                     </ul>
                 </div>
             </div>
-            {% endif %}
-
-            <!-- Related Searches -->
-            {% if recent_searches %}
-            <div class="related-searches">
-                <div class="related-title">
-                    <i class="fas fa-history"></i>
-                    Your Recent Searches
-                </div>
-                
-                <div class="related-list">
-                    {% for search in recent_searches[:5] %}
-                    <div class="related-item" onclick="searchGSTIN('{{ search.gstin }}')">
-                        <div>
-                            <div class="related-gstin">{{ search.gstin }}</div>
-                            <div class="related-company">{{ search.company_name or 'Unknown Company' }}</div>
-                        </div>
-                        <div class="related-score {{ 'high' if search.compliance_score >= 80 else 'medium' if search.compliance_score >= 50 else 'low' }}">
-                            {{ search.compliance_score or 0 }}%
-                        </div>
-                    </div>
-                    {% endfor %}
-                </div>
-            </div>
-            {% endif %}
-            {% endif %}
-        </div>
-    </main>
-
-    <!-- Scripts -->
-    <script src="/static/js/app.js"></script>
-    <script src="/static/js/missing-implementations.js"></script>
-    <script src="/static/js/integration-fixes.js"></script>
+        `;
+        
+        applyBtn.style.display = 'none';
+    }
     
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            // Add search result to recent searches
-            {% if company_data and not error %}
-            addToRecentSearches('{{ company_data.gstin }}');
-            {% endif %}
+    modal.classList.add('active');
+}
+
+function closeLoanModal() {
+    const modal = document.getElementById('loanEligibilityModal');
+    modal.classList.remove('active');
+}
+
+function saveToHistory(gstin) {
+    fetch('/api/save-to-history', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ gstin })
+    })
+    .then(response => response.json())
+    .then(result => {
+        if (result.success) {
+            showNotification('Company saved to history', 'success');
+        } else {
+            showNotification('Failed to save company', 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Save failed:', error);
+        showNotification('Failed to save company', 'error');
+    });
+}
+
+async function downloadReport(gstin) {
+    try {
+        window.showLoading && window.showLoading('Generating report...');
+        
+        const response = await fetch(`/api/download-report/${gstin}`);
+        
+        if (response.ok) {
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${gstin}_report.pdf`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+        } else {
+            throw new Error('Failed to generate report');
+        }
+    } catch (error) {
+        console.error('Download failed:', error);
+        showNotification('Failed to download report', 'error');
+    } finally {
+        window.hideLoading && window.hideLoading();
+    }
+}
+
+function shareCompany(gstin) {
+    const url = `${window.location.origin}/company/${gstin}`;
+    
+    if (navigator.share) {
+        navigator.share({
+            title: 'GST Company Details',
+            text: `Check out this company's GST details: ${gstin}`,
+            url: url
         });
+    } else {
+        // Fallback to clipboard
+        navigator.clipboard.writeText(url).then(() => {
+            showNotification('Company link copied to clipboard', 'success');
+        }).catch(() => {
+            showNotification('Failed to copy link', 'error');
+        });
+    }
+}
 
-        function addToRecentSearches(gstin) {
-            if (!gstin) return;
-            
-            let recent = JSON.parse(localStorage.getItem('recentGSTINSearches') || '[]');
-            recent = recent.filter(item => item !== gstin);
-            recent.unshift(gstin);
-            recent = recent.slice(0, 10);
-            
-            localStorage.setItem('recentGSTINSearches', JSON.stringify(recent));
+function showNotification(message, type = 'info') {
+    // Create notification element
+    const notification = document.createElement('div');
+    notification.className = `notification notification--${type}`;
+    notification.innerHTML = `
+        <div class="notification-content">
+            <i class="fas fa-${type === 'success' ? 'check-circle' : type === 'error' ? 'exclamation-circle' : 'info-circle'}"></i>
+            <span>${message}</span>
+        </div>
+        <button class="notification-close">&times;</button>
+    `;
+    
+    // Add to page
+    document.body.appendChild(notification);
+    
+    // Auto remove after 5 seconds
+    setTimeout(() => {
+        if (notification.parentNode) {
+            notification.parentNode.removeChild(notification);
         }
+    }, 5000);
+    
+    // Close button functionality
+    notification.querySelector('.notification-close').addEventListener('click', () => {
+        if (notification.parentNode) {
+            notification.parentNode.removeChild(notification);
+        }
+    });
+}
 
-        async function generatePDF() {
-            try {
-                if (window.gstApp) {
-                    window.gstApp.showLoading('Generating PDF report...');
-                }
-                
-                const gstin = '{{ company_data.gstin if company_data else "" }}';
-                const response = await fetch(`/generate-pdf?gstin=${gstin}`);
-                
-                if (response.ok) {
-                    const blob = await response.blob();
-                    const url = window.URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.download = `GST_Report_${gstin}_${new Date().toISOString().split('T')[0]}.pdf`;
-                    document.body.appendChild(a);
-                    a.click();
-                    document.body.removeChild(a);
-                    window.URL.revokeObjectURL(url);
-                    
-                    if (window.notificationManager) {
-                        window.notificationManager.showSuccess('PDF report generated successfully');
-                    }
-                } else {
-                    throw new Error('PDF generation failed');
-                }
-            } catch (error) {
-                console.error('PDF generation error:', error);
-                if (window.notificationManager) {
-                    window.notificationManager.showError('Failed to generate PDF report');
-                }
-            } finally {
-                if (window.gstApp) {
-                    window.gstApp.hideLoading();
-                }
-            }
-        }
+// Close modal when clicking overlay
+document.addEventListener('click', function(e) {
+    if (e.target.classList.contains('modal-overlay')) {
+        closeLoanModal();
+    }
+});
 
-        function shareResult() {
-            const gstin = '{{ company_data.gstin if company_data else "" }}';
-            const companyName = '{{ company_data.company_name if company_data else "" }}';
-            const url = window.location.href;
-            
-            if (navigator.share) {
-                navigator.share({
-                    title: `GST Report - ${companyName}`,
-                    text: `GST compliance report for ${gstin}`,
-                    url: url
-                }).catch(err => console.log('Share failed:', err));
-            } else {
-                // Fallback - copy to clipboard
-                navigator.clipboard.writeText(url).then(() => {
-                    if (window.notificationManager) {
-                        window.notificationManager.showSuccess('Link copied to clipboard');
-                    }
-                }).catch(() => {
-                    if (window.notificationManager) {
-                        window.notificationManager.showError('Failed to copy link');
-                    }
-                });
-            }
-        }
-
-        async function saveToHistory() {
-            try {
-                const gstin = '{{ company_data.gstin if company_data else "" }}';
-                const response = await fetch('/api/search/save', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        gstin: gstin,
-                        save_to_history: true
-                    })
-                });
-                
-                if (response.ok) {
-                    if (window.notificationManager) {
-                        window.notificationManager.showSuccess('Saved to search history');
-                    }
-                } else {
-                    throw new Error('Save failed');
-                }
-            } catch (error) {
-                console.error('Save error:', error);
-                if (window.notificationManager) {
-                    window.notificationManager.showError('Failed to save to history');
-                }
-            }
-        }
-
-        function searchGSTIN(gstin) {
-            const form = document.createElement('form');
-            form.method = 'POST';
-            form.action = '/search';
-            
-            const input = document.createElement('input');
-            input.type = 'hidden';
-            input.name = 'gstin';
-            input.value = gstin;
-            
-            form.appendChild(input);
-            document.body.appendChild(form);
-            form.submit();
-        }
-    </script>
-</body>
-</html>
+// Close modal with Escape key
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        closeLoanModal();
+    }
+});
+</script>
+{% endblock %}

@@ -29,6 +29,127 @@
     <!-- Core Styles -->
     <link rel="stylesheet" href="/static/css/base.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+
+    <style>
+.flash-messages {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 10000;
+    max-width: 400px;
+}
+
+.flash-message {
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    margin-bottom: 10px;
+    border-left: 4px solid;
+    animation: slideIn 0.3s ease-out;
+}
+
+.flash-message--success {
+    border-left-color: #10b981;
+}
+
+.flash-message--error {
+    border-left-color: #ef4444;
+}
+
+.flash-message--warning {
+    border-left-color: #f59e0b;
+}
+
+.flash-message--info {
+    border-left-color: #3b82f6;
+}
+
+.flash-content {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+}
+
+.flash-text {
+    flex: 1;
+    color: #374151;
+    font-size: 14px;
+}
+
+.flash-close {
+    background: none;
+    border: none;
+    color: #6b7280;
+    cursor: pointer;
+    padding: 4px;
+    margin-left: 12px;
+}
+
+.flash-close:hover {
+    color: #374151;
+}
+
+@keyframes slideIn {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+/* Skip link styling */
+.skip-link {
+    position: absolute;
+    top: -40px;
+    left: 6px;
+    background: #000;
+    color: #fff;
+    padding: 8px;
+    text-decoration: none;
+    z-index: 10001;
+}
+
+.skip-link:focus {
+    top: 6px;
+}
+
+/* Loading overlay improvements */
+.loading-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(255, 255, 255, 0.9);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+}
+
+.loading-spinner {
+    text-align: center;
+}
+
+.spinner {
+    width: 40px;
+    height: 40px;
+    border: 3px solid #f3f4f6;
+    border-top: 3px solid #7c3aed;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin: 0 auto 12px;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+</style>
     
     <!-- Block for additional styles -->
     {% block extra_css %}{% endblock %}
@@ -62,103 +183,8 @@
         </div>
     </div>
     
-    <!-- Navigation -->
-    <nav class="navbar" role="navigation" aria-label="Main navigation">
-        <div class="navbar-container">
-            <!-- Logo and Brand -->
-            <div class="navbar-brand">
-                <a href="/" class="brand-link" aria-label="GST Intelligence Platform Home">
-                    <div class="brand-icon">
-                        <i class="fas fa-chart-line"></i>
-                    </div>
-                    <span class="brand-text">GST Intelligence</span>
-                </a>
-            </div>
-            
-            <!-- Mobile Menu Toggle -->
-            <button class="navbar-toggle" type="button" aria-label="Toggle navigation menu" aria-expanded="false">
-                <span class="hamburger-line"></span>
-                <span class="hamburger-line"></span>
-                <span class="hamburger-line"></span>
-            </button>
-            
-            <!-- Navigation Links -->
-            <div class="navbar-menu">
-                <div class="navbar-nav">
-                    <a href="/" class="nav-link {{ 'active' if request.endpoint == 'dashboard' else '' }}">
-                        <i class="fas fa-home"></i>
-                        <span>Dashboard</span>
-                    </a>
-                    <a href="/history" class="nav-link {{ 'active' if request.endpoint == 'history_page' else '' }}">
-                        <i class="fas fa-history"></i>
-                        <span>History</span>
-                    </a>
-                    <a href="/analytics" class="nav-link {{ 'active' if request.endpoint == 'analytics_page' else '' }}">
-                        <i class="fas fa-chart-bar"></i>
-                        <span>Analytics</span>
-                    <a href="/loans" 
-                       class="nav__link {% if request.url.path == '/loans' %}nav__link--active{% endif %}"
-                       {% if request.url.path == '/loans' %}aria-current="page"{% endif %}>
-                        <i class="fas fa-coins" aria-hidden="true"></i>
-                        <span>Loans</span>
-                    </a>
-                </div>
-                
-                <!-- User Menu -->
-                <div class="navbar-user">
-                    <div class="user-menu-trigger" role="button" tabindex="0" aria-label="User menu">
-                        <div class="user-avatar">
-                            <i class="fas fa-user"></i>
-                        </div>
-                        <span class="user-name">{{ user_display_name or 'User' }}</span>
-                        <i class="fas fa-chevron-down user-menu-arrow"></i>
-                    </div>
-                    
-                    <!-- User Dropdown Menu -->
-                    <div class="user-dropdown" role="menu">
-                        <div class="dropdown-header">
-                            <div class="user-info">
-                                <div class="user-name-display">{{ user_display_name or 'User' }}</div>
-                                <div class="user-mobile">{{ current_user }}</div>
-                            </div>
-                        </div>
-                        
-                        <div class="dropdown-divider"></div>
-                        
-                        <a href="#" class="dropdown-item" role="menuitem" data-action="profile">
-                            <i class="fas fa-user-edit"></i>
-                            <span>Profile Settings</span>
-                        </a>
-                        
-                        <a href="#" class="dropdown-item" role="menuitem" data-action="preferences">
-                            <i class="fas fa-cog"></i>
-                            <span>Preferences</span>
-                        </a>
-                        
-                        <a href="#" class="dropdown-item" role="menuitem" data-action="export">
-                            <i class="fas fa-download"></i>
-                            <span>Export Data</span>
-                        </a>
-                        
-                        {% if current_user in admin_users %}
-                        <div class="dropdown-divider"></div>
-                        <a href="/admin" class="dropdown-item" role="menuitem">
-                            <i class="fas fa-shield-alt"></i>
-                            <span>Admin Panel</span>
-                        </a>
-                        {% endif %}
-                        
-                        <div class="dropdown-divider"></div>
-                        
-                        <a href="/logout" class="dropdown-item logout-item" role="menuitem">
-                            <i class="fas fa-sign-out-alt"></i>
-                            <span>Logout</span>
-                        </a>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </nav>
+    <!-- Advanced Navigation Component -->
+    {% include 'components/nav.html' %}
     
     <!-- Main Content -->
     <main id="main-content" class="main-content" role="main">
@@ -355,16 +381,18 @@
     <script>
         // Global configuration
         window.GST_CONFIG = {
-            currentUser: '{{ current_user }}',
+            currentUser: '{{ current_user or "" }}',
             userName: '{{ user_display_name or "User" }}',
-            apiBaseUrl: '{{ request.url_root }}',
+            apiBaseUrl: '{{ request.url_root or "/" }}',
             isAuthenticated: {{ 'true' if current_user else 'false' }},
             features: {
                 loans: {{ 'true' if loan_management_enabled else 'false' }},
                 ai: {{ 'true' if ai_features_enabled else 'false' }},
                 analytics: true
-            }
-        };
+            },
+            adminUsers: {{ admin_users | tojson if admin_users else '[]' }},
+            currentYear: {{ current_year or 2024 }}
+    };
         
         // Service Worker Registration
         if ('serviceWorker' in navigator) {
@@ -417,57 +445,6 @@
                 }
             }
         };
-        
-        // User Menu Toggle
-        document.addEventListener('DOMContentLoaded', function() {
-            const userMenuTrigger = document.querySelector('.user-menu-trigger');
-            const userDropdown = document.querySelector('.user-dropdown');
-            
-            if (userMenuTrigger && userDropdown) {
-                userMenuTrigger.addEventListener('click', function() {
-                    userDropdown.classList.toggle('active');
-                });
-                
-                // Close dropdown when clicking outside
-                document.addEventListener('click', function(e) {
-                    if (!userMenuTrigger.contains(e.target) && !userDropdown.contains(e.target)) {
-                        userDropdown.classList.remove('active');
-                    }
-                });
-            }
-            
-            // Mobile menu toggle
-            const navbarToggle = document.querySelector('.navbar-toggle');
-            const navbarMenu = document.querySelector('.navbar-menu');
-            
-            if (navbarToggle && navbarMenu) {
-                navbarToggle.addEventListener('click', function() {
-                    const isExpanded = navbarToggle.getAttribute('aria-expanded') === 'true';
-                    navbarToggle.setAttribute('aria-expanded', !isExpanded);
-                    navbarMenu.classList.toggle('active');
-                });
-            }
-            
-            // Dropdown item handlers
-            document.addEventListener('click', function(e) {
-                const item = e.target.closest('.dropdown-item[data-action]');
-                if (item) {
-                    e.preventDefault();
-                    const action = item.dataset.action;
-                    
-                    switch (action) {
-                        case 'profile':
-                            window.ModalSystem.open('profile-modal');
-                            break;
-                        case 'preferences':
-                            window.ModalSystem.open('preferences-modal');
-                            break;
-                        case 'export':
-                            window.location.href = '/export/history';
-                            break;
-                    }
-                }
-            });
             
             // Modal close handlers
             document.addEventListener('click', function(e) {
@@ -513,8 +490,7 @@
                     pwaPrompt.style.display = 'none';
                     deferredPrompt = null;
                 });
-            }
-        });
+            };
         
         // Error Reporting Function
         window.reportError = function(errorData) {
@@ -537,6 +513,50 @@
         window.hideLoading = function() {
             document.getElementById('loading-overlay').style.display = 'none';
         };
+
+        // Flash message system
+window.showFlashMessage = function(message, type = 'info') {
+    const flashContainer = document.getElementById('flash-messages');
+    if (flashContainer) {
+        const messageEl = document.createElement('div');
+        messageEl.className = `flash-message flash-message--${type}`;
+        messageEl.innerHTML = `
+            <div class="flash-content">
+                <span class="flash-text">${message}</span>
+                <button type="button" class="flash-close" aria-label="Close message">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        `;
+        
+        flashContainer.appendChild(messageEl);
+        
+        // Auto-remove after 5 seconds
+        setTimeout(() => {
+            if (messageEl.parentNode) {
+                messageEl.remove();
+            }
+        }, 5000);
+        
+        // Manual close handler
+        messageEl.querySelector('.flash-close').addEventListener('click', () => {
+            messageEl.remove();
+        });
+    }
+};
+
+// Check for URL parameters on page load
+document.addEventListener('DOMContentLoaded', function() {
+    const urlParams = new URLSearchParams(window.location.search);
+    
+    if (urlParams.get('registered') === 'true') {
+        window.showFlashMessage('Registration successful! Welcome to GST Intelligence Platform.', 'success');
+    }
+    
+    if (urlParams.get('login') === 'success') {
+        window.showFlashMessage('Login successful! Welcome back.', 'success');
+    }
+});
     </script>
     
     <!-- Application JavaScript -->
@@ -556,6 +576,89 @@
                 console.log('Page load time:', perfData.loadEventEnd - perfData.loadEventStart, 'ms');
             }
         });
+
+        // Helper function for display names
+window.getUserDisplayName = async function(mobile) {
+    try {
+        const response = await fetch('/api/user/profile');
+        if (response.ok) {
+            const data = await response.json();
+            return data.display_name || mobile;
+        }
+    } catch (e) {
+        console.log('Could not fetch display name');
+    }
+    return mobile;
+};
+
+// Form submission handlers
+document.addEventListener('DOMContentLoaded', function() {
+    // Profile form handler
+    const profileForm = document.getElementById('profile-form');
+    if (profileForm) {
+        profileForm.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const formData = new FormData(profileForm);
+            const data = Object.fromEntries(formData.entries());
+            
+            try {
+                const response = await fetch('/api/user/profile', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(data)
+                });
+                
+                if (response.ok) {
+                    window.ModalSystem.close('profile-modal');
+                    location.reload(); // Refresh to show updated name
+                } else {
+                    alert('Failed to update profile');
+                }
+            } catch (error) {
+                alert('Error updating profile');
+            }
+        });
+    }
+    
+    // Preferences form handler
+    const preferencesForm = document.getElementById('preferences-form');
+    if (preferencesForm) {
+        preferencesForm.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const formData = new FormData(preferencesForm);
+            const preferences = {};
+            
+            // Get checkbox values
+            const checkboxes = preferencesForm.querySelectorAll('input[type="checkbox"]');
+            checkboxes.forEach(checkbox => {
+                preferences[checkbox.name] = checkbox.checked;
+            });
+            
+            try {
+                const response = await fetch('/api/user/preferences', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(preferences)
+                });
+                
+                if (response.ok) {
+                    window.ModalSystem.close('preferences-modal');
+                    alert('Preferences saved successfully');
+                } else {
+                    alert('Failed to save preferences');
+                }
+            } catch (error) {
+                alert('Error saving preferences');
+            }
+        });
+    }
+});
     </script>
 </body>
 </html>

@@ -112,6 +112,154 @@
     top: 80px;
 }
 
+.requirement-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+}
+
+.requirement-item {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    font-size: var(--text-sm);
+}
+
+.text-success {
+    color: var(--success);
+}
+
+.text-error {
+    color: var(--error);
+}
+
+.text-primary {
+    color: var(--accent-primary);
+}
+
+.range-input {
+    width: 100%;
+    margin-bottom: var(--space-2);
+    -webkit-appearance: none;
+    appearance: none;
+    height: 6px;
+    border-radius: var(--radius-full);
+    background: var(--bg-surface);
+    outline: none;
+}
+
+.range-input::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 20px;
+    height: 20px;
+    border-radius: var(--radius-full);
+    background: var(--accent-primary);
+    cursor: pointer;
+}
+
+.range-input::-moz-range-thumb {
+    width: 20px;
+    height: 20px;
+    border-radius: var(--radius-full);
+    background: var(--accent-primary);
+    cursor: pointer;
+    border: none;
+}
+
+.application-item {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-primary);
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin-bottom: 1rem;
+}
+
+.application-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid var(--border-primary);
+}
+
+.application-id {
+    font-family: monospace;
+    font-weight: 600;
+    color: var(--accent-primary);
+}
+
+.application-details {
+    margin-bottom: 1rem;
+}
+
+.detail-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid var(--border-secondary);
+}
+
+.detail-row:last-child {
+    border-bottom: none;
+}
+
+.application-actions {
+    display: flex;
+    gap: 1rem;
+    justify-content: flex-end;
+}
+
+.eligibility-details .detail-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem 0;
+    border-bottom: 1px solid var(--border-primary);
+}
+
+.btn--sm {
+    padding: 0.5rem 1rem;
+    font-size: 0.875rem;
+}
+
+.btn--error {
+    background: var(--error);
+    color: white;
+}
+
+.btn--error:hover {
+    background: #dc2626;
+}
+
+.calculator-result {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.result-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem;
+    background: var(--bg-secondary);
+    border-radius: 8px;
+}
+
+.result-label {
+    color: var(--text-secondary);
+    font-weight: 500;
+}
+
+.result-value {
+    color: var(--text-primary);
+    font-weight: 700;
+    font-size: 1.25rem;
+}
+
 @media (max-width: 768px) {
     .emi-calculator {
         position: static;
@@ -124,6 +272,16 @@
     
     .loan-tab {
         text-align: center;
+    }
+
+    .application-actions {
+        flex-direction: column;
+    }
+    
+    .detail-row {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.25rem;
     }
 }
 </style>
@@ -548,82 +706,334 @@
         </div>
     </div>
 </div>
-
-<style>
-.requirement-list {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-3);
-}
-
-.requirement-item {
-    display: flex;
-    align-items: center;
-    gap: var(--space-3);
-    font-size: var(--text-sm);
-}
-
-.text-success {
-    color: var(--success);
-}
-
-.range-input {
-    width: 100%;
-    margin-bottom: var(--space-2);
-    -webkit-appearance: none;
-    appearance: none;
-    height: 6px;
-    border-radius: var(--radius-full);
-    background: var(--bg-surface);
-    outline: none;
-}
-
-.range-input::-webkit-slider-thumb {
-    -webkit-appearance: none;
-    appearance: none;
-    width: 20px;
-    height: 20px;
-    border-radius: var(--radius-full);
-    background: var(--accent-primary);
-    cursor: pointer;
-}
-
-.range-input::-moz-range-thumb {
-    width: 20px;
-    height: 20px;
-    border-radius: var(--radius-full);
-    background: var(--accent-primary);
-    cursor: pointer;
-    border: none;
-}
-</style>
 {% endblock %}
 
 {% block extra_js %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Tab switching functionality
+    initializeLoanManagement();
+    setupTabSwitching();
+    setupEMICalculator();
+    loadUserApplications();
+});
+
+function initializeLoanManagement() {
+    // Setup eligibility check
+    const eligibilityBtn = document.getElementById('check-eligibility');
+    if (eligibilityBtn) {
+        eligibilityBtn.addEventListener('click', checkLoanEligibility);
+    }
+    
+    // Setup loan application form
+    const applicationForm = document.getElementById('loan-application-form');
+    if (applicationForm) {
+        applicationForm.addEventListener('submit', submitLoanApplication);
+    }
+    
+    // Setup GSTIN auto-complete
+    setupGSTINAutocomplete();
+}
+
+async function checkLoanEligibility() {
+    const form = document.getElementById('eligibility-form');
+    const formData = new FormData(form);
+    const data = Object.fromEntries(formData.entries());
+    
+    if (!data.gstin || data.gstin.length !== 15) {
+        alert('Please enter a valid 15-digit GSTIN');
+        return;
+    }
+    
+    try {
+        window.showLoading && window.showLoading('Checking eligibility...');
+        
+        const response = await fetch('/api/loans/eligibility', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+        
+        const result = await response.json();
+        displayEligibilityResults(result);
+        
+    } catch (error) {
+        console.error('Eligibility check failed:', error);
+        alert('Failed to check eligibility. Please try again.');
+    } finally {
+        window.hideLoading && window.hideLoading();
+    }
+}
+
+function displayEligibilityResults(result) {
+    const resultDiv = document.getElementById('eligibility-result');
+    if (!resultDiv) return;
+    
+    if (result.success && result.eligible) {
+        resultDiv.innerHTML = `
+            <div class="card-header">
+                <h3 class="card-title text-success">
+                    <i class="fas fa-check-circle"></i>
+                    Congratulations! You're Eligible
+                </h3>
+            </div>
+            <div class="card-body">
+                <div class="eligibility-details">
+                    <div class="detail-row">
+                        <span>Maximum Loan Amount:</span>
+                        <span class="text-primary">₹${result.max_loan_amount.toLocaleString()}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span>Interest Rate:</span>
+                        <span class="text-primary">${result.interest_rate}% p.a.</span>
+                    </div>
+                    <div class="detail-row">
+                        <span>Compliance Score:</span>
+                        <span class="text-primary">${result.compliance_score}%</span>
+                    </div>
+                    <div class="detail-row">
+                        <span>Processing Time:</span>
+                        <span class="text-primary">24-48 hours</span>
+                    </div>
+                </div>
+                <div class="mt-4">
+                    <button onclick="switchToApplicationTab()" class="btn btn--primary btn--lg" style="width: 100%;">
+                        Apply for Loan Now
+                    </button>
+                </div>
+            </div>
+        `;
+    } else {
+        resultDiv.innerHTML = `
+            <div class="card-header">
+                <h3 class="card-title text-error">
+                    <i class="fas fa-times-circle"></i>
+                    Not Eligible
+                </h3>
+            </div>
+            <div class="card-body">
+                <p class="text-error">${result.reason || 'You do not meet the current eligibility criteria.'}</p>
+                <div class="mt-4">
+                    <h4>Requirements:</h4>
+                    <ul class="requirement-list">
+                        <li class="${result.requirements_met?.min_compliance_score ? 'text-success' : 'text-error'}">
+                            <i class="fas fa-${result.requirements_met?.min_compliance_score ? 'check' : 'times'}"></i>
+                            Minimum 60% compliance score
+                        </li>
+                        <li class="${result.requirements_met?.active_gst_status ? 'text-success' : 'text-error'}">
+                            <i class="fas fa-${result.requirements_met?.active_gst_status ? 'check' : 'times'}"></i>
+                            Active GST status
+                        </li>
+                        <li class="${result.requirements_met?.regular_filing ? 'text-success' : 'text-error'}">
+                            <i class="fas fa-${result.requirements_met?.regular_filing ? 'check' : 'times'}"></i>
+                            Regular filing history
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        `;
+    }
+    
+    resultDiv.style.display = 'block';
+}
+
+async function submitLoanApplication(e) {
+    e.preventDefault();
+    
+    const form = e.target;
+    const formData = new FormData(form);
+    
+    // Validate required fields
+    const requiredFields = form.querySelectorAll('[required]');
+    for (let field of requiredFields) {
+        if (!field.value.trim()) {
+            field.focus();
+            alert(`Please fill in ${field.labels[0]?.textContent || field.name}`);
+            return;
+        }
+    }
+    
+    try {
+        window.showLoading && window.showLoading('Submitting application...');
+        
+        const response = await fetch('/api/loans/apply', {
+            method: 'POST',
+            body: formData
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            alert('Application submitted successfully! You will receive updates via email and SMS.');
+            form.reset();
+            // Switch to applications tab to show the new application
+            switchToTab('applications');
+            loadUserApplications();
+        } else {
+            throw new Error(result.error || 'Application submission failed');
+        }
+        
+    } catch (error) {
+        console.error('Application submission failed:', error);
+        alert('Failed to submit application: ' + error.message);
+    } finally {
+        window.hideLoading && window.hideLoading();
+    }
+}
+
+async function loadUserApplications() {
+    const listContainer = document.getElementById('loan-applications-list');
+    if (!listContainer) return;
+    
+    try {
+        const response = await fetch('/api/loans/user-applications');
+        const result = await response.json();
+        
+        if (result.success && result.applications.length > 0) {
+            listContainer.innerHTML = result.applications.map(app => `
+                <div class="application-item">
+                    <div class="application-header">
+                        <div class="application-id">#${app.id}</div>
+                        <div class="loan-status status-${app.status}">${app.status.toUpperCase()}</div>
+                    </div>
+                    <div class="application-details">
+                        <div class="detail-row">
+                            <span>GSTIN:</span>
+                            <span>${app.gstin}</span>
+                        </div>
+                        <div class="detail-row">
+                            <span>Company:</span>
+                            <span>${app.company_name}</span>
+                        </div>
+                        <div class="detail-row">
+                            <span>Amount:</span>
+                            <span>₹${app.loan_amount.toLocaleString()}</span>
+                        </div>
+                        <div class="detail-row">
+                            <span>Applied:</span>
+                            <span>${new Date(app.created_at).toLocaleDateString()}</span>
+                        </div>
+                    </div>
+                    <div class="application-actions">
+                        <button onclick="viewApplicationDetails(${app.id})" class="btn btn--secondary btn--sm">
+                            View Details
+                        </button>
+                        ${app.status === 'pending' ? `
+                            <button onclick="cancelApplication(${app.id})" class="btn btn--error btn--sm">
+                                Cancel
+                            </button>
+                        ` : ''}
+                    </div>
+                </div>
+            `).join('');
+        } else {
+            listContainer.innerHTML = `
+                <div class="text-center" style="padding: 3rem;">
+                    <i class="fas fa-file-alt" style="font-size: 3rem; color: var(--text-muted); margin-bottom: 1rem;"></i>
+                    <h3>No Loan Applications</h3>
+                    <p style="color: var(--text-muted); margin-bottom: 2rem;">You haven't applied for any loans yet.</p>
+                    <button onclick="switchToTab('apply')" class="btn btn--primary">
+                        Apply for Your First Loan
+                    </button>
+                </div>
+            `;
+        }
+    } catch (error) {
+        console.error('Failed to load applications:', error);
+        listContainer.innerHTML = `
+            <div class="text-center" style="padding: 3rem;">
+                <i class="fas fa-exclamation-triangle" style="font-size: 3rem; color: var(--error); margin-bottom: 1rem;"></i>
+                <h3>Failed to Load Applications</h3>
+                <p style="color: var(--text-muted);">Please try again later.</p>
+            </div>
+        `;
+    }
+}
+
+function setupTabSwitching() {
     const tabButtons = document.querySelectorAll('.loan-tab');
     const tabContents = document.querySelectorAll('.tab-content');
     
     tabButtons.forEach(button => {
         button.addEventListener('click', function() {
             const targetTab = this.dataset.tab;
-            
-            // Update active tab button
-            tabButtons.forEach(btn => btn.classList.remove('active'));
-            this.classList.add('active');
-            
-            // Update active tab content
-            tabContents.forEach(content => {
-                content.classList.remove('active');
-                if (content.id === targetTab + '-tab') {
-                    content.classList.add('active');
-                }
-            });
+            switchToTab(targetTab);
         });
     });
+}
+
+function switchToTab(tabName) {
+    const tabButtons = document.querySelectorAll('.loan-tab');
+    const tabContents = document.querySelectorAll('.tab-content');
     
+    // Update active tab button
+    tabButtons.forEach(btn => {
+        btn.classList.remove('active');
+        if (btn.dataset.tab === tabName) {
+            btn.classList.add('active');
+        }
+    });
+    
+    // Update active tab content
+    tabContents.forEach(content => {
+        content.classList.remove('active');
+        if (content.id === tabName + '-tab') {
+            content.classList.add('active');
+        }
+    });
+    
+    // Load data for specific tabs
+    if (tabName === 'applications') {
+        loadUserApplications();
+    }
+}
+
+function switchToApplicationTab() {
+    switchToTab('apply');
+    // Pre-fill data from eligibility check if available
+    // This will be handled by the existing form auto-fill logic
+}
+
+function setupGSTINAutocomplete() {
+    const gstinInputs = document.querySelectorAll('[data-gstin-search]');
+    
+    gstinInputs.forEach(input => {
+        input.addEventListener('input', function(e) {
+            let value = e.target.value.toUpperCase().replace(/[^0-9A-Z]/g, '');
+            if (value.length > 15) value = value.substr(0, 15);
+            e.target.value = value;
+            
+            // Auto-populate company data if GSTIN is complete
+            if (value.length === 15) {
+                fetchCompanyData(value, input);
+            }
+        });
+    });
+}
+
+async function fetchCompanyData(gstin, inputElement) {
+    try {
+        const response = await fetch(`/api/search/quick?gstin=${gstin}`);
+        const result = await response.json();
+        
+        if (result.success && result.data) {
+            // Auto-fill company name if found
+            const companyNameInput = inputElement.form?.querySelector('[name="company_name"]');
+            if (companyNameInput && !companyNameInput.value) {
+                companyNameInput.value = result.data.company_name || '';
+            }
+            
+            // Auto-fill compliance score if found
+            const complianceInput = inputElement.form?.querySelector('[name="compliance_score"]');
+            if (complianceInput && !complianceInput.value) {
+                complianceInput.value = result.data.compliance_score || '';
+            }
+        }
+    } catch (error) {
+        console.log('Could not fetch company data:', error);
+    }
+}
+
+function setupEMICalculator() {
     // Enhanced EMI Calculator with range inputs
     const amountRange = document.getElementById('calc-amount-range');
     const amountInput = document.getElementById('calc-amount-main');
@@ -772,6 +1182,27 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Initial calculation
     calculateDetailedEMI();
-});
+}
+
+// Additional helper functions
+function viewApplicationDetails(applicationId) {
+    window.location.href = `/loans/application/${applicationId}`;
+}
+
+function cancelApplication(applicationId) {
+    if (confirm('Are you sure you want to cancel this application?')) {
+        // Implement cancel functionality
+        fetch(`/api/loans/cancel/${applicationId}`, { method: 'POST' })
+            .then(response => response.json())
+            .then(result => {
+                if (result.success) {
+                    alert('Application cancelled successfully');
+                    loadUserApplications();
+                } else {
+                    alert('Failed to cancel application');
+                }
+            });
+    }
+}
 </script>
 {% endblock %}
