@@ -130,7 +130,7 @@ class DatabaseManager:
                 await conn.execute("""
                     INSERT INTO users (mobile, password_hash, salt, created_at)
                     VALUES ($1, $2, $3, $4)
-                """, mobile, password_hash, salt, datetime.now(timezone.utc))
+                """, mobile, password_hash, salt, datetime.now())
                 return True
         except asyncpg.UniqueViolationError:
             return False
@@ -161,7 +161,7 @@ class DatabaseManager:
                     # Update last login with timezone-aware datetime
                     await conn.execute("""
                         UPDATE users SET last_login = $1 WHERE mobile = $2
-                    """, datetime.now(timezone.utc), mobile)
+                    """, datetime.now(), mobile)
                 
                     return is_valid
                 
@@ -199,7 +199,7 @@ class DatabaseManager:
                 await conn.execute("""
                     UPDATE users SET password_hash = $1, salt = $2, updated_at = $3
                     WHERE mobile = $4
-                """, password_hash, salt, datetime.now(timezone.utc), mobile)
+                """, password_hash, salt, datetime.now(), mobile)
             
             return True
         except Exception as e:
@@ -317,7 +317,7 @@ class DatabaseManager:
                         search_count = search_history.search_count + 1
                 """, mobile, gstin, company_name, compliance_score, status, 
                 json.dumps(company_data) if company_data else None, 
-                datetime.now(timezone.utc))
+                datetime.now())
             
             return True
         except Exception as e:
@@ -463,7 +463,7 @@ class DatabaseManager:
                     DO UPDATE SET 
                         preferences = EXCLUDED.preferences,
                         updated_at = EXCLUDED.updated_at
-                """, mobile, json.dumps(preferences), datetime.now(timezone.utc))
+                """, mobile, json.dumps(preferences), datetime.now())
             
             return True
         except Exception as e:
@@ -526,7 +526,7 @@ class DatabaseManager:
                 profile_data.get('company'),
                 profile_data.get('email'),
                 profile_data.get('designation'),
-                datetime.now(timezone.utc))
+                datetime.now())
             
             return True
         except Exception as e:
@@ -709,7 +709,7 @@ class DatabaseManager:
                 """)
                 
                 # Use timezone-aware datetime
-                current_time = datetime.now(timezone.utc)
+                current_time = datetime.now()
                 
                 if mobile_exists:
                     # Use the full insert with mobile column

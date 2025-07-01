@@ -23,7 +23,7 @@ async def test_timezone_fix():
         logger.info("✅ Connected to database")
         
         # Test timezone-aware datetime
-        current_time = datetime.now(timezone.utc)
+        current_time = datetime.now()
         logger.info(f"✅ Timezone-aware datetime: {current_time}")
         
         # Test error log insertion
