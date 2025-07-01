@@ -1,618 +1,325 @@
 {% extends "base.html" %}
 
-{% block title %}History - GST Intelligence Platform{% endblock %}
+{% block title %}Search History - GST Intelligence Platform{% endblock %}
 {% block body_class %}page-history{% endblock %}
 
+{% block content %}
+<div class="history-container">
+    <!-- Header -->
+    <div class="history-header">
+        <h1 class="history-title">
+            <i class="fas fa-history"></i>
+            Search History
+        </h1>
+        <p class="history-subtitle">View and manage your GST search history</p>
+    </div>
+
+    <!-- Controls -->
+    <div class="history-controls">
+        <div class="controls-row">
+            <input 
+                type="text" 
+                class="search-input" 
+                placeholder="Search by GSTIN or company name..." 
+                id="searchInput"
+            >
+            
+            <select class="filter-select" id="statusFilter">
+                <option value="">All Status</option>
+                <option value="active">Active</option>
+                <option value="cancelled">Cancelled</option>
+                <option value="suspended">Suspended</option>
+                <option value="unknown">Unknown</option>
+            </select>
+            
+            <button class="action-btn" onclick="exportHistory()">
+                <i class="fas fa-download"></i>
+                Export
+            </button>
+            
+            <button class="action-btn danger" onclick="clearHistory()">
+                <i class="fas fa-trash"></i>
+                Clear All
+            </button>
+        </div>
+    </div>
+
+    <!-- History List -->
+    {% if history %}
+    <div class="history-list">
+        {% for item in history %}
+        <div class="history-item">
+            <div class="history-gstin">{{ item.gstin }}</div>
+            <div class="history-company">{{ item.company_name or 'Unknown Company' }}</div>
+            <div class="history-score">{{ item.compliance_score or 0 }}%</div>
+            <div class="history-date">
+                {{ item.searched_at.strftime('%d %b %Y') if item.searched_at else 'Recently' }}
+            </div>
+            <button onclick="searchAgain('{{ item.gstin }}')" class="history-action">
+                <i class="fas fa-redo"></i>
+            </button>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <i class="fas fa-search"></i>
+        <h3>No Search History</h3>
+        <p>Start searching for companies to see your history</p>
+        <a href="/" class="btn-primary">Start Searching</a>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.history-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 2rem;
+}
+
+.history-header {
+    text-align: center;
+    margin-bottom: 3rem;
+}
+
+.history-title {
+    font-size: 2.5rem;
+    color: var(--text-primary);
+    margin-bottom: 0.5rem;
+}
+
+.history-subtitle {
+    color: var(--text-secondary);
+}
+
+.history-controls {
+    background: var(--bg-card);
+    border: 1px solid var(--border-primary);
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+}
+
+.controls-row {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.search-input, .filter-select {
+    padding: 0.75rem 1rem;
+    border: 1px solid var(--border-primary);
+    border-radius: 10px;
+    background: var(--bg-input);
+    color: var(--text-primary);
+    font-size: 0.875rem;
+}
+
+.search-input {
+    flex: 1;
+    min-width: 200px;
+}
+
+.action-btn {
+    padding: 0.75rem 1rem;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-primary);
+    border-radius: 10px;
+    color: var(--text-primary);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.875rem;
+    transition: all 0.3s ease;
+}
+
+.action-btn:hover {
+    background: var(--accent-primary);
+    color: white;
+    border-color: var(--accent-primary);
+}
+
+.action-btn.danger:hover {
+    background: var(--error);
+    border-color: var(--error);
+}
+
+.history-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.history-item {
+    background: var(--bg-card);
+    border: 1px solid var(--border-primary);
+    border-radius: 12px;
+    padding: 1.5rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.history-gstin {
+    font-family: monospace;
+    font-weight: 600;
+    color: var(--accent-primary);
+}
+
+.history-company {
+    flex: 1;
+    margin-left: 1rem;
+    color: var(--text-primary);
+}
+
+.history-score {
+    background: var(--bg-secondary);
+    padding: 0.5rem;
+    border-radius: 6px;
+    font-weight: 600;
+}
+
+.history-date {
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+    margin: 0 1rem;
+}
+
+.history-action {
+    background: var(--accent-primary);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    padding: 0.5rem;
+    cursor: pointer;
+}
+
+.empty-state {
+    text-align: center;
+    padding: 4rem 2rem;
+    color: var(--text-secondary);
+}
+
+.btn-primary {
+    display: inline-block;
+    padding: 0.75rem 1.5rem;
+    background: var(--accent-primary);
+    color: white;
+    text-decoration: none;
+    border-radius: 8px;
+    font-weight: 600;
+}
+
+@media (max-width: 768px) {
+    .history-container {
+        padding: 1rem;
+    }
+    
+    .controls-row {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
+    .search-input {
+        min-width: unset;
+    }
+    
+    .history-item {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 1rem;
+    }
+}
+</style>
+{% endblock %}
+
 {% block extra_js %}
-<!-- Enhanced Common Scripts -->
 <script>
-// Filter functionality
-document.addEventListener('DOMContentLoaded', function() {
-    const companyFilter = document.getElementById('companyFilter');
-    const gstinFilter = document.getElementById('gstinFilter');
-    const scoreFilter = document.getElementById('scoreFilter');
-    const sortFilter = document.getElementById('sortFilter');
-    const table = document.getElementById('historyTable');
+function searchAgain(gstin) {
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = '/search';
     
-    if (!table) return;
+    const input = document.createElement('input');
+    input.type = 'hidden';
+    input.name = 'gstin';
+    input.value = gstin;
     
-    function filterTable() {
-        const rows = table.querySelectorAll('tbody tr');
-        const companyTerm = companyFilter?.value.toLowerCase() || '';
-        const gstinTerm = gstinFilter?.value.toLowerCase() || '';
-        const scoreValue = scoreFilter?.value || '';
+    form.appendChild(input);
+    document.body.appendChild(form);
+    form.submit();
+}
+
+async function exportHistory() {
+    try {
+        const response = await fetch('/api/user/export', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ format: 'csv', type: 'history' })
+        });
         
-        rows.forEach(row => {
-            const company = row.dataset.company || '';
-            const gstin = row.dataset.gstin.toLowerCase() || '';
-            const score = parseFloat(row.dataset.score) || 0;
-            
-            let showRow = true;
-            
-            if (companyTerm && !company.includes(companyTerm)) showRow = false;
-            if (gstinTerm && !gstin.includes(gstinTerm)) showRow = false;
-            
-            if (scoreValue) {
-                if (scoreValue === 'high' && score < 80) showRow = false;
-                if (scoreValue === 'medium' && (score < 60 || score >= 80)) showRow = false;
-                if (scoreValue === 'low' && score >= 60) showRow = false;
-            }
-            
-            row.style.display = showRow ? '' : 'none';
+        if (response.ok) {
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `search_history_${new Date().toISOString().split('T')[0]}.csv`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+            alert('History exported successfully');
+        } else {
+            throw new Error('Export failed');
+        }
+    } catch (error) {
+        console.error('Export error:', error);
+        alert('Export failed. Please try again.');
+    }
+}
+
+async function clearHistory() {
+    if (!confirm('Are you sure you want to clear all search history? This action cannot be undone.')) {
+        return;
+    }
+    
+    try {
+        const response = await fetch('/api/user/history/clear', {
+            method: 'POST'
+        });
+        
+        if (response.ok) {
+            location.reload();
+        } else {
+            throw new Error('Clear failed');
+        }
+    } catch (error) {
+        console.error('Clear error:', error);
+        alert('Failed to clear history');
+    }
+}
+
+// Setup filters
+document.addEventListener('DOMContentLoaded', function() {
+    const searchInput = document.getElementById('searchInput');
+    const statusFilter = document.getElementById('statusFilter');
+    
+    if (searchInput) {
+        searchInput.addEventListener('input', function() {
+            // Filter logic can be added here
         });
     }
     
-    // Bind filter events
-    [companyFilter, gstinFilter, scoreFilter].forEach(filter => {
-        if (filter) {
-            filter.addEventListener('input', filterTable);
-        }
-    });
-    
-    // Sort functionality
-    if (sortFilter) {
-        sortFilter.addEventListener('change', function() {
-            const tbody = table.querySelector('tbody');
-            const rows = Array.from(tbody.querySelectorAll('tr'));
-            
-            rows.sort((a, b) => {
-                const sortBy = this.value;
-                
-                if (sortBy === 'date') {
-                    return new Date(b.dataset.date) - new Date(a.dataset.date);
-                } else if (sortBy === 'score') {
-                    return parseFloat(b.dataset.score) - parseFloat(a.dataset.score);
-                } else if (sortBy === 'company') {
-                    return a.dataset.company.localeCompare(b.dataset.company);
-                }
-                return 0;
-            });
-            
-            rows.forEach(row => tbody.appendChild(row));
+    if (statusFilter) {
+        statusFilter.addEventListener('change', function() {
+            // Filter logic can be added here
         });
     }
 });
 </script>
-{% endblock %}
-
-{% block content %}
-<style>
-    /* History-specific styles */
-    .page-header {
-        background: linear-gradient(135deg, var(--bg-card) 0%, rgba(124, 58, 237, 0.05) 100%);
-        border: 1px solid rgba(124, 58, 237, 0.2);
-        border-radius: 20px;
-        padding: 3rem;
-        margin-bottom: 2rem;
-        box-shadow: var(--card-shadow), 0 0 40px rgba(124, 58, 237, 0.1);
-        text-align: center;
-        position: relative;
-        overflow: hidden;
-        animation: headerGlow 3s ease-in-out infinite;
-    }
-
-    @keyframes headerGlow {
-        0%, 100% { box-shadow: var(--card-shadow), 0 0 40px rgba(124, 58, 237, 0.1); }
-        50% { box-shadow: var(--card-shadow), 0 0 60px rgba(124, 58, 237, 0.3); }
-    }
-
-    .page-header::before {
-        content: '';
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        height: 4px;
-        background: var(--accent-gradient);
-        animation: progressBar 3s ease-in-out infinite;
-    }
-
-    @keyframes progressBar {
-        0% { transform: scaleX(0); }
-        50% { transform: scaleX(1); }
-        100% { transform: scaleX(0); }
-    }
-
-    .page-title {
-        font-size: 2.5rem;
-        background: var(--accent-gradient);
-        -webkit-background-clip: text;
-        background-clip: text;
-        -webkit-text-fill-color: transparent;
-        margin-bottom: 0.5rem;
-        font-weight: 800;
-        position: relative;
-        z-index: 1;
-    }
-
-    .page-subtitle {
-        color: var(--text-secondary);
-        font-size: 1.2rem;
-        position: relative;
-        z-index: 1;
-    }
-
-    .history-stats {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-        gap: 1rem;
-        margin-bottom: 2rem;
-        position: relative;
-        z-index: 1;
-    }
-
-    .stat-card {
-        background: var(--bg-card);
-        border: 1px solid rgba(124, 58, 237, 0.2);
-        border-radius: 12px;
-        padding: 1.5rem;
-        text-align: center;
-        transition: all 0.3s ease;
-        position: relative;
-        overflow: hidden;
-    }
-
-    .stat-card::before {
-        content: '';
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        height: 3px;
-        background: var(--accent-gradient);
-        transform: scaleX(0);
-        transition: transform 0.3s;
-    }
-
-    .stat-card:hover::before {
-        transform: scaleX(1);
-    }
-
-    .stat-card:hover {
-        transform: translateY(-5px);
-        box-shadow: var(--hover-shadow), 0 0 30px rgba(124, 58, 237, 0.3);
-    }
-
-    .stat-value {
-        font-size: 2rem;
-        font-weight: 800;
-        color: var(--accent-primary);
-        margin-bottom: 0.5rem;
-        text-shadow: 0 0 10px rgba(124, 58, 237, 0.3);
-    }
-
-    .stat-label {
-        color: var(--text-secondary);
-        font-weight: 500;
-    }
-
-    .search-filters {
-        background: var(--bg-card);
-        border: 1px solid var(--border-color);
-        border-radius: 12px;
-        padding: 1.5rem;
-        margin-bottom: 2rem;
-        display: flex;
-        gap: 1rem;
-        flex-wrap: wrap;
-        align-items: center;
-        box-shadow: var(--card-shadow);
-    }
-
-    .filter-group {
-        display: flex;
-        flex-direction: column;
-        gap: 0.5rem;
-    }
-
-    .filter-label {
-        font-size: 0.875rem;
-        color: var(--text-secondary);
-        font-weight: 500;
-    }
-
-    .filter-input {
-        padding: 0.5rem 1rem;
-        background: var(--bg-input);
-        border: 1px solid var(--border-color);
-        border-radius: 8px;
-        color: var(--text-primary);
-        font-size: 0.9rem;
-        transition: all 0.3s ease;
-    }
-
-    .filter-input:focus {
-        outline: none;
-        border-color: var(--accent-primary);
-        box-shadow: 0 0 20px rgba(124, 58, 237, 0.3);
-        transform: translateY(-1px);
-    }
-
-    .history-section {
-        background: var(--bg-card);
-        border: 1px solid var(--border-color);
-        border-radius: 20px;
-        padding: 2rem;
-        box-shadow: var(--card-shadow);
-        position: relative;
-        overflow: hidden;
-    }
-
-    .history-title {
-        font-size: 1.5rem;
-        color: var(--text-primary);
-        margin-bottom: 1.5rem;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        flex-wrap: wrap;
-        gap: 1rem;
-        position: relative;
-        z-index: 1;
-    }
-
-    .history-header {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-    }
-
-    .export-btn {
-        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-        color: white;
-        border: none;
-        padding: 0.5rem 1rem;
-        border-radius: 8px;
-        font-size: 0.9rem;
-        cursor: pointer;
-        transition: all 0.3s;
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-        box-shadow: 0 4px 20px rgba(16, 185, 129, 0.3);
-    }
-
-    .export-btn:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 6px 30px rgba(16, 185, 129, 0.5);
-    }
-
-    .table-container {
-        overflow-x: auto;
-        margin-top: 1rem;
-        position: relative;
-        z-index: 1;
-        border-radius: 12px;
-        box-shadow: var(--card-shadow);
-    }
-
-    .history-table {
-        width: 100%;
-        border-collapse: collapse;
-        background: var(--bg-secondary);
-        border-radius: 12px;
-        overflow: hidden;
-        table-layout: fixed;
-    }
-
-    .history-table th {
-        background: var(--bg-hover);
-        color: var(--text-primary);
-        padding: 1rem;
-        text-align: left;
-        font-weight: 600;
-        border-bottom: 2px solid var(--border-color);
-        white-space: nowrap;
-    }
-
-    .history-table th:nth-child(1),
-    .history-table td:nth-child(1) {
-        width: 20%;
-        min-width: 120px;
-    }
-
-    .history-table th:nth-child(2),
-    .history-table td:nth-child(2) {
-        width: 25%;
-        min-width: 150px;
-    }
-
-    .history-table th:nth-child(3),
-    .history-table td:nth-child(3) {
-        width: 30%;
-        min-width: 200px;
-    }
-
-    .history-table th:nth-child(4),
-    .history-table td:nth-child(4) {
-        width: 15%;
-        min-width: 100px;
-        text-align: center;
-    }
-
-    .history-table th:nth-child(5),
-    .history-table td:nth-child(5) {
-        width: 10%;
-        min-width: 80px;
-        text-align: center;
-    }
-
-    .history-table td {
-        padding: 1rem;
-        color: var(--text-primary);
-        border-bottom: 1px solid var(--border-color);
-        transition: all 0.3s ease;
-        vertical-align: middle;
-        word-wrap: break-word;
-        overflow: hidden;
-    }
-
-    .history-table tbody tr {
-        cursor: pointer;
-        transition: all 0.3s ease;
-        position: relative;
-    }
-
-    .history-table tbody tr:hover {
-        background: var(--bg-hover);
-        transform: translateX(5px);
-        box-shadow: 0 0 20px rgba(124, 58, 237, 0.2);
-    }
-
-    .view-btn {
-        background: var(--accent-gradient);
-        color: white !important;
-        border: none;
-        padding: 0.4rem 1rem;
-        border-radius: 6px;
-        font-size: 0.85rem;
-        font-weight: 600;
-        cursor: pointer;
-        transition: all 0.3s;
-        display: inline-flex;
-        align-items: center;
-        gap: 0.3rem;
-        white-space: nowrap;
-        text-decoration: none;
-    }
-
-    .view-btn:hover {
-        background: var(--accent-gradient-hover);
-        transform: translateY(-2px);
-        box-shadow: 0 4px 20px rgba(124, 58, 237, 0.5);
-    }
-
-    .score-badge {
-        display: inline-block;
-        padding: 0.25rem 0.75rem;
-        border-radius: 15px;
-        font-size: 0.85rem;
-        font-weight: 600;
-        position: relative;
-        cursor: help;
-        transition: all 0.3s ease;
-    }
-
-    .score-high {
-        background: rgba(16, 185, 129, 0.2);
-        color: var(--success);
-        border: 1px solid rgba(16, 185, 129, 0.3);
-    }
-
-    .score-medium {
-        background: rgba(245, 158, 11, 0.2);
-        color: var(--warning);
-        border: 1px solid rgba(245, 158, 11, 0.3);
-    }
-
-    .score-low {
-        background: rgba(239, 68, 68, 0.2);
-        color: var(--danger);
-        border: 1px solid rgba(239, 68, 68, 0.3);
-    }
-
-    .score-badge:hover {
-        transform: scale(1.1);
-        box-shadow: 0 0 15px rgba(124, 58, 237, 0.3);
-    }
-
-    .company-name {
-        font-weight: 600;
-        color: var(--text-primary);
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-        max-width: 100%;
-    }
-
-    .empty-state {
-        text-align: center;
-        padding: 3rem;
-        color: var(--text-secondary);
-        position: relative;
-    }
-
-    .empty-state svg {
-        width: 64px;
-        height: 64px;
-        margin-bottom: 1rem;
-        opacity: 0.3;
-        animation: float 3s ease-in-out infinite;
-    }
-
-    @keyframes float {
-        0%, 100% { transform: translateY(0); }
-        50% { transform: translateY(-10px); }
-    }
-
-    /* Mobile Responsive */
-    @media (max-width: 768px) {
-        .container {
-            padding: 1rem;
-        }
-        
-        .table-container {
-            overflow-x: auto;
-            -webkit-overflow-scrolling: touch;
-        }
-        
-        .history-table {
-            min-width: 600px;
-            font-size: 0.9rem;
-        }
-        
-        .history-table th,
-        .history-table td {
-            padding: 0.75rem 0.5rem;
-        }
-        
-        .hide-mobile {
-            display: none;
-        }
-    }
-</style>
-
-<!-- Page Header -->
-<section class="page-header gradient-animate glow-xl">
-    <h1 class="page-title">Search History</h1>
-    <p class="page-subtitle">View and manage your GST compliance search history</p>
-</section>
-
-<!-- History Statistics -->
-{% if history %}
-<div class="history-stats">
-    <div class="stat-card glow-sm transition-all">
-        <data-tooltip="Total number of companies searched">
-        <div class="stat-value">{{ history|length }}</div>
-        <div class="stat-label">Total Searches</div>
-    </div>
-    <div class="stat-card glow-sm transition-all">
-        <data-tooltip="Companies with good compliance scores (80%+)">
-        <div class="stat-value">{{ history|selectattr('compliance_score', '>=', 80)|list|length if history[0].compliance_score else 0 }}</div>
-        <div class="stat-label">High Compliance</div>
-    </div>
-    <div class="stat-card glow-sm transition-all">
-        <data-tooltip="Average compliance score across all searches">
-        <div class="stat-value">
-            {% if history and history[0].compliance_score %}
-                {{ "%.0f"|format((history|map(attribute='compliance_score')|sum) / (history|length)) }}%
-            {% else %}
-                N/A
-            {% endif %}
-        </div>
-        <div class="stat-label">Avg Score</div>
-    </div>
-    <div class="stat-card glow-sm transition-all">
-        <data-tooltip="Searches performed this month">
-        <div class="stat-value">{{ searches_this_month }}</div>
-        <div class="stat-label">This Month</div>
-    </div>
-</div>
-{% endif %}
-
-<!-- Search Filters -->
-{% if history %}
-<div class="search-filters">
-    <div class="filter-group">
-        <label class="filter-label">Search Company</label>
-        <input type="text" class="filter-input" id="companyFilter" placeholder="Filter by company name...">
-    </div>
-    <div class="filter-group">
-        <label class="filter-label">GSTIN</label>
-        <input type="text" class="filter-input" id="gstinFilter" placeholder="Filter by GSTIN...">
-    </div>
-    <div class="filter-group">
-        <label class="filter-label">Compliance Score</label>
-        <select class="filter-input" id="scoreFilter">
-            <option value="">All Scores</option>
-            <option value="high">High (80%+)</option>
-            <option value="medium">Medium (60-79%)</option>
-            <option value="low">Low (<60%)</option>
-        </select>
-    </div>
-    <div class="filter-group">
-        <label class="filter-label">Sort By</label>
-        <select class="filter-input" id="sortFilter">
-            <option value="date">Date (Newest First)</option>
-            <option value="score">Compliance Score</option>
-            <option value="company">Company Name</option>
-        </select>
-    </div>
-</div>
-{% endif %}
-
-<!-- History Section -->
-<section class="history-section">
-    <div class="history-title">
-        <div class="history-header">
-            <i class="fas fa-history"></i>
-            <span>Search History</span>
-        </div>
-        {% if history %}
-        <button class="export-btn" data-tooltip="Export search history to Excel" onclick="exportToExcel()">
-            <i class="fas fa-file-excel"></i>
-            Export to Excel
-        </button>
-        {% endif %}
-    </div>
-    
-    {% if history %}
-    <div class="table-container">
-        <table class="history-table" id="historyTable">
-            <thead>
-                <tr>
-                    <th data-tooltip="When the search was performed">Date</th>
-                    <th data-tooltip="Goods and Services Tax Identification Number">GSTIN</th>
-                    <th data-tooltip="Registered company name">Company Name</th>
-                    <th class="hide-mobile" data-tooltip="Compliance score based on filing history">Compliance Score</th>
-                    <th>Actions</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for item in history %}
-                <tr class="company-row" data-gstin="{{ item.gstin }}" data-company="{{ item.company_name|lower }}" data-score="{{ item.compliance_score or 0 }}" data-date="{{ item.searched_at }}">
-                    <td>{{ item.searched_at.strftime('%d %b %Y, %I:%M %p') if item.searched_at else 'N/A' }}</td>
-                    <td><code style="background: var(--bg-hover); padding: 0.25rem 0.5rem; border-radius: 4px;">{{ item.gstin }}</code></td>
-                    <td class="company-name">{{ item.company_name }}</td>
-                    <td class="hide-mobile">
-                        {% if item.compliance_score is not none and item.compliance_score > 0 %}
-                            {% if item.compliance_score >= 80 %}
-                                <span class="score-badge score-high" data-tooltip="Excellent compliance - Green status indicates top-tier tax compliance">{{ "%.0f"|format(item.compliance_score) }}%</span>
-                            {% elif item.compliance_score >= 60 %}
-                                <span class="score-badge score-medium" data-tooltip="Average compliance - Yellow status indicates minor compliance issues">{{ "%.0f"|format(item.compliance_score) }}%</span>
-                            {% else %}
-                                <span class="score-badge score-low" data-tooltip="Poor compliance - Red status indicates significant compliance issues">{{ "%.0f"|format(item.compliance_score) }}%</span>
-                            {% endif %}
-                        {% else %}
-                            <span class="score-badge" data-tooltip="Compliance score not calculated yet">Pending</span>
-                        {% endif %}
-                    </td>
-                    <td>
-                        <form action="/search" method="GET" style="display: inline;">
-                            <input type="hidden" name="gstin" value="{{ item.gstin }}">
-                            <button type="submit" class="view-btn" data-tooltip="View detailed compliance report">
-                                <i class="fas fa-eye"></i> View
-                            </button>
-                        </form>
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
-    {% else %}
-    <div class="empty-state">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-            <polyline points="14 2 14 8 20 8"></polyline>
-            <line x1="16" y1="13" x2="8" y2="13"></line>
-            <line x1="16" y1="17" x2="8" y2="17"></line>
-            <polyline points="10 9 9 9 8 9"></polyline>
-        </svg>
-        <p>No search history yet</p>
-        <p style="color: var(--text-muted); font-size: 0.9rem;">Your recent searches will appear here</p>
-        <a href="/" style="margin-top: 1rem; display: inline-block; padding: 0.75rem 1.5rem; background: var(--accent-gradient); color: white; text-decoration: none; border-radius: 8px; font-weight: 600;">Start Searching</a>
-    </div>
-    {% endif %}
-</section>
 {% endblock %}
