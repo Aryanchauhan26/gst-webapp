@@ -212,6 +212,7 @@ class DatabaseManager:
 
 async def create_session(self, mobile: str, expires_at: datetime) -> str:
     """Create a new user session."""
+    import secrets
     session_token = secrets.token_urlsafe(32)
     
     async with self.pool.acquire() as conn:
@@ -261,6 +262,29 @@ async def cleanup_expired_sessions(self):
                 logger.info(f"🧹 Cleaned up {count} expired sessions")
     except Exception as e:
         logger.error(f"Cleanup sessions error: {e}")
+
+async def get_all_sessions(self, mobile: str) -> List[dict]:
+    """Get all sessions for a user."""
+    async with self.pool.acquire() as conn:
+        result = await conn.fetch("""
+            SELECT session_token, expires_at, created_at
+            FROM sessions 
+            WHERE mobile = $1 AND expires_at > NOW()
+            ORDER BY created_at DESC
+        """, mobile)
+    
+    return [dict(row) for row in result]
+
+async def delete_all_user_sessions(self, mobile: str) -> int:
+    """Delete all sessions for a user."""
+    async with self.pool.acquire() as conn:
+        result = await conn.execute("""
+            DELETE FROM sessions WHERE mobile = $1
+        """, mobile)
+    
+    count = int(result.split()[-1]) if result.split() else 0
+    logger.info(f"🧹 Deleted {count} sessions for {mobile}")
+    return count
     
     # =============================================
     # SEARCH HISTORY
