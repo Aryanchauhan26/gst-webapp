@@ -679,39 +679,47 @@ async def login_page(request: Request):
     return templates.TemplateResponse("login.html", context)
 
 @app.post("/login")
-async def login(request: Request, mobile: str = Form(...), password: str = Form(...)):
-    """Handle login."""
-    client_ip = request.client.host
-    
-    if not login_limiter.is_allowed(client_ip):
-        return templates.TemplateResponse("login.html", {
-            "request": request,
-            "error": "Too many login attempts. Please try again later."
-        })
-    
-    is_valid, message = validate_mobile(mobile)
-    if not is_valid:
-        return templates.TemplateResponse("login.html", {
-            "request": request,
-            "error": message
-        })
-    
-    if await db.verify_user(mobile, password):
-        session_token = await db.create_session(mobile)
-        response = RedirectResponse(url="/", status_code=302)
-        response.set_cookie(
-            "session_token", 
-            session_token, 
-            max_age=int(config.SESSION_DURATION.total_seconds()),
-            httponly=True,
-            secure=config.is_production
-        )
-        return response
-    else:
-        return templates.TemplateResponse("login.html", {
-            "request": request,
-            "error": "Invalid mobile number or password"
-        })
+async def login(request: Request):
+    """Handle user login."""
+    try:
+        form_data = await request.form()
+        mobile = form_data.get("mobile", "").strip()
+        password = form_data.get("password", "").strip()
+        
+        if not mobile or not password:
+            return RedirectResponse(url="/login?error=missing_fields", status_code=302)
+        
+        # Validate mobile format
+        if not re.match(r'^[6-9]\d{9}$', mobile):
+            return RedirectResponse(url="/login?error=invalid_mobile", status_code=302)
+        
+        # Verify credentials
+        if await db.verify_user(mobile, password):
+            # Create session with proper expiration
+            from datetime import datetime, timedelta
+            expires_at = datetime.now() + timedelta(days=30)  # 30 days from now
+            session_token = await db.create_session(mobile, expires_at)
+            
+            # Set secure cookie
+            response = RedirectResponse(url="/", status_code=302)
+            response.set_cookie(
+                key="session_token",
+                value=session_token,
+                max_age=30 * 24 * 60 * 60,  # 30 days in seconds
+                httponly=True,
+                secure=True if request.url.scheme == "https" else False,
+                samesite="lax"
+            )
+            
+            logger.info(f"✅ User {mobile} logged in successfully")
+            return response
+        else:
+            logger.warning(f"⚠️ Failed login attempt for {mobile}")
+            return RedirectResponse(url="/login?error=invalid_credentials", status_code=302)
+            
+    except Exception as e:
+        logger.error(f"Login error: {e}")
+        return RedirectResponse(url="/login?error=system_error", status_code=302)
 
 @app.get("/signup", response_class=HTMLResponse)
 async def signup_page(request: Request):
@@ -720,42 +728,63 @@ async def signup_page(request: Request):
     return templates.TemplateResponse("signup.html", context)
 
 @app.post("/signup")
-async def signup(request: Request, mobile: str = Form(...), 
-                password: str = Form(...), confirm_password: str = Form(...)):
-    """Handle signup."""
-    is_valid, message = validate_mobile(mobile)
-    if not is_valid:
-        return templates.TemplateResponse("signup.html", {
-            "request": request,
-            "error": message
-        })
-    
-    if len(password) < 6:
-        return templates.TemplateResponse("signup.html", {
-            "request": request,
-            "error": "Password must be at least 6 characters"
-        })
-    
-    if password != confirm_password:
-        return templates.TemplateResponse("signup.html", {
-            "request": request,
-            "error": "Passwords do not match"
-        })
-    
-    salt = secrets.token_hex(16)
-    password_hash = hashlib.pbkdf2_hmac(
-        'sha256', password.encode('utf-8'), 
-        salt.encode('utf-8'), 100000, dklen=64
-    ).hex()
-    
-    success = await db.create_user(mobile, password_hash, salt)
-    if not success:
-        return templates.TemplateResponse("signup.html", {
-            "request": request,
-            "error": "Mobile number already registered"
-        })
-    
-    return RedirectResponse(url="/login?registered=true", status_code=302)
+async def signup(request: Request):
+    """Handle user registration."""
+    try:
+        form_data = await request.form()
+        mobile = form_data.get("mobile", "").strip()
+        password = form_data.get("password", "").strip()
+        confirm_password = form_data.get("confirm_password", "").strip()
+        
+        # Validation
+        if not all([mobile, password, confirm_password]):
+            return RedirectResponse(url="/signup?error=missing_fields", status_code=302)
+        
+        if not re.match(r'^[6-9]\d{9}$', mobile):
+            return RedirectResponse(url="/signup?error=invalid_mobile", status_code=302)
+        
+        if len(password) < 6:
+            return RedirectResponse(url="/signup?error=password_too_short", status_code=302)
+        
+        if password != confirm_password:
+            return RedirectResponse(url="/signup?error=password_mismatch", status_code=302)
+        
+        # Check if user already exists
+        if await db.user_exists(mobile):
+            return RedirectResponse(url="/signup?error=user_exists", status_code=302)
+        
+        # Create user
+        salt = secrets.token_hex(16)
+        password_hash = hashlib.pbkdf2_hmac(
+            'sha256', password.encode('utf-8'),
+            salt.encode('utf-8'), 100000, dklen=64
+        ).hex()
+        
+        if await db.create_user(mobile, password_hash, salt):
+            # Create session with proper expiration
+            from datetime import datetime, timedelta
+            expires_at = datetime.now() + timedelta(days=30)  # 30 days from now
+            session_token = await db.create_session(mobile, expires_at)
+            
+            # Set secure cookie
+            response = RedirectResponse(url="/?registered=true", status_code=302)
+            response.set_cookie(
+                key="session_token",
+                value=session_token,
+                max_age=30 * 24 * 60 * 60,  # 30 days in seconds
+                httponly=True,
+                secure=True if request.url.scheme == "https" else False,
+                samesite="lax"
+            )
+            
+            logger.info(f"✅ User {mobile} registered successfully")
+            return response
+        else:
+            return RedirectResponse(url="/signup?error=creation_failed", status_code=302)
+            
+    except Exception as e:
+        logger.error(f"Signup error: {e}")
+        return RedirectResponse(url="/signup?error=system_error", status_code=302)
 
 @app.get("/logout")
 async def logout(request: Request):
