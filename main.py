@@ -760,6 +760,24 @@ async def get_cached_gstin_data(gstin: str) -> Optional[Dict]:
 cache_manager = CacheManager(os.getenv("REDIS_URL"))
 
 # Validation utilities
+
+def add_template_context(
+    request: Request, 
+    current_user: Optional[str] = None,
+    user_display_name: Optional[str] = None,
+    user_profile: Optional[Dict] = None,
+    **kwargs
+    ):
+    """Helper function to ensure all templates have required context variables."""
+    context = {
+        "request": request,
+        "current_user": current_user,
+        "user_display_name": user_display_name,
+        "user_profile": user_profile or {},
+        **kwargs
+    }
+    return context
+
 def validate_mobile(mobile: str) -> tuple[bool, str]:
     """Validate mobile number format."""
     mobile = mobile.strip()
@@ -1152,14 +1170,16 @@ async def dashboard(request: Request, current_user: str = Depends(require_auth))
         if item.get('searched_at') and item['searched_at'] >= last_30_days
     )
     
-    return templates.TemplateResponse("index.html", {
-        "request": request,
-        "current_user": current_user,
-        "user_display_name": user_display_name,
-        "user_profile": user_profile,
-        "history": history,
-        "searches_this_month": searches_this_month
-    })
+    context = add_template_context(
+        request=request,
+        current_user=current_user,
+        user_display_name=user_display_name,
+        user_profile=user_profile,
+        history=history,
+        searches_this_month=searches_this_month
+    )
+    
+    return templates.TemplateResponse("index.html", context)
 
 # Admin Dashboard Routes
 @app.get("/admin", response_class=HTMLResponse)
@@ -1178,7 +1198,17 @@ async def admin_dashboard(request: Request, current_user: str = Depends(require_
 @app.get("/login", response_class=HTMLResponse)
 async def login_page(request: Request):
     """Login page."""
-    return templates.TemplateResponse("login.html", {"request": request})
+    # Check if user is already logged in
+    current_user = await get_current_user(request)
+    if current_user:
+        return RedirectResponse(url="/", status_code=302)
+    
+    return templates.TemplateResponse("login.html", {
+        "request": request,
+        "current_user": None,  # Explicitly set to None for login page
+        "user_display_name": None,
+        "user_profile": None
+    })
 
 @app.post("/login")
 async def login(request: Request, mobile: str = Form(...), password: str = Form(...)):
@@ -1225,7 +1255,17 @@ async def login(request: Request, mobile: str = Form(...), password: str = Form(
 @app.get("/signup", response_class=HTMLResponse)
 async def signup_page(request: Request):
     """Signup page."""
-    return templates.TemplateResponse("signup.html", {"request": request})
+    # Check if user is already logged in
+    current_user = await get_current_user(request)
+    if current_user:
+        return RedirectResponse(url="/", status_code=302)
+        
+    return templates.TemplateResponse("signup.html", {
+        "request": request,
+        "current_user": None,  # Explicitly set to None for signup page
+        "user_display_name": None,
+        "user_profile": None
+    })
 
 @app.post("/signup")
 async def signup(request: Request, mobile: str = Form(...), 
@@ -1420,26 +1460,55 @@ async def history_page(request: Request, current_user: str = Depends(require_aut
 @app.get("/analytics", response_class=HTMLResponse)
 async def analytics_page(request: Request, current_user: str = Depends(require_auth)):
     """Analytics dashboard page."""
-    user_profile = await db.get_user_profile(current_user)
-    user_display_name = await get_user_display_name(current_user)
-    analytics_data = await db.get_analytics_data(current_user)
+    try:
+        user_profile = await db.get_user_profile(current_user)
+        user_display_name = await get_user_display_name(current_user)
+        analytics_data = await db.get_analytics_data(current_user)
+        
+        # Get overall stats
+        stats = await db.get_user_stats(current_user)
+        
+        # Calculate recent activity
+        now = datetime.now()
+        last_30_days = now - timedelta(days=30)
+        
+        # Get history for recent searches calculation
+        history = await db.get_search_history(current_user)
+        searches_this_month = sum(
+            1 for item in history
+            if item.get('searched_at') and item['searched_at'] >= last_30_days
+        )
+        
+        return templates.TemplateResponse("analytics.html", {
+            "request": request, 
+            "current_user": current_user,  # Make sure this is passed
+            "user_display_name": user_display_name,
+            "user_profile": user_profile,
+            "daily_searches": analytics_data["daily_searches"],
+            "score_distribution": analytics_data["score_distribution"],
+            "top_companies": analytics_data["top_companies"],
+            "total_searches": stats["total_searches"],
+            "unique_companies": stats["unique_companies"],
+            "avg_compliance": stats["avg_compliance"],
+            "searches_this_month": searches_this_month
+        })
+    except Exception as e:
+        logger.error(f"Analytics page error: {e}")
+        # Fallback response with empty data
+        return templates.TemplateResponse("analytics.html", {
+            "request": request, 
+            "current_user": current_user,  # Make sure this is passed even in error case
+            "user_display_name": await get_user_display_name(current_user) if current_user else "User",
+            "user_profile": {},
+            "daily_searches": [],
+            "score_distribution": [],
+            "top_companies": [],
+            "total_searches": 0,
+            "unique_companies": 0,
+            "avg_compliance": 0,
+            "searches_this_month": 0
+        })
     
-    # Get overall stats
-    stats = await db.get_user_stats(current_user)
-    
-    return templates.TemplateResponse("analytics.html", {
-        "request": request, 
-        "current_user": current_user,
-        "user_display_name": user_display_name,
-        "user_profile": user_profile,
-        "daily_searches": analytics_data["daily_searches"],
-        "score_distribution": analytics_data["score_distribution"],
-        "top_companies": analytics_data["top_companies"],
-        "total_searches": stats["total_searches"],
-        "unique_companies": stats["unique_companies"],
-        "avg_compliance": stats["avg_compliance"]
-    })
-
 @app.get("/loans", response_class=HTMLResponse)
 async def loans_page(request: Request, current_user: str = Depends(require_auth)):
     """Loans dashboard page"""
