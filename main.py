@@ -27,6 +27,7 @@ from io import BytesIO, StringIO
 import redis
 import fnmatch
 import csv
+import time
 # Configure logging
 logging.basicConfig(
     level=logging.INFO, 
@@ -153,11 +154,15 @@ class CacheManager:
         if redis_url:
             try:
                 import redis
-                self.redis_client = redis.from_url(redis_url)
-                self.redis_client.ping()  # Test connection
-                logger.info("✅ Redis cache initialized")
+                self.redis_client = redis.from_url(redis_url, decode_responses=True)
+                # Test connection
+                self.redis_client.ping()
+                logger.info("✅ Redis cache connected successfully")
             except Exception as e:
-                logger.warning(f"Redis unavailable, using memory cache: {e}")
+                logger.warning(f"⚠️ Redis connection failed, using memory cache: {e}")
+                self.redis_client = None
+        else:
+            logger.info("📝 Using in-memory cache (Redis not configured)")
         
         # Cleanup old memory cache entries periodically
         asyncio.create_task(self._cleanup_memory_cache())
@@ -166,17 +171,24 @@ class CacheManager:
         """Get value from cache."""
         try:
             if self.redis_client:
-                value = self.redis_client.get(key)
-                if value:
-                    return json.loads(value.decode('utf-8'))
-            else:
-                # Memory cache with TTL check
-                if key in self.memory_cache:
-                    data, timestamp = self.memory_cache[key]
-                    if datetime.now().timestamp() - timestamp < self.cache_ttl:
-                        return data
-                    else:
-                        del self.memory_cache[key]
+                try:
+                    value = self.redis_client.get(key)
+                    if value:
+                        return json.loads(value)
+                except Exception as e:
+                    logger.error(f"Redis get error: {e}")
+                    # Fall back to memory cache
+                    pass
+            
+            # Use memory cache
+            if key in self.memory_cache:
+                item = self.memory_cache[key]
+                if time.time() < item['expires']:
+                    return item['value']
+                else:
+                    # Cleanup expired entry
+                    del self.memory_cache[key]
+                    
         except Exception as e:
             logger.error(f"Cache get error: {e}")
         return None
@@ -188,10 +200,30 @@ class CacheManager:
             serialized_value = json.dumps(value)
             
             if self.redis_client:
-                self.redis_client.setex(key, ttl, serialized_value)
-            else:
-                # Memory cache with timestamp
-                self.memory_cache[key] = (value, datetime.now().timestamp())
+                try:
+                    self.redis_client.setex(key, ttl, serialized_value)
+                    return True
+                except Exception as e:
+                    logger.error(f"Redis set error: {e}")
+                    # Fall back to memory cache
+                    pass
+            
+            # Use memory cache
+            self.memory_cache[key] = {
+                'value': value,
+                'expires': time.time() + ttl
+            }
+            
+            # Limit memory cache size
+            if len(self.memory_cache) > 1000:
+                # Remove oldest 20% of entries
+                sorted_items = sorted(
+                    self.memory_cache.items(), 
+                    key=lambda x: x[1]['expires']
+                )
+                for old_key, _ in sorted_items[:200]:
+                    del self.memory_cache[old_key]
+            
             return True
         except Exception as e:
             logger.error(f"Cache set error: {e}")
@@ -1373,41 +1405,19 @@ async def process_search(request: Request, gstin: str, current_user: str):
         logger.info(f"Final compliance score for template: {compliance_score}")
         
         # Enhanced AI synopsis with web scraping
+
         synopsis = None
         if config.ANTHROPIC_API_KEY:
             try:
-                # Import and use the enhanced analyzer
-                from anthro_ai import CompanyAnalyzer
-                
-                analyzer = CompanyAnalyzer(config.ANTHROPIC_API_KEY)
-                
-                # Get company info from web first
-                company_name = company_data.get("lgnm", "")
-                location = None
-                if company_data.get('stj') and 'State - ' in str(company_data.get('stj')):
-                    try:
-                        location = company_data['stj'].split('State - ')[1].split(',')[0]
-                    except:
-                        pass
-                
-                # Gather web information
-                web_info = await analyzer.get_company_info_from_web(company_name, gstin, location)
-                
-                # Add web content to company data for AI processing
-                if web_info.get('web_content'):
-                    company_data['_web_content'] = web_info['web_content']
-                    company_data['_web_summary'] = web_info['summary']
-                    company_data['_web_keywords'] = web_info['keywords']
-                
-                # Generate enhanced synopsis
-                synopsis = await analyzer.get_anthropic_synopsis(company_data)
-                
-                logger.info(f"Generated enhanced synopsis with web data: {synopsis[:100]}...")
-                
+                    logger.info("Generating AI synopsis with web intelligence...")
+                    synopsis = await get_anthropic_synopsis(company_data, compliance_score)
+                    if synopsis:
+                        logger.info(f"AI synopsis generated successfully: {synopsis[:100]}...")
+                    else:
+                        logger.warning("AI synopsis generation returned empty result")
             except Exception as e:
-                logger.error(f"Failed to get enhanced AI synopsis: {e}")
-                # Fallback to basic synopsis
-                synopsis = await get_anthropic_synopsis(company_data)
+                        logger.error(f"AI synopsis generation failed: {e}")
+                        synopsis = None
         
         # Add to search history
         await db.add_search_history(current_user, gstin, company_data.get("lgnm", "Unknown"), compliance_score)
@@ -1749,37 +1759,45 @@ async def get_search_suggestions_api(q: str, current_user: str = Depends(require
     """Search suggestions API."""
     try:
         if len(q) < 2:
-            return {'success': True, 'suggestions': []}
+            return {"success": True, "suggestions": []}
         
-        # Get recent searches that match query
+        # Get suggestions from search history
         async with db.pool.acquire() as conn:
-            rows = await conn.fetch("""
-                SELECT DISTINCT gstin, company_name, compliance_score 
+            # Fixed SQL query - remove ORDER BY from DISTINCT query
+            suggestions = await conn.fetch("""
+                SELECT DISTINCT gstin, company_name, compliance_score
                 FROM search_history 
                 WHERE mobile = $1 
-                AND (LOWER(company_name) LIKE $2 OR LOWER(gstin) LIKE $2)
-                ORDER BY searched_at DESC 
+                AND (
+                    UPPER(gstin) LIKE UPPER($2) 
+                    OR UPPER(company_name) LIKE UPPER($2)
+                )
+                AND company_name IS NOT NULL
                 LIMIT 5
-            """, current_user, f"%{q.lower()}%")
+            """, current_user, f"%{q}%")
+            
+            # Sort the results after fetching
+            sorted_suggestions = sorted(
+                [dict(row) for row in suggestions], 
+                key=lambda x: x.get('searched_at', datetime.min) if hasattr(x, 'searched_at') else datetime.min, 
+                reverse=True
+            )
+            
+            formatted_suggestions = []
+            for suggestion in sorted_suggestions:
+                formatted_suggestions.append({
+                    'gstin': suggestion['gstin'],
+                    'company': suggestion['company_name'],
+                    'compliance_score': suggestion.get('compliance_score'),
+                    'type': 'recent',
+                    'source': 'history'
+                })
         
-        suggestions = []
-        for row in rows:
-            suggestions.append({
-                'gstin': row['gstin'],
-                'company': row['company_name'],
-                'compliance_score': float(row['compliance_score']) if row['compliance_score'] else None,
-                'icon': 'fas fa-history',
-                'type': 'recent'
-            })
-        
-        return {
-            'success': True,
-            'suggestions': suggestions[:5]
-        }
+        return {"success": True, "suggestions": formatted_suggestions}
         
     except Exception as e:
         logger.error(f"Search suggestions error: {e}")
-        return {'success': False, 'suggestions': []}
+        return {"success": True, "suggestions": []}
 
 @app.post("/api/system/error")
 @handle_api_errors
