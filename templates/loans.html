@@ -1,1208 +1,974 @@
 {% extends "base.html" %}
 
 {% block title %}Business Loans - GST Intelligence Platform{% endblock %}
+{% block body_class %}page-loans{% endblock %}
 
-{% block extra_css %}
+{% block content %}
 <style>
-/* Additional loan-specific styles */
-.loan-hero {
-    background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
-    color: white;
-    padding: var(--space-16) 0;
-    text-align: center;
-    margin-bottom: var(--space-12);
-}
-
-.feature-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-    gap: var(--space-6);
-    margin: var(--space-12) 0;
-}
-
-.feature-card {
-    text-align: center;
-    padding: var(--space-6);
-}
-
-.feature-icon {
-    width: 64px;
-    height: 64px;
-    background: var(--accent-gradient);
-    border-radius: var(--radius-full);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    margin: 0 auto var(--space-4);
-    color: white;
-    font-size: var(--text-2xl);
-}
-
-.loan-tabs {
-    display: flex;
-    background: var(--bg-card);
-    border-radius: var(--radius-xl);
-    padding: var(--space-2);
-    margin-bottom: var(--space-8);
-    border: 1px solid var(--border-primary);
-}
-
-.loan-tab {
-    flex: 1;
-    padding: var(--space-3) var(--space-4);
-    background: none;
-    border: none;
-    border-radius: var(--radius-lg);
-    color: var(--text-muted);
-    font-weight: 500;
-    cursor: pointer;
-    transition: var(--transition);
-}
-
-.loan-tab.active {
-    background: var(--accent-gradient);
-    color: white;
-}
-
-.loan-tab:hover:not(.active) {
-    background: var(--bg-hover);
-    color: var(--text-primary);
-}
-
-.tab-content {
-    display: none;
-}
-
-.tab-content.active {
-    display: block;
-}
-
-.loan-status {
-    padding: var(--space-1) var(--space-3);
-    border-radius: var(--radius-full);
-    font-size: var(--text-xs);
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-}
-
-.status-pending { background: var(--warning-light); color: var(--warning); }
-.status-approved { background: var(--success-light); color: var(--success); }
-.status-rejected { background: var(--error-light); color: var(--error); }
-.status-disbursed { background: var(--info-light); color: var(--info); }
-
-.progress-bar {
-    width: 100%;
-    height: 8px;
-    background: var(--bg-surface);
-    border-radius: var(--radius-full);
-    overflow: hidden;
-    margin: var(--space-3) 0;
-}
-
-.progress-fill {
-    height: 100%;
-    background: var(--accent-gradient);
-    border-radius: var(--radius-full);
-    transition: width 0.3s ease;
-}
-
-.emi-calculator {
-    position: sticky;
-    top: 80px;
-}
-
-.requirement-list {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-3);
-}
-
-.requirement-item {
-    display: flex;
-    align-items: center;
-    gap: var(--space-3);
-    font-size: var(--text-sm);
-}
-
-.text-success {
-    color: var(--success);
-}
-
-.text-error {
-    color: var(--error);
-}
-
-.text-primary {
-    color: var(--accent-primary);
-}
-
-.range-input {
-    width: 100%;
-    margin-bottom: var(--space-2);
-    -webkit-appearance: none;
-    appearance: none;
-    height: 6px;
-    border-radius: var(--radius-full);
-    background: var(--bg-surface);
-    outline: none;
-}
-
-.range-input::-webkit-slider-thumb {
-    -webkit-appearance: none;
-    appearance: none;
-    width: 20px;
-    height: 20px;
-    border-radius: var(--radius-full);
-    background: var(--accent-primary);
-    cursor: pointer;
-}
-
-.range-input::-moz-range-thumb {
-    width: 20px;
-    height: 20px;
-    border-radius: var(--radius-full);
-    background: var(--accent-primary);
-    cursor: pointer;
-    border: none;
-}
-
-.application-item {
-    background: var(--bg-secondary);
-    border: 1px solid var(--border-primary);
-    border-radius: 12px;
-    padding: 1.5rem;
-    margin-bottom: 1rem;
-}
-
-.application-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 1rem;
-    padding-bottom: 1rem;
-    border-bottom: 1px solid var(--border-primary);
-}
-
-.application-id {
-    font-family: monospace;
-    font-weight: 600;
-    color: var(--accent-primary);
-}
-
-.application-details {
-    margin-bottom: 1rem;
-}
-
-.detail-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 0.5rem 0;
-    border-bottom: 1px solid var(--border-secondary);
-}
-
-.detail-row:last-child {
-    border-bottom: none;
-}
-
-.application-actions {
-    display: flex;
-    gap: 1rem;
-    justify-content: flex-end;
-}
-
-.eligibility-details .detail-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 0.75rem 0;
-    border-bottom: 1px solid var(--border-primary);
-}
-
-.btn--sm {
-    padding: 0.5rem 1rem;
-    font-size: 0.875rem;
-}
-
-.btn--error {
-    background: var(--error);
-    color: white;
-}
-
-.btn--error:hover {
-    background: #dc2626;
-}
-
-.calculator-result {
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
-}
-
-.result-item {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 1rem;
-    background: var(--bg-secondary);
-    border-radius: 8px;
-}
-
-.result-label {
-    color: var(--text-secondary);
-    font-weight: 500;
-}
-
-.result-value {
-    color: var(--text-primary);
-    font-weight: 700;
-    font-size: 1.25rem;
-}
-
-@media (max-width: 768px) {
-    .emi-calculator {
-        position: static;
-        margin-top: var(--space-6);
+    /* Loan-specific styles */
+    .loans-hero {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #7c3aed 100%);
+        border-radius: 24px;
+        padding: 3rem;
+        margin-bottom: 2rem;
+        text-align: center;
+        color: white;
+        position: relative;
+        overflow: hidden;
+        animation: heroGlow 3s ease-in-out infinite;
     }
-    
-    .loan-tabs {
-        flex-direction: column;
+
+    @keyframes heroGlow {
+        0%, 100% { box-shadow: 0 12px 40px rgba(124, 58, 237, 0.4); }
+        50% { box-shadow: 0 16px 60px rgba(124, 58, 237, 0.6); }
     }
-    
-    .loan-tab {
+
+    .loans-hero h1 {
+        font-size: 2.5rem;
+        font-weight: 800;
+        margin-bottom: 1rem;
+    }
+
+    .loans-hero p {
+        font-size: 1.2rem;
+        opacity: 0.9;
+        max-width: 600px;
+        margin: 0 auto;
+    }
+
+    .loan-features {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 1.5rem;
+        margin: 2rem 0;
+    }
+
+    .feature-card {
+        background: var(--bg-card);
+        border: 1px solid var(--border-primary);
+        border-radius: 16px;
+        padding: 2rem;
+        text-align: center;
+        transition: all 0.3s ease;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .feature-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 3px;
+        background: var(--accent-gradient);
+        transform: scaleX(0);
+        transition: transform 0.3s ease;
+    }
+
+    .feature-card:hover::before {
+        transform: scaleX(1);
+    }
+
+    .feature-card:hover {
+        transform: translateY(-5px);
+        box-shadow: var(--hover-shadow);
+        border-color: var(--accent-primary);
+    }
+
+    .feature-icon {
+        width: 60px;
+        height: 60px;
+        background: var(--accent-gradient);
+        border-radius: 16px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.8rem;
+        color: white;
+        margin: 0 auto 1rem;
+        box-shadow: 0 8px 24px rgba(124, 58, 237, 0.3);
+    }
+
+    .tabs-container {
+        background: var(--bg-card);
+        border: 1px solid var(--border-primary);
+        border-radius: 20px;
+        overflow: hidden;
+        box-shadow: var(--card-shadow);
+        margin-bottom: 2rem;
+    }
+
+    .tabs-header {
+        display: flex;
+        background: var(--bg-hover);
+        border-bottom: 1px solid var(--border-primary);
+    }
+
+    .tab-btn {
+        flex: 1;
+        padding: 1.5rem;
+        background: none;
+        border: none;
+        color: var(--text-secondary);
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        position: relative;
+    }
+
+    .tab-btn.active {
+        color: var(--accent-primary);
+        background: var(--bg-card);
+    }
+
+    .tab-btn.active::after {
+        content: '';
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        height: 3px;
+        background: var(--accent-gradient);
+    }
+
+    .tab-content {
+        padding: 2rem;
+        display: none;
+    }
+
+    .tab-content.active {
+        display: block;
+    }
+
+    .loan-form {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 1.5rem;
+        margin-bottom: 2rem;
+    }
+
+    .form-section {
+        background: var(--bg-hover);
+        border-radius: 12px;
+        padding: 1.5rem;
+        border: 1px solid var(--border-primary);
+    }
+
+    .form-section h3 {
+        color: var(--text-primary);
+        margin-bottom: 1rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .form-group {
+        margin-bottom: 1rem;
+    }
+
+    .form-label {
+        display: block;
+        color: var(--text-secondary);
+        font-weight: 500;
+        margin-bottom: 0.5rem;
+    }
+
+    .form-input {
+        width: 100%;
+        padding: 0.75rem 1rem;
+        background: var(--bg-input);
+        border: 1px solid var(--border-primary);
+        border-radius: 8px;
+        color: var(--text-primary);
+        transition: all 0.3s ease;
+    }
+
+    .form-input:focus {
+        outline: none;
+        border-color: var(--accent-primary);
+        box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.1);
+    }
+
+    .form-select {
+        width: 100%;
+        padding: 0.75rem 1rem;
+        background: var(--bg-input);
+        border: 1px solid var(--border-primary);
+        border-radius: 8px;
+        color: var(--text-primary);
+        cursor: pointer;
+    }
+
+    .eligibility-card {
+        background: linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(5, 150, 105, 0.1) 100%);
+        border: 1px solid var(--success);
+        border-radius: 12px;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .eligibility-card.ineligible {
+        background: linear-gradient(135deg, rgba(239, 68, 68, 0.1) 0%, rgba(220, 38, 38, 0.1) 100%);
+        border-color: var(--error);
+    }
+
+    .loan-application-card {
+        background: var(--bg-card);
+        border: 1px solid var(--border-primary);
+        border-radius: 16px;
+        padding: 1.5rem;
+        margin-bottom: 1rem;
+        transition: all 0.3s ease;
+    }
+
+    .loan-application-card:hover {
+        transform: translateY(-2px);
+        box-shadow: var(--hover-shadow);
+    }
+
+    .application-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: 1rem;
+    }
+
+    .application-amount {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: var(--accent-primary);
+    }
+
+    .status-badge {
+        padding: 0.25rem 0.75rem;
+        border-radius: 12px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        text-transform: uppercase;
+    }
+
+    .status-pending {
+        background: rgba(245, 158, 11, 0.2);
+        color: var(--warning);
+    }
+
+    .status-approved {
+        background: rgba(16, 185, 129, 0.2);
+        color: var(--success);
+    }
+
+    .status-rejected {
+        background: rgba(239, 68, 68, 0.2);
+        color: var(--error);
+    }
+
+    .status-disbursed {
+        background: rgba(59, 130, 246, 0.2);
+        color: var(--info);
+    }
+
+    .loan-details {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 1rem;
+        margin-bottom: 1rem;
+    }
+
+    .detail-item {
         text-align: center;
     }
 
-    .application-actions {
-        flex-direction: column;
+    .detail-label {
+        font-size: 0.8rem;
+        color: var(--text-secondary);
+        margin-bottom: 0.25rem;
     }
-    
-    .detail-row {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 0.25rem;
-    }
-}
-</style>
-{% endblock %}
 
-{% block page_header %}
-<div class="loan-hero">
-    <div class="container">
-        <h1>Business Loans</h1>
-        <p class="page-subtitle">Get instant business loans based on your GST compliance</p>
-        <div class="feature-grid">
-            <div class="feature-card">
-                <div class="feature-icon">
-                    <i class="fas fa-clock"></i>
+    .detail-value {
+        font-weight: 600;
+        color: var(--text-primary);
+    }
+
+    .cta-section {
+        background: var(--bg-card);
+        border: 1px solid var(--border-primary);
+        border-radius: 20px;
+        padding: 3rem;
+        text-align: center;
+        margin-top: 2rem;
+    }
+
+    .cta-btn {
+        background: var(--accent-gradient);
+        color: white;
+        border: none;
+        padding: 1rem 2rem;
+        border-radius: 12px;
+        font-size: 1.1rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        box-shadow: 0 6px 30px rgba(124, 58, 237, 0.4);
+    }
+
+    .cta-btn:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 8px 40px rgba(124, 58, 237, 0.6);
+    }
+
+    .loan-calculator {
+        background: var(--bg-card);
+        border: 1px solid var(--border-primary);
+        border-radius: 16px;
+        padding: 2rem;
+        margin-bottom: 2rem;
+    }
+
+    .calculator-result {
+        background: var(--bg-hover);
+        border-radius: 12px;
+        padding: 1.5rem;
+        margin-top: 1rem;
+        text-align: center;
+    }
+
+    .emi-amount {
+        font-size: 2rem;
+        font-weight: 800;
+        color: var(--accent-primary);
+        margin-bottom: 0.5rem;
+    }
+
+    @media (max-width: 768px) {
+        .loans-hero h1 {
+            font-size: 2rem;
+        }
+        
+        .loan-form {
+            grid-template-columns: 1fr;
+        }
+        
+        .tabs-header {
+            flex-direction: column;
+        }
+        
+        .application-header {
+            flex-direction: column;
+            gap: 1rem;
+        }
+    }
+</style>
+
+<!-- Hero Section -->
+<div class="loans-hero">
+    <h1>Business Loans for Your Growth</h1>
+    <p>Get instant loans based on your GST compliance and business performance. Quick approval, competitive rates, and flexible terms.</p>
+</div>
+
+<!-- Features -->
+<div class="loan-features">
+    <div class="feature-card">
+        <div class="feature-icon">
+            <i class="fas fa-tachometer-alt"></i>
+        </div>
+        <h3>Instant Approval</h3>
+        <p>Get loan approval in minutes based on your GST compliance score and business performance.</p>
+    </div>
+    
+    <div class="feature-card">
+        <div class="feature-icon">
+            <i class="fas fa-percentage"></i>
+        </div>
+        <h3>Competitive Rates</h3>
+        <p>Interest rates starting from 12% per annum for businesses with excellent compliance.</p>
+    </div>
+    
+    <div class="feature-card">
+        <div class="feature-icon">
+            <i class="fas fa-file-contract"></i>
+        </div>
+        <h3>Minimal Documentation</h3>
+        <p>Your GST data is your documentation. No lengthy paperwork or bank statements required.</p>
+    </div>
+    
+    <div class="feature-card">
+        <div class="feature-icon">
+            <i class="fas fa-calendar-alt"></i>
+        </div>
+        <h3>Flexible Tenure</h3>
+        <p>Choose repayment tenure from 6 to 36 months that suits your business cash flow.</p>
+    </div>
+</div>
+
+<!-- Main Content Tabs -->
+<div class="tabs-container">
+    <div class="tabs-header">
+        <button class="tab-btn active" onclick="switchTab('apply')">
+            <i class="fas fa-plus-circle"></i> Apply for Loan
+        </button>
+        <button class="tab-btn" onclick="switchTab('applications')">
+            <i class="fas fa-list"></i> My Applications
+        </button>
+        <button class="tab-btn" onclick="switchTab('calculator')">
+            <i class="fas fa-calculator"></i> EMI Calculator
+        </button>
+    </div>
+    
+    <!-- Apply Tab -->
+    <div id="apply-tab" class="tab-content active">
+        <h2 style="margin-bottom: 2rem; color: var(--text-primary);">
+            <i class="fas fa-coins"></i> Apply for Business Loan
+        </h2>
+        
+        <!-- Eligibility Check -->
+        <div id="eligibilityResult" style="display: none;"></div>
+        
+        <form id="loanApplicationForm" class="loan-form">
+            <!-- Business Details -->
+            <div class="form-section">
+                <h3><i class="fas fa-building"></i> Business Details</h3>
+                
+                <div class="form-group">
+                    <label class="form-label">GSTIN *</label>
+                    <input type="text" 
+                           id="loanGstin" 
+                           name="gstin" 
+                           class="form-input" 
+                           placeholder="Enter your GSTIN"
+                           pattern="[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}"
+                           maxlength="15"
+                           required>
                 </div>
-                <h3>Quick Approval</h3>
-                <p>Get approval in 24 hours based on your GST compliance score</p>
+                
+                <div class="form-group">
+                    <label class="form-label">Company Name *</label>
+                    <input type="text" 
+                           id="loanCompanyName" 
+                           name="company_name" 
+                           class="form-input" 
+                           placeholder="Enter company name"
+                           required>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Annual Turnover (₹) *</label>
+                    <input type="number" 
+                           id="annualTurnover" 
+                           name="annual_turnover" 
+                           class="form-input" 
+                           placeholder="e.g., 5000000"
+                           min="{{ loan_config.min_annual_turnover if loan_config else 100000 }}"
+                           required>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Average Monthly Revenue (₹) *</label>
+                    <input type="number" 
+                           id="monthlyRevenue" 
+                           name="monthly_revenue" 
+                           class="form-input" 
+                           placeholder="e.g., 400000"
+                           required>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Business Vintage (Months) *</label>
+                    <input type="number" 
+                           id="businessVintage" 
+                           name="business_vintage_months" 
+                           class="form-input" 
+                           placeholder="e.g., 24"
+                           min="{{ loan_config.min_vintage if loan_config else 6 }}"
+                           required>
+                </div>
             </div>
-            <div class="feature-card">
-                <div class="feature-icon">
-                    <i class="fas fa-percentage"></i>
+            
+            <!-- Loan Details -->
+            <div class="form-section">
+                <h3><i class="fas fa-money-check-alt"></i> Loan Requirements</h3>
+                
+                <div class="form-group">
+                    <label class="form-label">Loan Amount (₹) *</label>
+                    <input type="number" 
+                           id="loanAmount" 
+                           name="loan_amount" 
+                           class="form-input" 
+                           placeholder="e.g., 500000"
+                           min="{{ loan_config.min_amount if loan_config else 50000 }}"
+                           max="{{ loan_config.max_amount if loan_config else 5000000 }}"
+                           required>
                 </div>
-                <h3>Competitive Rates</h3>
-                <p>Interest rates starting from 12% per annum for high-compliance businesses</p>
+                
+                <div class="form-group">
+                    <label class="form-label">Loan Purpose *</label>
+                    <select id="loanPurpose" name="purpose" class="form-select" required>
+                        <option value="">Select purpose</option>
+                        <option value="working_capital">Working Capital</option>
+                        <option value="inventory">Inventory Purchase</option>
+                        <option value="equipment">Equipment Purchase</option>
+                        <option value="expansion">Business Expansion</option>
+                        <option value="technology">Technology Upgrade</option>
+                        <option value="other">Other</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Repayment Tenure (Months) *</label>
+                    <select id="loanTenure" name="tenure_months" class="form-select" required>
+                        <option value="">Select tenure</option>
+                        <option value="6">6 Months</option>
+                        <option value="12">12 Months</option>
+                        <option value="18">18 Months</option>
+                        <option value="24">24 Months</option>
+                        <option value="30">30 Months</option>
+                        <option value="36">36 Months</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">GST Compliance Score</label>
+                    <input type="number" 
+                           id="complianceScore" 
+                           name="compliance_score" 
+                           class="form-input" 
+                           placeholder="Auto-filled from GST data"
+                           readonly>
+                </div>
             </div>
-            <div class="feature-card">
-                <div class="feature-icon">
-                    <i class="fas fa-shield-alt"></i>
+        </form>
+        
+        <div style="text-align: center; margin-top: 2rem;">
+            <button type="button" class="cta-btn" onclick="checkEligibility()" style="margin-right: 1rem;">
+                <i class="fas fa-search"></i> Check Eligibility
+            </button>
+            <button type="button" class="cta-btn" onclick="submitLoanApplication()" id="submitLoanBtn" disabled>
+                <i class="fas fa-paper-plane"></i> Submit Application
+            </button>
+        </div>
+    </div>
+    
+    <!-- Applications Tab -->
+    <div id="applications-tab" class="tab-content">
+        <h2 style="margin-bottom: 2rem; color: var(--text-primary);">
+            <i class="fas fa-list"></i> My Loan Applications
+        </h2>
+        
+        <div id="applicationsContainer">
+            {% if applications %}
+                {% for app in applications %}
+                <div class="loan-application-card">
+                    <div class="application-header">
+                        <div>
+                            <div class="application-amount">₹{{ "{:,.0f}".format(app.loan_amount) }}</div>
+                            <div style="color: var(--text-secondary); margin-top: 0.25rem;">{{ app.company_name }}</div>
+                        </div>
+                        <div class="status-badge status-{{ app.status }}">{{ app.status|title }}</div>
+                    </div>
+                    
+                    <div class="loan-details">
+                        <div class="detail-item">
+                            <div class="detail-label">Purpose</div>
+                            <div class="detail-value">{{ app.purpose|title|replace('_', ' ') }}</div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-label">Tenure</div>
+                            <div class="detail-value">{{ app.tenure_months }} months</div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-label">Applied On</div>
+                            <div class="detail-value">{{ app.created_at.strftime('%d %b %Y') }}</div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-label">Risk Score</div>
+                            <div class="detail-value">{{ "%.1f"|format(app.risk_score) }}%</div>
+                        </div>
+                    </div>
+                    
+                    {% if app.status == 'approved' %}
+                    <div style="margin-top: 1rem; text-align: center;">
+                        <button class="cta-btn" onclick="viewLoanOffers('{{ app.id }}')">
+                            <i class="fas fa-eye"></i> View Offers
+                        </button>
+                    </div>
+                    {% endif %}
                 </div>
-                <h3>No Collateral</h3>
-                <p>Unsecured loans up to ₹50 lakhs without any collateral requirements</p>
+                {% endfor %}
+            {% else %}
+                <div style="text-align: center; padding: 3rem; color: var(--text-secondary);">
+                    <i class="fas fa-file-contract" style="font-size: 3rem; margin-bottom: 1rem; opacity: 0.5;"></i>
+                    <p>No loan applications yet. Apply for your first business loan above!</p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+    
+    <!-- Calculator Tab -->
+    <div id="calculator-tab" class="tab-content">
+        <h2 style="margin-bottom: 2rem; color: var(--text-primary);">
+            <i class="fas fa-calculator"></i> EMI Calculator
+        </h2>
+        
+        <div class="loan-calculator">
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
+                <div class="form-group">
+                    <label class="form-label">Loan Amount (₹)</label>
+                    <input type="number" 
+                           id="calcLoanAmount" 
+                           class="form-input" 
+                           placeholder="e.g., 500000"
+                           oninput="calculateEMI()">
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Interest Rate (% per annum)</label>
+                    <input type="number" 
+                           id="calcInterestRate" 
+                           class="form-input" 
+                           placeholder="e.g., 15"
+                           step="0.1"
+                           oninput="calculateEMI()">
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Tenure (Months)</label>
+                    <input type="number" 
+                           id="calcTenure" 
+                           class="form-input" 
+                           placeholder="e.g., 24"
+                           oninput="calculateEMI()">
+                </div>
+            </div>
+            
+            <div class="calculator-result" id="emiResult" style="display: none;">
+                <div class="emi-amount" id="emiAmount">₹0</div>
+                <div style="color: var(--text-secondary);">Monthly EMI</div>
+                
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem; margin-top: 1rem;">
+                    <div>
+                        <div style="font-weight: 600; color: var(--text-primary);" id="totalInterest">₹0</div>
+                        <div style="font-size: 0.9rem; color: var(--text-secondary);">Total Interest</div>
+                    </div>
+                    <div>
+                        <div style="font-weight: 600; color: var(--text-primary);" id="totalAmount">₹0</div>
+                        <div style="font-size: 0.9rem; color: var(--text-secondary);">Total Amount</div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
 </div>
-{% endblock %}
 
-{% block content %}
-<div class="container">
-    <!-- Loan Management Tabs -->
-    <div class="loan-tabs">
-        <button class="loan-tab active" data-tab="eligibility">
-            <i class="fas fa-check-circle"></i>
-            Check Eligibility
-        </button>
-        <button class="loan-tab" data-tab="apply">
-            <i class="fas fa-file-alt"></i>
-            Apply for Loan
-        </button>
-        <button class="loan-tab" data-tab="applications">
-            <i class="fas fa-list"></i>
-            My Applications
-        </button>
-        <button class="loan-tab" data-tab="calculator">
-            <i class="fas fa-calculator"></i>
-            EMI Calculator
-        </button>
-    </div>
-
-    <!-- Eligibility Check Tab -->
-    <div id="eligibility-tab" class="tab-content active">
-        <div class="grid grid-2" style="align-items: start;">
-            <div>
-                <div class="card">
-                    <div class="card-header">
-                        <h2 class="card-title">
-                            <i class="fas fa-check-circle"></i>
-                            Check Loan Eligibility
-                        </h2>
-                        <p class="card-text">Enter your business details to check loan eligibility instantly</p>
-                    </div>
-                    <div class="card-body">
-                        <form id="eligibility-form">
-                            <div class="form-group">
-                                <label for="eligibility-gstin" class="form-label">GSTIN *</label>
-                                <input type="text" id="eligibility-gstin" name="gstin" class="form-input" 
-                                       placeholder="Enter your GSTIN" data-gstin-search required
-                                       pattern="[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}">
-                            </div>
-                            
-                            <div class="form-group">
-                                <label for="eligibility-turnover" class="form-label">Annual Turnover (₹) *</label>
-                                <input type="number" id="eligibility-turnover" name="annual_turnover" 
-                                       class="form-input" placeholder="Enter annual turnover" 
-                                       min="1000000" step="100000" required>
-                            </div>
-                            
-                            <div class="form-row">
-                                <div class="form-group">
-                                    <label for="eligibility-compliance" class="form-label">Compliance Score (%)</label>
-                                    <input type="number" id="eligibility-compliance" name="compliance_score" 
-                                           class="form-input" placeholder="75" min="0" max="100" value="75">
-                                </div>
-                                
-                                <div class="form-group">
-                                    <label for="eligibility-vintage" class="form-label">Business Vintage (Months)</label>
-                                    <input type="number" id="eligibility-vintage" name="business_vintage_months" 
-                                           class="form-input" placeholder="12" min="1" value="12">
-                                </div>
-                            </div>
-                            
-                            <button type="button" id="check-eligibility" class="btn btn--primary btn--lg" 
-                                    style="width: 100%;">
-                                <i class="fas fa-search"></i>
-                                Check Eligibility
-                            </button>
-                        </form>
-                    </div>
-                </div>
-            </div>
-            
-            <div>
-                <div id="eligibility-result" class="card" style="display: none;">
-                    <!-- Eligibility results will be populated here -->
-                </div>
-                
-                <!-- Loan Requirements Info -->
-                <div class="card">
-                    <div class="card-header">
-                        <h3 class="card-title">
-                            <i class="fas fa-info-circle"></i>
-                            Loan Requirements
-                        </h3>
-                    </div>
-                    <div class="card-body">
-                        <div class="requirement-list">
-                            <div class="requirement-item">
-                                <i class="fas fa-check text-success"></i>
-                                <span>Minimum ₹10 lakh annual turnover</span>
-                            </div>
-                            <div class="requirement-item">
-                                <i class="fas fa-check text-success"></i>
-                                <span>60% minimum GST compliance score</span>
-                            </div>
-                            <div class="requirement-item">
-                                <i class="fas fa-check text-success"></i>
-                                <span>6 months minimum business vintage</span>
-                            </div>
-                            <div class="requirement-item">
-                                <i class="fas fa-check text-success"></i>
-                                <span>Active GST registration</span>
-                            </div>
-                            <div class="requirement-item">
-                                <i class="fas fa-check text-success"></i>
-                                <span>Regular GST filing history</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Loan Application Tab -->
-    <div id="apply-tab" class="tab-content">
-        <div class="grid grid-3" style="align-items: start;">
-            <div style="grid-column: 1 / 3;">
-                <div class="card">
-                    <div class="card-header">
-                        <h2 class="card-title">
-                            <i class="fas fa-file-alt"></i>
-                            Loan Application
-                        </h2>
-                        <p class="card-text">Complete your loan application in simple steps</p>
-                    </div>
-                    <div class="card-body">
-                        <form id="loan-application-form">
-                            <!-- Business Information -->
-                            <div class="form-section">
-                                <h3 class="form-section-title">
-                                    <i class="fas fa-building"></i>
-                                    Business Information
-                                </h3>
-                                
-                                <div class="form-row">
-                                    <div class="form-group">
-                                        <label for="gstin" class="form-label">GSTIN *</label>
-                                        <input type="text" id="gstin" name="gstin" class="form-input" 
-                                               placeholder="Enter your GSTIN" data-gstin-search required>
-                                    </div>
-                                    
-                                    <div class="form-group">
-                                        <label for="company_name" class="form-label">Company Name *</label>
-                                        <input type="text" id="company_name" name="company_name" 
-                                               class="form-input" placeholder="Your company name" required>
-                                    </div>
-                                </div>
-                                
-                                <div class="form-row">
-                                    <div class="form-group">
-                                        <label for="annual_turnover" class="form-label">Annual Turnover (₹) *</label>
-                                        <input type="number" id="annual_turnover" name="annual_turnover" 
-                                               class="form-input" placeholder="Enter annual turnover" 
-                                               min="1000000" step="100000" required>
-                                    </div>
-                                    
-                                    <div class="form-group">
-                                        <label for="monthly_revenue" class="form-label">Monthly Revenue (₹) *</label>
-                                        <input type="number" id="monthly_revenue" name="monthly_revenue" 
-                                               class="form-input" placeholder="Average monthly revenue" 
-                                               min="50000" step="10000" required>
-                                    </div>
-                                </div>
-                                
-                                <div class="form-row">
-                                    <div class="form-group">
-                                        <label for="compliance_score" class="form-label">GST Compliance Score (%)</label>
-                                        <input type="number" id="compliance_score" name="compliance_score" 
-                                               class="form-input" placeholder="Enter compliance score" 
-                                               min="0" max="100" required>
-                                    </div>
-                                    
-                                    <div class="form-group">
-                                        <label for="business_vintage_months" class="form-label">Business Vintage (Months) *</label>
-                                        <input type="number" id="business_vintage_months" name="business_vintage_months" 
-                                               class="form-input" placeholder="Business age in months" 
-                                               min="6" required>
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            <!-- Loan Details -->
-                            <div class="form-section">
-                                <h3 class="form-section-title">
-                                    <i class="fas fa-money-bill-wave"></i>
-                                    Loan Details
-                                </h3>
-                                
-                                <div class="form-row">
-                                    <div class="form-group">
-                                        <label for="loan_amount" class="form-label">Loan Amount (₹) *</label>
-                                        <input type="number" id="loan_amount" name="loan_amount" 
-                                               class="form-input" placeholder="Enter required amount" 
-                                               min="50000" max="5000000" step="10000" required>
-                                    </div>
-                                    
-                                    <div class="form-group">
-                                        <label for="tenure_months" class="form-label">Loan Tenure *</label>
-                                        <select id="tenure_months" name="tenure_months" class="form-input form-select" required>
-                                            <option value="">Select tenure</option>
-                                            <option value="6">6 months</option>
-                                            <option value="12">12 months</option>
-                                            <option value="18">18 months</option>
-                                            <option value="24">24 months</option>
-                                            <option value="36">36 months</option>
-                                            <option value="48">48 months</option>
-                                            <option value="60">60 months</option>
-                                        </select>
-                                    </div>
-                                </div>
-                                
-                                <div class="form-group">
-                                    <label for="purpose" class="form-label">Loan Purpose *</label>
-                                    <select id="purpose" name="purpose" class="form-input form-select" required>
-                                        <option value="">Select purpose</option>
-                                        <option value="working_capital">Working Capital</option>
-                                        <option value="equipment_purchase">Equipment Purchase</option>
-                                        <option value="inventory_financing">Inventory Financing</option>
-                                        <option value="business_expansion">Business Expansion</option>
-                                        <option value="debt_consolidation">Debt Consolidation</option>
-                                        <option value="other">Other</option>
-                                    </select>
-                                </div>
-                            </div>
-                            
-                            <!-- Terms and Conditions -->
-                            <div class="form-section">
-                                <div class="checkbox-group">
-                                    <label class="checkbox-label">
-                                        <input type="checkbox" name="agree_terms" required>
-                                        <span class="checkbox-custom"></span>
-                                        I agree to the <a href="/terms" target="_blank">Terms and Conditions</a> 
-                                        and <a href="/privacy" target="_blank">Privacy Policy</a>
-                                    </label>
-                                </div>
-                                
-                                <div class="checkbox-group">
-                                    <label class="checkbox-label">
-                                        <input type="checkbox" name="consent_credit_check" required>
-                                        <span class="checkbox-custom"></span>
-                                        I consent to credit bureau checks and information sharing with lending partners
-                                    </label>
-                                </div>
-                            </div>
-                            
-                            <div class="form-actions">
-                                <button type="submit" class="btn btn--primary btn--lg" style="width: 100%;">
-                                    <i class="fas fa-paper-plane"></i>
-                                    Submit Application
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="emi-calculator">
-                <div class="card">
-                    <div class="card-header">
-                        <h3 class="card-title">
-                            <i class="fas fa-calculator"></i>
-                            EMI Calculator
-                        </h3>
-                    </div>
-                    <div class="card-body">
-                        <div class="form-group">
-                            <label for="calc-amount" class="form-label">Loan Amount (₹)</label>
-                            <input type="number" id="calc-amount" class="form-input" 
-                                   placeholder="5,00,000" min="50000" step="10000">
-                        </div>
-                        
-                        <div class="form-group">
-                            <label for="calc-tenure" class="form-label">Tenure (Months)</label>
-                            <input type="number" id="calc-tenure" class="form-input" 
-                                   placeholder="24" min="6" max="60">
-                        </div>
-                        
-                        <div class="form-group">
-                            <label for="calc-rate" class="form-label">Interest Rate (%)</label>
-                            <input type="number" id="calc-rate" class="form-input" 
-                                   placeholder="18" min="10" max="36" step="0.1">
-                        </div>
-                        
-                        <div id="loan-calculation" class="calculator-result">
-                            <!-- Calculation results will appear here -->
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- My Applications Tab -->
-    <div id="applications-tab" class="tab-content">
-        <div class="card">
-            <div class="card-header">
-                <h2 class="card-title">
-                    <i class="fas fa-list"></i>
-                    My Loan Applications
-                </h2>
-                <p class="card-text">Track the status of your loan applications</p>
-            </div>
-            <div class="card-body">
-                <div id="loan-applications-list">
-                    <!-- Applications will be loaded here -->
-                    <div class="text-center" style="padding: var(--space-12);">
-                        <i class="fas fa-file-alt" style="font-size: 3rem; color: var(--text-muted); margin-bottom: var(--space-4);"></i>
-                        <p style="color: var(--text-muted);">Loading your loan applications...</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- EMI Calculator Tab -->
-    <div id="calculator-tab" class="tab-content">
-        <div class="grid grid-2" style="align-items: start;">
-            <div>
-                <div class="card">
-                    <div class="card-header">
-                        <h2 class="card-title">
-                            <i class="fas fa-calculator"></i>
-                            EMI Calculator
-                        </h2>
-                        <p class="card-text">Calculate your monthly EMI and total interest</p>
-                    </div>
-                    <div class="card-body">
-                        <div class="form-group">
-                            <label for="calc-amount-main" class="form-label">Loan Amount (₹)</label>
-                            <input type="range" id="calc-amount-range" min="50000" max="5000000" 
-                                   step="10000" value="500000" class="range-input">
-                            <input type="number" id="calc-amount-main" class="form-input" 
-                                   min="50000" max="5000000" step="10000" value="500000">
-                        </div>
-                        
-                        <div class="form-group">
-                            <label for="calc-tenure-main" class="form-label">Tenure (Months)</label>
-                            <input type="range" id="calc-tenure-range" min="6" max="60" 
-                                   step="6" value="24" class="range-input">
-                            <input type="number" id="calc-tenure-main" class="form-input" 
-                                   min="6" max="60" value="24">
-                        </div>
-                        
-                        <div class="form-group">
-                            <label for="calc-rate-main" class="form-label">Interest Rate (%)</label>
-                            <input type="range" id="calc-rate-range" min="10" max="36" 
-                                   step="0.5" value="18" class="range-input">
-                            <input type="number" id="calc-rate-main" class="form-input" 
-                                   min="10" max="36" step="0.1" value="18">
-                        </div>
-                    </div>
-                </div>
-            </div>
-            
-            <div>
-                <div class="card">
-                    <div class="card-header">
-                        <h3 class="card-title">Loan Summary</h3>
-                    </div>
-                    <div class="card-body">
-                        <div id="detailed-calculation" class="calculator-result">
-                            <div class="result-item">
-                                <span class="result-label">Monthly EMI</span>
-                                <span class="result-value" id="emi-result">₹0</span>
-                            </div>
-                            <div class="result-item">
-                                <span class="result-label">Total Interest</span>
-                                <span class="result-value" id="interest-result">₹0</span>
-                            </div>
-                            <div class="result-item">
-                                <span class="result-label">Total Amount</span>
-                                <span class="result-value" id="total-result">₹0</span>
-                            </div>
-                        </div>
-                        
-                        <div style="margin-top: var(--space-6);">
-                            <canvas id="emi-chart" width="400" height="200"></canvas>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
+<!-- Call to Action -->
+<div class="cta-section">
+    <h2 style="margin-bottom: 1rem; color: var(--text-primary);">Ready to Grow Your Business?</h2>
+    <p style="color: var(--text-secondary); margin-bottom: 2rem; max-width: 600px; margin-left: auto; margin-right: auto;">
+        Join thousands of businesses that have already secured funding through our platform. 
+        Your GST compliance is your gateway to instant business loans.
+    </p>
+    <button class="cta-btn" onclick="switchTab('apply')">
+        <i class="fas fa-rocket"></i> Apply for Loan Now
+    </button>
 </div>
 {% endblock %}
 
 {% block extra_js %}
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    initializeLoanManagement();
-    setupTabSwitching();
-    setupEMICalculator();
-    loadUserApplications();
-});
+// Loan application functionality
+let eligibilityChecked = false;
 
-function initializeLoanManagement() {
-    // Setup eligibility check
-    const eligibilityBtn = document.getElementById('check-eligibility');
-    if (eligibilityBtn) {
-        eligibilityBtn.addEventListener('click', checkLoanEligibility);
-    }
+function switchTab(tabName) {
+    // Remove active class from all tabs
+    document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
     
-    // Setup loan application form
-    const applicationForm = document.getElementById('loan-application-form');
-    if (applicationForm) {
-        applicationForm.addEventListener('submit', submitLoanApplication);
-    }
+    // Add active class to selected tab
+    document.querySelector(`button[onclick="switchTab('${tabName}')"]`).classList.add('active');
+    document.getElementById(`${tabName}-tab`).classList.add('active');
     
-    // Setup GSTIN auto-complete
-    setupGSTINAutocomplete();
+    // Load applications if switching to applications tab
+    if (tabName === 'applications') {
+        loadLoanApplications();
+    }
 }
 
-async function checkLoanEligibility() {
-    const form = document.getElementById('eligibility-form');
-    const formData = new FormData(form);
+async function checkEligibility() {
+    const formData = new FormData(document.getElementById('loanApplicationForm'));
     const data = Object.fromEntries(formData.entries());
     
-    if (!data.gstin || data.gstin.length !== 15) {
-        alert('Please enter a valid 15-digit GSTIN');
+    // Validate required fields
+    if (!data.gstin || !data.annual_turnover || !data.business_vintage_months) {
+        if (window.notificationManager) {
+            window.notificationManager.showError('Please fill in GSTIN, Annual Turnover, and Business Vintage to check eligibility');
+        }
         return;
     }
     
     try {
-        window.showLoading && window.showLoading('Checking eligibility...');
+        // First, get GST data for compliance score
+        const gstResponse = await fetch('/search', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: `gstin=${data.gstin}`
+        });
         
-        const response = await fetch('/api/loans/eligibility', {
+        if (gstResponse.ok) {
+            // For now, we'll use a mock compliance score
+            // In a real implementation, you'd extract this from the GST response
+            const mockComplianceScore = 75; // This should come from your GST analysis
+            document.getElementById('complianceScore').value = mockComplianceScore;
+            data.compliance_score = mockComplianceScore;
+        }
+        
+        // Check eligibility
+        const response = await fetch(`/api/loans/eligibility?gstin=${data.gstin}&annual_turnover=${data.annual_turnover}&compliance_score=${data.compliance_score || 75}&business_vintage_months=${data.business_vintage_months}`);
+        const result = await response.json();
+        
+        if (result.success) {
+            displayEligibilityResult(result.data);
+            eligibilityChecked = true;
+            document.getElementById('submitLoanBtn').disabled = !result.data.eligible;
+        } else {
+            throw new Error(result.error);
+        }
+        
+    } catch (error) {
+        console.error('Eligibility check failed:', error);
+        if (window.notificationManager) {
+            window.notificationManager.showError('Failed to check eligibility. Please try again.');
+        }
+    }
+}
+
+function displayEligibilityResult(eligibility) {
+    const resultContainer = document.getElementById('eligibilityResult');
+    resultContainer.style.display = 'block';
+    
+    if (eligibility.eligible) {
+        resultContainer.innerHTML = `
+            <div class="eligibility-card">
+                <h3 style="color: var(--success); margin-bottom: 1rem;">
+                    <i class="fas fa-check-circle"></i> You're Eligible!
+                </h3>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
+                    <div>
+                        <div style="font-weight: 600; color: var(--text-primary);">Max Loan Amount</div>
+                        <div style="font-size: 1.2rem; color: var(--success);">₹${new Intl.NumberFormat('en-IN').format(eligibility.max_loan_amount)}</div>
+                    </div>
+                    <div>
+                        <div style="font-weight: 600; color: var(--text-primary);">Recommended Amount</div>
+                        <div style="font-size: 1.2rem; color: var(--success);">₹${new Intl.NumberFormat('en-IN').format(eligibility.recommended_amount)}</div>
+                    </div>
+                </div>
+                <p style="margin-top: 1rem; color: var(--text-secondary);">
+                    Based on your business profile, you qualify for instant loan approval.
+                </p>
+            </div>
+        `;
+    } else {
+        resultContainer.innerHTML = `
+            <div class="eligibility-card ineligible">
+                <h3 style="color: var(--error); margin-bottom: 1rem;">
+                    <i class="fas fa-times-circle"></i> Not Eligible
+                </h3>
+                <ul style="color: var(--error); padding-left: 1.5rem;">
+                    ${eligibility.reasons.map(reason => `<li>${reason}</li>`).join('')}
+                </ul>
+                <p style="margin-top: 1rem; color: var(--text-secondary);">
+                    Please improve your business metrics and try again.
+                </p>
+            </div>
+        `;
+    }
+}
+
+async function submitLoanApplication() {
+    if (!eligibilityChecked) {
+        if (window.notificationManager) {
+            window.notificationManager.showWarning('Please check eligibility first');
+        }
+        return;
+    }
+    
+    const formData = new FormData(document.getElementById('loanApplicationForm'));
+    const data = Object.fromEntries(formData.entries());
+    
+    // Validate form
+    if (!data.gstin || !data.company_name || !data.loan_amount || !data.purpose || !data.tenure_months) {
+        if (window.notificationManager) {
+            window.notificationManager.showError('Please fill in all required fields');
+        }
+        return;
+    }
+    
+    try {
+        document.getElementById('submitLoanBtn').disabled = true;
+        document.getElementById('submitLoanBtn').innerHTML = '<i class="fas fa-spinner fa-spin"></i> Submitting...';
+        
+        const response = await fetch('/api/loans/apply', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(data)
         });
         
         const result = await response.json();
-        displayEligibilityResults(result);
+        
+        if (result.success) {
+            if (window.notificationManager) {
+                window.notificationManager.showSuccess('Loan application submitted successfully!');
+            }
+            
+            // Reset form and switch to applications tab
+            document.getElementById('loanApplicationForm').reset();
+            document.getElementById('eligibilityResult').style.display = 'none';
+            eligibilityChecked = false;
+            switchTab('applications');
+            
+        } else {
+            throw new Error(result.error);
+        }
         
     } catch (error) {
-        console.error('Eligibility check failed:', error);
-        alert('Failed to check eligibility. Please try again.');
-    } finally {
-        window.hideLoading && window.hideLoading();
-    }
-}
-
-function displayEligibilityResults(result) {
-    const resultDiv = document.getElementById('eligibility-result');
-    if (!resultDiv) return;
-    
-    if (result.success && result.eligible) {
-        resultDiv.innerHTML = `
-            <div class="card-header">
-                <h3 class="card-title text-success">
-                    <i class="fas fa-check-circle"></i>
-                    Congratulations! You're Eligible
-                </h3>
-            </div>
-            <div class="card-body">
-                <div class="eligibility-details">
-                    <div class="detail-row">
-                        <span>Maximum Loan Amount:</span>
-                        <span class="text-primary">₹${result.max_loan_amount.toLocaleString()}</span>
-                    </div>
-                    <div class="detail-row">
-                        <span>Interest Rate:</span>
-                        <span class="text-primary">${result.interest_rate}% p.a.</span>
-                    </div>
-                    <div class="detail-row">
-                        <span>Compliance Score:</span>
-                        <span class="text-primary">${result.compliance_score}%</span>
-                    </div>
-                    <div class="detail-row">
-                        <span>Processing Time:</span>
-                        <span class="text-primary">24-48 hours</span>
-                    </div>
-                </div>
-                <div class="mt-4">
-                    <button onclick="switchToApplicationTab()" class="btn btn--primary btn--lg" style="width: 100%;">
-                        Apply for Loan Now
-                    </button>
-                </div>
-            </div>
-        `;
-    } else {
-        resultDiv.innerHTML = `
-            <div class="card-header">
-                <h3 class="card-title text-error">
-                    <i class="fas fa-times-circle"></i>
-                    Not Eligible
-                </h3>
-            </div>
-            <div class="card-body">
-                <p class="text-error">${result.reason || 'You do not meet the current eligibility criteria.'}</p>
-                <div class="mt-4">
-                    <h4>Requirements:</h4>
-                    <ul class="requirement-list">
-                        <li class="${result.requirements_met?.min_compliance_score ? 'text-success' : 'text-error'}">
-                            <i class="fas fa-${result.requirements_met?.min_compliance_score ? 'check' : 'times'}"></i>
-                            Minimum 60% compliance score
-                        </li>
-                        <li class="${result.requirements_met?.active_gst_status ? 'text-success' : 'text-error'}">
-                            <i class="fas fa-${result.requirements_met?.active_gst_status ? 'check' : 'times'}"></i>
-                            Active GST status
-                        </li>
-                        <li class="${result.requirements_met?.regular_filing ? 'text-success' : 'text-error'}">
-                            <i class="fas fa-${result.requirements_met?.regular_filing ? 'check' : 'times'}"></i>
-                            Regular filing history
-                        </li>
-                    </ul>
-                </div>
-            </div>
-        `;
-    }
-    
-    resultDiv.style.display = 'block';
-}
-
-async function submitLoanApplication(e) {
-    e.preventDefault();
-    
-    const form = e.target;
-    const formData = new FormData(form);
-    
-    // Validate required fields
-    const requiredFields = form.querySelectorAll('[required]');
-    for (let field of requiredFields) {
-        if (!field.value.trim()) {
-            field.focus();
-            alert(`Please fill in ${field.labels[0]?.textContent || field.name}`);
-            return;
+        console.error('Loan application failed:', error);
+        if (window.notificationManager) {
+            window.notificationManager.showError(error.message || 'Failed to submit loan application');
         }
+    } finally {
+        document.getElementById('submitLoanBtn').disabled = false;
+        document.getElementById('submitLoanBtn').innerHTML = '<i class="fas fa-paper-plane"></i> Submit Application';
     }
-    
+}
+
+async function loadLoanApplications() {
     try {
-        window.showLoading && window.showLoading('Submitting application...');
-        
-        const response = await fetch('/api/loans/apply', {
-            method: 'POST',
-            body: formData
-        });
-        
+        const response = await fetch('/api/loans/applications');
         const result = await response.json();
         
         if (result.success) {
-            alert('Application submitted successfully! You will receive updates via email and SMS.');
-            form.reset();
-            // Switch to applications tab to show the new application
-            switchToTab('applications');
-            loadUserApplications();
-        } else {
-            throw new Error(result.error || 'Application submission failed');
+            updateApplicationsDisplay(result.data);
         }
-        
     } catch (error) {
-        console.error('Application submission failed:', error);
-        alert('Failed to submit application: ' + error.message);
-    } finally {
-        window.hideLoading && window.hideLoading();
+        console.error('Failed to load loan applications:', error);
     }
 }
 
-async function loadUserApplications() {
-    const listContainer = document.getElementById('loan-applications-list');
-    if (!listContainer) return;
+function updateApplicationsDisplay(applications) {
+    const container = document.getElementById('applicationsContainer');
     
-    try {
-        const response = await fetch('/api/loans/user-applications');
-        const result = await response.json();
-        
-        if (result.success && result.applications.length > 0) {
-            listContainer.innerHTML = result.applications.map(app => `
-                <div class="application-item">
-                    <div class="application-header">
-                        <div class="application-id">#${app.id}</div>
-                        <div class="loan-status status-${app.status}">${app.status.toUpperCase()}</div>
-                    </div>
-                    <div class="application-details">
-                        <div class="detail-row">
-                            <span>GSTIN:</span>
-                            <span>${app.gstin}</span>
-                        </div>
-                        <div class="detail-row">
-                            <span>Company:</span>
-                            <span>${app.company_name}</span>
-                        </div>
-                        <div class="detail-row">
-                            <span>Amount:</span>
-                            <span>₹${app.loan_amount.toLocaleString()}</span>
-                        </div>
-                        <div class="detail-row">
-                            <span>Applied:</span>
-                            <span>${new Date(app.created_at).toLocaleDateString()}</span>
-                        </div>
-                    </div>
-                    <div class="application-actions">
-                        <button onclick="viewApplicationDetails(${app.id})" class="btn btn--secondary btn--sm">
-                            View Details
-                        </button>
-                        ${app.status === 'pending' ? `
-                            <button onclick="cancelApplication(${app.id})" class="btn btn--error btn--sm">
-                                Cancel
-                            </button>
-                        ` : ''}
-                    </div>
-                </div>
-            `).join('');
-        } else {
-            listContainer.innerHTML = `
-                <div class="text-center" style="padding: 3rem;">
-                    <i class="fas fa-file-alt" style="font-size: 3rem; color: var(--text-muted); margin-bottom: 1rem;"></i>
-                    <h3>No Loan Applications</h3>
-                    <p style="color: var(--text-muted); margin-bottom: 2rem;">You haven't applied for any loans yet.</p>
-                    <button onclick="switchToTab('apply')" class="btn btn--primary">
-                        Apply for Your First Loan
-                    </button>
-                </div>
-            `;
-        }
-    } catch (error) {
-        console.error('Failed to load applications:', error);
-        listContainer.innerHTML = `
-            <div class="text-center" style="padding: 3rem;">
-                <i class="fas fa-exclamation-triangle" style="font-size: 3rem; color: var(--error); margin-bottom: 1rem;"></i>
-                <h3>Failed to Load Applications</h3>
-                <p style="color: var(--text-muted);">Please try again later.</p>
+    if (applications.length === 0) {
+        container.innerHTML = `
+            <div style="text-align: center; padding: 3rem; color: var(--text-secondary);">
+                <i class="fas fa-file-contract" style="font-size: 3rem; margin-bottom: 1rem; opacity: 0.5;"></i>
+                <p>No loan applications yet. Apply for your first business loan above!</p>
             </div>
         `;
+        return;
     }
-}
-
-function setupTabSwitching() {
-    const tabButtons = document.querySelectorAll('.loan-tab');
-    const tabContents = document.querySelectorAll('.tab-content');
     
-    tabButtons.forEach(button => {
-        button.addEventListener('click', function() {
-            const targetTab = this.dataset.tab;
-            switchToTab(targetTab);
-        });
-    });
-}
-
-function switchToTab(tabName) {
-    const tabButtons = document.querySelectorAll('.loan-tab');
-    const tabContents = document.querySelectorAll('.tab-content');
-    
-    // Update active tab button
-    tabButtons.forEach(btn => {
-        btn.classList.remove('active');
-        if (btn.dataset.tab === tabName) {
-            btn.classList.add('active');
-        }
-    });
-    
-    // Update active tab content
-    tabContents.forEach(content => {
-        content.classList.remove('active');
-        if (content.id === tabName + '-tab') {
-            content.classList.add('active');
-        }
-    });
-    
-    // Load data for specific tabs
-    if (tabName === 'applications') {
-        loadUserApplications();
-    }
-}
-
-function switchToApplicationTab() {
-    switchToTab('apply');
-    // Pre-fill data from eligibility check if available
-    // This will be handled by the existing form auto-fill logic
-}
-
-function setupGSTINAutocomplete() {
-    const gstinInputs = document.querySelectorAll('[data-gstin-search]');
-    
-    gstinInputs.forEach(input => {
-        input.addEventListener('input', function(e) {
-            let value = e.target.value.toUpperCase().replace(/[^0-9A-Z]/g, '');
-            if (value.length > 15) value = value.substr(0, 15);
-            e.target.value = value;
+    container.innerHTML = applications.map(app => `
+        <div class="loan-application-card">
+            <div class="application-header">
+                <div>
+                    <div class="application-amount">₹${new Intl.NumberFormat('en-IN').format(app.loan_amount)}</div>
+                    <div style="color: var(--text-secondary); margin-top: 0.25rem;">${app.company_name}</div>
+                </div>
+                <div class="status-badge status-${app.status}">${app.status.charAt(0).toUpperCase() + app.status.slice(1)}</div>
+            </div>
             
-            // Auto-populate company data if GSTIN is complete
-            if (value.length === 15) {
-                fetchCompanyData(value, input);
-            }
-        });
-    });
+            <div class="loan-details">
+                <div class="detail-item">
+                    <div class="detail-label">Purpose</div>
+                    <div class="detail-value">${app.purpose.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Tenure</div>
+                    <div class="detail-value">${app.tenure_months} months</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Applied On</div>
+                    <div class="detail-value">${new Date(app.created_at).toLocaleDateString('en-IN')}</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Risk Score</div>
+                    <div class="detail-value">${app.risk_score}%</div>
+                </div>
+            </div>
+            
+            ${app.status === 'approved' ? `
+                <div style="margin-top: 1rem; text-align: center;">
+                    <button class="cta-btn" onclick="viewLoanOffers(${app.id})">
+                        <i class="fas fa-eye"></i> View Offers
+                    </button>
+                </div>
+            ` : ''}
+        </div>
+    `).join('');
 }
 
-async function fetchCompanyData(gstin, inputElement) {
+async function viewLoanOffers(applicationId) {
     try {
-        const response = await fetch(`/api/search/quick?gstin=${gstin}`);
+        const response = await fetch(`/api/loans/applications/${applicationId}/offers`);
         const result = await response.json();
         
-        if (result.success && result.data) {
-            // Auto-fill company name if found
-            const companyNameInput = inputElement.form?.querySelector('[name="company_name"]');
-            if (companyNameInput && !companyNameInput.value) {
-                companyNameInput.value = result.data.company_name || '';
+        if (result.success && result.data.length > 0) {
+            // Display offers in a modal or expand the card
+            console.log('Loan offers:', result.data);
+            if (window.notificationManager) {
+                window.notificationManager.showInfo(`Found ${result.data.length} loan offers`);
             }
-            
-            // Auto-fill compliance score if found
-            const complianceInput = inputElement.form?.querySelector('[name="compliance_score"]');
-            if (complianceInput && !complianceInput.value) {
-                complianceInput.value = result.data.compliance_score || '';
+        } else {
+            if (window.notificationManager) {
+                window.notificationManager.showInfo('No offers available yet. Please check back later.');
             }
         }
     } catch (error) {
-        console.log('Could not fetch company data:', error);
+        console.error('Failed to load loan offers:', error);
     }
 }
 
-function setupEMICalculator() {
-    // Enhanced EMI Calculator with range inputs
-    const amountRange = document.getElementById('calc-amount-range');
-    const amountInput = document.getElementById('calc-amount-main');
-    const tenureRange = document.getElementById('calc-tenure-range');
-    const tenureInput = document.getElementById('calc-tenure-main');
-    const rateRange = document.getElementById('calc-rate-range');
-    const rateInput = document.getElementById('calc-rate-main');
+function calculateEMI() {
+    const amount = parseFloat(document.getElementById('calcLoanAmount').value) || 0;
+    const rate = parseFloat(document.getElementById('calcInterestRate').value) || 0;
+    const tenure = parseInt(document.getElementById('calcTenure').value) || 0;
     
-    // Sync range and number inputs
-    if (amountRange && amountInput) {
-        amountRange.addEventListener('input', function() {
-            amountInput.value = this.value;
-            calculateDetailedEMI();
-        });
+    if (amount > 0 && rate > 0 && tenure > 0) {
+        const monthlyRate = rate / (12 * 100);
+        const emi = (amount * monthlyRate * Math.pow(1 + monthlyRate, tenure)) / 
+                   (Math.pow(1 + monthlyRate, tenure) - 1);
         
-        amountInput.addEventListener('input', function() {
-            amountRange.value = this.value;
-            calculateDetailedEMI();
-        });
+        const totalAmount = emi * tenure;
+        const totalInterest = totalAmount - amount;
+        
+        document.getElementById('emiAmount').textContent = `₹${new Intl.NumberFormat('en-IN').format(Math.round(emi))}`;
+        document.getElementById('totalInterest').textContent = `₹${new Intl.NumberFormat('en-IN').format(Math.round(totalInterest))}`;
+        document.getElementById('totalAmount').textContent = `₹${new Intl.NumberFormat('en-IN').format(Math.round(totalAmount))}`;
+        document.getElementById('emiResult').style.display = 'block';
+    } else {
+        document.getElementById('emiResult').style.display = 'none';
     }
-    
-    if (tenureRange && tenureInput) {
-        tenureRange.addEventListener('input', function() {
-            tenureInput.value = this.value;
-            calculateDetailedEMI();
-        });
-        
-        tenureInput.addEventListener('input', function() {
-            tenureRange.value = this.value;
-            calculateDetailedEMI();
-        });
-    }
-    
-    if (rateRange && rateInput) {
-        rateRange.addEventListener('input', function() {
-            rateInput.value = this.value;
-            calculateDetailedEMI();
-        });
-        
-        rateInput.addEventListener('input', function() {
-            rateRange.value = this.value;
-            calculateDetailedEMI();
-        });
-    }
-    
-    function calculateDetailedEMI() {
-        const principal = parseFloat(amountInput?.value) || 0;
-        const tenure = parseInt(tenureInput?.value) || 0;
-        const rate = parseFloat(rateInput?.value) || 0;
-        
-        if (principal && tenure && rate) {
-            const monthlyRate = rate / 100 / 12;
-            const emi = (principal * monthlyRate * Math.pow(1 + monthlyRate, tenure)) / 
-                        (Math.pow(1 + monthlyRate, tenure) - 1);
-            const totalAmount = emi * tenure;
-            const totalInterest = totalAmount - principal;
-            
-            // Update results
-            const emiResult = document.getElementById('emi-result');
-            const interestResult = document.getElementById('interest-result');
-            const totalResult = document.getElementById('total-result');
-            
-            if (emiResult) emiResult.textContent = formatCurrency(emi);
-            if (interestResult) interestResult.textContent = formatCurrency(totalInterest);
-            if (totalResult) totalResult.textContent = formatCurrency(totalAmount);
+}
+
+// Auto-fill company name when GSTIN is entered
+document.getElementById('loanGstin').addEventListener('blur', async function() {
+    const gstin = this.value.trim();
+    if (gstin.length === 15) {
+        try {
+            // You can implement auto-fill from your GST database here
+            // For now, we'll just validate the GSTIN format
+            if (window.isValidGSTIN && window.isValidGSTIN(gstin)) {
+                this.style.borderColor = 'var(--success)';
+            } else {
+                this.style.borderColor = 'var(--error)';
+            }
+        } catch (error) {
+            console.error('GSTIN validation error:', error);
         }
     }
-    
-    function formatCurrency(amount) {
-        return new Intl.NumberFormat('en-IN', {
-            style: 'currency',
-            currency: 'INR',
-            minimumFractionDigits: 0,
-            maximumFractionDigits: 0
-        }).format(amount);
-    }
-    
-    // Auto-calculate form validation
-    const loanAmountInput = document.getElementById('loan_amount');
-    const annualTurnoverInput = document.getElementById('annual_turnover');
-    
-    if (loanAmountInput && annualTurnoverInput) {
-        function validateLoanAmount() {
-            const loanAmount = parseFloat(loanAmountInput.value) || 0;
-            const annualTurnover = parseFloat(annualTurnoverInput.value) || 0;
-            
-            if (loanAmount && annualTurnover) {
-                const maxLoan = annualTurnover * 0.5; // 50% of turnover
-                
-                if (loanAmount > maxLoan) {
-                    loanAmountInput.setCustomValidity(`Loan amount cannot exceed 50% of annual turnover (₹${formatNumber(maxLoan)})`);
-                } else {
-                    loanAmountInput.setCustomValidity('');
-                }
-            }
-        }
-        
-        loanAmountInput.addEventListener('input', validateLoanAmount);
-        annualTurnoverInput.addEventListener('input', validateLoanAmount);
-    }
-    
-    function formatNumber(num) {
-        return new Intl.NumberFormat('en-IN').format(num);
-    }
-    
-    // Pre-fill form from eligibility data
-    const eligibilityForm = document.getElementById('eligibility-form');
-    const applicationForm = document.getElementById('loan-application-form');
-    
-    if (eligibilityForm && applicationForm) {
-        // Listen for changes in eligibility form
-        eligibilityForm.addEventListener('input', function() {
-            const gstinValue = document.getElementById('eligibility-gstin')?.value;
-            const turnoverValue = document.getElementById('eligibility-turnover')?.value;
-            const complianceValue = document.getElementById('eligibility-compliance')?.value;
-            const vintageValue = document.getElementById('eligibility-vintage')?.value;
-            
-            // Auto-fill application form
-            if (gstinValue) {
-                const appGstin = document.getElementById('gstin');
-                if (appGstin) appGstin.value = gstinValue;
-            }
-            
-            if (turnoverValue) {
-                const appTurnover = document.getElementById('annual_turnover');
-                if (appTurnover) appTurnover.value = turnoverValue;
-                
-                // Estimate monthly revenue
-                const monthlyRevenue = document.getElementById('monthly_revenue');
-                if (monthlyRevenue && !monthlyRevenue.value) {
-                    monthlyRevenue.value = Math.round(turnoverValue / 12);
-                }
-            }
-            
-            if (complianceValue) {
-                const appCompliance = document.getElementById('compliance_score');
-                if (appCompliance) appCompliance.value = complianceValue;
-            }
-            
-            if (vintageValue) {
-                const appVintage = document.getElementById('business_vintage_months');
-                if (appVintage) appVintage.value = vintageValue;
-            }
-        });
-    }
-    
-    // Initial calculation
-    calculateDetailedEMI();
-}
+});
 
-// Additional helper functions
-function viewApplicationDetails(applicationId) {
-    window.location.href = `/loans/application/${applicationId}`;
-}
-
-function cancelApplication(applicationId) {
-    if (confirm('Are you sure you want to cancel this application?')) {
-        // Implement cancel functionality
-        fetch(`/api/loans/cancel/${applicationId}`, { method: 'POST' })
-            .then(response => response.json())
-            .then(result => {
-                if (result.success) {
-                    alert('Application cancelled successfully');
-                    loadUserApplications();
-                } else {
-                    alert('Failed to cancel application');
-                }
-            });
-    }
-}
+// Initialize the page
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('Loans page initialized');
+});
 </script>
 {% endblock %}

@@ -228,51 +228,52 @@ function showChartError() {
 }
 
 function initializeTrendsChart() {
-    const trendsData = {{ daily_searches | tojson | safe }};
-    const trendsCtx = document.getElementById('trendsChart');
+    // Parse the JSON data safely from Jinja
+    const trendsData = JSON.parse('{{ daily_searches | tojson | safe }}');
+    const trendsChartCanvas = document.getElementById('trendsChart');
     
-    if (!trendsCtx) {
+    if (!trendsChartCanvas) {
         console.warn('Trends chart canvas not found');
         return;
     }
     
-    // Validate and prepare data
-    let chartData = [];
-    let chartLabels = [];
+    // Use unique variable names to avoid redeclaration
+    let trendsChartData = [];
+    let trendsChartLabels = [];
     
     if (trendsData && Array.isArray(trendsData) && trendsData.length > 0) {
-        chartLabels = trendsData.map(item => {
+        trendsChartLabels = trendsData.map(item => {
             const date = new Date(item.date);
             return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
         });
-        chartData = trendsData.map(item => item.search_count || 0);
+        trendsChartData = trendsData.map(item => item.search_count || 0);
     } else {
         // Generate sample data for empty state
         const today = new Date();
         for (let i = 6; i >= 0; i--) {
             const date = new Date(today);
             date.setDate(date.getDate() - i);
-            chartLabels.push(date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }));
-            chartData.push(0);
+            trendsChartLabels.push(date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }));
+            trendsChartData.push(0);
         }
     }
     
-    const ctx = trendsCtx.getContext('2d');
+    const trendsCtx = trendsChartCanvas.getContext('2d');
     
     // Create gradient
-    const gradient = ctx.createLinearGradient(0, 0, 0, 200);
-    gradient.addColorStop(0, 'rgba(124, 58, 237, 0.3)');
-    gradient.addColorStop(1, 'rgba(124, 58, 237, 0.05)');
+    const trendsGradient = trendsCtx.createLinearGradient(0, 0, 0, 200);
+    trendsGradient.addColorStop(0, 'rgba(124, 58, 237, 0.3)');
+    trendsGradient.addColorStop(1, 'rgba(124, 58, 237, 0.05)');
     
-    new Chart(ctx, {
+    new Chart(trendsCtx, {
         type: 'line',
         data: {
-            labels: chartLabels,
+            labels: trendsChartLabels,
             datasets: [{
                 label: 'Daily Searches',
-                data: chartData,
+                data: trendsChartData,
                 borderColor: '#7c3aed',
-                backgroundColor: gradient,
+                backgroundColor: trendsGradient,
                 borderWidth: 2,
                 fill: true,
                 tension: 0.4,
@@ -340,44 +341,46 @@ function initializeTrendsChart() {
                     }
                 }
             }
-        });
+        }
+    });
 }
 
 function initializeDistributionChart() {
-    const distributionData = {{ score_distribution | tojson | safe }};
-    const distributionCtx = document.getElementById('distributionChart');
+    // Parse the JSON data safely from Jinja
+    const distributionData = JSON.parse('{{ score_distribution | tojson | safe }}');
+    const distributionChartCanvas = document.getElementById('distributionChart');
     
-    if (!distributionCtx) {
+    if (!distributionChartCanvas) {
         console.warn('Distribution chart canvas not found');
         return;
     }
     
-    // Prepare data with validation
-    let chartData = [];
-    let chartLabels = [];
-    let hasData = false;
+    // Use unique variable names to avoid redeclaration
+    let distributionChartData = [];
+    let distributionChartLabels = [];
+    let hasDistributionData = false;
     
     if (distributionData && Array.isArray(distributionData) && distributionData.length > 0) {
-        chartLabels = distributionData.map(item => item.range || 'Unknown');
-        chartData = distributionData.map(item => item.count || 0);
-        hasData = chartData.some(value => value > 0);
+        distributionChartLabels = distributionData.map(item => item.range || 'Unknown');
+        distributionChartData = distributionData.map(item => item.count || 0);
+        hasDistributionData = distributionChartData.some(value => value > 0);
     }
     
     // If no data, show placeholder
-    if (!hasData) {
-        chartLabels = ['No Data Yet'];
-        chartData = [1];
+    if (!hasDistributionData) {
+        distributionChartLabels = ['No Data Yet'];
+        distributionChartData = [1];
     }
     
-    const ctx = distributionCtx.getContext('2d');
+    const distributionCtx = distributionChartCanvas.getContext('2d');
     
-    new Chart(ctx, {
+    new Chart(distributionCtx, {
         type: 'doughnut',
         data: {
-            labels: chartLabels,
+            labels: distributionChartLabels,
             datasets: [{
-                data: chartData,
-                backgroundColor: hasData ? [
+                data: distributionChartData,
+                backgroundColor: hasDistributionData ? [
                     '#10b981', // Excellent - Green
                     '#3b82f6', // Very Good - Blue  
                     '#f59e0b', // Good - Yellow
@@ -407,7 +410,7 @@ function initializeDistributionChart() {
                     displayColors: true,
                     callbacks: {
                         label: function(context) {
-                            if (!hasData) return 'Start searching to see distribution';
+                            if (!hasDistributionData) return 'Start searching to see distribution';
                             const total = context.dataset.data.reduce((a, b) => a + b, 0);
                             const percentage = ((context.parsed / total) * 100).toFixed(1);
                             return `${context.label}: ${context.parsed} (${percentage}%)`;
@@ -415,7 +418,8 @@ function initializeDistributionChart() {
                     }
                 }
             }
-        });
+        }
+    });
 }
 
 function initializeChartControls() {
