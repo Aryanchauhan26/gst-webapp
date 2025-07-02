@@ -490,27 +490,35 @@ class DatabaseManager:
                 FROM search_history WHERE mobile = $1 AND searched_at >= CURRENT_DATE - INTERVAL '7 days'
                 GROUP BY DATE(searched_at) ORDER BY date
             """, mobile)
-            
+        
             # Score distribution
             score_distribution = await conn.fetch("""
-                SELECT CASE WHEN compliance_score >= 90 THEN 'Excellent (90-100)'
-                            WHEN compliance_score >= 80 THEN 'Very Good (80-89)'
-                            WHEN compliance_score >= 70 THEN 'Good (70-79)'
-                            WHEN compliance_score >= 60 THEN 'Average (60-69)'
-                            ELSE 'Poor (<60)' END as range, COUNT(*) as count
+                SELECT CASE WHEN compliance_score >= 90 THEN 'Excellent (90-100%)'
+                            WHEN compliance_score >= 80 THEN 'Very Good (80-89%)'
+                            WHEN compliance_score >= 70 THEN 'Good (70-79%)'
+                            WHEN compliance_score >= 60 THEN 'Average (60-69%)'
+                            ELSE 'Poor (<60%)' END as range, COUNT(*) as count
                 FROM search_history WHERE mobile = $1 AND compliance_score IS NOT NULL 
                 GROUP BY range ORDER BY range DESC
             """, mobile)
-            
+        
             # Top companies
             top_companies = await conn.fetch("""
                 SELECT company_name, gstin, COUNT(*) as search_count, MAX(compliance_score) as latest_score
                 FROM search_history WHERE mobile = $1 GROUP BY company_name, gstin
                 ORDER BY search_count DESC LIMIT 10
             """, mobile)
-            
+        
+            # Convert date objects to strings to fix JSON serialization
+            daily_searches_serializable = []
+            for row in daily_searches:
+                row_dict = dict(row)
+                if row_dict.get('date'):
+                    row_dict['date'] = row_dict['date'].isoformat()
+                daily_searches_serializable.append(row_dict)
+        
             return {
-                "daily_searches": [dict(row) for row in daily_searches],
+                "daily_searches": daily_searches_serializable,
                 "score_distribution": [dict(row) for row in score_distribution],
                 "top_companies": [dict(row) for row in top_companies]
             }
