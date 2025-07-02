@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard - GST Intelligence Platform</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/base.css">
+    <style>
+        .admin-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+        
+        .admin-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-primary);
+            border-radius: 16px;
+            padding: 1.5rem;
+            box-shadow: var(--card-shadow);
+        }
+        
+        .admin-stat {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 1rem;
+            background: var(--bg-hover);
+            border-radius: 12px;
+            margin-bottom: 1rem;
+        }
+        
+        .admin-stat-icon {
+            width: 50px;
+            height: 50px;
+            background: var(--accent-gradient);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 1.5rem;
+        }
+        
+        .admin-stat-content {
+            flex: 1;
+        }
+        
+        .admin-stat-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+        
+        .admin-stat-label {
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+        }
+        
+        .admin-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: var(--bg-card);
+            border-radius: 12px;
+            overflow: hidden;
+        }
+        
+        .admin-table th {
+            background: var(--bg-hover);
+            padding: 1rem;
+            text-align: left;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+        
+        .admin-table td {
+            padding: 1rem;
+            border-bottom: 1px solid var(--border-primary);
+            color: var(--text-primary);
+        }
+        
+        .admin-table tbody tr:hover {
+            background: var(--bg-hover);
+        }
+        
+        .btn-danger {
+            background: var(--error);
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.875rem;
+        }
+        
+        .btn-danger:hover {
+            background: #dc2626;
+        }
+    </style>
+</head>
+<body class="page-admin">
+    <header class="header">
+        <div class="header__container">
+            <a href="/" class="header__logo">
+                <div class="header__logo-icon">
+                    <i class="fas fa-chart-line"></i>
+                </div>
+                <span>GST Intelligence - Admin</span>
+            </a>
+            
+            <nav class="header__nav">
+                <a href="/" class="nav__link">
+                    <i class="fas fa-home"></i>
+                    <span>Dashboard</span>
+                </a>
+                <a href="/admin" class="nav__link nav__link--active">
+                    <i class="fas fa-cog"></i>
+                    <span>Admin</span>
+                </a>
+            </nav>
+            
+            <div class="auth-links">
+                <a href="/logout" class="btn btn--ghost">Logout</a>
+            </div>
+        </div>
+    </header>
+
+    <main class="main-content">
+        <div class="container">
+            <h1 style="margin-bottom: 2rem; color: var(--text-primary);">
+                <i class="fas fa-tachometer-alt"></i>
+                Admin Dashboard
+            </h1>
+            
+            <!-- Statistics Overview -->
+            <div class="admin-grid" id="statsGrid">
+                <div class="admin-card">
+                    <h3 style="margin-bottom: 1rem; color: var(--text-primary);">
+                        <i class="fas fa-users"></i>
+                        User Statistics
+                    </h3>
+                    <div class="admin-stat">
+                        <div class="admin-stat-icon">
+                            <i class="fas fa-users"></i>
+                        </div>
+                        <div class="admin-stat-content">
+                            <div class="admin-stat-value" id="totalUsers">-</div>
+                            <div class="admin-stat-label">Total Users</div>
+                        </div>
+                    </div>
+                    <div class="admin-stat">
+                        <div class="admin-stat-icon">
+                            <i class="fas fa-user-check"></i>
+                        </div>
+                        <div class="admin-stat-content">
+                            <div class="admin-stat-value" id="activeUsers">-</div>
+                            <div class="admin-stat-label">Active Users (30d)</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="admin-card">
+                    <h3 style="margin-bottom: 1rem; color: var(--text-primary);">
+                        <i class="fas fa-search"></i>
+                        Search Statistics
+                    </h3>
+                    <div class="admin-stat">
+                        <div class="admin-stat-icon">
+                            <i class="fas fa-search"></i>
+                        </div>
+                        <div class="admin-stat-content">
+                            <div class="admin-stat-value" id="totalSearches">-</div>
+                            <div class="admin-stat-label">Total Searches</div>
+                        </div>
+                    </div>
+                    <div class="admin-stat">
+                        <div class="admin-stat-icon">
+                            <i class="fas fa-calendar-day"></i>
+                        </div>
+                        <div class="admin-stat-content">
+                            <div class="admin-stat-value" id="searchesToday">-</div>
+                            <div class="admin-stat-label">Searches Today</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="admin-card">
+                    <h3 style="margin-bottom: 1rem; color: var(--text-primary);">
+                        <i class="fas fa-server"></i>
+                        System Health
+                    </h3>
+                    <div id="systemHealth">
+                        <div class="loading" style="text-align: center; padding: 2rem;">
+                            Loading health status...
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- User Management -->
+            <div class="admin-card">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                    <h3 style="color: var(--text-primary);">
+                        <i class="fas fa-users-cog"></i>
+                        User Management
+                    </h3>
+                    <div style="display: flex; gap: 1rem;">
+                        <input type="text" 
+                               id="userSearch" 
+                               placeholder="Search users..." 
+                               style="padding: 0.5rem; border-radius: 6px; border: 1px solid var(--border-primary); background: var(--bg-input); color: var(--text-primary);">
+                        <button onclick="refreshUsers()" class="btn btn--primary">
+                            <i class="fas fa-refresh"></i> Refresh
+                        </button>
+                    </div>
+                </div>
+                
+                <div style="overflow-x: auto;">
+                    <table class="admin-table" id="usersTable">
+                        <thead>
+                            <tr>
+                                <th>Mobile</th>
+                                <th>Created At</th>
+                                <th>Last Login</th>
+                                <th>Searches</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="usersTableBody">
+                            <tr>
+                                <td colspan="5" style="text-align: center; padding: 2rem;">
+                                    Loading users...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                
+                <!-- Pagination -->
+                <div id="userPagination" style="margin-top: 1rem; text-align: center;">
+                    <!-- Pagination will be inserted here -->
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        let currentPage = 1;
+        let currentSearch = '';
+        
+        document.addEventListener('DOMContentLoaded', function() {
+            loadAdminStats();
+            loadUsers();
+            loadSystemHealth();
+            
+            // Search functionality
+            const searchInput = document.getElementById('userSearch');
+            let searchTimeout;
+            searchInput.addEventListener('input', function() {
+                clearTimeout(searchTimeout);
+                searchTimeout = setTimeout(() => {
+                    currentSearch = this.value;
+                    currentPage = 1;
+                    loadUsers();
+                }, 500);
+            });
+        });
+        
+        async function loadAdminStats() {
+            try {
+                const response = await fetch('/api/admin/stats');
+                const data = await response.json();
+                
+                if (data.success) {
+                    document.getElementById('totalUsers').textContent = data.user_stats.total_users || 0;
+                    document.getElementById('activeUsers').textContent = data.user_stats.active_users || 0;
+                    document.getElementById('totalSearches').textContent = data.search_stats.total_searches || 0;
+                    document.getElementById('searchesToday').textContent = data.search_stats.searches_today || 0;
+                }
+            } catch (error) {
+                console.error('Error loading admin stats:', error);
+            }
+        }
+        
+        async function loadUsers() {
+            try {
+                const response = await fetch(`/api/admin/users?page=${currentPage}&search=${encodeURIComponent(currentSearch)}`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    const tbody = document.getElementById('usersTableBody');
+                    tbody.innerHTML = '';
+                    
+                    if (data.users.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; padding: 2rem;">No users found</td></tr>';
+                    } else {
+                        data.users.forEach(user => {
+                            const row = document.createElement('tr');
+                            row.innerHTML = `
+                                <td>${user.mobile}</td>
+                                <td>${new Date(user.created_at).toLocaleDateString()}</td>
+                                <td>${user.last_login ? new Date(user.last_login).toLocaleDateString() : 'Never'}</td>
+                                <td>${user.search_count || 0}</td>
+                                <td>
+                                    <button onclick="deleteUser('${user.mobile}')" class="btn-danger">
+                                        <i class="fas fa-trash"></i> Delete
+                                    </button>
+                                </td>
+                            `;
+                            tbody.appendChild(row);
+                        });
+                    }
+                    
+                    // Update pagination
+                    updatePagination(data.pagination);
+                }
+            } catch (error) {
+                console.error('Error loading users:', error);
+            }
+        }
+        
+        async function loadSystemHealth() {
+            try {
+                const response = await fetch('/api/admin/system/health');
+                const data = await response.json();
+                
+                if (data.success) {
+                    const healthContainer = document.getElementById('systemHealth');
+                    healthContainer.innerHTML = Object.entries(data.health)
+                        .filter(([key]) => key !== 'timestamp')
+                        .map(([key, value]) => `
+                            <div style="display: flex; justify-content: space-between; padding: 0.5rem 0; border-bottom: 1px solid var(--border-primary);">
+                                <span style="color: var(--text-secondary);">${key.replace(/_/g, ' ').toUpperCase()}</span>
+                                <span style="color: ${value.includes('healthy') || value.includes('configured') ? 'var(--success)' : 'var(--error)'};">
+                                    ${value}
+                                </span>
+                            </div>
+                        `).join('');
+                }
+            } catch (error) {
+                console.error('Error loading system health:', error);
+            }
+        }
+        
+        function updatePagination(pagination) {
+            const container = document.getElementById('userPagination');
+            const { page, pages, total } = pagination;
+            
+            let paginationHTML = `<div style="display: flex; justify-content: center; align-items: center; gap: 1rem;">`;
+            
+            if (page > 1) {
+                paginationHTML += `<button onclick="changePage(${page - 1})" class="btn btn--ghost">Previous</button>`;
+            }
+            
+            paginationHTML += `<span style="color: var(--text-secondary);">Page ${page} of ${pages} (${total} total)</span>`;
+            
+            if (page < pages) {
+                paginationHTML += `<button onclick="changePage(${page + 1})" class="btn btn--ghost">Next</button>`;
+            }
+            
+            paginationHTML += `</div>`;
+            container.innerHTML = paginationHTML;
+        }
+        
+        function changePage(page) {
+            currentPage = page;
+            loadUsers();
+        }
+        
+        function refreshUsers() {
+            currentPage = 1;
+            currentSearch = document.getElementById('userSearch').value;
+            loadUsers();
+        }
+        
+        async function deleteUser(mobile) {
+            if (!confirm(`Are you sure you want to delete user ${mobile}? This action cannot be undone.`)) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/admin/users/${mobile}`, {
+                    method: 'DELETE'
+                });
+                const data = await response.json();
+                
+                if (data.success) {
+                    alert('User deleted successfully');
+                    loadUsers();
+                    loadAdminStats();
+                } else {
+                    alert('Error deleting user: ' + data.error);
+                }
+            } catch (error) {
+                console.error('Error deleting user:', error);
+                alert('Error deleting user');
+            }
+        }
+    </script>
+</body>
+</html>
