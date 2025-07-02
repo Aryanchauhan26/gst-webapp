@@ -416,15 +416,27 @@
                         aria-haspopup="true"
                         aria-label="User menu">
                     <div class="user__avatar" aria-hidden="true">
-                        {{ (user_display_name or current_user)[0]|upper if user_display_name else current_user[0]|upper }}
+                        {% if user_display_name and user_display_name|length > 0 %}
+                            {{ user_display_name[0]|upper }}
+                        {% elif current_user and current_user|length > 0 %}
+                            {{ current_user[0]|upper }}
+                        {% else %}
+                            U
+                        {% endif %}
                     </div>
                     <div class="user__info">
                         <div class="user__name" id="userDisplayName">
-                            {{ user_display_name or ("User " + current_user[-4:]) if current_user else "User" }}
+                            {% if user_display_name %}
+                                {{ user_display_name }}
+                            {% elif current_user %}
+                                User {{ current_user[-4:] if current_user|length >= 4 else current_user }}
+                            {% else %}
+                                User
+                            {% endif %}
                         </div>
                         <div class="user__status">
                             <span class="status-indicator" aria-label="Online"></span>
-                            <span id="userRole">{{ user_profile.designation or "Member" if user_profile else "Member" }}</span>
+                            <span id="userRole">{{ user_profile.designation if user_profile and user_profile.designation else "Member" }}</span>
                         </div>
                     </div>
                     <i class="fas fa-chevron-down user__chevron" aria-hidden="true"></i>
@@ -489,6 +501,14 @@
 
     <!-- Core Scripts -->
     <script>
+        // Global app state with safe null handling
+        window.GST_APP_STATE = {
+            currentUser: {% if current_user %}"{{ current_user }}"{% else %}null{% endif %},
+            isAuthenticated: {% if current_user %}true{% else %}false{% endif %},
+            userProfile: {% if user_profile %}{{ user_profile | tojson }}{% else %}null{% endif %},
+            userDisplayName: {% if user_display_name %}"{{ user_display_name }}"{% else %}null{% endif %}
+        }
+
         // Theme management
         function toggleTheme() {
             const html = document.documentElement;
@@ -510,12 +530,13 @@
             document.documentElement.setAttribute('data-theme', savedTheme === 'light' ? 'light' : null);
         })();
 
-        // User profile dropdown
+        // User profile dropdown - only initialize if user is authenticated
         document.addEventListener('DOMContentLoaded', function() {
             const userBtn = document.getElementById('userProfileBtn');
             const dropdown = document.getElementById('userDropdownMenu');
             
-            if (userBtn && dropdown) {
+            // Only setup user dropdown if user is authenticated
+            if (userBtn && dropdown && window.GST_APP_STATE.isAuthenticated) {
                 userBtn.addEventListener('click', function(e) {
                     e.stopPropagation();
                     
@@ -543,19 +564,26 @@
             }
         });
 
-        // Load user dropdown content
+        // Load user dropdown content with safe null checking
         async function loadUserDropdown() {
             const dropdown = document.getElementById('userDropdownMenu');
-            if (!dropdown) return;
+            if (!dropdown || !window.GST_APP_STATE.isAuthenticated) return;
+
+            const state = window.GST_APP_STATE;
+            const userInitial = state.userDisplayName ? state.userDisplayName[0].toUpperCase() : 
+                               (state.currentUser ? state.currentUser[0].toUpperCase() : 'U');
+            const userName = state.userDisplayName || 
+                           (state.currentUser ? `User ${state.currentUser.slice(-4)}` : 'User');
+            const userCompany = (state.userProfile && state.userProfile.company) || 'GST Intelligence Platform';
 
             dropdown.innerHTML = `
                 <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem; padding-bottom: 1rem; border-bottom: 1px solid var(--border-primary);">
                     <div style="width: 48px; height: 48px; background: var(--accent-gradient); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: 600; font-size: 1.125rem;">
-                        {{ (user_display_name or current_user)[0]|upper if user_display_name else current_user[0]|upper }}
+                        ${userInitial}
                     </div>
                     <div>
-                        <div style="font-weight: 600; color: var(--text-primary);">{{ user_display_name or ("User " + current_user[-4:]) if current_user else "User" }}</div>
-                        <div style="font-size: 0.875rem; color: var(--text-secondary);">{{ user_profile.company or "GST Intelligence Platform" if user_profile else "GST Intelligence Platform" }}</div>
+                        <div style="font-weight: 600; color: var(--text-primary);">${userName}</div>
+                        <div style="font-size: 0.875rem; color: var(--text-secondary);">${userCompany}</div>
                     </div>
                 </div>
 
@@ -600,20 +628,22 @@
                 </div>
             `;
 
-            // Load user stats
-            try {
-                const response = await fetch('/api/user/stats');
-                const result = await response.json();
-                
-                if (result.success && result.data) {
-                    const totalSearches = dropdown.querySelector('[data-user-stat="total-searches"]');
-                    const avgCompliance = dropdown.querySelector('[data-user-stat="avg-compliance"]');
+            // Load user stats if authenticated
+            if (state.isAuthenticated) {
+                try {
+                    const response = await fetch('/api/user/stats');
+                    const result = await response.json();
                     
-                    if (totalSearches) totalSearches.textContent = result.data.total_searches || 0;
-                    if (avgCompliance) avgCompliance.textContent = Math.round(result.data.avg_compliance || 0) + '%';
+                    if (result.success && result.data) {
+                        const totalSearches = dropdown.querySelector('[data-user-stat="total-searches"]');
+                        const avgCompliance = dropdown.querySelector('[data-user-stat="avg-compliance"]');
+                        
+                        if (totalSearches) totalSearches.textContent = result.data.total_searches || 0;
+                        if (avgCompliance) avgCompliance.textContent = Math.round(result.data.avg_compliance || 0) + '%';
+                    }
+                } catch (error) {
+                    console.error('Error loading user stats:', error);
                 }
-            } catch (error) {
-                console.error('Error loading user stats:', error);
             }
         }
     </script>
