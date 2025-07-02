@@ -154,8 +154,8 @@
     border-radius: 50%;
     background: conic-gradient(
         var(--accent-primary) 0deg,
-        var(--accent-secondary) calc({{ compliance_score }} * 3.6deg),
-        var(--bg-hover) calc({{ compliance_score }} * 3.6deg)
+        var(--accent-secondary) var(--progress, 0deg),
+        var(--bg-hover) var(--progress, 0deg)
     );
     transform: rotate(-90deg);
     transition: all 1s ease-out;
@@ -724,7 +724,7 @@
     <div class="score-visual">
         <div class="score-circle-container">
             <div class="score-circle-bg"></div>
-            <div class="score-circle-progress" style="--progress: {{ compliance_score }}"></div>
+            <div class="score-circle-progress" style="--progress: {{ compliance_score * 3.6 }}deg"></div>
             <div class="score-circle-inner">
                 <div class="score-value" id="scoreValue">{{ compliance_score }}%</div>
                 <div class="score-label">Overall Score</div>
