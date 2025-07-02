@@ -1,6 +1,6 @@
 # =============================================================================
 # GST Intelligence Platform - Production Dependencies
-# Updated and optimized for better performance and security
+# Enhanced with Loan Management System
 # =============================================================================
 
 # Core Web Framework
@@ -65,7 +65,6 @@ numpy
 python-slugify
 pytz
 charset-normalizer
-urllib3
 
 # Production Server
 gunicorn
@@ -114,87 +113,50 @@ limits
 # Application Performance Monitoring
 prometheus-client
 
-# Enhanced JSON processing
-ujson
+# Memory Profiling
+memory-profiler
 
-# Enhanced async support
+# =============================================================================
+# CORE DEPENDENCIES
+# =============================================================================
+
+# Enhanced typing support
+typing-extensions
 anyio
-
-# Enhanced HTTP client features
-httpcore
-
-# Enhanced validation
-cerberus
-
-# Enhanced serialization
-msgpack
-
-# Enhanced logging
-colorlog
-
-# Enhanced configuration
-toml
-
-# Enhanced string processing
-regex
-
-# SSL/TLS Support
+urllib3
 certifi
 
-# Additional Security Headers
-secure
-
-# CSRF Protection
-itsdangerous
+# Environment Management
+python-decouple
 
 # =============================================================================
-# OPTIONAL ENHANCEMENTS (Install only if needed)
+# DEPLOYMENT & PRODUCTION
 # =============================================================================
 
-# Advanced Caching
-# redis-py-cluster
+# ASGI Server with performance optimizations
+uvloop
+
+# =============================================================================
+# OPTIONAL ADVANCED FEATURES (Uncomment if needed)
+# =============================================================================
+
+# Machine Learning for Risk Assessment
+# scikit-learn
+# xgboost
+
+# Advanced Charts & Visualization
+# plotly
+# matplotlib
+
+# Advanced PDF Features
+# PyMuPDF
+
+# Image Processing
+# Pillow
+
+# Real-time Features
+# websockets
 
 # Background Tasks
 # celery
-
-# File Processing
-# python-magic
-# pillow
-
-# Advanced Analytics
-# matplotlib
-# seaborn
-# plotly
-
-# Machine Learning (for future AI features)
-# scikit-learn
-
-# Advanced Excel Features
-# xlrd
-# xlwt
-
-# Memory Profiling
-# memory-profiler
-
-# Connection Pooling
-# aioredis
-
-# Advanced Authentication
-# authlib
-
-# Environment Detection
-# environs
-
-# Process Management (system level)
-# supervisor
-
-# Reverse Proxy Support
-# whitenoise
-
-# =============================================================================
-# NOTES:
-# - All versions removed for latest compatibility
-# - Fixed package names and removed incompatible packages
-# - Optional enhancements are commented out - uncomment if needed
-# - Some packages may require specific Python versions
-# =============================================================================
+# rq

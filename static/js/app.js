@@ -1,649 +1,811 @@
-// =============================================================================
-// GST Intelligence Platform - Main Application JavaScript
-// Core functionality for the web application
-// =============================================================================
+// =====================================================
+// GST Intelligence Platform - Core Application Module
+// Self-contained, modular, and complete functionality
+// =====================================================
 
 'use strict';
 
-// Global Configuration
+console.log('🚀 GST Platform Core Application Loading...');
+
+// =====================================================
+// 1. CORE CONFIGURATION & CONSTANTS
+// =====================================================
+
 window.GST_APP = {
-    version: '2.0.0',
-    debug: localStorage.getItem('gst_debug') === 'true',
-    api: {
-        baseURL: '',
-        timeout: 30000
+    VERSION: '2.0.0',
+    DEBUG: localStorage.getItem('gst_debug') === 'true',
+    CONFIG: {
+        API_BASE_URL: '',
+        MAX_RECENT_SEARCHES: 10,
+        DEBOUNCE_DELAY: 300,
+        ANIMATION_DURATION: 300,
+        CACHE_TTL: 5 * 60 * 1000, // 5 minutes
     },
-    features: {
-        offline: true,
-        notifications: true,
-        analytics: true,
-        export: true
+    
+    // State management
+    state: {
+        initialized: false,
+        suggestions: [],
+        recentSearches: [],
+        userPreferences: {}
+    },
+    
+    // Utility functions
+    utils: {
+        log: function(...args) {
+            if (window.GST_APP.DEBUG) {
+                console.log('🔍 GST_APP:', ...args);
+            }
+        },
+        
+        error: function(...args) {
+            console.error('❌ GST_APP:', ...args);
+        },
+        
+        debounce: function(func, wait) {
+            let timeout;
+            return function executedFunction(...args) {
+                const later = () => {
+                    clearTimeout(timeout);
+                    func(...args);
+                };
+                clearTimeout(timeout);
+                timeout = setTimeout(later, wait);
+            };
+        },
+        
+        isValidGSTIN: function(gstin) {
+            return /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/.test(gstin?.trim().toUpperCase());
+        },
+        
+        formatGSTIN: function(gstin) {
+            return gstin?.trim().toUpperCase().replace(/\s/g, '') || '';
+        },
+        
+        getCache: function(key) {
+            try {
+                const item = localStorage.getItem(`gst_cache_${key}`);
+                if (!item) return null;
+                
+                const { data, timestamp } = JSON.parse(item);
+                if (Date.now() - timestamp > window.GST_APP.CONFIG.CACHE_TTL) {
+                    localStorage.removeItem(`gst_cache_${key}`);
+                    return null;
+                }
+                return data;
+            } catch {
+                return null;
+            }
+        },
+        
+        setCache: function(key, data) {
+            try {
+                localStorage.setItem(`gst_cache_${key}`, JSON.stringify({
+                    data,
+                    timestamp: Date.now()
+                }));
+            } catch (error) {
+                window.GST_APP.utils.error('Cache storage failed:', error);
+            }
+        }
     }
 };
 
-// =============================================================================
-// CORE APPLICATION CLASS
-// =============================================================================
+// =====================================================
+// 2. ENHANCED GSTIN SUGGESTIONS ENGINE
+// =====================================================
 
-class GSTApplication {
+class GSTINSuggestionsEngine {
     constructor() {
-        this.initialized = false;
-        this.user = null;
-        this.preferences = {};
-        this.cache = new Map();
+        this.suggestions = [
+            { gstin: '27AABCU9603R1ZX', company: 'UBER INDIA SYSTEMS PRIVATE LIMITED', type: 'tech', sector: 'Technology' },
+            { gstin: '19AABCM7407R1ZZ', company: 'MICROSOFT CORPORATION (INDIA) PRIVATE LIMITED', type: 'tech', sector: 'Technology' },
+            { gstin: '29AABCT1332L1ZU', company: 'TATA CONSULTANCY SERVICES LIMITED', type: 'tech', sector: 'IT Services' },
+            { gstin: '27AADCB2230M1ZX', company: 'BHARTI AIRTEL LIMITED', type: 'telecom', sector: 'Telecommunications' },
+            { gstin: '07AABCI5602R1ZX', company: 'INFOSYS LIMITED', type: 'tech', sector: 'IT Services' },
+            { gstin: '36AABCW3775K1ZT', company: 'WIPRO LIMITED', type: 'tech', sector: 'IT Services' },
+            { gstin: '29AABCH0263N1Z1', company: 'HCL TECHNOLOGIES LIMITED', type: 'tech', sector: 'IT Services' },
+            { gstin: '19AABCR4849E1ZU', company: 'RELIANCE INDUSTRIES LIMITED', type: 'industrial', sector: 'Conglomerate' },
+            { gstin: '27AABCS0618N1ZN', company: 'STATE BANK OF INDIA', type: 'banking', sector: 'Banking' },
+            { gstin: '07AABCI9016A1Z7', company: 'ICICI BANK LIMITED', type: 'banking', sector: 'Banking' }
+        ];
         
-        // Core managers
-        this.notification = null;
-        this.theme = null;
-        this.offline = null;
+        this.activeElements = new Set();
+        this.currentIndex = -1;
+    }
+
+    initialize() {
+        const gstinInputs = document.querySelectorAll('input[name="gstin"], #gstin, #gstinEnhanced');
+        gstinInputs.forEach(input => this.enhanceInput(input));
+        window.GST_APP.utils.log('GSTIN Suggestions Engine initialized');
+    }
+
+    enhanceInput(input) {
+        if (this.activeElements.has(input)) return;
+        this.activeElements.add(input);
+
+        const container = input.parentElement;
+        container.style.position = 'relative';
         
+        // Create suggestions container
+        const suggestionsEl = this.createSuggestionsElement();
+        container.appendChild(suggestionsEl);
+
+        // Debounced input handler
+        const debouncedHandler = window.GST_APP.utils.debounce((e) => {
+            this.handleInput(e, suggestionsEl);
+        }, window.GST_APP.CONFIG.DEBOUNCE_DELAY);
+
         // Event listeners
-        this.eventListeners = new Map();
+        input.addEventListener('input', debouncedHandler);
+        input.addEventListener('keydown', (e) => this.handleKeydown(e, suggestionsEl));
+        input.addEventListener('blur', () => this.hideSuggestions(suggestionsEl));
+        input.addEventListener('focus', (e) => {
+            if (e.target.value.length >= 2) {
+                this.handleInput(e, suggestionsEl);
+            }
+        });
+    }
+
+    createSuggestionsElement() {
+        const element = document.createElement('div');
+        element.className = 'gstin-suggestions';
+        element.style.cssText = `
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            box-shadow: var(--hover-shadow);
+            max-height: 300px;
+            overflow-y: auto;
+            z-index: 1000;
+            margin-top: 4px;
+            opacity: 0;
+            visibility: hidden;
+            transform: translateY(-10px);
+            transition: all 0.3s ease;
+        `;
+        return element;
+    }
+
+    async handleInput(e, suggestionsEl) {
+        const value = window.GST_APP.utils.formatGSTIN(e.target.value);
         
-        this.init();
-    }
-    
-    async init() {
-        try {
-            await this.loadDependencies();
-            await this.setupCore();
-            await this.loadUserData();
-            this.setupEventListeners();
-            this.setupPerformanceMonitoring();
-            
-            this.initialized = true;
-            this.log('✅ GST Application initialized successfully');
-            
-            // Dispatch ready event
-            window.dispatchEvent(new CustomEvent('gst:ready', {
-                detail: { app: this }
-            }));
-            
-        } catch (error) {
-            this.error('❌ Application initialization failed:', error);
-        }
-    }
-    
-    async loadDependencies() {
-        // Check if core managers exist
-        if (!window.NotificationManager) {
-            this.error('NotificationManager not found');
+        if (value.length < 2) {
+            this.hideSuggestions(suggestionsEl);
             return;
         }
+
+        // Get suggestions from multiple sources
+        const suggestions = await this.getAllSuggestions(value);
         
-        // Initialize core managers
-        this.notification = new NotificationManager();
-        
-        if (window.ThemeManager) {
-            this.theme = new ThemeManager();
-        }
-        
-        if (window.OfflineManager) {
-            this.offline = window.offlineManager;
+        if (suggestions.length > 0) {
+            this.showSuggestions(suggestionsEl, suggestions, e.target);
+        } else {
+            this.hideSuggestions(suggestionsEl);
         }
     }
-    
-    setupCore() {
-        // Setup global error handling
-        window.addEventListener('error', (event) => {
-            this.handleGlobalError(event.error, 'JavaScript Error', {
-                filename: event.filename,
-                lineno: event.lineno
-            });
-        });
+
+    async getAllSuggestions(query) {
+        const suggestions = [];
         
-        window.addEventListener('unhandledrejection', (event) => {
-            this.handleGlobalError(event.reason, 'Unhandled Promise Rejection');
-        });
+        // 1. Built-in suggestions
+        const builtInSuggestions = this.getBuiltInSuggestions(query);
+        suggestions.push(...builtInSuggestions);
         
-        // Setup API interceptors
-        this.setupAPIInterceptors();
-    }
-    
-    async loadUserData() {
+        // 2. Recent searches
+        const recentSuggestions = this.getRecentSearchSuggestions(query);
+        suggestions.push(...recentSuggestions);
+        
+        // 3. API suggestions (if available)
         try {
-            const response = await this.api('/api/user/profile');
-            if (response.success) {
-                this.user = response.data;
-            }
-            
-            const prefsResponse = await this.api('/api/user/preferences');
-            if (prefsResponse.success) {
-                this.preferences = prefsResponse.data;
-                this.applyUserPreferences();
-            }
+            const apiSuggestions = await this.getAPISuggestions(query);
+            suggestions.push(...apiSuggestions);
         } catch (error) {
-            this.warn('Failed to load user data:', error);
+            window.GST_APP.utils.error('API suggestions failed:', error);
+        }
+        
+        // Remove duplicates and limit results
+        const uniqueSuggestions = this.removeDuplicates(suggestions);
+        return uniqueSuggestions.slice(0, 8);
+    }
+
+    getBuiltInSuggestions(query) {
+        return this.suggestions
+            .filter(item => 
+                item.gstin.toLowerCase().includes(query.toLowerCase()) ||
+                item.company.toLowerCase().includes(query.toLowerCase()) ||
+                item.sector.toLowerCase().includes(query.toLowerCase())
+            )
+            .map(item => ({
+                ...item,
+                source: 'builtin',
+                icon: this.getTypeIcon(item.type)
+            }));
+    }
+
+    getRecentSearchSuggestions(query) {
+        try {
+            const recentSearches = JSON.parse(localStorage.getItem('recentGSTINSearches') || '[]');
+            return recentSearches
+                .filter(search => 
+                    search.gstin?.toLowerCase().includes(query.toLowerCase()) ||
+                    search.companyName?.toLowerCase().includes(query.toLowerCase())
+                )
+                .map(search => ({
+                    gstin: search.gstin,
+                    company: search.companyName,
+                    type: 'recent',
+                    sector: 'Recent Search',
+                    source: 'recent',
+                    icon: 'fas fa-history'
+                }));
+        } catch {
+            return [];
         }
     }
-    
-    setupEventListeners() {
-        // Global keyboard shortcuts
-        document.addEventListener('keydown', (e) => this.handleKeyboardShortcuts(e));
-        
-        // Page visibility changes
-        document.addEventListener('visibilitychange', () => {
-            if (document.hidden) {
-                this.onPageHidden();
-            } else {
-                this.onPageVisible();
-            }
-        });
-        
-        // Network status changes
-        window.addEventListener('online', () => this.onNetworkOnline());
-        window.addEventListener('offline', () => this.onNetworkOffline());
-        
-        // Beforeunload for cleanup
-        window.addEventListener('beforeunload', () => this.cleanup());
-    }
-    
-    setupPerformanceMonitoring() {
-        // Performance observer for monitoring
-        if ('PerformanceObserver' in window) {
-            const observer = new PerformanceObserver((list) => {
-                for (const entry of list.getEntries()) {
-                    if (entry.duration > 1000) { // Log slow operations
-                        this.warn(`Slow operation detected: ${entry.name} took ${entry.duration}ms`);
-                    }
-                }
-            });
-            
-            observer.observe({ entryTypes: ['measure', 'navigation'] });
-        }
-    }
-    
-    // =============================================================================
-    // API METHODS
-    // =============================================================================
-    
-    async api(endpoint, options = {}) {
-        const url = endpoint.startsWith('http') ? endpoint : `${window.location.origin}${endpoint}`;
-        
-        const defaultOptions = {
-            method: 'GET',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            credentials: 'same-origin'
-        };
-        
-        const config = { ...defaultOptions, ...options };
+
+    async getAPISuggestions(query) {
+        // Check cache first
+        const cached = window.GST_APP.utils.getCache(`suggestions_${query}`);
+        if (cached) return cached;
         
         try {
-            const response = await fetch(url, config);
+            const response = await fetch(`/api/search/suggestions?q=${encodeURIComponent(query)}`);
+            if (!response.ok) throw new Error('API request failed');
             
-            if (!response.ok) {
-                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-            }
+            const result = await response.json();
+            const suggestions = result.success ? result.suggestions : [];
             
-            const contentType = response.headers.get('content-type');
-            if (contentType && contentType.includes('application/json')) {
-                return await response.json();
-            }
+            // Cache the results
+            window.GST_APP.utils.setCache(`suggestions_${query}`, suggestions);
             
-            return response;
-            
+            return suggestions.map(item => ({
+                ...item,
+                source: 'api'
+            }));
         } catch (error) {
-            this.error('API request failed:', error);
-            throw error;
+            window.GST_APP.utils.error('API suggestions error:', error);
+            return [];
         }
     }
-    
-    setupAPIInterceptors() {
-        // Intercept fetch requests for global error handling
-        const originalFetch = window.fetch;
+
+    removeDuplicates(suggestions) {
+        const seen = new Set();
+        return suggestions.filter(item => {
+            const key = item.gstin;
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+        });
+    }
+
+    showSuggestions(suggestionsEl, suggestions, input) {
+        const maxSuggestions = 6;
+        const limitedSuggestions = suggestions.slice(0, maxSuggestions);
         
-        window.fetch = async (...args) => {
-            try {
-                const response = await originalFetch(...args);
+        suggestionsEl.innerHTML = limitedSuggestions.map((item, index) => `
+            <div class="suggestion-item" 
+                 data-gstin="${item.gstin}" 
+                 data-index="${index}"
+                 style="
+                     display: flex;
+                     align-items: center;
+                     gap: 1rem;
+                     padding: 1rem;
+                     cursor: pointer;
+                     transition: all 0.2s ease;
+                     border-bottom: 1px solid var(--border-color);
+                 "
+                 onmouseover="this.style.background='var(--bg-hover)'" 
+                 onmouseout="this.style.background='transparent'">
+                <div style="
+                    width: 40px;
+                    height: 40px;
+                    background: ${this.getSourceColor(item.source)};
+                    border-radius: 10px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    color: white;
+                    font-size: 1rem;
+                    flex-shrink: 0;
+                ">
+                    <i class="${item.icon || this.getTypeIcon(item.type)}"></i>
+                </div>
+                <div style="flex: 1; min-width: 0;">
+                    <div style="
+                        font-weight: 600;
+                        color: var(--text-primary);
+                        margin-bottom: 0.25rem;
+                        overflow: hidden;
+                        text-overflow: ellipsis;
+                        white-space: nowrap;
+                    ">${item.company || 'Unknown Company'}</div>
+                    <div style="
+                        font-family: 'JetBrains Mono', monospace;
+                        font-size: 0.875rem;
+                        color: var(--accent-primary);
+                        margin-bottom: 0.25rem;
+                    ">${item.gstin}</div>
+                    <div style="
+                        font-size: 0.75rem;
+                        color: var(--text-secondary);
+                        display: flex;
+                        align-items: center;
+                        gap: 0.5rem;
+                    ">
+                        <span>${item.sector || item.type || 'Business'}</span>
+                        ${item.compliance_score ? `<span style="color: var(--accent-primary);">Score: ${Math.round(item.compliance_score)}%</span>` : ''}
+                    </div>
+                </div>
+            </div>
+        `).join('');
+
+        // Show the dropdown
+        suggestionsEl.style.opacity = '1';
+        suggestionsEl.style.visibility = 'visible';
+        suggestionsEl.style.transform = 'translateY(0)';
+
+        // Add click handlers
+        this.attachSuggestionClickHandlers(suggestionsEl, input);
+        
+        // Reset current index
+        this.currentIndex = -1;
+    }
+
+    attachSuggestionClickHandlers(suggestionsEl, input) {
+        const suggestionItems = suggestionsEl.querySelectorAll('.suggestion-item');
+        suggestionItems.forEach((item) => {
+            item.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
                 
-                // Handle authentication errors
-                if (response.status === 401) {
-                    this.handleAuthError();
+                const gstin = item.dataset.gstin;
+                input.value = gstin;
+                this.hideSuggestions(suggestionsEl);
+                
+                // Trigger validation
+                input.dispatchEvent(new Event('input', { bubbles: true }));
+                
+                // Focus and notify
+                input.focus();
+                
+                if (window.notificationManager) {
+                    window.notificationManager.showSuccess('✅ GSTIN selected!', 2000);
                 }
                 
-                return response;
-            } catch (error) {
-                this.handleNetworkError(error);
-                throw error;
-            }
-        };
+                window.GST_APP.utils.log('Suggestion selected:', gstin);
+            });
+        });
     }
-    
-    handleAuthError() {
-        this.notification.showError('Session expired. Please login again.');
+
+    hideSuggestions(suggestionsEl) {
+        suggestionsEl.style.opacity = '0';
+        suggestionsEl.style.visibility = 'hidden';
+        suggestionsEl.style.transform = 'translateY(-10px)';
+        
         setTimeout(() => {
-            window.location.href = '/login';
-        }, 2000);
-    }
-    
-    handleNetworkError(error) {
-        if (!navigator.onLine) {
-            this.notification.showWarning('You are offline. Some features may not work.');
-        } else {
-            this.notification.showError('Network error. Please check your connection.');
-        }
-    }
-    
-    // =============================================================================
-    // USER INTERFACE METHODS
-    // =============================================================================
-    
-    showLoading(message = 'Loading...') {
-        const overlay = document.getElementById('loadingOverlay');
-        if (overlay) {
-            overlay.style.display = 'flex';
-            const text = overlay.querySelector('.loading-text');
-            if (text) text.textContent = message;
-        }
-    }
-    
-    hideLoading() {
-        const overlay = document.getElementById('loadingOverlay');
-        if (overlay) {
-            overlay.style.display = 'none';
-        }
-    }
-    
-    updatePageTitle(title) {
-        document.title = title ? `${title} - GST Intelligence` : 'GST Intelligence Platform';
-    }
-    
-    scrollToTop(smooth = true) {
-        window.scrollTo({
-            top: 0,
-            behavior: smooth ? 'smooth' : 'auto'
-        });
-    }
-    
-    // =============================================================================
-    // GSTIN UTILITIES
-    // =============================================================================
-    
-    isValidGSTIN(gstin) {
-        if (!gstin || typeof gstin !== 'string') return false;
-        
-        const clean = gstin.replace(/\s/g, '').toUpperCase();
-        const pattern = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/;
-        
-        return pattern.test(clean);
-    }
-    
-    formatGSTIN(gstin) {
-        if (!gstin) return '';
-        
-        const clean = gstin.replace(/\s/g, '').toUpperCase();
-        if (clean.length === 15) {
-            return `${clean.substr(0, 2)} ${clean.substr(2, 5)} ${clean.substr(7, 4)} ${clean.substr(11, 4)}`;
-        }
-        
-        return clean;
-    }
-    
-    async searchGSTIN(gstin) {
-        if (!this.isValidGSTIN(gstin)) {
-            throw new Error('Invalid GSTIN format');
-        }
-        
-        this.showLoading('Searching GSTIN...');
-        
-        try {
-            const response = await this.api('/api/search', {
-                method: 'POST',
-                body: JSON.stringify({ gstin: gstin.replace(/\s/g, '').toUpperCase() })
-            });
-            
-            return response;
-        } finally {
-            this.hideLoading();
-        }
-    }
-    
-    // =============================================================================
-    // CACHE MANAGEMENT
-    // =============================================================================
-    
-    setCache(key, value, ttl = 300000) { // 5 minutes default
-        this.cache.set(key, {
-            value,
-            expires: Date.now() + ttl
-        });
-    }
-    
-    getCache(key) {
-        const item = this.cache.get(key);
-        if (!item) return null;
-        
-        if (Date.now() > item.expires) {
-            this.cache.delete(key);
-            return null;
-        }
-        
-        return item.value;
-    }
-    
-    clearCache() {
-        this.cache.clear();
-        this.log('Cache cleared');
-    }
-    
-    // =============================================================================
-    // USER PREFERENCES
-    // =============================================================================
-    
-    applyUserPreferences() {
-        if (this.preferences.theme) {
-            this.setTheme(this.preferences.theme);
-        }
-        
-        if (this.preferences.notifications === false) {
-            this.notification.disable();
-        }
-    }
-    
-    async updatePreferences(newPrefs) {
-        try {
-            const response = await this.api('/api/user/preferences', {
-                method: 'POST',
-                body: JSON.stringify(newPrefs)
-            });
-            
-            if (response.success) {
-                this.preferences = { ...this.preferences, ...newPrefs };
-                this.applyUserPreferences();
-                this.notification.showSuccess('Preferences updated successfully');
+            if (suggestionsEl.style.opacity === '0') {
+                suggestionsEl.innerHTML = '';
             }
-        } catch (error) {
-            this.notification.showError('Failed to update preferences');
+        }, window.GST_APP.CONFIG.ANIMATION_DURATION);
+        
+        this.currentIndex = -1;
+    }
+
+    handleKeydown(e, suggestionsEl) {
+        if (!suggestionsEl.innerHTML) return;
+        
+        const items = suggestionsEl.querySelectorAll('.suggestion-item');
+        if (!items.length) return;
+
+        switch (e.key) {
+            case 'ArrowDown':
+                e.preventDefault();
+                this.currentIndex = Math.min(this.currentIndex + 1, items.length - 1);
+                this.updateSelection(items);
+                break;
+                
+            case 'ArrowUp':
+                e.preventDefault();
+                this.currentIndex = Math.max(this.currentIndex - 1, -1);
+                this.updateSelection(items);
+                break;
+                
+            case 'Enter':
+                if (this.currentIndex >= 0 && items[this.currentIndex]) {
+                    e.preventDefault();
+                    items[this.currentIndex].click();
+                }
+                break;
+                
+            case 'Escape':
+                this.hideSuggestions(suggestionsEl);
+                e.target.blur();
+                break;
         }
     }
-    
-    setTheme(theme) {
-        if (this.theme) {
-            this.theme.setTheme(theme);
-        } else {
-            // Fallback theme switching
-            const html = document.documentElement;
-            if (theme === 'light') {
-                html.setAttribute('data-theme', 'light');
+
+    updateSelection(items) {
+        items.forEach((item, index) => {
+            if (index === this.currentIndex) {
+                item.style.background = 'var(--accent-primary)';
+                item.style.color = 'white';
+                item.scrollIntoView({ block: 'nearest' });
             } else {
-                html.removeAttribute('data-theme');
+                item.style.background = 'transparent';
+                item.style.color = '';
             }
-        }
+        });
     }
-    
-    // =============================================================================
-    // EVENT HANDLING
-    // =============================================================================
-    
-    on(event, callback) {
-        if (!this.eventListeners.has(event)) {
-            this.eventListeners.set(event, []);
-        }
-        this.eventListeners.get(event).push(callback);
+
+    getTypeIcon(type) {
+        const icons = {
+            tech: 'fas fa-laptop-code',
+            telecom: 'fas fa-broadcast-tower',
+            industrial: 'fas fa-industry',
+            banking: 'fas fa-university',
+            recent: 'fas fa-history',
+            api: 'fas fa-search',
+            default: 'fas fa-building'
+        };
+        return icons[type] || icons.default;
     }
-    
-    emit(event, data) {
-        if (this.eventListeners.has(event)) {
-            this.eventListeners.get(event).forEach(callback => {
-                try {
-                    callback(data);
-                } catch (error) {
-                    this.error('Event handler error:', error);
+
+    getSourceColor(source) {
+        const colors = {
+            builtin: 'linear-gradient(135deg, #7c3aed, #a855f7)',
+            recent: 'linear-gradient(135deg, #10b981, #34d399)',
+            api: 'linear-gradient(135deg, #3b82f6, #60a5fa)',
+            default: 'linear-gradient(135deg, #6b7280, #9ca3af)'
+        };
+        return colors[source] || colors.default;
+    }
+}
+
+// =====================================================
+// 3. ENHANCED VALIDATION ENGINE
+// =====================================================
+
+class ValidationEngine {
+    constructor() {
+        this.validators = new Map();
+        this.activeFields = new Set();
+    }
+
+    initialize() {
+        this.setupGSTINValidation();
+        this.setupMobileValidation();
+        this.setupEmailValidation();
+        this.setupPasswordValidation();
+        window.GST_APP.utils.log('Validation Engine initialized');
+    }
+
+    setupGSTINValidation() {
+        const gstinInputs = document.querySelectorAll('input[name="gstin"], #gstin, #gstinEnhanced');
+        gstinInputs.forEach(input => {
+            if (this.activeFields.has(input)) return;
+            this.activeFields.add(input);
+
+            const validator = this.createGSTINValidator(input);
+            this.validators.set(input, validator);
+
+            input.addEventListener('input', validator.handleInput);
+            input.addEventListener('blur', validator.handleBlur);
+            input.addEventListener('paste', validator.handlePaste);
+        });
+    }
+
+    createGSTINValidator(input) {
+        return {
+            handleInput: (e) => {
+                const value = window.GST_APP.utils.formatGSTIN(e.target.value);
+                e.target.value = value;
+
+                if (value.length === 0) {
+                    this.clearFieldState(input);
+                } else if (value.length === 15) {
+                    const isValid = window.GST_APP.utils.isValidGSTIN(value);
+                    this.updateFieldState(input, isValid, isValid ? '✅ Valid GSTIN format' : '❌ Invalid GSTIN format');
+                    
+                    if (isValid) {
+                        this.addSuccessEffect(input);
+                    } else {
+                        this.addErrorEffect(input);
+                    }
+                } else {
+                    this.updateFieldState(input, null, `${value.length}/15 characters`);
+                    this.clearEffects(input);
+                }
+            },
+
+            handleBlur: (e) => {
+                const value = window.GST_APP.utils.formatGSTIN(e.target.value);
+                if (value.length > 0 && value.length !== 15) {
+                    this.updateFieldState(input, false, '❌ GSTIN must be exactly 15 characters');
+                }
+            },
+
+            handlePaste: (e) => {
+                setTimeout(() => {
+                    const value = window.GST_APP.utils.formatGSTIN(e.target.value);
+                    if (window.GST_APP.utils.isValidGSTIN(value)) {
+                        this.addSuccessEffect(input);
+                        
+                        if (window.notificationManager) {
+                            window.notificationManager.showSuccess('✅ Valid GSTIN pasted!', 2000);
+                        }
+                        
+                        // Auto-search if enabled
+                        const autoSearch = localStorage.getItem('autoSearch');
+                        if (autoSearch !== 'false') {
+                            setTimeout(() => {
+                                const form = input.closest('form');
+                                if (form && window.confirm('Auto-search this GSTIN?')) {
+                                    form.submit();
+                                }
+                            }, 1000);
+                        }
+                    }
+                }, 100);
+            }
+        };
+    }
+
+    setupMobileValidation() {
+        const mobileInputs = document.querySelectorAll('input[name="mobile"], input[type="tel"]');
+        mobileInputs.forEach(input => {
+            if (this.activeFields.has(input)) return;
+            this.activeFields.add(input);
+
+            input.addEventListener('input', (e) => {
+                let value = e.target.value.replace(/\D/g, '');
+                if (value.length > 10) value = value.slice(0, 10);
+                e.target.value = value;
+
+                if (value.length === 10) {
+                    const isValid = /^[6-9][0-9]{9}$/.test(value);
+                    this.updateFieldState(input, isValid, 
+                        isValid ? '✅ Valid mobile number' : '❌ Invalid mobile number');
+                } else if (value.length > 0) {
+                    this.updateFieldState(input, null, `${value.length}/10 digits`);
+                } else {
+                    this.clearFieldState(input);
                 }
             });
-        }
+        });
     }
-    
-    handleKeyboardShortcuts(e) {
-        // Ctrl/Cmd + K for search
-        if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
-            e.preventDefault();
-            const searchInput = document.querySelector('input[name="gstin"], #gstinInput');
-            if (searchInput) {
-                searchInput.focus();
-                searchInput.select();
-            }
-        }
-        
-        // Escape to close modals
-        if (e.key === 'Escape') {
-            if (window.modalManager) {
-                window.modalManager.closeAllModals();
-            }
-        }
-        
-        // Alt + T for theme toggle
-        if (e.altKey && e.key === 't') {
-            e.preventDefault();
-            if (this.theme) {
-                this.theme.toggleTheme();
-            }
-        }
+
+    setupEmailValidation() {
+        const emailInputs = document.querySelectorAll('input[type="email"]');
+        emailInputs.forEach(input => {
+            if (this.activeFields.has(input)) return;
+            this.activeFields.add(input);
+
+            const debouncedValidation = window.GST_APP.utils.debounce((e) => {
+                const value = e.target.value.trim();
+                if (value.length === 0) {
+                    this.clearFieldState(input);
+                } else {
+                    const isValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+                    this.updateFieldState(input, isValid,
+                        isValid ? '✅ Valid email address' : '❌ Invalid email format');
+                }
+            }, 500);
+
+            input.addEventListener('input', debouncedValidation);
+        });
     }
-    
-    onPageHidden() {
-        this.log('Page hidden');
-        // Pause non-critical operations
-    }
-    
-    onPageVisible() {
-        this.log('Page visible');
-        // Resume operations
-        this.syncData();
-    }
-    
-    onNetworkOnline() {
-        this.notification.showSuccess('Connection restored');
-        this.syncData();
-    }
-    
-    onNetworkOffline() {
-        this.notification.showWarning('You are offline');
-    }
-    
-    // =============================================================================
-    // DATA SYNCHRONIZATION
-    // =============================================================================
-    
-    async syncData() {
-        if (!navigator.onLine) return;
-        
-        try {
-            // Sync offline searches if any
-            if (this.offline) {
-                await this.offline.syncOfflineData();
-            }
-            
-            // Refresh user data
-            await this.loadUserData();
-            
-        } catch (error) {
-            this.warn('Data sync failed:', error);
-        }
-    }
-    
-    // =============================================================================
-    // ERROR HANDLING
-    // =============================================================================
-    
-    handleGlobalError(error, type, context = {}) {
-        this.error(`${type}:`, error);
-        
-        // Report to server in production
-        if (window.location.hostname !== 'localhost') {
-            this.reportError(error, type, context);
-        }
-        
-        // Show user-friendly message
-        if (this.notification) {
-            this.notification.showError('Something went wrong. Please try again.');
-        }
-    }
-    
-    async reportError(error, type, context = {}) {
-        try {
-            await this.api('/api/system/error', {
-                method: 'POST',
-                body: JSON.stringify({
-                    type,
-                    message: error.message || String(error),
-                    stack: error.stack,
-                    url: window.location.href,
-                    userAgent: navigator.userAgent,
-                    timestamp: new Date().toISOString(),
-                    context
-                })
+
+    setupPasswordValidation() {
+        const passwordInputs = document.querySelectorAll('input[type="password"]');
+        passwordInputs.forEach(input => {
+            if (this.activeFields.has(input) || input.name === 'confirm_password') return;
+            this.activeFields.add(input);
+
+            input.addEventListener('input', (e) => {
+                const strength = this.calculatePasswordStrength(e.target.value);
+                this.updatePasswordStrength(input, strength);
             });
-        } catch (reportError) {
-            this.warn('Failed to report error:', reportError);
-        }
+        });
     }
-    
-    // =============================================================================
-    // UTILITY METHODS
-    // =============================================================================
-    
-    log(...args) {
-        if (this.debug) {
-            console.log('🔧 GST App:', ...args);
-        }
-    }
-    
-    warn(...args) {
-        console.warn('⚠️ GST App:', ...args);
-    }
-    
-    error(...args) {
-        console.error('❌ GST App:', ...args);
-    }
-    
-    formatCurrency(amount, currency = '₹') {
-        if (typeof amount !== 'number') return '₹0';
-        
-        if (amount >= 10000000) {
-            return `${currency}${(amount / 10000000).toFixed(1)}Cr`;
-        } else if (amount >= 100000) {
-            return `${currency}${(amount / 100000).toFixed(1)}L`;
-        } else if (amount >= 1000) {
-            return `${currency}${(amount / 1000).toFixed(1)}K`;
-        }
-        
-        return `${currency}${amount.toLocaleString()}`;
-    }
-    
-    formatDate(date, format = 'relative') {
-        if (!date) return 'N/A';
-        
-        const dateObj = new Date(date);
-        if (isNaN(dateObj.getTime())) return 'Invalid Date';
-        
-        if (format === 'relative') {
-            const now = new Date();
-            const diff = now - dateObj;
-            const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-            
-            if (days === 0) return 'Today';
-            if (days === 1) return 'Yesterday';
-            if (days < 7) return `${days} days ago`;
-            if (days < 30) return `${Math.floor(days / 7)} weeks ago`;
-            if (days < 365) return `${Math.floor(days / 30)} months ago`;
-            return `${Math.floor(days / 365)} years ago`;
-        }
-        
-        return dateObj.toLocaleDateString();
-    }
-    
-    debounce(func, wait) {
-        let timeout;
-        return function executedFunction(...args) {
-            const later = () => {
-                clearTimeout(timeout);
-                func(...args);
-            };
-            clearTimeout(timeout);
-            timeout = setTimeout(later, wait);
+
+    calculatePasswordStrength(password) {
+        let score = 0;
+        const checks = {
+            length: password.length >= 8,
+            uppercase: /[A-Z]/.test(password),
+            lowercase: /[a-z]/.test(password),
+            numbers: /[0-9]/.test(password),
+            special: /[^A-Za-z0-9]/.test(password)
+        };
+
+        score = Object.values(checks).filter(Boolean).length;
+
+        const levels = ['Very Weak', 'Weak', 'Fair', 'Good', 'Strong'];
+        const colors = ['#ef4444', '#f59e0b', '#eab308', '#10b981', '#059669'];
+
+        return {
+            score,
+            level: levels[score] || 'Very Weak',
+            color: colors[score] || colors[0],
+            percentage: (score / 5) * 100,
+            checks
         };
     }
-    
-    throttle(func, limit) {
-        let inThrottle;
-        return function() {
-            const args = arguments;
-            const context = this;
-            if (!inThrottle) {
-                func.apply(context, args);
-                inThrottle = true;
-                setTimeout(() => inThrottle = false, limit);
-            }
-        };
+
+    updatePasswordStrength(input, strength) {
+        let strengthIndicator = input.parentElement.querySelector('.password-strength');
+        
+        if (!strengthIndicator) {
+            strengthIndicator = document.createElement('div');
+            strengthIndicator.className = 'password-strength';
+            strengthIndicator.style.cssText = `
+                margin-top: 0.5rem;
+                padding: 0.5rem;
+                border-radius: 8px;
+                background: var(--bg-hover);
+                border: 1px solid var(--border-color);
+            `;
+            input.parentElement.appendChild(strengthIndicator);
+        }
+
+        strengthIndicator.innerHTML = `
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                <span style="font-size: 0.875rem; color: var(--text-primary);">Password Strength</span>
+                <span style="font-size: 0.875rem; font-weight: 600; color: ${strength.color};">${strength.level}</span>
+            </div>
+            <div style="width: 100%; height: 4px; background: var(--bg-secondary); border-radius: 2px; overflow: hidden;">
+                <div style="height: 100%; background: ${strength.color}; width: ${strength.percentage}%; transition: all 0.3s ease;"></div>
+            </div>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 0.25rem; margin-top: 0.5rem; font-size: 0.75rem;">
+                ${Object.entries(strength.checks).map(([key, passed]) => `
+                    <span style="color: ${passed ? '#10b981' : '#6b7280'};">
+                        ${passed ? '✓' : '○'} ${key.charAt(0).toUpperCase() + key.slice(1)}
+                    </span>
+                `).join('')}
+            </div>
+        `;
     }
-    
-    // =============================================================================
-    // CLEANUP
-    // =============================================================================
-    
-    cleanup() {
-        // Clear timers, observers, etc.
-        this.clearCache();
+
+    updateFieldState(input, isValid, message) {
+        this.clearFieldState(input);
+
+        if (isValid === true) {
+            input.style.borderColor = 'var(--success)';
+            input.style.backgroundColor = 'rgba(16, 185, 129, 0.05)';
+        } else if (isValid === false) {
+            input.style.borderColor = 'var(--error)';
+            input.style.backgroundColor = 'rgba(239, 68, 68, 0.05)';
+        } else {
+            input.style.borderColor = 'var(--accent-primary)';
+            input.style.backgroundColor = 'var(--bg-input)';
+        }
+
+        if (message) {
+            this.showFieldMessage(input, message, isValid);
+        }
+    }
+
+    showFieldMessage(input, message, isValid) {
+        const messageEl = document.createElement('div');
+        messageEl.className = 'field-message';
+        messageEl.style.cssText = `
+            margin-top: 0.5rem;
+            font-size: 0.875rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            color: ${isValid === true ? 'var(--success)' : isValid === false ? 'var(--error)' : 'var(--text-secondary)'};
+            animation: messageSlideIn 0.3s ease-out;
+        `;
+        messageEl.innerHTML = message;
+        input.parentElement.appendChild(messageEl);
+    }
+
+    clearFieldState(input) {
+        input.style.borderColor = '';
+        input.style.backgroundColor = '';
         
-        // Remove event listeners
-        this.eventListeners.clear();
+        const existingMessage = input.parentElement.querySelector('.field-message');
+        if (existingMessage) {
+            existingMessage.remove();
+        }
         
-        this.log('Application cleanup completed');
+        this.clearEffects(input);
+    }
+
+    addSuccessEffect(input) {
+        input.style.boxShadow = '0 0 20px rgba(16, 185, 129, 0.3)';
+        input.style.transform = 'scale(1.02)';
+        setTimeout(() => {
+            input.style.transform = '';
+        }, 200);
+    }
+
+    addErrorEffect(input) {
+        input.style.boxShadow = '0 0 20px rgba(239, 68, 68, 0.3)';
+        input.style.animation = 'shake 0.5s ease-in-out';
+        setTimeout(() => {
+            input.style.animation = '';
+        }, 500);
+    }
+
+    clearEffects(input) {
+        input.style.boxShadow = '';
+        input.style.transform = '';
+        input.style.animation = '';
     }
 }
 
-// =============================================================================
-// INITIALIZATION
-// =============================================================================
+// =====================================================
+// 4. INITIALIZATION & EXPORT
+// =====================================================
 
-// Initialize application when DOM is ready
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => {
-        window.gstApp = new GSTApplication();
-    });
-} else {
-    window.gstApp = new GSTApplication();
-}
+document.addEventListener('DOMContentLoaded', function() {
+    if (window.GST_APP.state.initialized) return;
 
-// =============================================================================
-// GLOBAL UTILITIES (for backward compatibility)
-// =============================================================================
+    try {
+        // Initialize core components
+        window.GST_APP.suggestionsEngine = new GSTINSuggestionsEngine();
+        window.GST_APP.validationEngine = new ValidationEngine();
 
-// Make common functions globally available
-window.isValidGSTIN = (gstin) => window.gstApp?.isValidGSTIN(gstin) || false;
-window.formatGSTIN = (gstin) => window.gstApp?.formatGSTIN(gstin) || gstin;
-window.showLoading = (message) => window.gstApp?.showLoading(message);
-window.hideLoading = () => window.gstApp?.hideLoading();
+        // Initialize components
+        window.GST_APP.suggestionsEngine.initialize();
+        window.GST_APP.validationEngine.initialize();
 
-// Export for modules
-if (typeof module !== 'undefined' && module.exports) {
-    module.exports = GSTApplication;
-}
+        // Add required CSS if not present
+        if (!document.getElementById('gst-app-styles')) {
+            const style = document.createElement('style');
+            style.id = 'gst-app-styles';
+            style.textContent = `
+                @keyframes messageSlideIn {
+                    from { opacity: 0; transform: translateY(-10px); }
+                    to { opacity: 1; transform: translateY(0); }
+                }
+                
+                @keyframes shake {
+                    0%, 100% { transform: translateX(0); }
+                    25% { transform: translateX(-5px); }
+                    75% { transform: translateX(5px); }
+                }
+                
+                .gstin-suggestions::-webkit-scrollbar {
+                    width: 6px;
+                }
+                
+                .gstin-suggestions::-webkit-scrollbar-track {
+                    background: var(--bg-secondary);
+                }
+                
+                .gstin-suggestions::-webkit-scrollbar-thumb {
+                    background: var(--accent-primary);
+                    border-radius: 3px;
+                }
+            `;
+            document.head.appendChild(style);
+        }
 
-// Debug helpers
-window.addEventListener('load', () => {
-    if (window.GST_APP.debug) {
-        console.log('🚀 GST Intelligence Platform loaded');
-        console.log('📊 Performance:', performance.getEntriesByType('navigation')[0]);
+        // Mark as initialized
+        window.GST_APP.state.initialized = true;
         
-        // Add debug helpers to window
-        window.gstDebug = {
-            app: window.gstApp,
-            cache: () => window.gstApp?.cache,
-            preferences: () => window.gstApp?.preferences,
-            clearCache: () => window.gstApp?.clearCache(),
-            toggleDebug: () => {
-                const current = localStorage.getItem('gst_debug') === 'true';
-                localStorage.setItem('gst_debug', (!current).toString());
-                location.reload();
-            }
-        };
+        window.GST_APP.utils.log('Core Application initialized successfully');
         
-        console.log('🔧 Debug helpers available at window.gstDebug');
+        // Notify other modules
+        window.dispatchEvent(new CustomEvent('gstAppReady', {
+            detail: { version: window.GST_APP.VERSION }
+        }));
+
+    } catch (error) {
+        window.GST_APP.utils.error('Initialization failed:', error);
     }
 });
 
-console.log('✅ GST Application core loaded successfully');
+// Global export
+window.GST_APP.ready = () => window.GST_APP.state.initialized;
+
+console.log('✅ GST Platform Core Application Loaded Successfully!');
