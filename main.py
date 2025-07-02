@@ -1463,33 +1463,56 @@ async def analytics_page(request: Request, current_user: str = Depends(require_a
     try:
         user_profile = await db.get_user_profile(current_user)
         user_display_name = await get_user_display_name(current_user)
-        analytics_data = await db.get_analytics_data(current_user)
+        
+        # Get analytics data with better error handling
+        try:
+            analytics_data = await db.get_analytics_data(current_user)
+        except Exception as e:
+            logger.error(f"Analytics data error: {e}")
+            analytics_data = {
+                "daily_searches": [],
+                "score_distribution": [],
+                "top_companies": []
+            }
         
         # Get overall stats
-        stats = await db.get_user_stats(current_user)
+        try:
+            stats = await db.get_user_stats(current_user)
+        except Exception as e:
+            logger.error(f"User stats error: {e}")
+            stats = {
+                "total_searches": 0,
+                "unique_companies": 0,
+                "avg_compliance": 0,
+                "recent_searches": 0
+            }
         
         # Calculate recent activity
         now = datetime.now()
         last_30_days = now - timedelta(days=30)
         
         # Get history for recent searches calculation
-        history = await db.get_search_history(current_user)
-        searches_this_month = sum(
-            1 for item in history
-            if item.get('searched_at') and item['searched_at'] >= last_30_days
-        )
+        try:
+            history = await db.get_search_history(current_user)
+            searches_this_month = sum(
+                1 for item in history
+                if item.get('searched_at') and item['searched_at'] >= last_30_days
+            )
+        except Exception as e:
+            logger.error(f"History data error: {e}")
+            searches_this_month = 0
         
         return templates.TemplateResponse("analytics.html", {
             "request": request, 
-            "current_user": current_user,  # Make sure this is passed
+            "current_user": current_user,
             "user_display_name": user_display_name,
             "user_profile": user_profile,
-            "daily_searches": analytics_data["daily_searches"],
-            "score_distribution": analytics_data["score_distribution"],
-            "top_companies": analytics_data["top_companies"],
-            "total_searches": stats["total_searches"],
-            "unique_companies": stats["unique_companies"],
-            "avg_compliance": stats["avg_compliance"],
+            "daily_searches": analytics_data.get("daily_searches", []),
+            "score_distribution": analytics_data.get("score_distribution", []),
+            "top_companies": analytics_data.get("top_companies", []),
+            "total_searches": stats.get("total_searches", 0),
+            "unique_companies": stats.get("unique_companies", 0),
+            "avg_compliance": stats.get("avg_compliance", 0),
             "searches_this_month": searches_this_month
         })
     except Exception as e:
@@ -1497,8 +1520,8 @@ async def analytics_page(request: Request, current_user: str = Depends(require_a
         # Fallback response with empty data
         return templates.TemplateResponse("analytics.html", {
             "request": request, 
-            "current_user": current_user,  # Make sure this is passed even in error case
-            "user_display_name": await get_user_display_name(current_user) if current_user else "User",
+            "current_user": current_user,
+            "user_display_name": current_user[-4:] if current_user else "User",
             "user_profile": {},
             "daily_searches": [],
             "score_distribution": [],
