@@ -194,14 +194,12 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Initialize charts with error handling
     try {
-        initializeTrendsChart();
-        initializeDistributionChart();
-        
-        console.log('📊 Analytics dashboard charts initialized successfully');
-    } catch (error) {
-        console.error('Error initializing charts:', error);
-        showChartError();
-    }
+            initializeCharts();
+        } catch (error) {
+            console.error('Chart initialization failed:', error);
+            window.GSTPlatform?.errorHandler?.handleAPIError({ status: 500 }, { context: 'chart_init' });
+        }
+    });
     
     // Update timestamps
     updateTimestamps();
@@ -213,7 +211,7 @@ document.addEventListener('DOMContentLoaded', function() {
     initializeChartControls();
     
     console.log('📊 Analytics dashboard initialized');
-});
+
 
 function showChartError() {
     // Show error message in chart containers
