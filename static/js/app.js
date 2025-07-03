@@ -805,6 +805,105 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
+// Enhanced Search Manager
+class SearchManager {
+    constructor() {
+        this.searchTimeout = null;
+        this.currentRequest = null;
+    }
+    
+    async search(gstin, showLoader = true) {
+        if (this.searchTimeout) {
+            clearTimeout(this.searchTimeout);
+        }
+        
+        if (this.currentRequest) {
+            this.currentRequest.abort();
+        }
+        
+        if (showLoader) {
+            this.showSearchLoader();
+        }
+        
+        return new Promise((resolve, reject) => {
+            this.searchTimeout = setTimeout(async () => {
+                try {
+                    const controller = new AbortController();
+                    this.currentRequest = controller;
+                    
+                    const response = await fetch('/search', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/x-www-form-urlencoded',
+                        },
+                        body: `gstin=${encodeURIComponent(gstin)}`,
+                        signal: controller.signal
+                    });
+                    
+                    if (!response.ok) {
+                        throw new Error(`Search failed: ${response.status}`);
+                    }
+                    
+                    const data = await response.json();
+                    this.hideSearchLoader();
+                    resolve(data);
+                    
+                } catch (error) {
+                    this.hideSearchLoader();
+                    if (error.name !== 'AbortError') {
+                        reject(error);
+                    }
+                }
+            }, 300);
+        });
+    }
+    
+    showSearchLoader() {
+        const searchBtn = document.querySelector('.search-btn');
+        if (searchBtn) {
+            searchBtn.classList.add('btn-loading');
+            searchBtn.disabled = true;
+        }
+    }
+    
+    hideSearchLoader() {
+        const searchBtn = document.querySelector('.search-btn');
+        if (searchBtn) {
+            searchBtn.classList.remove('btn-loading');
+            searchBtn.disabled = false;
+        }
+    }
+}
+
+// Initialize enhanced search
+window.searchManager = new SearchManager();
+
+// Enhanced error display function
+function showError(message, type = 'error') {
+    const toast = document.createElement('div');
+    toast.className = `toast toast-${type}`;
+    toast.innerHTML = `
+        <div class="toast-content">
+            <i class="fas fa-${type === 'error' ? 'exclamation-circle' : 'info-circle'}"></i>
+            <span>${message}</span>
+        </div>
+        <button class="toast-close" onclick="this.parentElement.remove()">×</button>
+    `;
+    
+    document.body.appendChild(toast);
+    
+    setTimeout(() => {
+        toast.classList.add('show');
+    }, 100);
+    
+    setTimeout(() => {
+        toast.remove();
+    }, 5000);
+}
+
+// Make functions globally available
+window.showError = showError;
+
 // Global export
 window.GST_APP.ready = () => window.GST_APP.state.initialized;
 
