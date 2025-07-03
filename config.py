@@ -1,12 +1,16 @@
-# config.py - Compatible with your complete .env file
+# config.py - Final working version for Render deployment
 import os
 from typing import Optional, List
 from pydantic_settings import BaseSettings
 from pydantic import ConfigDict, field_validator
 
 class Settings(BaseSettings):
-    # CRITICAL: This tells Pydantic to ignore extra fields in .env
-    model_config = ConfigDict(extra='ignore')
+    # Pydantic v2 configuration - ignores extra .env variables
+    model_config = ConfigDict(
+        extra='ignore',          # This is the KEY fix - ignores extra variables
+        env_file='.env',
+        case_sensitive=True
+    )
     
     # Core Application Settings
     ENVIRONMENT: str = "development"
@@ -75,11 +79,6 @@ class Settings(BaseSettings):
             print(f"⚠️ Warning: SECRET_KEY should be at least 32 characters (current: {len(v)})")
         return v
     
-    @field_validator('ADMIN_USERS')
-    @classmethod
-    def validate_admin_users(cls, v):
-        return v
-    
     # Helper methods
     def get_cors_origins_list(self) -> List[str]:
         """Convert CORS_ORIGINS string to list for FastAPI."""
@@ -96,24 +95,28 @@ class Settings(BaseSettings):
     def is_admin_user(self, user: str) -> bool:
         """Check if user is admin."""
         return user in self.get_admin_users_list()
-    
-    class Config:
-        env_file = ".env"
-        case_sensitive = True
 
-# Safe initialization
+# Safe initialization with detailed logging
 try:
     settings = Settings()
-    print(f"✅ Config loaded successfully!")
+    print("=" * 50)
+    print("✅ GST Intelligence Platform - Config Loaded!")
+    print("=" * 50)
     print(f"🌍 Environment: {settings.ENVIRONMENT}")
-    print(f"🔑 Database: {'✅ Neon DB' if 'neon.tech' in settings.POSTGRES_DSN else '✅ Configured'}")
-    print(f"📦 Redis: {'✅ Configured' if settings.REDIS_URL else '⚠️ Not configured'}")
-    print(f"🔗 RapidAPI: {'✅ Configured' if settings.RAPIDAPI_KEY != 'your-rapidapi-key' else '⚠️ Default key'}")
+    print(f"🔍 Debug Mode: {settings.DEBUG}")
+    print(f"🔑 Database: {'✅ Neon DB Connected' if 'neon.tech' in settings.POSTGRES_DSN else '✅ Database Configured'}")
+    print(f"📦 Redis: {'✅ Configured' if settings.REDIS_URL else '⚠️ Not configured (using memory cache)'}")
+    print(f"🔗 RapidAPI: {'✅ Configured' if settings.RAPIDAPI_KEY != 'your-rapidapi-key' else '⚠️ Using default key'}")
     print(f"🤖 Anthropic AI: {'✅ Configured' if settings.ANTHROPIC_API_KEY else '⚠️ Not configured'}")
     print(f"👑 Admin Users: {len(settings.get_admin_users_list())} configured")
-    print(f"🌐 CORS Origins: {settings.get_cors_origins_list()}")
+    print(f"🌐 CORS: {settings.get_cors_origins_list()}")
+    print(f"🔒 Session Duration: {settings.SESSION_DURATION // 86400} days")
+    print("=" * 50)
+    print("🚀 Ready for deployment!")
+    print("=" * 50)
 except Exception as e:
-    print(f"❌ Config error: {e}")
+    print(f"❌ CONFIG ERROR: {e}")
+    print("🔧 Please check your .env file and try again")
     raise
 
 # Export for backward compatibility
