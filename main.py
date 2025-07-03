@@ -18,7 +18,7 @@ from functools import wraps
 from razorpay_lending import RazorpayLendingClient, LoanManager, LoanConfig, LoanStatus
 from decimal import Decimal
 from collections import defaultdict
-from typing import Optional, Dict, List, Any
+from typing import Optional, Dict, List, Any, Tuple
 from fastapi import FastAPI, Request, Form, Depends, HTTPException, status, Response
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse, StreamingResponse
 from fastapi.templating import Jinja2Templates
@@ -28,6 +28,10 @@ import redis
 import fnmatch
 import csv
 import time
+import re
+from typing import Dict, List, Any, Tuple
+from datetime import datetime, date
+import html
 # Configure logging
 logging.basicConfig(
     level=logging.INFO, 
@@ -55,7 +59,120 @@ from config import settings
 
 config = settings
 
-# Pydantic Models
+#Validation and Sanitization Functions
+def sanitize_input(value: str, max_length: int = 100) -> str:
+    """Sanitize user input to prevent XSS and other attacks."""
+    if not isinstance(value, str):
+        value = str(value)
+    
+    # Remove HTML tags and entities
+    value = html.escape(value)
+    
+    # Limit length
+    if len(value) > max_length:
+        value = value[:max_length]
+    
+    # Remove potentially dangerous characters
+    value = re.sub(r'[<>"\'\x00-\x08\x0B\x0C\x0E-\x1F\x7F]', '', value)
+    
+    return value.strip()
+
+def validate_gstin_enhanced(gstin: str) -> Tuple[bool, str, Dict[str, Any]]:
+    """Enhanced GSTIN validation with detailed feedback."""
+    if not gstin:
+        return False, "GSTIN is required", {}
+    
+    # Remove spaces and convert to uppercase
+    gstin = re.sub(r'\s+', '', gstin.upper())
+    
+    # Length check
+    if len(gstin) != 15:
+        return False, f"GSTIN must be 15 characters long (got {len(gstin)})", {}
+    
+    # Pattern validation
+    pattern = r'^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$'
+    if not re.match(pattern, gstin):
+        return False, "Invalid GSTIN format", {}
+    
+    # Extract components for additional validation
+    components = {
+        'state_code': gstin[:2],
+        'pan_prefix': gstin[2:7],
+        'pan_suffix': gstin[7:10],
+        'entity_number': gstin[10],
+        'entity_code': gstin[11],
+        'checksum': gstin[13]
+    }
+    
+    # Validate state code
+    valid_state_codes = [
+        '01', '02', '03', '04', '05', '06', '07', '08', '09', '10',
+        '11', '12', '13', '14', '15', '16', '17', '18', '19', '20',
+        '21', '22', '23', '24', '25', '26', '27', '28', '29', '30',
+        '31', '32', '33', '34', '35', '36', '37', '97'  # 97 for other territory
+    ]
+    
+    if components['state_code'] not in valid_state_codes:
+        return False, f"Invalid state code: {components['state_code']}", components
+    
+    return True, "Valid GSTIN", components
+
+def validate_api_response(data: Any) -> Tuple[bool, str, Any]:
+    """Validate API response structure and content."""
+    if not data:
+        return False, "Empty response", None
+    
+    if not isinstance(data, dict):
+        return False, "Invalid response format", None
+    
+    # Check for required fields
+    required_fields = ['gstin', 'lgnm']  # Legal name is usually required
+    missing_fields = [field for field in required_fields if not data.get(field)]
+    
+    if missing_fields:
+        return False, f"Missing required fields: {', '.join(missing_fields)}", data
+    
+    # Validate GSTIN in response
+    gstin = data.get('gstin', '')
+    is_valid, message, _ = validate_gstin_enhanced(gstin)
+    if not is_valid:
+        return False, f"Invalid GSTIN in response: {message}", data
+    
+    # Sanitize text fields
+    text_fields = ['lgnm', 'tradeNam', 'stj', 'ctb', 'pradr']
+    for field in text_fields:
+        if field in data and isinstance(data[field], str):
+            data[field] = sanitize_input(data[field], max_length=200)
+    
+    return True, "Valid response", data
+
+def validate_environment():
+    """Validate critical environment variables on startup."""
+    required_vars = ['POSTGRES_DSN', 'SECRET_KEY']
+    optional_vars = ['RAPIDAPI_KEY', 'ANTHROPIC_API_KEY', 'REDIS_URL']
+    
+    missing_required = []
+    missing_optional = []
+    
+    for var in required_vars:
+        if not os.getenv(var):
+            missing_required.append(var)
+    
+    for var in optional_vars:
+        if not os.getenv(var):
+            missing_optional.append(var)
+    
+    if missing_required:
+        logger.error(f"❌ Missing required environment variables: {', '.join(missing_required)}")
+        raise RuntimeError(f"Missing required environment variables: {', '.join(missing_required)}")
+    
+    if missing_optional:
+        logger.warning(f"⚠️ Missing optional environment variables: {', '.join(missing_optional)}")
+        logger.info("Some features may be disabled")
+    
+    logger.info("✅ Environment validation completed")
+
+# PydanticModels
 class LoanApplicationRequest(BaseModel):
     gstin: str
     company_name: str
@@ -144,121 +261,134 @@ def handle_api_errors(func):
             )
     return wrapper
 
+# Enhanced CacheManager with improved Redis handling
 class CacheManager:
     def __init__(self, redis_url: Optional[str] = None):
-        """Initialize cache manager with Redis fallback to in-memory."""
+        """Initialize cache manager with robust Redis fallback."""
         self.redis_client = None
         self.memory_cache = {}
         self.cache_ttl = 300  # 5 minutes default
+        self.redis_url = redis_url
+        self.connection_attempts = 0
+        self.max_connection_attempts = 3
         
+        # Try to connect to Redis
         if redis_url:
-            try:
-                import redis
-                self.redis_client = redis.from_url(redis_url, decode_responses=True)
-                # Test connection
-                self.redis_client.ping()
-                logger.info("✅ Redis cache connected successfully")
-            except Exception as e:
-                logger.warning(f"⚠️ Redis connection failed, using memory cache: {e}")
-                self.redis_client = None
+            self._init_redis_connection()
         else:
-            logger.info("📝 Using in-memory cache (Redis not configured)")
+            logger.info("📝 Redis not configured - using in-memory cache only")
         
-        # Cleanup old memory cache entries periodically
+        # Start cleanup task
         asyncio.create_task(self._cleanup_memory_cache())
-    
-    async def get(self, key: str) -> Optional[Any]:
-        """Get value from cache."""
+
+    def _init_redis_connection(self):
+        """Initialize Redis connection with retry logic."""
         try:
-            if self.redis_client:
+            import redis
+            
+            # Parse Redis URL for better error reporting
+            if self.redis_url.startswith('redis://'):
+                logger.info(f"🔄 Attempting Redis connection...")
+                
+            self.redis_client = redis.from_url(
+                self.redis_url, 
+                decode_responses=True,
+                socket_connect_timeout=5,
+                socket_timeout=5,
+                retry_on_timeout=True,
+                health_check_interval=30
+            )
+            
+            # Test connection
+            self.redis_client.ping()
+            logger.info("✅ Redis cache connected successfully")
+            
+        except ImportError:
+            logger.warning("⚠️ Redis package not installed - using memory cache")
+            self.redis_client = None
+        except redis.ConnectionError as e:
+            logger.warning(f"⚠️ Redis connection failed: {e}")
+            logger.info("📝 Falling back to in-memory cache")
+            self.redis_client = None
+        except Exception as e:
+            logger.error(f"❌ Unexpected Redis error: {e}")
+            self.redis_client = None
+
+    async def _test_redis_connection(self) -> bool:
+        """Test if Redis connection is still alive."""
+        if not self.redis_client:
+            return False
+            
+        try:
+            self.redis_client.ping()
+            return True
+        except Exception as e:
+            logger.warning(f"⚠️ Redis connection test failed: {e}")
+            self.redis_client = None
+            return False
+
+    async def get(self, key: str) -> Optional[Any]:
+        """Get value from cache with Redis health check."""
+        try:
+            # Try Redis first if available
+            if self.redis_client and await self._test_redis_connection():
                 try:
                     value = self.redis_client.get(key)
                     if value:
                         return json.loads(value)
                 except Exception as e:
-                    logger.error(f"Redis get error: {e}")
-                    # Fall back to memory cache
-                    pass
+                    logger.warning(f"Redis get error for key {key}: {e}")
+                    # Fall through to memory cache
             
             # Use memory cache
             if key in self.memory_cache:
                 item = self.memory_cache[key]
-                if time.time() < item['expires']:
-                    return item['value']
-                else:
-                    # Cleanup expired entry
+                expires = item.get('expires', 0)
+                
+                # Ensure expires is a valid number
+                try:
+                    expires_time = float(expires)
+                    if time.time() < expires_time:
+                        return item.get('value')
+                    else:
+                        # Cleanup expired entry
+                        del self.memory_cache[key]
+                except (ValueError, TypeError):
+                    # Remove entries with invalid expires
                     del self.memory_cache[key]
                     
         except Exception as e:
-            logger.error(f"Cache get error: {e}")
+            logger.error(f"Cache get error for key {key}: {e}")
         return None
-    
-    async def set(self, key: str, value: Any, ttl: Optional[int] = None) -> bool:
-        """Set value in cache."""
-        try:
-            ttl = ttl or self.cache_ttl
-            serialized_value = json.dumps(value)
-            
-            if self.redis_client:
-                try:
-                    self.redis_client.setex(key, ttl, serialized_value)
-                    return True
-                except Exception as e:
-                    logger.error(f"Redis set error: {e}")
-                    # Fall back to memory cache
-                    pass
-            
-            # Use memory cache
-            self.memory_cache[key] = {
-                'value': value,
-                'expires': time.time() + ttl
-            }
-            
-            # Limit memory cache size
-            if len(self.memory_cache) > 1000:
-                # Remove oldest 20% of entries
-                sorted_items = sorted(
-                    self.memory_cache.items(), 
-                    key=lambda x: x[1]['expires']
-                )
-                for old_key, _ in sorted_items[:200]:
-                    del self.memory_cache[old_key]
-            
-            return True
-        except Exception as e:
-            logger.error(f"Cache set error: {e}")
-            return False
-    
-    async def delete(self, key: str) -> bool:
-        """Delete key from cache."""
-        try:
-            if self.redis_client:
-                self.redis_client.delete(key)
-            else:
-                self.memory_cache.pop(key, None)
-            return True
-        except Exception as e:
-            logger.error(f"Cache delete error: {e}")
-            return False
-    
-    async def clear_pattern(self, pattern: str) -> int:
-        """Clear all keys matching pattern."""
-        try:
-            count = 0
-            if self.redis_client:
-                keys = self.redis_client.keys(pattern)
-                if keys:
-                    count = self.redis_client.delete(*keys)
-            else:
-                # Memory cache pattern matching
-                keys_to_delete = [k for k in self.memory_cache.keys() if fnmatch.fnmatch(k, pattern)]
-                for key in keys_to_delete:
-                    del self.memory_cache[key]
-                count = len(keys_to_delete)
-            return count
-        except Exception as e:
-            logger.error(f"Cache clear pattern error: {e}")
-            return 0
+
+    # Add method to check cache health
+    async def get_health_status(self) -> Dict[str, Any]:
+        """Get comprehensive cache health status."""
+        status = {
+            'type': 'memory',
+            'redis_configured': bool(self.redis_url),
+            'redis_connected': False,
+            'memory_entries': len(self.memory_cache),
+            'last_cleanup': getattr(self, '_last_cleanup', 'never')
+        }
+        
+        if self.redis_client:
+            try:
+                await self._test_redis_connection()
+                if self.redis_client:
+                    status['type'] = 'redis'
+                    status['redis_connected'] = True
+                    
+                    # Get Redis info if possible
+                    try:
+                        info = self.redis_client.info('memory')
+                        status['redis_memory'] = info.get('used_memory_human', 'unknown')
+                    except:
+                        pass
+            except:
+                pass
+        
+        return status
     
     async def _cleanup_memory_cache(self):
         """Periodic cleanup of expired memory cache entries."""
@@ -266,13 +396,27 @@ class CacheManager:
             try:
                 await asyncio.sleep(60)  # Cleanup every minute
                 if not self.redis_client:  # Only for memory cache
-                    current_time = datetime.now().timestamp()
-                    expired_keys = [
-                        key for key, (_, timestamp) in self.memory_cache.items()
-                        if current_time - timestamp > self.cache_ttl
-                    ]
+                    current_time = time.time()  # Ensure it's float
+                    expired_keys = []
+
+                    for key, item in list(self.memory_cache.items()):
+                        # Ensure expires is a number
+                        try:
+                            expires_time = float(item.get('expires', 0))
+                            if current_time > expires_time:
+                                expired_keys.append(key)
+                        except (ValueError, TypeError) as e:
+                            logger.warning(f"Invalid expires value for key {key}: {item.get('expires')}")
+                            # Remove entries with invalid timestamps
+                            expired_keys.append(key)
+
+                    # Clean up expired entries
                     for key in expired_keys:
-                        del self.memory_cache[key]
+                        try:
+                            del self.memory_cache[key]
+                        except KeyError:
+                            pass  # Key already removed
+
                     if expired_keys:
                         logger.debug(f"Cleaned up {len(expired_keys)} expired cache entries")
             except Exception as e:
@@ -1365,10 +1509,35 @@ async def search_gstin_get(request: Request, gstin: str = None, current_user: st
     
     return await process_search(request, gstin, current_user)
 
-@app.post("/search")
-async def search_gstin_post(request: Request, gstin: str = Form(...), current_user: str = Depends(require_auth)):
-    """Handle POST search requests."""
-    return await process_search(request, gstin, current_user)
+@app.post("/api/system/error")
+@handle_api_errors
+async def log_frontend_error(error_data: ErrorLogRequest):
+    """Enhanced frontend error logging."""
+    try:
+        # Sanitize error data
+        sanitized_data = {
+            'type': sanitize_input(error_data.type, 50),
+            'message': sanitize_input(error_data.message, 500),
+            'url': sanitize_input(error_data.url or '', 200),
+            'userAgent': sanitize_input(error_data.userAgent or '', 300),
+            'timestamp': error_data.timestamp or datetime.now().isoformat(),
+            'stack': sanitize_input(error_data.stack or '', 2000)
+        }
+        
+        # Log with appropriate level based on error type
+        if 'TypeError' in sanitized_data['message'] or 'ReferenceError' in sanitized_data['message']:
+            logger.error(f"Frontend Error: {sanitized_data}")
+        else:
+            logger.warning(f"Frontend Warning: {sanitized_data}")
+        
+        # Store in database for analysis (optional)
+        # await db.store_error_log(sanitized_data)
+        
+        return {"success": True, "message": "Error logged successfully"}
+        
+    except Exception as e:
+        logger.error(f"Failed to log frontend error: {e}")
+        return {"success": False, "error": "Failed to log error"}
 
 # Fix the process_search function to use web scraping + AI
 async def process_search(request: Request, gstin: str, current_user: str):
@@ -1433,14 +1602,6 @@ async def process_search(request: Request, gstin: str, current_user: str):
             "late_filing_analysis": late_filing_analysis
         })
         
-    except HTTPException as e:
-        history = await db.get_search_history(current_user)
-        return templates.TemplateResponse("index.html", {
-            "request": request, 
-            "current_user": current_user, 
-            "error": e.detail, 
-            "history": history
-        })
     except Exception as e:
         logger.error(f"Search error: {e}")
         history = await db.get_search_history(current_user)
@@ -1801,26 +1962,33 @@ async def get_search_suggestions_api(q: str, current_user: str = Depends(require
 
 @app.post("/api/system/error")
 @handle_api_errors
-async def log_error_api(request: ErrorLogRequest):
-    """Error logging API."""
+async def log_frontend_error(error_data: ErrorLogRequest):
+    """Enhanced frontend error logging."""
     try:
-        error_data = {
-            'type': request.type,
-            'message': request.message,
-            'stack': request.stack,
-            'url': request.url,
-            'userAgent': request.userAgent,
-            'timestamp': request.timestamp
+        # Sanitize error data
+        sanitized_data = {
+            'type': sanitize_input(error_data.type, 50),
+            'message': sanitize_input(error_data.message, 500),
+            'url': sanitize_input(error_data.url or '', 200),
+            'userAgent': sanitize_input(error_data.userAgent or '', 300),
+            'timestamp': error_data.timestamp or datetime.now().isoformat(),
+            'stack': sanitize_input(error_data.stack or '', 2000)
         }
         
-        # Log to application logger
-        logger.error(f"Frontend Error: {error_data}")
+        # Log with appropriate level based on error type
+        if 'TypeError' in sanitized_data['message'] or 'ReferenceError' in sanitized_data['message']:
+            logger.error(f"Frontend Error: {sanitized_data}")
+        else:
+            logger.warning(f"Frontend Warning: {sanitized_data}")
         
-        return {'success': True, 'message': 'Error logged'}
+        # Store in database for analysis (optional)
+        # await db.store_error_log(sanitized_data)
+        
+        return {"success": True, "message": "Error logged successfully"}
         
     except Exception as e:
-        logger.error(f"Error logging frontend error: {e}")
-        return {'success': False, 'message': 'Failed to log error'}
+        logger.error(f"Failed to log frontend error: {e}")
+        return {"success": False, "error": "Failed to log error"}
 
 @app.get("/api/user/activity")
 @handle_api_errors
@@ -1871,6 +2039,76 @@ async def get_system_status_api():
             'success': False,
             'error': 'Failed to get system status'
         }
+    
+@app.get("/api/system/health/detailed")
+@handle_api_errors
+async def detailed_health_check():
+    """Comprehensive health check with metrics."""
+    try:
+        health_data = {
+            'timestamp': datetime.now().isoformat(),
+            'status': 'healthy',
+            'version': '2.0.0',
+            'uptime': time.time() - app.start_time if hasattr(app, 'start_time') else 0,
+            'checks': {}
+        }
+        
+        # Database health
+        try:
+            start_time = time.time()
+            async with db.pool.acquire() as conn:
+                await conn.execute("SELECT 1")
+            db_response_time = (time.time() - start_time) * 1000
+            
+            health_data['checks']['database'] = {
+                'status': 'healthy',
+                'response_time_ms': round(db_response_time, 2)
+            }
+        except Exception as e:
+            health_data['checks']['database'] = {
+                'status': 'unhealthy',
+                'error': str(e)
+            }
+            health_data['status'] = 'degraded'
+        
+        # Cache health
+        cache_status = await cache_manager.get_health_status()
+        health_data['checks']['cache'] = cache_status
+        
+        # API service health
+        health_data['checks']['gst_api'] = {
+            'status': 'configured' if config.RAPIDAPI_KEY else 'missing',
+            'host': config.RAPIDAPI_HOST if config.RAPIDAPI_KEY else None
+        }
+        
+        # AI service health
+        health_data['checks']['ai_service'] = {
+            'status': 'configured' if config.ANTHROPIC_API_KEY else 'disabled'
+        }
+        
+        # System resources
+        try:
+            import psutil
+            health_data['system'] = {
+                'memory_percent': psutil.virtual_memory().percent,
+                'disk_percent': psutil.disk_usage('/').percent,
+                'cpu_percent': psutil.cpu_percent()
+            }
+        except ImportError:
+            health_data['system'] = {'status': 'monitoring_unavailable'}
+        
+        return health_data
+        
+    except Exception as e:
+        logger.error(f"Health check error: {e}")
+        return JSONResponse(
+            status_code=503,
+            content={
+                'status': 'unhealthy',
+                'error': str(e),
+                'timestamp': datetime.now().isoformat()
+            }
+        )
     
 # Admin API Routes
 @app.get("/api/admin/stats")
@@ -2370,11 +2608,19 @@ async def general_exception_handler(request: Request, exc: Exception):
         content={"error": "An internal error occurred"}
     )
 
-# Startup/Shutdown events
+# Startup/Shutdown eventss
 @app.on_event("startup")
 async def startup():
-    """Initialize application on startup."""
-    logger.info("GST Intelligence Platform starting up...")
+    """Enhanced application startup with validation."""
+    logger.info("🚀 GST Intelligence Platform starting up...")
+    
+    # Add app start time for monitoring
+    app.start_time = time.time()
+    
+    # 🟢 ADD ENVIRONMENT VALIDATION HERE
+    validate_environment()
+    
+    # Initialize database
     await db.initialize()
     await db.cleanup_expired_sessions()
     
@@ -2386,7 +2632,7 @@ async def startup():
     # Store admin users for template access
     app.extra = {"ADMIN_USERS": os.getenv("ADMIN_USERS", "")}
     
-    logger.info("Application startup complete")
+    logger.info("✅ GST Intelligence Platform started successfully")
     
 @app.on_event("shutdown")
 async def shutdown():
