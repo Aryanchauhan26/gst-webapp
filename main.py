@@ -16,9 +16,9 @@ import httpx
 from datetime import datetime, timedelta
 from functools import wraps
 from razorpay_lending import RazorpayLendingClient, LoanManager, LoanConfig, LoanStatus
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from collections import defaultdict
-from typing import Optional, Dict, List, Any, Tuple
+from typing import Optional, Dict, List, Any, Tuple, Union
 from fastapi import FastAPI, Request, Form, Depends, HTTPException, status, Response
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse, StreamingResponse
 from fastapi.templating import Jinja2Templates
@@ -32,6 +32,8 @@ import re
 from typing import Dict, List, Any, Tuple
 from datetime import datetime, date
 import html
+import phonenumbers
+from phonenumbers.phonenumberutil import NumberParseException
 # Configure logging
 logging.basicConfig(
     level=logging.INFO, 
@@ -59,118 +61,464 @@ from config import settings
 
 config = settings
 
-#Validation and Sanitization Functions
-def sanitize_input(value: str, max_length: int = 100) -> str:
-    """Sanitize user input to prevent XSS and other attacks."""
-    if not isinstance(value, str):
-        value = str(value)
+class DataValidator:
+    """Enhanced data validator with comprehensive error handling."""
     
-    # Remove HTML tags and entities
-    value = html.escape(value)
+    # GSTIN validation patterns
+    GSTIN_PATTERN = re.compile(r'^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$')
+    PAN_PATTERN = re.compile(r'^[A-Z]{5}[0-9]{4}[A-Z]{1}$')
     
-    # Limit length
-    if len(value) > max_length:
-        value = value[:max_length]
-    
-    # Remove potentially dangerous characters
-    value = re.sub(r'[<>"\'\x00-\x08\x0B\x0C\x0E-\x1F\x7F]', '', value)
-    
-    return value.strip()
-
-def validate_gstin_enhanced(gstin: str) -> Tuple[bool, str, Dict[str, Any]]:
-    """Enhanced GSTIN validation with detailed feedback."""
-    if not gstin:
-        return False, "GSTIN is required", {}
-    
-    # Remove spaces and convert to uppercase
-    gstin = re.sub(r'\s+', '', gstin.upper())
-    
-    # Length check
-    if len(gstin) != 15:
-        return False, f"GSTIN must be 15 characters long (got {len(gstin)})", {}
-    
-    # Pattern validation
-    pattern = r'^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$'
-    if not re.match(pattern, gstin):
-        return False, "Invalid GSTIN format", {}
-    
-    # Extract components for additional validation
-    components = {
-        'state_code': gstin[:2],
-        'pan_prefix': gstin[2:7],
-        'pan_suffix': gstin[7:10],
-        'entity_number': gstin[10],
-        'entity_code': gstin[11],
-        'checksum': gstin[13]
+    # State codes for GSTIN validation
+    STATE_CODES = {
+        '01': 'Jammu and Kashmir', '02': 'Himachal Pradesh', '03': 'Punjab',
+        '04': 'Chandigarh', '05': 'Uttarakhand', '06': 'Haryana',
+        '07': 'Delhi', '08': 'Rajasthan', '09': 'Uttar Pradesh',
+        '10': 'Bihar', '11': 'Sikkim', '12': 'Arunachal Pradesh',
+        '13': 'Nagaland', '14': 'Manipur', '15': 'Mizoram',
+        '16': 'Tripura', '17': 'Meghalaya', '18': 'Assam',
+        '19': 'West Bengal', '20': 'Jharkhand', '21': 'Odisha',
+        '22': 'Chhattisgarh', '23': 'Madhya Pradesh', '24': 'Gujarat',
+        '25': 'Daman and Diu', '26': 'Dadra and Nagar Haveli',
+        '27': 'Maharashtra', '28': 'Andhra Pradesh', '29': 'Karnataka',
+        '30': 'Goa', '31': 'Lakshadweep', '32': 'Kerala',
+        '33': 'Tamil Nadu', '34': 'Puducherry', '35': 'Andaman and Nicobar Islands',
+        '36': 'Telangana', '37': 'Andhra Pradesh', '38': 'Ladakh'
     }
     
-    # Validate state code
-    valid_state_codes = [
-        '01', '02', '03', '04', '05', '06', '07', '08', '09', '10',
-        '11', '12', '13', '14', '15', '16', '17', '18', '19', '20',
-        '21', '22', '23', '24', '25', '26', '27', '28', '29', '30',
-        '31', '32', '33', '34', '35', '36', '37', '97'  # 97 for other territory
-    ]
+    @staticmethod
+    def validate_gstin(gstin: str) -> Tuple[bool, str, Dict[str, Any]]:
+        """
+        Enhanced GSTIN validation with detailed error reporting.
+        
+        Returns:
+            Tuple[bool, str, Dict]: (is_valid, error_message, extracted_info)
+        """
+        if not gstin:
+            return False, "GSTIN is required", {}
+        
+        # Clean and uppercase
+        gstin = gstin.strip().upper()
+        
+        # Length check
+        if len(gstin) != 15:
+            return False, f"GSTIN must be 15 characters long, got {len(gstin)}", {}
+        
+        # Pattern check
+        if not DataValidator.GSTIN_PATTERN.match(gstin):
+            return False, "Invalid GSTIN format", {}
+        
+        # Extract components
+        state_code = gstin[:2]
+        pan_part = gstin[2:12]
+        entity_code = gstin[12]
+        check_digit = gstin[13]
+        default_z = gstin[14]
+        
+        # Validate state code
+        if state_code not in DataValidator.STATE_CODES:
+            return False, f"Invalid state code: {state_code}", {}
+        
+        # Validate PAN part
+        if not DataValidator.PAN_PATTERN.match(pan_part):
+            return False, "Invalid PAN format in GSTIN", {}
+        
+        # Validate default 'Z'
+        if default_z != 'Z':
+            return False, "14th character must be 'Z'", {}
+        
+        # Extract information
+        extracted_info = {
+            'state_code': state_code,
+            'state_name': DataValidator.STATE_CODES[state_code],
+            'pan': pan_part,
+            'entity_code': entity_code,
+            'check_digit': check_digit,
+            'is_valid': True
+        }
+        
+        return True, "", extracted_info
     
-    if components['state_code'] not in valid_state_codes:
-        return False, f"Invalid state code: {components['state_code']}", components
+    @staticmethod
+    def validate_mobile(mobile: str) -> Tuple[bool, str, Dict[str, Any]]:
+        """
+        Enhanced mobile number validation with international support.
+        
+        Returns:
+            Tuple[bool, str, Dict]: (is_valid, error_message, formatted_number)
+        """
+        if not mobile:
+            return False, "Mobile number is required", {}
+        
+        # Clean the number
+        mobile = mobile.strip()
+        
+        try:
+            # Try parsing as Indian number first
+            if mobile.startswith('+91'):
+                parsed = phonenumbers.parse(mobile, None)
+            elif mobile.startswith('91') and len(mobile) == 12:
+                parsed = phonenumbers.parse(f'+{mobile}', None)
+            elif len(mobile) == 10:
+                parsed = phonenumbers.parse(mobile, 'IN')
+            else:
+                # Try parsing with country detection
+                parsed = phonenumbers.parse(mobile, None)
+            
+            # Validate the parsed number
+            if not phonenumbers.is_valid_number(parsed):
+                return False, "Invalid mobile number", {}
+            
+            # Format the number
+            formatted = phonenumbers.format_number(parsed, phonenumbers.PhoneNumberFormat.E164)
+            national = phonenumbers.format_number(parsed, phonenumbers.PhoneNumberFormat.NATIONAL)
+            
+            return True, "", {
+                'formatted': formatted,
+                'national': national,
+                'country_code': parsed.country_code,
+                'national_number': parsed.national_number
+            }
+            
+        except NumberParseException as e:
+            return False, f"Invalid mobile number: {str(e)}", {}
+        except Exception as e:
+            return False, f"Mobile validation error: {str(e)}", {}
     
-    return True, "Valid GSTIN", components
+    @staticmethod
+    def validate_email(email: str) -> Tuple[bool, str]:
+        """Enhanced email validation."""
+        if not email:
+            return False, "Email is required"
+        
+        email = email.strip().lower()
+        
+        # Basic regex for email validation
+        pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+        
+        if not re.match(pattern, email):
+            return False, "Invalid email format"
+        
+        # Additional checks
+        if len(email) > 254:
+            return False, "Email address too long"
+        
+        local_part = email.split('@')[0]
+        if len(local_part) > 64:
+            return False, "Email local part too long"
+        
+        return True, ""
+    
+    @staticmethod
+    def validate_amount(amount: Union[str, int, float, Decimal]) -> Tuple[bool, str, Optional[Decimal]]:
+        """
+        Enhanced amount validation with decimal precision.
+        
+        Returns:
+            Tuple[bool, str, Optional[Decimal]]: (is_valid, error_message, decimal_amount)
+        """
+        if amount is None:
+            return False, "Amount is required", None
+        
+        try:
+            # Convert to Decimal for precision
+            if isinstance(amount, str):
+                amount = amount.strip().replace(',', '')
+            
+            decimal_amount = Decimal(str(amount))
+            
+            # Check if positive
+            if decimal_amount <= 0:
+                return False, "Amount must be positive", None
+            
+            # Check reasonable limits
+            if decimal_amount > Decimal('999999999999.99'):  # 999 billion
+                return False, "Amount too large", None
+            
+            # Check decimal places (max 2 for currency)
+            if decimal_amount.as_tuple().exponent < -2:
+                return False, "Amount can have maximum 2 decimal places", None
+            
+            return True, "", decimal_amount
+            
+        except (InvalidOperation, ValueError) as e:
+            return False, f"Invalid amount format: {str(e)}", None
+    
+    @staticmethod
+    def validate_date(date_str: str, format_str: str = "%Y-%m-%d") -> Tuple[bool, str, Optional[datetime]]:
+        """
+        Enhanced date validation.
+        
+        Returns:
+            Tuple[bool, str, Optional[datetime]]: (is_valid, error_message, parsed_date)
+        """
+        if not date_str:
+            return False, "Date is required", None
+        
+        try:
+            parsed_date = datetime.strptime(date_str.strip(), format_str)
+            
+            # Check reasonable date range
+            min_date = datetime(1900, 1, 1)
+            max_date = datetime(2100, 12, 31)
+            
+            if parsed_date < min_date or parsed_date > max_date:
+                return False, "Date out of reasonable range", None
+            
+            return True, "", parsed_date
+            
+        except ValueError as e:
+            return False, f"Invalid date format: {str(e)}", None
 
-def validate_api_response(data: Any) -> Tuple[bool, str, Any]:
-    """Validate API response structure and content."""
-    if not data:
-        return False, "Empty response", None
-    
-    if not isinstance(data, dict):
-        return False, "Invalid response format", None
-    
-    # Check for required fields
-    required_fields = ['gstin', 'lgnm']  # Legal name is usually required
-    missing_fields = [field for field in required_fields if not data.get(field)]
-    
-    if missing_fields:
-        return False, f"Missing required fields: {', '.join(missing_fields)}", data
-    
-    # Validate GSTIN in response
-    gstin = data.get('gstin', '')
-    is_valid, message, _ = validate_gstin_enhanced(gstin)
-    if not is_valid:
-        return False, f"Invalid GSTIN in response: {message}", data
-    
-    # Sanitize text fields
-    text_fields = ['lgnm', 'tradeNam', 'stj', 'ctb', 'pradr']
-    for field in text_fields:
-        if field in data and isinstance(data[field], str):
-            data[field] = sanitize_input(data[field], max_length=200)
-    
-    return True, "Valid response", data
+# =============================================================================
+# BUSINESS LOGIC VALIDATORS
+# =============================================================================
 
-def validate_environment():
-    """Validate critical environment variables on startup."""
-    required_vars = ['POSTGRES_DSN', 'SECRET_KEY']
-    optional_vars = ['RAPIDAPI_KEY', 'ANTHROPIC_API_KEY', 'REDIS_URL']
+class BusinessValidator:
+    """Business-specific validation logic."""
     
-    missing_required = []
-    missing_optional = []
+    @staticmethod
+    def validate_compliance_score(score: Union[int, float]) -> Tuple[bool, str]:
+        """Validate compliance score range."""
+        try:
+            score = float(score)
+            if 0 <= score <= 100:
+                return True, ""
+            else:
+                return False, "Compliance score must be between 0 and 100"
+        except (ValueError, TypeError):
+            return False, "Compliance score must be a number"
     
-    for var in required_vars:
-        if not os.getenv(var):
-            missing_required.append(var)
+    @staticmethod
+    def validate_business_vintage(months: int) -> Tuple[bool, str]:
+        """Validate business vintage in months."""
+        try:
+            months = int(months)
+            if months < 0:
+                return False, "Business vintage cannot be negative"
+            if months > 1200:  # 100 years
+                return False, "Business vintage seems unreasonably high"
+            return True, ""
+        except (ValueError, TypeError):
+            return False, "Business vintage must be a number"
     
-    for var in optional_vars:
-        if not os.getenv(var):
-            missing_optional.append(var)
+    @staticmethod
+    def validate_turnover_consistency(monthly_revenue: float, annual_turnover: float) -> Tuple[bool, str]:
+        """Validate consistency between monthly revenue and annual turnover."""
+        try:
+            expected_annual = monthly_revenue * 12
+            variance = abs(annual_turnover - expected_annual) / expected_annual
+            
+            if variance > 0.5:  # 50% variance allowed
+                return False, "Monthly revenue and annual turnover seem inconsistent"
+            
+            return True, ""
+        except (ValueError, TypeError, ZeroDivisionError):
+            return False, "Invalid revenue data for consistency check"
+
+# =============================================================================
+# DATA SANITIZATION
+# =============================================================================
+
+class DataSanitizer:
+    """Data sanitization utilities."""
     
-    if missing_required:
-        logger.error(f"❌ Missing required environment variables: {', '.join(missing_required)}")
-        raise RuntimeError(f"Missing required environment variables: {', '.join(missing_required)}")
+    @staticmethod
+    def sanitize_string(value: str, max_length: int = 255) -> str:
+        """Sanitize string input."""
+        if not value:
+            return ""
+        
+        # Remove control characters and excessive whitespace
+        sanitized = re.sub(r'[\x00-\x1f\x7f-\x9f]', '', str(value))
+        sanitized = re.sub(r'\s+', ' ', sanitized).strip()
+        
+        # Truncate if too long
+        if len(sanitized) > max_length:
+            sanitized = sanitized[:max_length].rstrip()
+        
+        return sanitized
     
-    if missing_optional:
-        logger.warning(f"⚠️ Missing optional environment variables: {', '.join(missing_optional)}")
-        logger.info("Some features may be disabled")
+    @staticmethod
+    def sanitize_gstin(gstin: str) -> str:
+        """Sanitize GSTIN input."""
+        if not gstin:
+            return ""
+        
+        # Remove spaces and convert to uppercase
+        return re.sub(r'\s+', '', gstin.upper())
     
-    logger.info("✅ Environment validation completed")
+    @staticmethod
+    def sanitize_mobile(mobile: str) -> str:
+        """Sanitize mobile number input."""
+        if not mobile:
+            return ""
+        
+        # Remove all non-digit characters except + at start
+        mobile = mobile.strip()
+        if mobile.startswith('+'):
+            return '+' + re.sub(r'\D', '', mobile[1:])
+        else:
+            return re.sub(r'\D', '', mobile)
+
+# =============================================================================
+# COMPREHENSIVE DATA PROCESSOR
+# =============================================================================
+
+class DataProcessor:
+    """Comprehensive data processing with validation and sanitization."""
+    
+    def __init__(self):
+        self.validator = DataValidator()
+        self.business_validator = BusinessValidator()
+        self.sanitizer = DataSanitizer()
+        self.errors = []
+        self.warnings = []
+    
+    def process_user_data(self, data: Dict[str, Any]) -> Tuple[bool, Dict[str, Any], List[str]]:
+        """
+        Process user registration/profile data.
+        
+        Returns:
+            Tuple[bool, Dict, List]: (is_valid, processed_data, error_messages)
+        """
+        self.errors = []
+        self.warnings = []
+        processed = {}
+        
+        # Mobile validation
+        if 'mobile' in data:
+            mobile = self.sanitizer.sanitize_mobile(data['mobile'])
+            is_valid, error, formatted = self.validator.validate_mobile(mobile)
+            if is_valid:
+                processed['mobile'] = formatted['formatted']
+                processed['mobile_national'] = formatted['national']
+            else:
+                self.errors.append(f"Mobile: {error}")
+        
+        # Email validation
+        if 'email' in data:
+            email = self.sanitizer.sanitize_string(data['email'])
+            is_valid, error = self.validator.validate_email(email)
+            if is_valid:
+                processed['email'] = email.lower()
+            else:
+                self.errors.append(f"Email: {error}")
+        
+        # Name validation
+        if 'display_name' in data:
+            name = self.sanitizer.sanitize_string(data['display_name'], 100)
+            if len(name) < 2:
+                self.errors.append("Display name must be at least 2 characters")
+            else:
+                processed['display_name'] = name
+        
+        # Company validation
+        if 'company' in data:
+            company = self.sanitizer.sanitize_string(data['company'], 200)
+            processed['company'] = company
+        
+        return len(self.errors) == 0, processed, self.errors
+    
+    def process_loan_data(self, data: Dict[str, Any]) -> Tuple[bool, Dict[str, Any], List[str]]:
+        """
+        Process loan application data.
+        
+        Returns:
+            Tuple[bool, Dict, List]: (is_valid, processed_data, error_messages)
+        """
+        self.errors = []
+        self.warnings = []
+        processed = {}
+        
+        # GSTIN validation
+        if 'gstin' in data:
+            gstin = self.sanitizer.sanitize_gstin(data['gstin'])
+            is_valid, error, info = self.validator.validate_gstin(gstin)
+            if is_valid:
+                processed['gstin'] = gstin
+                processed['state_code'] = info['state_code']
+                processed['state_name'] = info['state_name']
+                processed['pan'] = info['pan']
+            else:
+                self.errors.append(f"GSTIN: {error}")
+        
+        # Amount validations
+        for field in ['loan_amount', 'annual_turnover', 'monthly_revenue']:
+            if field in data:
+                is_valid, error, amount = self.validator.validate_amount(data[field])
+                if is_valid:
+                    processed[field] = float(amount)
+                else:
+                    self.errors.append(f"{field.replace('_', ' ').title()}: {error}")
+        
+        # Business vintage validation
+        if 'business_vintage_months' in data:
+            is_valid, error = self.business_validator.validate_business_vintage(data['business_vintage_months'])
+            if is_valid:
+                processed['business_vintage_months'] = int(data['business_vintage_months'])
+            else:
+                self.errors.append(f"Business vintage: {error}")
+        
+        # Compliance score validation
+        if 'compliance_score' in data:
+            is_valid, error = self.business_validator.validate_compliance_score(data['compliance_score'])
+            if is_valid:
+                processed['compliance_score'] = float(data['compliance_score'])
+            else:
+                self.errors.append(f"Compliance score: {error}")
+        
+        # Cross-validation
+        if 'monthly_revenue' in processed and 'annual_turnover' in processed:
+            is_valid, error = self.business_validator.validate_turnover_consistency(
+                processed['monthly_revenue'], processed['annual_turnover']
+            )
+            if not is_valid:
+                self.warnings.append(f"Turnover consistency: {error}")
+        
+        return len(self.errors) == 0, processed, self.errors + self.warnings
+
+# =============================================================================
+# USAGE EXAMPLE
+# =============================================================================
+
+def example_usage():
+    """Example of how to use the enhanced validation system."""
+    processor = DataProcessor()
+    
+    # Example user data
+    user_data = {
+        'mobile': '+91 98765 43210',
+        'email': 'test@example.com',
+        'display_name': 'John Doe',
+        'company': 'Example Corp'
+    }
+    
+    is_valid, processed, errors = processor.process_user_data(user_data)
+    
+    if is_valid:
+        print("✅ User data is valid:", processed)
+    else:
+        print("❌ User data validation failed:", errors)
+    
+    # Example loan data
+    loan_data = {
+        'gstin': '07AABCU9603R1ZX',
+        'loan_amount': '1000000',
+        'annual_turnover': '5000000',
+        'monthly_revenue': '400000',
+        'business_vintage_months': 36,
+        'compliance_score': 85
+    }
+    
+    is_valid, processed, errors = processor.process_loan_data(loan_data)
+    
+    if is_valid:
+        print("✅ Loan data is valid:", processed)
+    else:
+        print("❌ Loan data validation failed:", errors)
+
+if __name__ == "__main__":
+    example_usage()
 
 # PydanticModels
 class LoanApplicationRequest(BaseModel):
@@ -261,7 +609,6 @@ def handle_api_errors(func):
             )
     return wrapper
 
-# Enhanced CacheManager with improved Redis handling
 class CacheManager:
     def __init__(self, redis_url: Optional[str] = None):
         """Initialize cache manager with robust Redis fallback."""
@@ -306,12 +653,9 @@ class CacheManager:
         except ImportError:
             logger.warning("⚠️ Redis package not installed - using memory cache")
             self.redis_client = None
-        except redis.ConnectionError as e:
+        except Exception as e:
             logger.warning(f"⚠️ Redis connection failed: {e}")
             logger.info("📝 Falling back to in-memory cache")
-            self.redis_client = None
-        except Exception as e:
-            logger.error(f"❌ Unexpected Redis error: {e}")
             self.redis_client = None
 
     async def _test_redis_connection(self) -> bool:
@@ -361,7 +705,122 @@ class CacheManager:
             logger.error(f"Cache get error for key {key}: {e}")
         return None
 
-    # Add method to check cache health
+    async def set(self, key: str, value: Any, ttl: int = None) -> bool:
+        """Set value in cache with TTL."""
+        try:
+            if ttl is None:
+                ttl = self.cache_ttl
+                
+            # Try Redis first if available
+            if self.redis_client and await self._test_redis_connection():
+                try:
+                    json_value = json.dumps(value)
+                    self.redis_client.setex(key, ttl, json_value)
+                    logger.debug(f"✅ Set Redis cache: {key}")
+                    return True
+                except Exception as e:
+                    logger.warning(f"Redis set error for key {key}: {e}")
+                    # Fall through to memory cache
+            
+            # Use memory cache
+            expires_time = time.time() + ttl
+            self.memory_cache[key] = {
+                'value': value,
+                'expires': expires_time
+            }
+            logger.debug(f"✅ Set memory cache: {key}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Cache set error for key {key}: {e}")
+            return False
+
+    async def delete(self, key: str) -> bool:
+        """Delete key from cache."""
+        try:
+            # Try Redis first if available
+            if self.redis_client and await self._test_redis_connection():
+                try:
+                    self.redis_client.delete(key)
+                    logger.debug(f"🗑️ Deleted Redis cache: {key}")
+                except Exception as e:
+                    logger.warning(f"Redis delete error for key {key}: {e}")
+            
+            # Remove from memory cache
+            if key in self.memory_cache:
+                del self.memory_cache[key]
+                logger.debug(f"🗑️ Deleted memory cache: {key}")
+            
+            return True
+            
+        except Exception as e:
+            logger.error(f"Cache delete error for key {key}: {e}")
+            return False
+
+    async def clear_pattern(self, pattern: str = "*") -> int:
+        """Clear cache entries matching pattern."""
+        count = 0
+        
+        try:
+            # Clear Redis cache
+            if self.redis_client and await self._test_redis_connection():
+                try:
+                    keys = self.redis_client.keys(pattern)
+                    if keys:
+                        deleted = self.redis_client.delete(*keys)
+                        count += deleted
+                        logger.info(f"🗑️ Cleared {deleted} Redis entries matching: {pattern}")
+                except Exception as e:
+                    logger.warning(f"Redis clear pattern error: {e}")
+            
+            # Clear memory cache
+            memory_keys = list(self.memory_cache.keys())
+            for key in memory_keys:
+                if fnmatch.fnmatch(key, pattern):
+                    del self.memory_cache[key]
+                    count += 1
+            
+            if count > 0:
+                logger.info(f"🗑️ Cleared {count} total cache entries matching: {pattern}")
+            
+            return count
+            
+        except Exception as e:
+            logger.error(f"Cache clear pattern error: {e}")
+            return 0
+
+    async def exists(self, key: str) -> bool:
+        """Check if key exists in cache."""
+        try:
+            # Check Redis first
+            if self.redis_client and await self._test_redis_connection():
+                try:
+                    return bool(self.redis_client.exists(key))
+                except Exception as e:
+                    logger.warning(f"Redis exists error for key {key}: {e}")
+            
+            # Check memory cache
+            if key in self.memory_cache:
+                item = self.memory_cache[key]
+                expires = item.get('expires', 0)
+                
+                try:
+                    expires_time = float(expires)
+                    if time.time() < expires_time:
+                        return True
+                    else:
+                        # Cleanup expired entry
+                        del self.memory_cache[key]
+                except (ValueError, TypeError):
+                    # Remove entries with invalid expires
+                    del self.memory_cache[key]
+            
+            return False
+            
+        except Exception as e:
+            logger.error(f"Cache exists error for key {key}: {e}")
+            return False
+
     async def get_health_status(self) -> Dict[str, Any]:
         """Get comprehensive cache health status."""
         status = {
@@ -374,8 +833,7 @@ class CacheManager:
         
         if self.redis_client:
             try:
-                await self._test_redis_connection()
-                if self.redis_client:
+                if await self._test_redis_connection():
                     status['type'] = 'redis'
                     status['redis_connected'] = True
                     
@@ -383,31 +841,30 @@ class CacheManager:
                     try:
                         info = self.redis_client.info('memory')
                         status['redis_memory'] = info.get('used_memory_human', 'unknown')
-                    except:
+                        status['redis_keys'] = info.get('keyspace_hits', 0) + info.get('keyspace_misses', 0)
+                    except Exception:
                         pass
-            except:
+            except Exception:
                 pass
         
         return status
-    
+
     async def _cleanup_memory_cache(self):
         """Periodic cleanup of expired memory cache entries."""
         while True:
             try:
                 await asyncio.sleep(60)  # Cleanup every minute
                 if not self.redis_client:  # Only for memory cache
-                    current_time = time.time()  # Ensure it's float
+                    current_time = time.time()
                     expired_keys = []
 
                     for key, item in list(self.memory_cache.items()):
-                        # Ensure expires is a number
                         try:
                             expires_time = float(item.get('expires', 0))
                             if current_time > expires_time:
                                 expired_keys.append(key)
-                        except (ValueError, TypeError) as e:
+                        except (ValueError, TypeError):
                             logger.warning(f"Invalid expires value for key {key}: {item.get('expires')}")
-                            # Remove entries with invalid timestamps
                             expired_keys.append(key)
 
                     # Clean up expired entries
@@ -415,12 +872,38 @@ class CacheManager:
                         try:
                             del self.memory_cache[key]
                         except KeyError:
-                            pass  # Key already removed
+                            pass
 
                     if expired_keys:
                         logger.debug(f"Cleaned up {len(expired_keys)} expired cache entries")
+                    
+                    self._last_cleanup = datetime.now().isoformat()
+                    
             except Exception as e:
                 logger.error(f"Cache cleanup error: {e}")
+
+    def get_stats(self) -> Dict[str, Any]:
+        """Get cache statistics."""
+        stats = {
+            'memory_entries': len(self.memory_cache),
+            'redis_configured': bool(self.redis_url),
+            'redis_connected': bool(self.redis_client),
+            'type': 'redis' if self.redis_client else 'memory'
+        }
+        
+        if self.redis_client:
+            try:
+                info = self.redis_client.info()
+                stats.update({
+                    'redis_memory': info.get('used_memory_human', 'unknown'),
+                    'redis_keys': info.get('keyspace_hits', 0) + info.get('keyspace_misses', 0),
+                    'redis_hits': info.get('keyspace_hits', 0),
+                    'redis_misses': info.get('keyspace_misses', 0)
+                })
+            except Exception:
+                stats['redis_connected'] = False
+        
+        return stats
 
 # Initialize FastAPI app
 app = FastAPI(
@@ -1508,6 +1991,16 @@ async def search_gstin_get(request: Request, gstin: str = None, current_user: st
         return RedirectResponse(url="/", status_code=302)
     
     return await process_search(request, gstin, current_user)
+
+def sanitize_input(value: str, max_length: int = 255) -> str:
+    """Sanitize input string by removing control characters and truncating."""
+    if not value:
+        return ""
+    sanitized = re.sub(r'[\x00-\x1f\x7f-\x9f]', '', str(value))
+    sanitized = re.sub(r'\s+', ' ', sanitized).strip()
+    if len(sanitized) > max_length:
+        sanitized = sanitized[:max_length].rstrip()
+    return sanitized
 
 @app.post("/api/system/error")
 @handle_api_errors
@@ -2609,6 +3102,23 @@ async def general_exception_handler(request: Request, exc: Exception):
     )
 
 # Startup/Shutdown eventss
+def validate_environment():
+    """Check for required environment variables and configuration."""
+    required_env_vars = [
+        "POSTGRES_DSN",
+        "RAPIDAPI_KEY",
+        "RAPIDAPI_HOST",
+        "SESSION_DURATION"
+    ]
+    missing = []
+    for var in required_env_vars:
+        if not getattr(config, var, None):
+            missing.append(var)
+    if missing:
+        logger.warning(f"Missing required environment variables: {', '.join(missing)}")
+    else:
+        logger.info("All required environment variables are set.")
+
 @app.on_event("startup")
 async def startup():
     """Enhanced application startup with validation."""
