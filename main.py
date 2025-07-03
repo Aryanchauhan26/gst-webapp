@@ -52,16 +52,19 @@ except ImportError:
     HTML = None
 from dotenv import load_dotenv
 from anthro_ai import get_anthropic_synopsis
-from pydantic import BaseModel, validator
+from pydantic import BaseModel, field_validator, validator
 import html
 
 # Load environment variables
 load_dotenv()
 
 # Configuration
-from config import settings
-
-config = settings
+try:
+    from config import settings as config
+    print(f"✅ Config loaded successfully - Environment: {config.ENVIRONMENT}")
+except Exception as e:
+    print(f"❌ Config loading failed: {e}")
+    raise
 
 class DataValidator:
     """Enhanced data validator with comprehensive error handling."""
@@ -534,19 +537,22 @@ class LoanApplicationRequest(BaseModel):
     compliance_score: float
     business_vintage_months: int
     
-    @validator('loan_amount', 'annual_turnover', 'monthly_revenue')
+    @field_validator('loan_amount', 'annual_turnover', 'monthly_revenue')
+    @classmethod
     def validate_positive_amounts(cls, v):
         if v <= 0:
             raise ValueError('Amount must be positive')
         return v
     
-    @validator('tenure_months', 'business_vintage_months')
+    @field_validator('tenure_months', 'business_vintage_months')
+    @classmethod
     def validate_positive_months(cls, v):
         if v <= 0:
             raise ValueError('Months must be positive')
         return v
     
-    @validator('compliance_score')
+    @field_validator('compliance_score')
+    @classmethod
     def validate_compliance_score(cls, v):
         if not 0 <= v <= 100:
             raise ValueError('Compliance score must be between 0 and 100')
@@ -556,7 +562,8 @@ class ChangePasswordRequest(BaseModel):
     currentPassword: str
     newPassword: str
     
-    @validator('newPassword')
+    @field_validator('newPassword')
+    @classmethod
     def validate_password(cls, v):
         if len(v) < 8:
             raise ValueError('Password must be at least 8 characters long')
@@ -580,7 +587,8 @@ class UserProfileRequest(BaseModel):
 class BatchSearchRequest(BaseModel):
     gstins: List[str]
     
-    @validator('gstins')
+    @field_validator('gstins')
+    @classmethod
     def validate_gstins(cls, v):
         if len(v) > 10:
             raise ValueError('Maximum 10 GSTINs allowed')
