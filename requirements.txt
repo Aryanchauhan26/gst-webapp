@@ -1,6 +1,5 @@
 # =============================================================================
-# GST Intelligence Platform - Production Dependencies
-# Enhanced with Loan Management System
+# GST Intelligence Platform - Optimized Dependencies
 # =============================================================================
 
 # Core Web Framework
@@ -8,155 +7,95 @@ fastapi
 uvicorn[standard]
 starlette
 
-# HTTP Client & Networking
-httpx
-requests
-aiohttp
+# Database & Async Support
+asyncpg
+redis
 
-# Template Engine & Web Forms
+# Template Engine & Forms
 jinja2
 python-multipart
 markupsafe
-
-# Database & Async Support
-asyncpg
 
 # Environment & Configuration
 python-dotenv
 pydantic
 pydantic-settings
 
-# AI & Machine Learning
-anthropic
-
-# Web Scraping & Data Processing
-beautifulsoup4
-lxml
-html5lib
-bleach
-googlesearch-python
-
-# PDF Generation & Document Processing
-weasyprint
-reportlab
-
-# Security & Cryptography
+# Security & Authentication
 cryptography
 bcrypt
 passlib[bcrypt]
+pyjwt
 python-jose[cryptography]
 
-# Data Validation & Serialization
+# HTTP Client & API Integration
+httpx
+requests
+aiohttp
+
+# Data Processing & Analytics
+pandas
+numpy
+openpyxl
+xlsxwriter
+
+# PDF Generation
+weasyprint
+reportlab
+
+# Data Validation
 email-validator
 phonenumbers
+validators
 python-dateutil
+
+# Rate Limiting & Security
+slowapi
+limits
+
+# AI Integration
+anthropic
 
 # Performance & Monitoring
 psutil
-redis
+prometheus-client
 
-# Excel & CSV Processing
-openpyxl
-xlsxwriter
-pandas
-numpy
-
-# Utilities & Helpers
+# Utilities
 python-slugify
 pytz
 charset-normalizer
-
-# Production Server
-gunicorn
-watchfiles
-
-# =============================================================================
-# LOAN MANAGEMENT DEPENDENCIES
-# =============================================================================
-
-# Payment Gateway Integration (Razorpay)
-razorpay
-
-# JSON Web Tokens for Enhanced Security
-pyjwt
-
-# Rate Limiting for API Protection
-slowapi
-
-# Enhanced Logging for Loan Transactions
-structlog
-
-# Time & Date Processing for Loan Schedules
-arrow
-pendulum
-
-# Enhanced Number Formatting for Currency
-babel
-
-# Mathematical Operations for Risk Assessment
-sympy
-
-# =============================================================================
-# ENHANCED SECURITY FOR FINANCIAL DATA
-# =============================================================================
-
-# Input Validation & Sanitization
-validators
-
-# Rate Limiting & DDoS Protection
-limits
-
-# =============================================================================
-# MONITORING & OBSERVABILITY
-# =============================================================================
-
-# Application Performance Monitoring
-prometheus-client
-
-# Memory Profiling
-memory-profiler
-
-# =============================================================================
-# CORE DEPENDENCIES
-# =============================================================================
-
-# Enhanced typing support
 typing-extensions
 anyio
 urllib3
 certifi
 
-# Environment Management
-python-decouple
-
-# =============================================================================
-# DEPLOYMENT & PRODUCTION
-# =============================================================================
-
-# ASGI Server with performance optimizations
+# Production Server
+gunicorn
+watchfiles
 uvloop
 
-# =============================================================================
-# OPTIONAL ADVANCED FEATURES (Uncomment if needed)
-# =============================================================================
+# Web Scraping (for GST data if needed)
+beautifulsoup4
+lxml
+html5lib
+bleach
 
-# Machine Learning for Risk Assessment
-# scikit-learn
-# xgboost
+# Enhanced Logging
+structlog
 
-# Advanced Charts & Visualization
-# plotly
-# matplotlib
+# Payment Integration (for loan features)
+razorpay
 
-# Advanced PDF Features
-# PyMuPDF
+# Time & Date Processing
+arrow
 
-# Image Processing
-# Pillow
+# Background Tasks (if implementing async jobs)
+asyncio-mqtt
 
-# Real-time Features
-# websockets
-
-# Background Tasks
-# celery
-# rq
+# Development & Testing
+pytest
+pytest-asyncio
+pytest-cov
+black
+flake8
+pre-commit

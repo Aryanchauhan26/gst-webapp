@@ -18,12 +18,14 @@ from functools import wraps
 from razorpay_lending import RazorpayLendingClient, LoanManager, LoanConfig, LoanStatus
 from decimal import Decimal, InvalidOperation
 from collections import defaultdict
-from typing import Optional, Dict, List, Any, Tuple, Union
+from typing import Optional, Dict, List, Any, Tuple, Union, Callable
 from fastapi import FastAPI, Request, Form, Depends, HTTPException, status, Response
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse, StreamingResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 from io import BytesIO, StringIO
+from enum import Enum
+import jwt
 import redis
 import fnmatch
 import csv
@@ -912,90 +914,226 @@ app = FastAPI(
     description="Advanced GST Compliance Analytics Platform"
 )
 
+@app.middleware("http")
+async def security_headers_middleware(request: Request, call_next):
+    """Add security headers to all responses."""
+    response = await call_next(request)
+    
+    # Security headers
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["X-XSS-Protection"] = "1; mode=block"
+    response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    
+    return response
+
+@app.on_event("startup")
+async def startup_event():
+    """Initialize security components on startup."""
+    logger.info("🔐 Security system initialized")
+    app.start_time = time.time()
+
 # Static files and templates
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 
 # Rate Limiter
-class RateLimiter:
-    def __init__(self, max_requests: int = config.RATE_LIMIT_REQUESTS, 
-                 window_seconds: int = config.RATE_LIMIT_WINDOW):
-        self.requests = defaultdict(list)
-        self.max_requests = max_requests
-        self.window = timedelta(seconds=window_seconds)
+class AdvancedRateLimiter:
+    def __init__(self, redis_client=None):
+        self.redis = redis_client
+        self.memory_store = defaultdict(list)
     
-    def is_allowed(self, identifier: str) -> bool:
-        now = datetime.now()
-        self.requests[identifier] = [
-            req_time for req_time in self.requests[identifier]
-            if now - req_time < self.window
-        ]
+    async def is_allowed(self, identifier: str, limit: int, window: int) -> bool:
+        """Check if request is allowed under rate limit."""
+        now = time.time()
+        key = f"rate_limit:{identifier}"
         
-        if len(self.requests[identifier]) >= self.max_requests:
+        if self.redis:
+            return await self._redis_rate_limit(key, limit, window, now, identifier)
+        else:
+            return self._memory_rate_limit(identifier, limit, window, now)
+    
+    async def _redis_rate_limit(self, key: str, limit: int, window: int, now: float, identifier: str) -> bool:
+        """Redis-based rate limiting using sliding window."""
+        try:
+            pipe = self.redis.pipeline()
+            pipe.zremrangebyscore(key, 0, now - window)
+            pipe.zcard(key)
+            pipe.zadd(key, {str(now): now})
+            pipe.expire(key, window)
+            
+            results = await pipe.execute()
+            current_requests = results[1]
+            
+            return current_requests < limit
+        except Exception as e:
+            logger.warning(f"Redis rate limiting failed, falling back to memory: {e}")
+            return self._memory_rate_limit(identifier, limit, window, now)
+    
+    def _memory_rate_limit(self, identifier: str, limit: int, window: int, now: float) -> bool:
+        """Memory-based rate limiting fallback."""
+        requests = self.memory_store[identifier]
+        
+        # Remove expired requests
+        cutoff = now - window
+        self.memory_store[identifier] = [req_time for req_time in requests if req_time > cutoff]
+        
+        if len(self.memory_store[identifier]) >= limit:
             return False
         
-        self.requests[identifier].append(now)
+        self.memory_store[identifier].append(now)
         return True
 
-# Initialize rate limiters
-login_limiter = RateLimiter(max_requests=5, window_seconds=900)  # 5 attempts per 15 min
-api_limiter = RateLimiter()
+# (Moved rate limiter initialization below cache_manager definition)
+
 
 # Database Manager
-class DatabaseManager:
-    def __init__(self, dsn: str = config.POSTGRES_DSN):
+class EnhancedDatabaseManager:
+    def __init__(self, dsn: str):
         self.dsn = dsn
         self.pool = None
-
+        self.connection_retry_count = 0
+        self.max_retries = 3
+        
     async def initialize(self):
-        """Initialize database connection pool and ensure tables exist."""
+        """Initialize database with retry logic."""
+        for attempt in range(self.max_retries):
+            try:
+                self.pool = await asyncpg.create_pool(
+                    dsn=self.dsn,
+                    min_size=5,
+                    max_size=20,
+                    max_queries=50000,
+                    max_inactive_connection_lifetime=300,
+                    command_timeout=60
+                )
+                await self._ensure_tables()
+                logger.info("✅ Database connection established")
+                return
+                
+            except Exception as e:
+                self.connection_retry_count = attempt + 1
+                logger.error(f"❌ Database connection attempt {attempt + 1} failed: {e}")
+                
+                if attempt < self.max_retries - 1:
+                    await asyncio.sleep(2 ** attempt)  # Exponential backoff
+                else:
+                    raise ConnectionError(f"Failed to connect to database after {self.max_retries} attempts")
+    
+    async def get_connection(self):
+        """Get database connection with health check."""
         if not self.pool:
-            self.pool = await asyncpg.create_pool(dsn=self.dsn, min_size=1, max_size=10)
-        await self._ensure_tables()
+            raise ConnectionError("Database not initialized")
+        
+        try:
+            async with self.pool.acquire() as conn:
+                await conn.execute("SELECT 1")
+                return conn
+        except Exception as e:
+            logger.error(f"Database health check failed: {e}")
+            # Attempt to reinitialize
+            await self.initialize()
+            return await self.pool.acquire()
+        
+async def get_connection_with_retry(self):
+    """Get database connection with retry logic."""
+    max_retries = 3
+    for attempt in range(max_retries):
+        try:
+            if not self.pool:
+                await self.initialize()
+            
+            async with self.pool.acquire() as conn:
+                await conn.execute("SELECT 1")  # Health check
+                return conn
+        except Exception as e:
+            logger.error(f"Database connection attempt {attempt + 1} failed: {e}")
+            if attempt < max_retries - 1:
+                await asyncio.sleep(2 ** attempt)  # Exponential backoff
+            else:
+                raise ConnectionError(f"Failed to connect to database after {max_retries} attempts")
 
-    async def _ensure_tables(self):
-        """Ensure all required tables exist."""
+async def get_user_role(self, username: str) -> str:
+    """Get user role from database."""
+    try:
         async with self.pool.acquire() as conn:
-            await conn.execute("""
-                CREATE TABLE IF NOT EXISTS users (
-                    mobile VARCHAR(10) PRIMARY KEY,
-                    password_hash VARCHAR(128) NOT NULL,
-                    salt VARCHAR(32) NOT NULL,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    last_login TIMESTAMP
-                );
-                
-                CREATE TABLE IF NOT EXISTS sessions (
-                    session_token VARCHAR(64) PRIMARY KEY,
-                    mobile VARCHAR(10) NOT NULL,
-                    expires_at TIMESTAMP NOT NULL,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    FOREIGN KEY (mobile) REFERENCES users(mobile) ON DELETE CASCADE
-                );
-                
-                CREATE TABLE IF NOT EXISTS search_history (
-                    id SERIAL PRIMARY KEY,
-                    mobile VARCHAR(10) NOT NULL,
-                    gstin VARCHAR(15) NOT NULL,
-                    company_name TEXT NOT NULL,
-                    compliance_score DECIMAL(5,2),
-                    searched_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    FOREIGN KEY (mobile) REFERENCES users(mobile) ON DELETE CASCADE
-                );
-                
-                CREATE TABLE IF NOT EXISTS user_preferences (
-                    mobile VARCHAR(10) PRIMARY KEY,
-                    preferences JSONB NOT NULL DEFAULT '{}',
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    FOREIGN KEY (mobile) REFERENCES users(mobile) ON DELETE CASCADE
-                );
-                
-                CREATE INDEX IF NOT EXISTS idx_sessions_expires ON sessions(expires_at);
-                CREATE INDEX IF NOT EXISTS idx_search_history_mobile ON search_history(mobile);
-                CREATE INDEX IF NOT EXISTS idx_search_history_searched_at ON search_history(searched_at);
-                CREATE INDEX IF NOT EXISTS idx_user_preferences_mobile ON user_preferences(mobile);
-            """)
+            result = await conn.fetchval(
+                "SELECT role FROM users WHERE username = $1", username
+            )
+            return result if result else UserRole.USER
+    except Exception as e:
+        logger.error(f"Error getting user role: {e}")
+        return UserRole.USER
+    
+    async def _ensure_tables(self):
+        """Ensure all required tables exist with proper indexes."""
+        create_tables_sql = """
+        -- Users table with proper constraints
+        CREATE TABLE IF NOT EXISTS users (
+            username VARCHAR(50) PRIMARY KEY,
+            email VARCHAR(255) UNIQUE NOT NULL,
+            password_hash VARCHAR(255) NOT NULL,
+            role VARCHAR(20) DEFAULT 'user',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            last_login TIMESTAMP,
+            is_active BOOLEAN DEFAULT true,
+            email_verified BOOLEAN DEFAULT false
+        );
+        
+        -- Indexes for performance
+        CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+        CREATE INDEX IF NOT EXISTS idx_users_role ON users(role);
+        CREATE INDEX IF NOT EXISTS idx_users_created_at ON users(created_at);
+        
+        -- Sessions table
+        CREATE TABLE IF NOT EXISTS user_sessions (
+            session_token VARCHAR(255) PRIMARY KEY,
+            username VARCHAR(50) REFERENCES users(username) ON DELETE CASCADE,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            expires_at TIMESTAMP NOT NULL,
+            last_accessed TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            ip_address INET,
+            user_agent TEXT
+        );
+        
+        CREATE INDEX IF NOT EXISTS idx_sessions_username ON user_sessions(username);
+        CREATE INDEX IF NOT EXISTS idx_sessions_expires ON user_sessions(expires_at);
+        
+        -- GST searches table
+        CREATE TABLE IF NOT EXISTS gst_searches (
+            id SERIAL PRIMARY KEY,
+            username VARCHAR(50) REFERENCES users(username) ON DELETE CASCADE,
+            gstin VARCHAR(15) NOT NULL,
+            company_name VARCHAR(255),
+            search_data JSONB,
+            compliance_score INTEGER,
+            searched_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+        
+        CREATE INDEX IF NOT EXISTS idx_searches_username ON gst_searches(username);
+        CREATE INDEX IF NOT EXISTS idx_searches_gstin ON gst_searches(gstin);
+        CREATE INDEX IF NOT EXISTS idx_searches_date ON gst_searches(searched_at);
+        CREATE INDEX IF NOT EXISTS idx_searches_data ON gst_searches USING GIN(search_data);
+        
+        -- Error logs table
+        CREATE TABLE IF NOT EXISTS error_logs (
+            id SERIAL PRIMARY KEY,
+            error_type VARCHAR(50),
+            message TEXT,
+            stack_trace TEXT,
+            url TEXT,
+            user_agent TEXT,
+            username VARCHAR(50),
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+        
+        CREATE INDEX IF NOT EXISTS idx_errors_type ON error_logs(error_type);
+        CREATE INDEX IF NOT EXISTS idx_errors_date ON error_logs(created_at);
+        """
+        
+        async with self.pool.acquire() as conn:
+            await conn.execute(create_tables_sql)
 
     async def create_user(self, mobile: str, password_hash: str, salt: str) -> bool:
         """Create a new user."""
@@ -1348,7 +1486,7 @@ class DatabaseManager:
             return {'error_types': [], 'daily_errors': [], 'frequent_errors': [], 'total_errors': 0}        
 
 # Initialize database
-db = DatabaseManager()
+db = EnhancedDatabaseManager(config.POSTGRES_DSN)
 
 # ADD THIS CODE HERE - Initialize Razorpay Lending
 razorpay_key = os.getenv("RAZORPAY_KEY_ID")
@@ -1425,12 +1563,18 @@ async def get_cached_gstin_data(gstin: str) -> Optional[Dict]:
 
 # Initialize cache manager
 cache_manager = CacheManager(os.getenv("REDIS_URL"))
+# Initialize cache manager
+cache_manager = CacheManager(os.getenv("REDIS_URL"))
+
+# Update rate limiter initialization (now that cache_manager is defined)
+login_limiter = AdvancedRateLimiter(cache_manager.redis_client if hasattr(cache_manager, 'redis_client') else None)
+api_limiter = AdvancedRateLimiter(cache_manager.redis_client if hasattr(cache_manager, 'redis_client') else None)
 
 # Validation utilities
 
 def add_template_context(
-    request: Request, 
-    current_user: Optional[str] = None,
+    request: Request,
+    current_user: str = None,
     user_display_name: Optional[str] = None,
     user_profile: Optional[Dict] = None,
     **kwargs
@@ -1779,18 +1923,92 @@ async def require_auth(request: Request) -> str:
     return user
 
 # Admin authentication decorator
+class UserRole(str, Enum):
+    ADMIN = "admin"
+    USER = "user" 
+    VIEWER = "viewer"
+
+class SecurityManager:
+    def __init__(self, secret_key: str):
+        self.secret_key = secret_key
+        self.algorithm = "HS256"
+        self.access_token_expire_minutes = 30
+        
+    def create_access_token(self, data: dict) -> str:
+        """Create a secure JWT token."""
+        to_encode = data.copy()
+        expire = datetime.now() + timedelta(minutes=self.access_token_expire_minutes)
+        to_encode.update({"exp": expire})
+        return jwt.encode(to_encode, self.secret_key, algorithm=self.algorithm)
+    
+    def verify_token(self, token: str) -> Optional[dict]:
+        """Verify and decode JWT token."""
+        try:
+            payload = jwt.decode(token, self.secret_key, algorithms=[self.algorithm])
+            return payload
+        except jwt.PyJWTError:
+            return None
+    
+    def hash_password(self, password: str) -> str:
+        """Hash password with salt."""
+        password_hash = security_manager.hash_password(password)
+    
+    def verify_password(self, stored_password: str, provided_password: str) -> bool:
+        """Verify password against hash."""
+        salt = stored_password[:32]
+        stored_hash = stored_password[32:]
+        pwdhash = hashlib.pbkdf2_hmac('sha256',
+                                      provided_password.encode('utf-8'),
+                                      salt.encode('utf-8'),
+                                      100000)
+        return pwdhash.hex() == stored_hash
+
+# Initialize security manager
+security_manager = SecurityManager(config.SECRET_KEY)
+
+# Enhanced role-based authentication
+async def require_role(required_role: UserRole):
+    """Enhanced role-based authentication decorator."""
+    def decorator(func):
+        @wraps(func)
+        async def wrapper(request: Request, *args, **kwargs):
+            user = await get_current_user(request)
+            if not user:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Authentication required"
+                )
+            
+            user_role = await db.get_user_role(user)
+            if not has_permission(user_role, required_role):
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Insufficient permissions"
+                )
+            
+            return await func(request, *args, **kwargs)
+        return wrapper
+    return decorator
+
+def has_permission(user_role: str, required_role: UserRole) -> bool:
+    """Check if user role has required permissions."""
+    role_hierarchy = {
+        UserRole.VIEWER: 1,
+        UserRole.USER: 2,  
+        UserRole.ADMIN: 3
+    }
+    
+    user_level = role_hierarchy.get(user_role, 0)
+    required_level = role_hierarchy.get(required_role, 0)
+    
+    return user_level >= required_level
+
+# Updated admin requirement using new system
 async def require_admin(request: Request) -> str:
-    """Require admin authentication."""
-    user = await get_current_user(request)
-    if not user:
-        raise HTTPException(status_code=401, detail="Authentication required")
-    
-    # Check if user is admin (you can implement role-based system)
-    admin_users = os.getenv("ADMIN_USERS", "").split(",")
-    if user not in admin_users:
-        raise HTTPException(status_code=403, detail="Admin access required")
-    
-    return user
+    """Require admin authentication with enhanced security."""
+    return await require_role(UserRole.ADMIN)(lambda r: get_current_user(r))(request)
+
+
 
 # Main Routes
 @app.get("/health")
@@ -1880,11 +2098,13 @@ async def login_page(request: Request):
 @app.post("/login")
 async def login(request: Request, mobile: str = Form(...), password: str = Form(...)):
     """Handle login."""
-    is_valid, message = validate_mobile(mobile)
-    if not is_valid:
+    client_ip = request.client.host
+    is_allowed = await login_limiter.is_allowed(f"login:{client_ip}", 5, 900)  # 5 attempts per 15 min
+    
+    if not is_allowed:
         return templates.TemplateResponse("login.html", {
-            "request": request, 
-            "error": message
+            "request": request,
+            "error": "Too many login attempts. Please try again later."
         })
     
     if not login_limiter.is_allowed(mobile):

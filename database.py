@@ -139,35 +139,57 @@ class DatabaseManager:
             return False
     
     async def verify_user(self, mobile: str, password: str) -> bool:
-        """Verify user credentials."""
+        """Verify user credentials with enhanced security."""
         try:
             async with self.pool.acquire() as conn:
-                row = await conn.fetchrow("""
-                    SELECT password_hash, salt FROM users WHERE mobile = $1
-                """, mobile)
+                result = await conn.fetchrow(
+                    "SELECT password_hash, salt, failed_login_attempts, locked_until FROM users WHERE mobile = $1 AND is_active = true", 
+                    mobile
+                )
                 
-                if not row:
+                if not result:
                     return False
                 
-                # Verify password
-                password_hash = hashlib.pbkdf2_hmac(
-                    'sha256', password.encode('utf-8'),
-                    row['salt'].encode('utf-8'), 100000, dklen=64
-                ).hex()
+                # Check if account is locked
+                if result['locked_until'] and datetime.now() < result['locked_until']:
+                    logger.warning(f"Login attempt on locked account: {mobile}")
+                    return False
                 
-                is_valid = password_hash == row['password_hash']
+                # Verify password using stored salt and hash
+                salt = result['salt']
+                stored_hash = result['password_hash']
+                hash_attempt = hashlib.pbkdf2_hmac(
+                    'sha256', password.encode('utf-8'),
+                    salt.encode('utf-8'), 100000, dklen=64
+                ).hex()
+                is_valid = (hash_attempt == stored_hash)
                 
                 if is_valid:
-                    # Update last login with timezone-aware datetime
-                    await conn.execute("""
-                        UPDATE users SET last_login = $1 WHERE mobile = $2
-                    """, datetime.now(), mobile)
+                    # Reset failed attempts on successful login
+                    await conn.execute(
+                        "UPDATE users SET failed_login_attempts = 0, locked_until = NULL WHERE mobile = $1",
+                        mobile
+                    )
+                else:
+                    # Increment failed attempts
+                    failed_attempts = result['failed_login_attempts'] + 1
+                    locked_until = None
+                    
+                    # Lock account after 5 failed attempts for 30 minutes
+                    if failed_attempts >= 5:
+                        locked_until = datetime.now() + timedelta(minutes=30)
+                    
+                    await conn.execute(
+                        "UPDATE users SET failed_login_attempts = $1, locked_until = $2 WHERE mobile = $3",
+                        failed_attempts, locked_until, mobile
+                    )
                 
-                    return is_valid
+                return is_valid
                 
         except Exception as e:
-            logger.error(f"Verify user error: {e}")
+            logger.error(f"User verification error: {e}")
             return False
+
     
     async def user_exists(self, mobile: str) -> bool:
         """Check if user exists."""
