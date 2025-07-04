@@ -3,6 +3,7 @@ import os
 from typing import Optional, List
 from pydantic_settings import BaseSettings
 from pydantic import ConfigDict, field_validator
+from datetime import timedelta
 
 class Settings(BaseSettings):
     # Pydantic v2 configuration - ignores extra .env variables
@@ -34,7 +35,7 @@ class Settings(BaseSettings):
     ADMIN_USERS: str = ""
     
     # Security Settings
-    SESSION_DURATION: int = 2592000  # 30 days
+    SESSION_DURATION: timedelta = timedelta(seconds=2592000)
     SESSION_SECURE: bool = False
     CORS_ORIGINS: str = "*"
     CORS_CREDENTIALS: bool = True
