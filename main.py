@@ -385,7 +385,7 @@ class DataProcessor:
         # GSTIN validation
         if 'gstin' in data:
             gstin = self.sanitizer.sanitize_gstin(data['gstin'])
-            is_valid, error, info = self.validator.validate_gstin(gstin)
+            is_valid, error, info = DataValidator.validate_gstin(gstin)
             if is_valid:
                 processed['gstin'] = gstin
                 processed['state_code'] = info['state_code']
@@ -2017,7 +2017,7 @@ async def login(request: Request, mobile: str = Form(...), password: str = Form(
     response.set_cookie(
         key="session_token",
         value=session_token,
-        max_age=int(config.SESSION_DURATION.total_seconds()),
+        max_age=int(config.SESSION_DURATION) if isinstance(config.SESSION_DURATION, int) else int(config.SESSION_DURATION.total_seconds()),
         httponly=True,
         samesite="lax",
         secure=False  # Set to True in production with HTTPS
@@ -3229,25 +3229,30 @@ async def startup():
     """Enhanced application startup with validation."""
     logger.info("🚀 GST Intelligence Platform starting up...")
     
-    # Add app start time for monitoring
-    app.start_time = time.time()
-    
-    # 🟢 ADD ENVIRONMENT VALIDATION HERE
-    validate_environment()
-    
-    # Initialize database
-    await db.initialize()
-    await db.cleanup_expired_sessions()
-    
-    # Initialize loan tables if loan manager is available
-    if loan_manager:
-        await loan_manager.initialize_loan_tables()
-        logger.info("Loan management system initialized")
-    
-    # Store admin users for template access
-    app.extra = {"ADMIN_USERS": os.getenv("ADMIN_USERS", "")}
-    
-    logger.info("✅ GST Intelligence Platform started successfully")
+    try:
+        # Add app start time for monitoring
+        app.start_time = time.time()
+        
+        # Environment validation
+        validate_environment()
+        
+        # Initialize database
+        await db.initialize()
+        await db.cleanup_expired_sessions()
+        
+        # Initialize loan tables if loan manager is available
+        if loan_manager:
+            await loan_manager.initialize_loan_tables()
+            logger.info("✅ Loan management system initialized")
+        
+        # Store admin users for template access
+        app.extra = {"ADMIN_USERS": os.getenv("ADMIN_USERS", "")}
+        
+        logger.info("✅ GST Intelligence Platform started successfully")
+        
+    except Exception as e:
+        logger.error(f"❌ Startup failed: {e}")
+        raise
     
 @app.on_event("shutdown")
 async def shutdown():
