@@ -91,59 +91,6 @@ class DataValidator:
     }
     
     @staticmethod
-    def validate_gstin(gstin: str) -> Tuple[bool, str, Dict[str, Any]]:
-        """
-        Enhanced GSTIN validation with detailed error reporting.
-        
-        Returns:
-            Tuple[bool, str, Dict]: (is_valid, error_message, extracted_info)
-        """
-        if not gstin:
-            return False, "GSTIN is required", {}
-        
-        # Clean and uppercase
-        gstin = gstin.strip().upper()
-        
-        # Length check
-        if len(gstin) != 15:
-            return False, f"GSTIN must be 15 characters long, got {len(gstin)}", {}
-        
-        # Pattern check
-        if not DataValidator.GSTIN_PATTERN.match(gstin):
-            return False, "Invalid GSTIN format", {}
-        
-        # Extract components
-        state_code = gstin[:2]
-        pan_part = gstin[2:12]
-        entity_code = gstin[12]
-        check_digit = gstin[13]
-        default_z = gstin[14]
-        
-        # Validate state code
-        if state_code not in DataValidator.STATE_CODES:
-            return False, f"Invalid state code: {state_code}", {}
-        
-        # Validate PAN part
-        if not DataValidator.PAN_PATTERN.match(pan_part):
-            return False, "Invalid PAN format in GSTIN", {}
-        
-        # Validate default 'Z'
-        if default_z != 'Z':
-            return False, "14th character must be 'Z'", {}
-        
-        # Extract information
-        extracted_info = {
-            'state_code': state_code,
-            'state_name': DataValidator.STATE_CODES[state_code],
-            'pan': pan_part,
-            'entity_code': entity_code,
-            'check_digit': check_digit,
-            'is_valid': True
-        }
-        
-        return True, "", extracted_info
-    
-    @staticmethod
     def validate_mobile(mobile: str) -> Tuple[bool, str, Dict[str, Any]]:
         """
         Enhanced mobile number validation with international support.
@@ -1074,52 +1021,6 @@ class EnhancedDatabaseManager:
         except Exception as e:
             logger.error(f"Error getting user role: {e}")
             return "user"
-    
-    async def _ensure_tables(self):
-        """Ensure all required tables exist with proper indexes."""
-        async with self.pool.acquire() as conn:
-            await conn.execute("""
-                -- Users table with proper constraints
-                CREATE TABLE IF NOT EXISTS users (
-                    mobile VARCHAR(10) PRIMARY KEY,
-                    password_hash VARCHAR(128) NOT NULL,
-                    salt VARCHAR(32) NOT NULL,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    last_login TIMESTAMP
-                );
-                
-                CREATE TABLE IF NOT EXISTS sessions (
-                    session_token VARCHAR(64) PRIMARY KEY,
-                    mobile VARCHAR(10) NOT NULL,
-                    expires_at TIMESTAMP NOT NULL,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    FOREIGN KEY (mobile) REFERENCES users(mobile) ON DELETE CASCADE
-                );
-                
-                CREATE TABLE IF NOT EXISTS search_history (
-                    id SERIAL PRIMARY KEY,
-                    mobile VARCHAR(10) NOT NULL,
-                    gstin VARCHAR(15) NOT NULL,
-                    company_name TEXT NOT NULL,
-                    compliance_score DECIMAL(5,2),
-                    searched_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    FOREIGN KEY (mobile) REFERENCES users(mobile) ON DELETE CASCADE
-                );
-                
-                CREATE TABLE IF NOT EXISTS user_preferences (
-                    mobile VARCHAR(10) PRIMARY KEY,
-                    preferences JSONB NOT NULL DEFAULT '{}',
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    FOREIGN KEY (mobile) REFERENCES users(mobile) ON DELETE CASCADE
-                );
-                
-                CREATE INDEX IF NOT EXISTS idx_sessions_expires ON sessions(expires_at);
-                CREATE INDEX IF NOT EXISTS idx_search_history_mobile ON search_history(mobile);
-                CREATE INDEX IF NOT EXISTS idx_search_history_searched_at ON search_history(searched_at);
-                CREATE INDEX IF NOT EXISTS idx_user_preferences_mobile ON user_preferences(mobile);
-            """)
-            print("✅ Database tables created successfully")
 
     async def create_user(self, mobile: str, password_hash: str, salt: str) -> bool:
         """Create a new user."""
@@ -1547,8 +1448,6 @@ async def get_cached_gstin_data(gstin: str) -> Optional[Dict]:
     
     return None
 
-# Initialize cache manager
-cache_manager = CacheManager(os.getenv("REDIS_URL"))
 # Initialize cache manager
 cache_manager = CacheManager(os.getenv("REDIS_URL"))
 
