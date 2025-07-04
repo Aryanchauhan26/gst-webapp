@@ -505,9 +505,9 @@
         window.GST_APP_STATE = {
             currentUser: {% if current_user %}"{{ current_user }}"{% else %}null{% endif %},
             isAuthenticated: {% if current_user %}true{% else %}false{% endif %},
-            userProfile: {% if user_profile %}{{ user_profile | tojson | safe }}{% else %}null{% endif %},
+            userProfile: {% if user_profile %}{{ user_profile | tojson }}{% else %}null{% endif %},
             userDisplayName: {% if user_display_name %}"{{ user_display_name }}"{% else %}null{% endif %}
-        };
+        }
 
         // Theme management
         function toggleTheme() {
