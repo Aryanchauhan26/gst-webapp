@@ -1075,73 +1075,104 @@ async def get_user_role(self, username: str) -> str:
         return UserRole.USER
     
     async def _ensure_tables(self):
-        """Ensure all required tables exist with proper indexes."""
-        create_tables_sql = """
-        -- Users table with proper constraints
-        CREATE TABLE IF NOT EXISTS users (
-            username VARCHAR(50) PRIMARY KEY,
-            email VARCHAR(255) UNIQUE NOT NULL,
-            password_hash VARCHAR(255) NOT NULL,
-            role VARCHAR(20) DEFAULT 'user',
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            last_login TIMESTAMP,
-            is_active BOOLEAN DEFAULT true,
-            email_verified BOOLEAN DEFAULT false
-        );
+    """Ensure all required tables exist with proper indexes."""
+    async with self.pool.acquire() as conn:
+        await conn.execute("""
+            -- Users table with proper constraints
+            CREATE TABLE IF NOT EXISTS users (
+                username VARCHAR(50) PRIMARY KEY,
+                mobile VARCHAR(10) UNIQUE NOT NULL,
+                email VARCHAR(255) UNIQUE,
+                password_hash VARCHAR(255) NOT NULL,
+                salt VARCHAR(32) NOT NULL,
+                role VARCHAR(20) DEFAULT 'user',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                last_login TIMESTAMP,
+                is_active BOOLEAN DEFAULT true,
+                email_verified BOOLEAN DEFAULT false,
+                failed_login_attempts INTEGER DEFAULT 0,
+                locked_until TIMESTAMP NULL
+            );
+            
+            -- Indexes for performance
+            CREATE INDEX IF NOT EXISTS idx_users_mobile ON users(mobile);
+            CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+            CREATE INDEX IF NOT EXISTS idx_users_role ON users(role);
+            CREATE INDEX IF NOT EXISTS idx_users_created_at ON users(created_at);
+            
+            -- Sessions table
+            CREATE TABLE IF NOT EXISTS user_sessions (
+                session_token VARCHAR(255) PRIMARY KEY,
+                username VARCHAR(50) REFERENCES users(username) ON DELETE CASCADE,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                expires_at TIMESTAMP NOT NULL,
+                last_accessed TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                ip_address INET,
+                user_agent TEXT
+            );
+            
+            CREATE INDEX IF NOT EXISTS idx_sessions_username ON user_sessions(username);
+            CREATE INDEX IF NOT EXISTS idx_sessions_expires ON user_sessions(expires_at);
+            
+            -- GST searches table
+            CREATE TABLE IF NOT EXISTS gst_searches (
+                id SERIAL PRIMARY KEY,
+                username VARCHAR(50) REFERENCES users(username) ON DELETE CASCADE,
+                gstin VARCHAR(15) NOT NULL,
+                company_name VARCHAR(255),
+                search_data JSONB,
+                compliance_score INTEGER,
+                searched_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+            
+            CREATE INDEX IF NOT EXISTS idx_searches_username ON gst_searches(username);
+            CREATE INDEX IF NOT EXISTS idx_searches_gstin ON gst_searches(gstin);
+            CREATE INDEX IF NOT EXISTS idx_searches_date ON gst_searches(searched_at);
+            CREATE INDEX IF NOT EXISTS idx_searches_data ON gst_searches USING GIN(search_data);
+            
+            -- User preferences table
+            CREATE TABLE IF NOT EXISTS user_preferences (
+                username VARCHAR(50) PRIMARY KEY,
+                preferences JSONB NOT NULL DEFAULT '{}',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (username) REFERENCES users(username) ON DELETE CASCADE
+            );
+            
+            CREATE INDEX IF NOT EXISTS idx_user_preferences_username ON user_preferences(username);
+            
+            -- Error logs table
+            CREATE TABLE IF NOT EXISTS error_logs (
+                id SERIAL PRIMARY KEY,
+                error_type VARCHAR(50),
+                message TEXT,
+                stack_trace TEXT,
+                url TEXT,
+                user_agent TEXT,
+                username VARCHAR(50),
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+            
+            CREATE INDEX IF NOT EXISTS idx_errors_type ON error_logs(error_type);
+            CREATE INDEX IF NOT EXISTS idx_errors_date ON error_logs(created_at);
+            
+            -- Search history table (if different from gst_searches)
+            CREATE TABLE IF NOT EXISTS search_history (
+                id SERIAL PRIMARY KEY,
+                mobile VARCHAR(10) NOT NULL,
+                gstin VARCHAR(15) NOT NULL,
+                company_name TEXT NOT NULL,
+                compliance_score DECIMAL(5,2),
+                searched_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (mobile) REFERENCES users(mobile) ON DELETE CASCADE
+            );
+            
+            CREATE INDEX IF NOT EXISTS idx_search_history_mobile ON search_history(mobile);
+            CREATE INDEX IF NOT EXISTS idx_search_history_searched_at ON search_history(searched_at);
+            CREATE INDEX IF NOT EXISTS idx_search_history_gstin ON search_history(gstin);
+        """)
         
-        -- Indexes for performance
-        CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
-        CREATE INDEX IF NOT EXISTS idx_users_role ON users(role);
-        CREATE INDEX IF NOT EXISTS idx_users_created_at ON users(created_at);
-        
-        -- Sessions table
-        CREATE TABLE IF NOT EXISTS user_sessions (
-            session_token VARCHAR(255) PRIMARY KEY,
-            username VARCHAR(50) REFERENCES users(username) ON DELETE CASCADE,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            expires_at TIMESTAMP NOT NULL,
-            last_accessed TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            ip_address INET,
-            user_agent TEXT
-        );
-        
-        CREATE INDEX IF NOT EXISTS idx_sessions_username ON user_sessions(username);
-        CREATE INDEX IF NOT EXISTS idx_sessions_expires ON user_sessions(expires_at);
-        
-        -- GST searches table
-        CREATE TABLE IF NOT EXISTS gst_searches (
-            id SERIAL PRIMARY KEY,
-            username VARCHAR(50) REFERENCES users(username) ON DELETE CASCADE,
-            gstin VARCHAR(15) NOT NULL,
-            company_name VARCHAR(255),
-            search_data JSONB,
-            compliance_score INTEGER,
-            searched_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        );
-        
-        CREATE INDEX IF NOT EXISTS idx_searches_username ON gst_searches(username);
-        CREATE INDEX IF NOT EXISTS idx_searches_gstin ON gst_searches(gstin);
-        CREATE INDEX IF NOT EXISTS idx_searches_date ON gst_searches(searched_at);
-        CREATE INDEX IF NOT EXISTS idx_searches_data ON gst_searches USING GIN(search_data);
-        
-        -- Error logs table
-        CREATE TABLE IF NOT EXISTS error_logs (
-            id SERIAL PRIMARY KEY,
-            error_type VARCHAR(50),
-            message TEXT,
-            stack_trace TEXT,
-            url TEXT,
-            user_agent TEXT,
-            username VARCHAR(50),
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        );
-        
-        CREATE INDEX IF NOT EXISTS idx_errors_type ON error_logs(error_type);
-        CREATE INDEX IF NOT EXISTS idx_errors_date ON error_logs(created_at);
-        """
-        
-        async with self.pool.acquire() as conn:
-            await conn.execute(create_tables_sql)
+        print("✅ Database tables and indexes created successfully")
 
     async def create_user(self, mobile: str, password_hash: str, salt: str) -> bool:
         """Create a new user."""
