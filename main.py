@@ -1074,7 +1074,7 @@ async def get_user_role(self, username: str) -> str:
         logger.error(f"Error getting user role: {e}")
         return UserRole.USER
     
-    async def _ensure_tables(self):
+async def _ensure_tables(self):
     """Ensure all required tables exist with proper indexes."""
     async with self.pool.acquire() as conn:
         await conn.execute("""
