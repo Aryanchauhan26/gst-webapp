@@ -35,7 +35,7 @@ class Settings(BaseSettings):
     ADMIN_USERS: str = ""
 
     # Security Settings
-    SESSION_DURATION: timedelta = timedelta(seconds=2592000)
+    SESSION_DURATION: int = 2592000  # 30 days in seconds
     SESSION_SECURE: bool = False
     CORS_ORIGINS: str = "*"
     CORS_CREDENTIALS: bool = True

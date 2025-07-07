@@ -1066,7 +1066,7 @@ class EnhancedDatabaseManager:
     async def create_session(self, mobile: str) -> Optional[str]:
         """Create a new session for user."""
         session_token = secrets.token_urlsafe(32)
-        expires_at = datetime.now() + config.SESSION_DURATION
+        expires_at = datetime.now() + timedelta(seconds=config.SESSION_DURATION)
         
         try:
             async with self.pool.acquire() as conn:
@@ -2017,7 +2017,7 @@ async def login(request: Request, mobile: str = Form(...), password: str = Form(
     response.set_cookie(
         key="session_token",
         value=session_token,
-        max_age=int(config.SESSION_DURATION) if isinstance(config.SESSION_DURATION, int) else int(config.SESSION_DURATION.total_seconds()),
+        max_age=config.SESSION_DURATION,
         httponly=True,
         samesite="lax",
         secure=False  # Set to True in production with HTTPS
