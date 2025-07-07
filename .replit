@@ -7,3 +7,19 @@ packages = ["cacert", "cargo", "fontconfig", "freetype", "ghostscript", "glib", 
 
 [deployment]
 run = ["sh", "-c", "uvicorn main:app --host 0.0.0.0 --port 3000"]
+
+[workflows]
+runButton = "Start Server"
+
+[[workflows.workflow]]
+name = "Start Server"
+author = 44706874
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "uvicorn main:app --host 0.0.0.0 --port 5000 --reload"
+
+[[ports]]
+localPort = 3000
+externalPort = 80
