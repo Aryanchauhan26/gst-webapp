@@ -976,6 +976,105 @@ class EnhancedDatabaseManager:
                 else:
                     raise ConnectionError(f"Failed to connect to database after {self.max_retries} attempts")
     
+    async def _ensure_tables(self):
+        """Ensure all required database tables exist."""
+        try:
+            async with self.pool.acquire() as conn:
+                # Create users table
+                await conn.execute("""
+                    CREATE TABLE IF NOT EXISTS users (
+                        mobile VARCHAR(10) PRIMARY KEY,
+                        password_hash VARCHAR(128) NOT NULL,
+                        salt VARCHAR(32) NOT NULL,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        last_login TIMESTAMP,
+                        is_active BOOLEAN DEFAULT TRUE,
+                        failed_login_attempts INTEGER DEFAULT 0,
+                        locked_until TIMESTAMP,
+                        role VARCHAR(20) DEFAULT 'user'
+                    );
+                """)
+                
+                # Create sessions table
+                await conn.execute("""
+                    CREATE TABLE IF NOT EXISTS sessions (
+                        session_token VARCHAR(64) PRIMARY KEY,
+                        mobile VARCHAR(10) NOT NULL,
+                        expires_at TIMESTAMP NOT NULL,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        FOREIGN KEY (mobile) REFERENCES users(mobile) ON DELETE CASCADE
+                    );
+                """)
+                
+                # Create search_history table
+                await conn.execute("""
+                    CREATE TABLE IF NOT EXISTS search_history (
+                        id SERIAL PRIMARY KEY,
+                        mobile VARCHAR(10) NOT NULL,
+                        gstin VARCHAR(15) NOT NULL,
+                        company_name TEXT,
+                        compliance_score DECIMAL(5,2),
+                        searched_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        FOREIGN KEY (mobile) REFERENCES users(mobile) ON DELETE CASCADE,
+                        UNIQUE(mobile, gstin)
+                    );
+                """)
+                
+                # Create user_preferences table
+                await conn.execute("""
+                    CREATE TABLE IF NOT EXISTS user_preferences (
+                        mobile VARCHAR(10) PRIMARY KEY,
+                        preferences JSONB NOT NULL DEFAULT '{}',
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        FOREIGN KEY (mobile) REFERENCES users(mobile) ON DELETE CASCADE
+                    );
+                """)
+                
+                # Create user_profiles table
+                await conn.execute("""
+                    CREATE TABLE IF NOT EXISTS user_profiles (
+                        mobile VARCHAR(10) PRIMARY KEY,
+                        display_name VARCHAR(100),
+                        company VARCHAR(200),
+                        email VARCHAR(255),
+                        designation VARCHAR(100),
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        FOREIGN KEY (mobile) REFERENCES users(mobile) ON DELETE CASCADE
+                    );
+                """)
+                
+                # Create error_logs table
+                await conn.execute("""
+                    CREATE TABLE IF NOT EXISTS error_logs (
+                        id SERIAL PRIMARY KEY,
+                        error_type VARCHAR(100),
+                        message TEXT,
+                        stack_trace TEXT,
+                        url TEXT,
+                        user_agent TEXT,
+                        user_mobile VARCHAR(10),
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        additional_data JSONB,
+                        FOREIGN KEY (user_mobile) REFERENCES users(mobile) ON DELETE SET NULL
+                    );
+                """)
+                
+                # Create indexes for better performance
+                await conn.execute("CREATE INDEX IF NOT EXISTS idx_sessions_expires ON sessions(expires_at);")
+                await conn.execute("CREATE INDEX IF NOT EXISTS idx_search_history_mobile ON search_history(mobile);")
+                await conn.execute("CREATE INDEX IF NOT EXISTS idx_search_history_searched_at ON search_history(searched_at);")
+                await conn.execute("CREATE INDEX IF NOT EXISTS idx_error_logs_created_at ON error_logs(created_at);")
+                await conn.execute("CREATE INDEX IF NOT EXISTS idx_error_logs_error_type ON error_logs(error_type);")
+                
+                logger.info("✅ Database tables ensured successfully")
+                
+        except Exception as e:
+            logger.error(f"Failed to ensure tables: {e}")
+            raise
+
     async def get_connection(self):
         """Get database connection with health check."""
         if not self.pool:
