@@ -1,3 +1,4 @@
+
 // /static/js/missing-globals.js
 // Create this file to provide missing global dependencies
 // Load this BEFORE other JavaScript files
@@ -6,295 +7,271 @@
 
 console.log('🔧 Loading missing globals...');
 
-// =============================================================================
-// 1. NOTIFICATION MANAGER (Referenced by multiple files)
-// =============================================================================
-window.notificationManager = {
-    notifications: [],
-    
-    show(message, type = 'info', duration = 5000) {
-        const notification = this.create(message, type, duration);
-        document.body.appendChild(notification);
+// Global notification manager
+if (!window.notificationManager) {
+    window.notificationManager = {
+        showSuccess: function(message, duration = 3000) {
+            this.showNotification(message, 'success', duration);
+        },
         
-        // Animate in
-        setTimeout(() => notification.classList.add('notification-show'), 100);
+        showError: function(message, duration = 5000) {
+            this.showNotification(message, 'error', duration);
+        },
         
-        // Auto remove
-        if (duration > 0) {
-            setTimeout(() => this.remove(notification), duration);
-        }
+        showWarning: function(message, duration = 4000) {
+            this.showNotification(message, 'warning', duration);
+        },
         
-        return notification;
-    },
-    
-    create(message, type, duration) {
-        const notification = document.createElement('div');
-        notification.className = `notification notification-${type}`;
-        notification.innerHTML = `
-            <div class="notification-content">
-                <i class="fas fa-${this.getIcon(type)}"></i>
-                <span class="notification-message">${message}</span>
-                <button class="notification-close" onclick="window.notificationManager.remove(this.parentElement.parentElement)">
-                    <i class="fas fa-times"></i>
-                </button>
-            </div>
-        `;
+        showInfo: function(message, duration = 3000) {
+            this.showNotification(message, 'info', duration);
+        },
         
-        // Add styles if not present
-        this.ensureStyles();
-        
-        this.notifications.push(notification);
-        return notification;
-    },
-    
-    remove(notification) {
-        if (!notification || !notification.parentNode) return;
-        
-        notification.classList.add('notification-hide');
-        setTimeout(() => {
-            if (notification.parentNode) {
-                notification.parentNode.removeChild(notification);
-            }
-            const index = this.notifications.indexOf(notification);
-            if (index > -1) {
-                this.notifications.splice(index, 1);
-            }
-        }, 300);
-    },
-    
-    getIcon(type) {
-        const icons = {
-            success: 'check-circle',
-            error: 'exclamation-circle', 
-            warning: 'exclamation-triangle',
-            info: 'info-circle'
-        };
-        return icons[type] || 'info-circle';
-    },
-    
-    ensureStyles() {
-        if (document.getElementById('notification-styles')) return;
-        
-        const style = document.createElement('style');
-        style.id = 'notification-styles';
-        style.textContent = `
-            .notification {
+        showNotification: function(message, type = 'info', duration = 3000) {
+            // Create notification element
+            const notification = document.createElement('div');
+            notification.className = `notification notification-${type}`;
+            notification.style.cssText = `
                 position: fixed;
                 top: 20px;
                 right: 20px;
+                padding: 1rem 1.5rem;
+                border-radius: 8px;
+                color: white;
+                font-weight: 500;
                 z-index: 10000;
-                min-width: 300px;
-                max-width: 500px;
-                background: var(--bg-card);
-                border: 1px solid var(--border-color);
-                border-radius: 12px;
-                box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
-                transform: translateX(100%);
                 opacity: 0;
+                transform: translateX(100%);
                 transition: all 0.3s ease;
-                margin-bottom: 10px;
-            }
+                max-width: 400px;
+                word-wrap: break-word;
+            `;
             
-            .notification-show {
-                transform: translateX(0);
-                opacity: 1;
-            }
+            // Set background color based on type
+            const colors = {
+                success: '#10b981',
+                error: '#ef4444',
+                warning: '#f59e0b',
+                info: '#3b82f6'
+            };
+            notification.style.backgroundColor = colors[type] || colors.info;
             
-            .notification-hide {
-                transform: translateX(100%);
-                opacity: 0;
-            }
+            notification.textContent = message;
             
-            .notification-content {
-                display: flex;
-                align-items: center;
-                gap: 12px;
-                padding: 16px;
-            }
-            
-            .notification-message {
-                flex: 1;
-                color: var(--text-primary);
-                font-size: 14px;
-                line-height: 1.4;
-            }
-            
-            .notification-close {
+            // Add close button
+            const closeBtn = document.createElement('button');
+            closeBtn.innerHTML = '×';
+            closeBtn.style.cssText = `
                 background: none;
                 border: none;
+                color: white;
+                font-size: 1.2rem;
+                margin-left: 0.5rem;
                 cursor: pointer;
-                color: var(--text-secondary);
-                padding: 4px;
-                border-radius: 4px;
-                transition: all 0.2s ease;
-            }
+                opacity: 0.8;
+            `;
+            closeBtn.onclick = () => this.removeNotification(notification);
+            notification.appendChild(closeBtn);
             
-            .notification-close:hover {
-                background: var(--bg-hover);
-                color: var(--text-primary);
-            }
+            document.body.appendChild(notification);
             
-            .notification-success {
-                border-left: 4px solid var(--success);
-            }
+            // Show notification
+            setTimeout(() => {
+                notification.style.opacity = '1';
+                notification.style.transform = 'translateX(0)';
+            }, 100);
             
-            .notification-error {
-                border-left: 4px solid var(--error);
+            // Auto remove
+            setTimeout(() => {
+                this.removeNotification(notification);
+            }, duration);
+        },
+        
+        removeNotification: function(notification) {
+            if (notification && notification.parentNode) {
+                notification.style.opacity = '0';
+                notification.style.transform = 'translateX(100%)';
+                setTimeout(() => {
+                    if (notification.parentNode) {
+                        notification.parentNode.removeChild(notification);
+                    }
+                }, 300);
             }
-            
-            .notification-warning {
-                border-left: 4px solid var(--warning);
-            }
-            
-            .notification-info {
-                border-left: 4px solid var(--accent-primary);
-            }
-            
-            .notification i {
-                font-size: 18px;
-            }
-            
-            .notification-success i { color: var(--success); }
-            .notification-error i { color: var(--error); }
-            .notification-warning i { color: var(--warning); }
-            .notification-info i { color: var(--accent-primary); }
-        `;
-        document.head.appendChild(style);
-    },
-    
-    // Convenience methods
-    showSuccess: function(message, duration) { return this.show(message, 'success', duration); },
-    showError: function(message, duration) { return this.show(message, 'error', duration); },
-    showWarning: function(message, duration) { return this.show(message, 'warning', duration); },
-    showInfo: function(message, duration) { return this.show(message, 'info', duration); },
-    
-    clear() {
-        this.notifications.forEach(n => this.remove(n));
-    }
-};
+        }
+    };
+}
 
-// =============================================================================
-// 2. CHART.JS LOADER (Centralized to prevent conflicts)
-// =============================================================================
-window.ensureChartJS = function() {
-    return new Promise((resolve, reject) => {
-        if (window.Chart) {
-            resolve(window.Chart);
-            return;
-        }
-        
-        const script = document.createElement('script');
-        script.src = 'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.min.js';
-        script.onload = () => {
-            console.log('✅ Chart.js loaded successfully');
-            
-            // Configure defaults
-            if (window.Chart) {
-                window.Chart.defaults.color = 'var(--text-secondary)';
-                window.Chart.defaults.borderColor = 'var(--border-color)';
-                window.Chart.defaults.responsive = true;
-                window.Chart.defaults.maintainAspectRatio = false;
-            }
-            
-            resolve(window.Chart);
-        };
-        script.onerror = () => {
-            console.error('❌ Failed to load Chart.js');
-            reject(new Error('Failed to load Chart.js'));
-        };
-        document.head.appendChild(script);
-    });
-};
-
-// =============================================================================
-// 3. GLOBAL CONFIGURATION
-// =============================================================================
-window.GST_CONFIG = {
-    API_TIMEOUT: 30000,
-    MAX_RECENT_SEARCHES: 10,
-    RETRY_ATTEMPTS: 3,
-    RETRY_DELAY: 1000,
-    DEBUG_MODE: localStorage.getItem('gst_debug') === 'true',
-    THEME_TRANSITION_DURATION: 300,
-    CACHE_DURATION: 5 * 60 * 1000 // 5 minutes
-};
-
-// =============================================================================
-// 4. BRIDGE TO EXISTING MANAGERS
-// =============================================================================
-document.addEventListener('DOMContentLoaded', function() {
-    // Wait a bit for other modules to load
-    setTimeout(() => {
-        // Bridge to existing theme manager
-        if (window.GSTPlatform?.themeManager && !window.themeManager) {
-            window.themeManager = window.GSTPlatform.themeManager;
-        }
-        
-        // Bridge to existing modal manager  
-        if (window.GSTPlatform?.modalManager && !window.modalManager) {
-            window.modalManager = window.GSTPlatform.modalManager;
-        }
-        
-        // Bridge to existing debug manager
-        if (window.GSTPlatform?.debugManager && !window.debugManager) {
-            window.debugManager = window.GSTPlatform.debugManager;
-        }
-        
-        // Fallback theme manager if none exists
-        if (!window.themeManager) {
-            window.themeManager = {
-                toggleTheme: function() {
-                    const html = document.documentElement;
-                    const currentTheme = html.getAttribute('data-theme');
-                    const newTheme = currentTheme === 'light' ? 'dark' : 'light';
-                    html.setAttribute('data-theme', newTheme);
-                    localStorage.setItem('gst-theme', newTheme);
-                    console.log(`Theme switched to: ${newTheme}`);
-                }
+// Global utility functions
+if (!window.utils) {
+    window.utils = {
+        debounce: function(func, wait) {
+            let timeout;
+            return function executedFunction(...args) {
+                const later = () => {
+                    clearTimeout(timeout);
+                    func(...args);
+                };
+                clearTimeout(timeout);
+                timeout = setTimeout(later, wait);
             };
-        }
+        },
         
+        throttle: function(func, limit) {
+            let inThrottle;
+            return function() {
+                const args = arguments;
+                const context = this;
+                if (!inThrottle) {
+                    func.apply(context, args);
+                    inThrottle = true;
+                    setTimeout(() => inThrottle = false, limit);
+                }
+            }
+        },
+        
+        formatNumber: function(num) {
+            if (num >= 1000000) {
+                return (num / 1000000).toFixed(1) + 'M';
+            } else if (num >= 1000) {
+                return (num / 1000).toFixed(1) + 'K';
+            }
+            return num.toString();
+        },
+        
+        formatCurrency: function(amount, currency = 'INR') {
+            return new Intl.NumberFormat('en-IN', {
+                style: 'currency',
+                currency: currency
+            }).format(amount);
+        },
+        
+        formatDate: function(date) {
+            return new Intl.DateTimeFormat('en-IN').format(new Date(date));
+        },
+        
+        copyToClipboard: function(text) {
+            if (navigator.clipboard) {
+                return navigator.clipboard.writeText(text);
+            } else {
+                // Fallback for older browsers
+                const textArea = document.createElement('textarea');
+                textArea.value = text;
+                document.body.appendChild(textArea);
+                textArea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textArea);
+                return Promise.resolve();
+            }
+        }
+    };
+}
+
+// Global event emitter
+if (!window.eventBus) {
+    window.eventBus = new EventTarget();
+}
+
+// Global loading manager
+if (!window.loadingManager) {
+    window.loadingManager = {
+        show: function(message = 'Loading...') {
+            this.hide(); // Remove any existing loader
+            
+            const loader = document.createElement('div');
+            loader.id = 'global-loader';
+            loader.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0, 0, 0, 0.7);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                z-index: 9999;
+                backdrop-filter: blur(2px);
+            `;
+            
+            loader.innerHTML = `
+                <div style="
+                    background: var(--bg-card);
+                    padding: 2rem;
+                    border-radius: 12px;
+                    text-align: center;
+                    color: var(--text-primary);
+                ">
+                    <div style="
+                        width: 40px;
+                        height: 40px;
+                        border: 3px solid var(--border-color);
+                        border-top: 3px solid var(--accent-primary);
+                        border-radius: 50%;
+                        animation: spin 1s linear infinite;
+                        margin: 0 auto 1rem;
+                    "></div>
+                    <div>${message}</div>
+                </div>
+            `;
+            
+            // Add spin animation if not exists
+            if (!document.getElementById('loader-styles')) {
+                const style = document.createElement('style');
+                style.id = 'loader-styles';
+                style.textContent = `
+                    @keyframes spin {
+                        0% { transform: rotate(0deg); }
+                        100% { transform: rotate(360deg); }
+                    }
+                `;
+                document.head.appendChild(style);
+            }
+            
+            document.body.appendChild(loader);
+        },
+        
+        hide: function() {
+            const loader = document.getElementById('global-loader');
+            if (loader) {
+                loader.remove();
+            }
+        }
+    };
+}
+
+// Global form validation helpers
+if (!window.validation) {
+    window.validation = {
+        validateGSTIN: function(gstin) {
+            const pattern = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/;
+            return pattern.test(gstin?.trim().toUpperCase());
+        },
+        
+        validateEmail: function(email) {
+            const pattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            return pattern.test(email?.trim());
+        },
+        
+        validateMobile: function(mobile) {
+            const pattern = /^[6-9][0-9]{9}$/;
+            return pattern.test(mobile?.trim());
+        },
+        
+        validatePAN: function(pan) {
+            const pattern = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/;
+            return pattern.test(pan?.trim().toUpperCase());
+        }
+    };
+}
+
+// Global bridge functions to connect modules
+window.bridges = {
+    establish: function() {
+        // Bridge between different modules
         console.log('🔗 Global bridges established');
-    }, 100);
-});
-
-// =============================================================================
-// 5. GLOBAL UTILITY FUNCTIONS
-// =============================================================================
-window.debugLog = function(...args) {
-    if (window.GST_CONFIG.DEBUG_MODE) {
-        console.log('🔍 DEBUG:', ...args);
     }
 };
 
-window.showError = function(message, duration = 5000) {
-    return window.notificationManager.showError(message, duration);
-};
-
-window.showSuccess = function(message, duration = 3000) {
-    return window.notificationManager.showSuccess(message, duration);
-};
-
-// =============================================================================
-// 6. ERROR HANDLING
-// =============================================================================
-window.addEventListener('error', function(event) {
-    console.error('Global error:', event.error);
-    
-    // Don't spam notifications
-    const now = Date.now();
-    if (!window.lastErrorNotification || now - window.lastErrorNotification > 5000) {
-        window.notificationManager.showError('Something went wrong. Please refresh if issues persist.');
-        window.lastErrorNotification = now;
-    }
-});
-
-window.addEventListener('unhandledrejection', function(event) {
-    console.error('Unhandled promise rejection:', event.reason);
-    event.preventDefault(); // Prevent console spam
-});
+// Initialize bridges
+window.bridges.establish();
 
 console.log('✅ Missing globals loaded successfully!');
-
-// Export for verification
-window.GST_GLOBALS_LOADED = true;
