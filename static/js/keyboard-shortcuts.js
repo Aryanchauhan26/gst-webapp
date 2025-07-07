@@ -1,11 +1,12 @@
+
 // =====================================================
 // GST Intelligence Platform - Keyboard Shortcuts Module
 // =====================================================
 
 'use strict';
 
-// Only declare if not already declared
-if (typeof KeyboardShortcuts === 'undefined') {
+// Only initialize if not already initialized
+if (typeof window.keyboardShortcuts === 'undefined') {
     class KeyboardShortcuts {
         constructor() {
             this.shortcuts = new Map();
@@ -91,43 +92,73 @@ if (typeof KeyboardShortcuts === 'undefined') {
         showShortcutsHelp() {
             const helpModal = document.createElement('div');
             helpModal.className = 'shortcuts-help-modal';
+            helpModal.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background: rgba(0, 0, 0, 0.5);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                z-index: 10000;
+            `;
+            
             helpModal.innerHTML = `
-                <div class="shortcuts-help-content">
-                    <h3>Keyboard Shortcuts</h3>
-                    <div class="shortcuts-list">
-                        <div class="shortcut-item">
-                            <kbd>Ctrl</kbd> + <kbd>K</kbd>
+                <div class="shortcuts-help-content" style="
+                    background: var(--bg-card);
+                    border-radius: 12px;
+                    padding: 2rem;
+                    max-width: 500px;
+                    width: 90%;
+                    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+                ">
+                    <h3 style="margin-bottom: 1.5rem; color: var(--text-primary);">Keyboard Shortcuts</h3>
+                    <div class="shortcuts-list" style="display: grid; gap: 0.75rem;">
+                        <div class="shortcut-item" style="display: flex; justify-content: space-between; align-items: center;">
+                            <div><kbd>Ctrl</kbd> + <kbd>K</kbd></div>
                             <span>Focus search</span>
                         </div>
-                        <div class="shortcut-item">
-                            <kbd>Ctrl</kbd> + <kbd>H</kbd>
+                        <div class="shortcut-item" style="display: flex; justify-content: space-between; align-items: center;">
+                            <div><kbd>Ctrl</kbd> + <kbd>H</kbd></div>
                             <span>Go to home</span>
                         </div>
-                        <div class="shortcut-item">
-                            <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>H</kbd>
+                        <div class="shortcut-item" style="display: flex; justify-content: space-between; align-items: center;">
+                            <div><kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>H</kbd></div>
                             <span>Go to history</span>
                         </div>
-                        <div class="shortcut-item">
-                            <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>A</kbd>
+                        <div class="shortcut-item" style="display: flex; justify-content: space-between; align-items: center;">
+                            <div><kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>A</kbd></div>
                             <span>Go to analytics</span>
                         </div>
-                        <div class="shortcut-item">
-                            <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>T</kbd>
+                        <div class="shortcut-item" style="display: flex; justify-content: space-between; align-items: center;">
+                            <div><kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>T</kbd></div>
                             <span>Toggle theme</span>
                         </div>
                     </div>
-                    <button onclick="this.closest('.shortcuts-help-modal').remove()">Close</button>
+                    <button onclick="this.closest('.shortcuts-help-modal').remove()" 
+                            style="margin-top: 1.5rem; padding: 0.5rem 1rem; background: var(--accent-primary); color: white; border: none; border-radius: 6px; cursor: pointer;">
+                        Close
+                    </button>
                 </div>
             `;
 
             document.body.appendChild(helpModal);
 
-            // Auto remove after 5 seconds
-            setTimeout(() => {
+            // Auto remove after 10 seconds or on click outside
+            const autoRemove = setTimeout(() => {
                 if (helpModal.parentNode) {
                     helpModal.remove();
                 }
-            }, 5000);
+            }, 10000);
+
+            helpModal.addEventListener('click', (e) => {
+                if (e.target === helpModal) {
+                    clearTimeout(autoRemove);
+                    helpModal.remove();
+                }
+            });
         }
 
         enable() {
