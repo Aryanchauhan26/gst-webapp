@@ -172,4 +172,6 @@ if (typeof window.keyboardShortcuts === 'undefined') {
 
     // Initialize keyboard shortcuts
     window.keyboardShortcuts = new KeyboardShortcuts();
+} else {
+    console.log('⌨️ Keyboard Shortcuts already initialized');
 }
