@@ -1,3 +1,4 @@
+
 // =====================================================
 // GST Intelligence Platform - Core Application Module
 // =====================================================
@@ -23,6 +24,14 @@ class GSTPlatformCore {
         }
     }
 
+    initializeModules() {
+        // Initialize core modules
+        this.modules.set('api', new APIManager());
+        this.modules.set('ui', new UIManager());
+        this.modules.set('utils', new UtilityManager());
+        this.modules.set('performance', new PerformanceManager());
+    }
+
     onDOMReady() {
         console.log('📱 DOM Ready - Initializing GST Platform Core');
         try {
@@ -36,14 +45,6 @@ class GSTPlatformCore {
             console.error('❌ Failed to load GST Platform Core', error);
             this.handleError(error);
         }
-    }
-
-    initializeModules() {
-        // Initialize core modules
-        this.modules.set('api', new APIManager());
-        this.modules.set('ui', new UIManager());
-        this.modules.set('utils', new UtilityManager());
-        this.modules.set('performance', new PerformanceManager());
     }
 
     setupAPIHandlers() {
