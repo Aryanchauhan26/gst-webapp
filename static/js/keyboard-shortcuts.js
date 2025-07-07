@@ -145,3 +145,78 @@ if (document.readyState === 'loading') {
 } else {
     window.keyboardShortcuts = new KeyboardShortcuts();
 }
+// =====================================================
+// GST Intelligence Platform - Keyboard Shortcuts
+// =====================================================
+
+'use strict';
+
+class KeyboardShortcuts {
+    constructor() {
+        this.shortcuts = new Map();
+        this.init();
+    }
+
+    init() {
+        console.log('⌨️ Keyboard shortcuts initialized');
+        this.setupShortcuts();
+        this.bindEvents();
+    }
+
+    setupShortcuts() {
+        // Global shortcuts
+        this.addShortcut('ctrl+/', () => this.showShortcutsHelp());
+        this.addShortcut('ctrl+k', () => this.focusSearch());
+        this.addShortcut('escape', () => this.closeModals());
+        
+        // Navigation shortcuts
+        this.addShortcut('alt+h', () => window.location.href = '/');
+        this.addShortcut('alt+s', () => window.location.href = '/history');
+        this.addShortcut('alt+a', () => window.location.href = '/analytics');
+    }
+
+    addShortcut(key, callback) {
+        this.shortcuts.set(key, callback);
+    }
+
+    bindEvents() {
+        document.addEventListener('keydown', (event) => {
+            const key = this.getKeyString(event);
+            if (this.shortcuts.has(key)) {
+                event.preventDefault();
+                this.shortcuts.get(key)();
+            }
+        });
+    }
+
+    getKeyString(event) {
+        const parts = [];
+        if (event.ctrlKey) parts.push('ctrl');
+        if (event.altKey) parts.push('alt');
+        if (event.shiftKey) parts.push('shift');
+        parts.push(event.key.toLowerCase());
+        return parts.join('+');
+    }
+
+    focusSearch() {
+        const searchInput = document.querySelector('#gstin-input, .search-input, input[type="search"]');
+        if (searchInput) {
+            searchInput.focus();
+        }
+    }
+
+    closeModals() {
+        const modals = document.querySelectorAll('.modal.active, .dropdown.active');
+        modals.forEach(modal => modal.classList.remove('active'));
+    }
+
+    showShortcutsHelp() {
+        // Show shortcuts help modal or tooltip
+        console.log('Keyboard shortcuts help requested');
+    }
+}
+
+// Initialize keyboard shortcuts
+document.addEventListener('DOMContentLoaded', () => {
+    new KeyboardShortcuts();
+});

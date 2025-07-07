@@ -4,27 +4,27 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}GST Intelligence Platform{% endblock %}</title>
-    
+
     <!-- Meta Tags -->
     <meta name="description" content="Advanced GST Compliance Analytics Platform with AI-powered insights">
     <meta name="theme-color" content="#7c3aed">
     <link rel="canonical" href="{{ request.url }}">
-    
+
     <!-- PWA Manifest -->
     <link rel="manifest" href="/static/manifest.json">
-    
+
     <!-- Icons -->
     <link rel="icon" type="image/svg+xml" href="/static/icons/favicon.svg">
     <link rel="icon" type="image/png" href="/static/icons/favicon.png">
     <link rel="apple-touch-icon" href="/static/icons/apple-touch-icon.png">
-    
+
     <!-- External CSS -->
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js"></script>
-    
+
     <!-- Internal CSS -->
     <link rel="stylesheet" href="/static/css/base.css">
-    
+
     <!-- Critical CSS -->
     <style>
         /* Theme Variables */
@@ -33,13 +33,13 @@
             --primary-500: #7c3aed;
             --primary-600: #6d28d9;
             --primary-700: #5b21b6;
-            
+
             /* Semantic Colors */
             --success: #10b981;
             --warning: #f59e0b;
             --error: #ef4444;
             --info: #3b82f6;
-            
+
             /* Transitions */
             --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
             --transition-base: 200ms cubic-bezier(0.4, 0, 0.2, 1);
@@ -52,19 +52,19 @@
             --bg-card: #1e293b;
             --bg-hover: #334155;
             --bg-input: #334155;
-            
+
             --text-primary: #f8fafc;
             --text-secondary: #cbd5e1;
             --text-tertiary: #94a3b8;
             --text-muted: #64748b;
-            
+
             --border-color: #334155;
             --border-primary: #334155;
-            
+
             --accent-primary: #7c3aed;
             --accent-secondary: #a855f7;
             --accent-gradient: linear-gradient(135deg, #7c3aed 0%, #a855f7 100%);
-            
+
             --card-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
             --hover-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
         }
@@ -75,12 +75,12 @@
             --bg-card: #ffffff;
             --bg-hover: #f1f5f9;
             --bg-input: #f8fafc;
-            
+
             --text-primary: #0f172a;
             --text-secondary: #475569;
             --text-tertiary: #64748b;
             --text-muted: #94a3b8;
-            
+
             --border-color: #e2e8f0;
             --border-primary: #e2e8f0;
         }
@@ -94,7 +94,7 @@
             border-bottom: 1px solid var(--border-primary);
             backdrop-filter: blur(10px);
         }
-        
+
         .header__container {
             max-width: 1400px;
             margin: 0 auto;
@@ -320,15 +320,15 @@
             .header__nav {
                 display: none;
             }
-            
+
             .user__info {
                 display: none;
             }
-            
+
             .header__container {
                 padding: 0 1rem;
             }
-            
+
             .container {
                 padding: 1rem;
             }
@@ -359,7 +359,7 @@
 <body class="{% block body_class %}{% endblock %}" data-page="{{ request.url.path.split('/')[-1] or 'home' }}">
     <!-- Skip to main content for accessibility -->
     <a href="#main-content" class="sr-only">Skip to main content</a>
-    
+
     <!-- Header Component -->
     {% if not request.url.path in ['/login', '/signup'] %}
     {% block header %}
@@ -514,11 +514,11 @@
             const html = document.documentElement;
             const currentTheme = html.getAttribute('data-theme');
             const newTheme = currentTheme === 'light' ? null : 'light';
-            
+
             document.body.classList.add('theme-transitioning');
             html.setAttribute('data-theme', newTheme);
             localStorage.setItem('theme', newTheme || 'dark');
-            
+
             setTimeout(() => {
                 document.body.classList.remove('theme-transitioning');
             }, 300);
@@ -534,14 +534,14 @@
         document.addEventListener('DOMContentLoaded', function() {
             const userBtn = document.getElementById('userProfileBtn');
             const dropdown = document.getElementById('userDropdownMenu');
-            
+
             // Only setup user dropdown if user is authenticated
             if (userBtn && dropdown && window.GST_APP_STATE.isAuthenticated) {
                 userBtn.addEventListener('click', function(e) {
                     e.stopPropagation();
-                    
+
                     const isOpen = dropdown.classList.contains('active');
-                    
+
                     if (isOpen) {
                         dropdown.classList.remove('active');
                         userBtn.classList.remove('active');
@@ -553,7 +553,7 @@
                         loadUserDropdown();
                     }
                 });
-                
+
                 document.addEventListener('click', function(e) {
                     if (!userBtn.contains(e.target) && !dropdown.contains(e.target)) {
                         dropdown.classList.remove('active');
@@ -633,11 +633,11 @@
                 try {
                     const response = await fetch('/api/user/stats');
                     const result = await response.json();
-                    
+
                     if (result.success && result.data) {
                         const totalSearches = dropdown.querySelector('[data-user-stat="total-searches"]');
                         const avgCompliance = dropdown.querySelector('[data-user-stat="avg-compliance"]');
-                        
+
                         if (totalSearches) totalSearches.textContent = result.data.total_searches || 0;
                         if (avgCompliance) avgCompliance.textContent = Math.round(result.data.avg_compliance || 0) + '%';
                     }
@@ -653,7 +653,7 @@
     <script src="/static/js/app-core.js"></script>
     <script src="/static/js/app.js"></script>
     <script src="/static/js/dashboard.js"></script>
-    <script src="/static/js/Keyboard-shortcuts.js"></script>
+    <script src="/static/js/keyboard-shortcuts.js"></script>
 
     <script>
         // Initialize when DOM is ready
@@ -665,7 +665,7 @@
             }
         });
     </script>
-    
+
     <!-- Page-specific JavaScript -->
     {% block extra_js %}{% endblock %}
 </body>
