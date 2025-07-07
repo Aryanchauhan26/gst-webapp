@@ -6,6 +6,19 @@ from pydantic import ConfigDict, field_validator, BaseModel
 from datetime import timedelta
 
 
+class Settings(BaseModel):
+    SESSION_DURATION: timedelta
+
+    @classmethod
+    def parse_env(cls):
+        # This will convert the input string into a timedelta
+        input_value = '2592000'  # Replace with the relevant environment fetching logic
+        return cls(SESSION_DURATION=timedelta(seconds=int(input_value)))
+
+
+settings = Settings.parse_env()
+
+
 class Settings(BaseSettings):
     # Pydantic v2 configuration - ignores extra .env variables
     model_config = ConfigDict(
