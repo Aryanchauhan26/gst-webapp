@@ -1,0 +1,9 @@
+modules = ["python-3.12", "web", "nodejs-20"]
+run = "uvicorn main:app --host 0.0.0.0 --port 3000"
+
+[nix]
+channel = "stable-24_05"
+packages = ["cacert", "cargo", "fontconfig", "freetype", "ghostscript", "glib", "glibcLocales", "harfbuzz", "libiconv", "libuv", "libxcrypt", "openssl", "pango", "pkg-config", "postgresql", "rustc", "xcodebuild", "zlib"]
+
+[deployment]
+run = ["sh", "-c", "uvicorn main:app --host 0.0.0.0 --port 3000"]
