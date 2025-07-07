@@ -1,4 +1,3 @@
-
 // /static/js/missing-globals.js
 // Create this file to provide missing global dependencies
 // Load this BEFORE other JavaScript files
@@ -13,19 +12,19 @@ if (!window.notificationManager) {
         showSuccess: function(message, duration = 3000) {
             this.showNotification(message, 'success', duration);
         },
-        
+
         showError: function(message, duration = 5000) {
             this.showNotification(message, 'error', duration);
         },
-        
+
         showWarning: function(message, duration = 4000) {
             this.showNotification(message, 'warning', duration);
         },
-        
+
         showInfo: function(message, duration = 3000) {
             this.showNotification(message, 'info', duration);
         },
-        
+
         showNotification: function(message, type = 'info', duration = 3000) {
             // Create notification element
             const notification = document.createElement('div');
@@ -45,7 +44,7 @@ if (!window.notificationManager) {
                 max-width: 400px;
                 word-wrap: break-word;
             `;
-            
+
             // Set background color based on type
             const colors = {
                 success: '#10b981',
@@ -54,9 +53,9 @@ if (!window.notificationManager) {
                 info: '#3b82f6'
             };
             notification.style.backgroundColor = colors[type] || colors.info;
-            
+
             notification.textContent = message;
-            
+
             // Add close button
             const closeBtn = document.createElement('button');
             closeBtn.innerHTML = '×';
@@ -71,21 +70,21 @@ if (!window.notificationManager) {
             `;
             closeBtn.onclick = () => this.removeNotification(notification);
             notification.appendChild(closeBtn);
-            
+
             document.body.appendChild(notification);
-            
+
             // Show notification
             setTimeout(() => {
                 notification.style.opacity = '1';
                 notification.style.transform = 'translateX(0)';
             }, 100);
-            
+
             // Auto remove
             setTimeout(() => {
                 this.removeNotification(notification);
             }, duration);
         },
-        
+
         removeNotification: function(notification) {
             if (notification && notification.parentNode) {
                 notification.style.opacity = '0';
@@ -114,7 +113,7 @@ if (!window.utils) {
                 timeout = setTimeout(later, wait);
             };
         },
-        
+
         throttle: function(func, limit) {
             let inThrottle;
             return function() {
@@ -127,7 +126,7 @@ if (!window.utils) {
                 }
             }
         },
-        
+
         formatNumber: function(num) {
             if (num >= 1000000) {
                 return (num / 1000000).toFixed(1) + 'M';
@@ -136,18 +135,18 @@ if (!window.utils) {
             }
             return num.toString();
         },
-        
+
         formatCurrency: function(amount, currency = 'INR') {
             return new Intl.NumberFormat('en-IN', {
                 style: 'currency',
                 currency: currency
             }).format(amount);
         },
-        
+
         formatDate: function(date) {
             return new Intl.DateTimeFormat('en-IN').format(new Date(date));
         },
-        
+
         copyToClipboard: function(text) {
             if (navigator.clipboard) {
                 return navigator.clipboard.writeText(text);
@@ -175,7 +174,7 @@ if (!window.loadingManager) {
     window.loadingManager = {
         show: function(message = 'Loading...') {
             this.hide(); // Remove any existing loader
-            
+
             const loader = document.createElement('div');
             loader.id = 'global-loader';
             loader.style.cssText = `
@@ -191,7 +190,7 @@ if (!window.loadingManager) {
                 z-index: 9999;
                 backdrop-filter: blur(2px);
             `;
-            
+
             loader.innerHTML = `
                 <div style="
                     background: var(--bg-card);
@@ -212,7 +211,7 @@ if (!window.loadingManager) {
                     <div>${message}</div>
                 </div>
             `;
-            
+
             // Add spin animation if not exists
             if (!document.getElementById('loader-styles')) {
                 const style = document.createElement('style');
@@ -225,10 +224,10 @@ if (!window.loadingManager) {
                 `;
                 document.head.appendChild(style);
             }
-            
+
             document.body.appendChild(loader);
         },
-        
+
         hide: function() {
             const loader = document.getElementById('global-loader');
             if (loader) {
@@ -245,17 +244,17 @@ if (!window.validation) {
             const pattern = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/;
             return pattern.test(gstin?.trim().toUpperCase());
         },
-        
+
         validateEmail: function(email) {
             const pattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
             return pattern.test(email?.trim());
         },
-        
+
         validateMobile: function(mobile) {
             const pattern = /^[6-9][0-9]{9}$/;
             return pattern.test(mobile?.trim());
         },
-        
+
         validatePAN: function(pan) {
             const pattern = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/;
             return pattern.test(pan?.trim().toUpperCase());
@@ -275,3 +274,23 @@ window.bridges = {
 window.bridges.establish();
 
 console.log('✅ Missing globals loaded successfully!');
+
+// Log error to server
+fetch('/api/system/error', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            message: 'Example error message',
+            stack: 'Example stack trace'
+        })
+    })
+    .then(response => {
+        if (!response.ok) {
+            console.error('Failed to log error to server:', response.status);
+        }
+    })
+    .catch(error => {
+        console.error('Error logging error to server:', error);
+    });
