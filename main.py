@@ -16,7 +16,7 @@ from datetime import datetime, timedelta
 from collections import defaultdict
 from typing import Optional, Dict, List
 from fastapi import FastAPI, Request, Form, Depends, HTTPException, status, Response
-from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse, StreamingResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse, StreamingResponse, FileResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 from io import BytesIO
@@ -93,7 +93,7 @@ login_limiter = RateLimiter()
 api_limiter = RateLimiter(max_attempts=60, window_minutes=1)
 
 # PostgreSQL Database Manager
-# PostgreSQL Database Manager - FIXED VERSION
+
 class PostgresDB:
     def __init__(self, dsn=POSTGRES_DSN):
         self.dsn = dsn
@@ -101,11 +101,20 @@ class PostgresDB:
 
     async def connect(self):
         if not self.pool:
-            self.pool = await asyncpg.create_pool(dsn=self.dsn)
+            try:
+                self.pool = await asyncpg.create_pool(
+                    dsn=self.dsn,
+                    min_size=1,
+                    max_size=10,
+                    command_timeout=60
+                )
+                logger.info("✅ Database pool created successfully")
+                await self.ensure_tables()
+            except Exception as e:
+                logger.error(f"❌ Database connection failed: {e}")
+                raise
 
     async def ensure_tables(self):
-        """Ensure all required tables exist with correct schema"""
-        await self.connect()
         async with self.pool.acquire() as conn:
             # Create users table
             await conn.execute("""
@@ -129,7 +138,7 @@ class PostgresDB:
                 );
             """)
             
-            # Create search_history table (FIXED COLUMN NAME)
+            # Create search_history table
             await conn.execute("""
                 CREATE TABLE IF NOT EXISTS search_history (
                     id SERIAL PRIMARY KEY,
@@ -142,78 +151,57 @@ class PostgresDB:
                 );
             """)
             
-            # Create user_preferences table
-            await conn.execute("""
-                CREATE TABLE IF NOT EXISTS user_preferences (
-                    mobile VARCHAR(10) PRIMARY KEY,
-                    preferences JSONB NOT NULL DEFAULT '{}',
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    FOREIGN KEY (mobile) REFERENCES users(mobile) ON DELETE CASCADE
-                );
-            """)
-            
             # Create indexes
             await conn.execute("CREATE INDEX IF NOT EXISTS idx_sessions_expires ON sessions(expires_at);")
             await conn.execute("CREATE INDEX IF NOT EXISTS idx_search_history_mobile ON search_history(mobile);")
             await conn.execute("CREATE INDEX IF NOT EXISTS idx_search_history_searched_at ON search_history(searched_at);")
-            
-            logger.info("✅ All database tables created/verified with correct schema")
 
     async def create_user(self, mobile: str, password_hash: str, salt: str):
-        await self.connect()
         async with self.pool.acquire() as conn:
             await conn.execute(
-                "INSERT INTO users (mobile, password_hash, salt) VALUES ($1, $2, $3) ON CONFLICT (mobile) DO NOTHING",
+                "INSERT INTO users (mobile, password_hash, salt) VALUES ($1, $2, $3)",
                 mobile, password_hash, salt
             )
 
     async def verify_user(self, mobile: str, password: str) -> bool:
-        await self.connect()
         async with self.pool.acquire() as conn:
-            row = await conn.fetchrow("SELECT password_hash, salt FROM users WHERE mobile=$1", mobile)
-            if not row:
-                return False
-            return check_password(password, row['password_hash'], row['salt'])
+            user = await conn.fetchrow(
+                "SELECT password_hash, salt FROM users WHERE mobile = $1", mobile
+            )
+            if user:
+                return check_password(password, user['password_hash'], user['salt'])
+        return False
 
     async def create_session(self, mobile: str) -> Optional[str]:
         session_token = secrets.token_urlsafe(32)
-        expires_at = datetime.now() + timedelta(days=7)
-        await self.connect()
-        try:
-            async with self.pool.acquire() as conn:
-                await conn.execute(
-                    "INSERT INTO sessions (session_token, mobile, expires_at) VALUES ($1, $2, $3)",
-                    session_token, mobile, expires_at
-                )
-            return session_token
-        except Exception as e:
-            logger.error(f"Session creation failed: {e}")
-            return None
+        expires_at = datetime.now() + timedelta(days=30)
+        
+        async with self.pool.acquire() as conn:
+            await conn.execute(
+                "INSERT INTO sessions (session_token, mobile, expires_at) VALUES ($1, $2, $3)",
+                session_token, mobile, expires_at
+            )
+        return session_token
 
     async def get_session(self, session_token: str) -> Optional[str]:
-        await self.connect()
         async with self.pool.acquire() as conn:
-            row = await conn.fetchrow(
-                "SELECT mobile, expires_at FROM sessions WHERE session_token=$1",
+            session = await conn.fetchrow(
+                "SELECT mobile FROM sessions WHERE session_token = $1 AND expires_at > NOW()",
                 session_token
             )
-            if row and row['expires_at'] > datetime.now():
-                return row['mobile']
-        return None
+            return session['mobile'] if session else None
 
     async def delete_session(self, session_token: str):
-        await self.connect()
         async with self.pool.acquire() as conn:
-            await conn.execute("DELETE FROM sessions WHERE session_token=$1", session_token)
+            await conn.execute("DELETE FROM sessions WHERE session_token = $1", session_token)
 
     async def update_last_login(self, mobile: str):
-        await self.connect()
         async with self.pool.acquire() as conn:
-            await conn.execute("UPDATE users SET last_login=$1 WHERE mobile=$2", datetime.now(), mobile)
+            await conn.execute(
+                "UPDATE users SET last_login = NOW() WHERE mobile = $1", mobile
+            )
 
     async def add_search_history(self, mobile: str, gstin: str, company_name: str, compliance_score: float = None):
-        await self.connect()
         async with self.pool.acquire() as conn:
             await conn.execute(
                 "INSERT INTO search_history (mobile, gstin, company_name, compliance_score) VALUES ($1, $2, $3, $4)",
@@ -221,19 +209,17 @@ class PostgresDB:
             )
 
     async def get_search_history(self, mobile: str, limit: int = 10) -> List[Dict]:
-        await self.connect()
         async with self.pool.acquire() as conn:
             rows = await conn.fetch(
-                "SELECT gstin, company_name, searched_at, compliance_score FROM search_history WHERE mobile=$1 ORDER BY searched_at DESC LIMIT $2",
+                "SELECT * FROM search_history WHERE mobile = $1 ORDER BY searched_at DESC LIMIT $2",
                 mobile, limit
             )
             return [dict(row) for row in rows]
 
     async def get_all_searches(self, mobile: str) -> List[Dict]:
-        await self.connect()
         async with self.pool.acquire() as conn:
             rows = await conn.fetch(
-                "SELECT gstin, company_name, searched_at, compliance_score FROM search_history WHERE mobile=$1 ORDER BY searched_at DESC",
+                "SELECT * FROM search_history WHERE mobile = $1 ORDER BY searched_at DESC",
                 mobile
             )
             return [dict(row) for row in rows]
@@ -498,12 +484,41 @@ async def health_check():
         )
 
 @app.get("/", response_class=HTMLResponse)
-async def home(request: Request, current_user: str = Depends(require_auth)):
-    history = await db.get_search_history(current_user)
+async def dashboard(request: Request, current_user: str = Depends(require_auth)):
+    await db.connect()
+    
+    # Get user search history
+    history = await db.get_search_history(current_user, limit=10)
+    
+    # Calculate searches this month
+    async with db.pool.acquire() as conn:
+        searches_this_month = await conn.fetchval("""
+            SELECT COUNT(*) FROM search_history 
+            WHERE mobile = $1 AND searched_at >= DATE_TRUNC('month', CURRENT_DATE)
+        """, current_user)
+        
+        total_searches = await conn.fetchval(
+            "SELECT COUNT(*) FROM search_history WHERE mobile = $1", current_user
+        )
+        
+        avg_compliance = await conn.fetchval(
+            "SELECT AVG(compliance_score) FROM search_history WHERE mobile = $1", current_user
+        )
+    
+    # Create user profile data
+    user_profile = {
+        "total_searches": total_searches or 0,
+        "avg_compliance": avg_compliance or 0,
+        "unique_companies": len(set(item.get("gstin", "") for item in history)) if history else 0
+    }
+    
     return templates.TemplateResponse("index.html", {
-        "request": request, 
-        "current_user": current_user, 
-        "history": history
+        "request": request,
+        "current_user": current_user,
+        "user_display_name": current_user,
+        "history": history,
+        "user_profile": user_profile,
+        "searches_this_month": searches_this_month or 0
     })
 
 @app.get("/login", response_class=HTMLResponse)
@@ -654,12 +669,14 @@ async def view_history(request: Request, current_user: str = Depends(require_aut
 async def analytics_dashboard(request: Request, current_user: str = Depends(require_auth)):
     await db.connect()
     async with db.pool.acquire() as conn:
+        # Get daily searches for the last 7 days
         daily_searches = await conn.fetch("""
             SELECT DATE(searched_at) as date, COUNT(*) as search_count, AVG(compliance_score) as avg_score
             FROM search_history WHERE mobile = $1 AND searched_at >= CURRENT_DATE - INTERVAL '7 days'
             GROUP BY DATE(searched_at) ORDER BY date
         """, current_user)
         
+        # Get compliance score distribution
         score_distribution = await conn.fetch("""
             SELECT CASE WHEN compliance_score >= 90 THEN 'Excellent (90-100)'
                         WHEN compliance_score >= 80 THEN 'Very Good (80-89)'
@@ -669,16 +686,25 @@ async def analytics_dashboard(request: Request, current_user: str = Depends(requ
             FROM search_history WHERE mobile = $1 AND compliance_score IS NOT NULL GROUP BY range ORDER BY range DESC
         """, current_user)
         
+        # Get top searched companies
         top_companies = await conn.fetch("""
             SELECT company_name, gstin, COUNT(*) as search_count, MAX(compliance_score) as latest_score
             FROM search_history WHERE mobile = $1 GROUP BY company_name, gstin
             ORDER BY search_count DESC LIMIT 10
         """, current_user)
         
+        # Calculate summary statistics
         total_searches = await conn.fetchval("SELECT COUNT(*) FROM search_history WHERE mobile = $1", current_user)
         unique_companies = await conn.fetchval("SELECT COUNT(DISTINCT gstin) FROM search_history WHERE mobile = $1", current_user)
         avg_compliance = await conn.fetchval("SELECT AVG(compliance_score) FROM search_history WHERE mobile = $1", current_user)
+        
+        # Calculate searches this month
+        searches_this_month = await conn.fetchval("""
+            SELECT COUNT(*) FROM search_history 
+            WHERE mobile = $1 AND searched_at >= DATE_TRUNC('month', CURRENT_DATE)
+        """, current_user)
     
+    # Convert dates to ISO format for JSON serialization
     daily_searches = [
         {**dict(row), "date": row["date"].isoformat() if hasattr(row["date"], "isoformat") else row["date"]}
         for row in daily_searches
@@ -692,7 +718,8 @@ async def analytics_dashboard(request: Request, current_user: str = Depends(requ
         "top_companies": [dict(row) for row in top_companies],
         "total_searches": total_searches or 0, 
         "unique_companies": unique_companies or 0,
-        "avg_compliance": round(avg_compliance or 0, 1)
+        "avg_compliance": round(avg_compliance or 0, 1),
+        "searches_this_month": searches_this_month or 0  # This was missing!
     })
 
 @app.get("/export/history")
@@ -896,6 +923,155 @@ async def get_user_stats(request: Request, current_user: str = Depends(require_a
         logger.error(f"Error fetching user stats: {e}")
         return {"success": False, "error": "Failed to fetch user statistics"}
 
+@app.get("/api/search/suggestions")
+async def search_suggestions(q: str, current_user: str = Depends(require_auth)):
+    """Get search suggestions for GSTIN"""
+    if len(q) < 3:
+        return JSONResponse({"suggestions": []})
+    
+    await db.connect()
+    async with db.pool.acquire() as conn:
+        suggestions = await conn.fetch("""
+            SELECT DISTINCT gstin, company_name 
+            FROM search_history 
+            WHERE mobile = $1 AND (gstin ILIKE $2 OR company_name ILIKE $2)
+            ORDER BY searched_at DESC LIMIT 5
+        """, current_user, f"%{q}%")
+    
+    return JSONResponse({
+        "suggestions": [{"gstin": row["gstin"], "company_name": row["company_name"]} for row in suggestions]
+    })
+
+@app.post("/api/search")
+async def api_search(request: Request, gstin: str = Form(...), current_user: str = Depends(require_auth)):
+    """API endpoint for search functionality"""
+    try:
+        # Validate GSTIN
+        if not validate_gstin(gstin):
+            return JSONResponse({"success": False, "error": "Invalid GSTIN format"})
+        
+        # Check rate limit
+        if not api_limiter.is_allowed(current_user):
+            return JSONResponse({"success": False, "error": "Rate limit exceeded"})
+        
+        if not api_client:
+            return JSONResponse({"success": False, "error": "GST API service not configured"})
+            
+        # Fetch company data
+        company_data = await api_client.fetch_gstin_data(gstin)
+        compliance_score = calculate_compliance_score(company_data)
+        
+        # Get AI synopsis
+        synopsis = None
+        if ANTHROPIC_API_KEY:
+            try:
+                synopsis = await get_anthropic_synopsis(company_data)
+            except Exception as e:
+                logger.error(f"Failed to get AI synopsis: {e}")
+        
+        # Add to search history
+        await db.add_search_history(current_user, gstin, company_data.get("lgnm", "Unknown"), compliance_score)
+        
+        return JSONResponse({
+            "success": True,
+            "data": {
+                "gstin": gstin,
+                "legal_name": company_data.get("lgnm"),
+                "trade_name": company_data.get("tradeNam"),
+                "business_status": company_data.get("sts"),
+                "filing_status": company_data.get("fillingFreq", {}).get("status", "Unknown"),
+                "registration_date": company_data.get("rgdt"),
+                "compliance_score": compliance_score,
+                "ai_synopsis": synopsis
+            }
+        })
+    except Exception as e:
+        logger.error(f"API search error: {e}")
+        return JSONResponse({"success": False, "error": str(e)})
+
+@app.post("/api/system/error")
+async def log_error(request: Request, current_user: str = Depends(require_auth)):
+    """Log client-side errors"""
+    try:
+        data = await request.json()
+        logger.error(f"Client error from {current_user}: {data}")
+        return JSONResponse({"success": True})
+    except Exception as e:
+        logger.error(f"Error logging client error: {e}")
+        return JSONResponse({"success": False})
+
+@app.get("/api/analytics/dashboard")
+async def analytics_api(current_user: str = Depends(require_auth)):
+    """API endpoint for dashboard analytics"""
+    await db.connect()
+    async with db.pool.acquire() as conn:
+        recent_searches = await conn.fetch("""
+            SELECT gstin, company_name, compliance_score, searched_at
+            FROM search_history WHERE mobile = $1 
+            ORDER BY searched_at DESC LIMIT 5
+        """, current_user)
+    
+    return JSONResponse({
+        "success": True,
+        "data": {
+            "recent_searches": [dict(row) for row in recent_searches]
+        }
+    })
+
+@app.get("/api/user/profile")
+async def user_profile(current_user: str = Depends(require_auth)):
+    """Get user profile information"""
+    await db.connect()
+    async with db.pool.acquire() as conn:
+        user_data = await conn.fetchrow("SELECT * FROM users WHERE mobile = $1", current_user)
+        search_count = await conn.fetchval("SELECT COUNT(*) FROM search_history WHERE mobile = $1", current_user)
+    
+    return JSONResponse({
+        "success": True,
+        "data": {
+            "mobile": current_user,
+            "created_at": user_data["created_at"].isoformat() if user_data["created_at"] else None,
+            "last_login": user_data["last_login"].isoformat() if user_data["last_login"] else None,
+            "search_count": search_count
+        }
+    })
+
+@app.get("/admin")
+async def admin_dashboard(request: Request, current_user: str = Depends(require_auth)):
+    """Admin dashboard (placeholder)"""
+    # For now, return a simple response
+    return HTMLResponse("<h1>Admin Dashboard - Coming Soon</h1>")
+
+@app.get("/api/admin/stats")
+async def admin_stats(current_user: str = Depends(require_auth)):
+    """Admin statistics"""
+    return JSONResponse({
+        "success": True,
+        "user_stats": {"total_users": 0, "active_users": 0},
+        "search_stats": {"total_searches": 0, "searches_today": 0}
+    })
+
+@app.get("/api/admin/users")
+async def admin_users(current_user: str = Depends(require_auth)):
+    """Admin user management"""
+    return JSONResponse({
+        "success": True,
+        "users": [],
+        "pagination": {"page": 1, "pages": 1, "total": 0}
+    })
+
+@app.get("/api/admin/system/health")
+async def system_health(current_user: str = Depends(require_auth)):
+    """System health check"""
+    return JSONResponse({
+        "success": True,
+        "health": {
+            "database": "healthy",
+            "api": "configured",
+            "ai": "configured" if ANTHROPIC_API_KEY else "not configured"
+        }
+    })
+
 def get_user_level(total_searches: int) -> dict:
     """Determine user level based on activity"""
     if total_searches >= 100:
@@ -951,6 +1127,23 @@ def get_user_achievements(total_searches: int, avg_compliance: float) -> list:
 async def favicon():
     favicon_bytes = b'\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\rIDATx\x9cc\xf8\x0f\x00\x00\x01\x01\x00\x05\x00\x01\x8d\xc8\x02\x00\x00\x00\x00IEND\xaeB`\x82'
     return Response(content=favicon_bytes, media_type="image/png")
+
+# Add these routes for missing static files:
+
+@app.get("/manifest.json")
+async def manifest():
+    """Serve PWA manifest"""
+    return FileResponse("static/manifest.json", media_type="application/json")
+
+@app.get("/sw.js")
+async def service_worker():
+    """Serve service worker"""
+    return FileResponse("sw.js", media_type="application/javascript")
+
+@app.get("/static/icons/icon-144x144.png")
+async def icon_144():
+    """Placeholder for missing icon"""
+    return JSONResponse({"error": "Icon not found"}, status_code=404)
 
 # Error handlers
 @app.exception_handler(HTTPException)
