@@ -1,810 +1,1257 @@
-{% extends "base.html" %}
-
-{% block title %}Dashboard - GST Intelligence Platform{% endblock %}
-{% block body_class %}page-dashboard{% endblock %}
-
-{% block content %}
-<!-- Enhanced Dashboard with Modern UI -->
+{% extends "base.html" %} {% block title %}Dashboard - GST Intelligence
+Platform{% endblock %} {% block body_class %}page-dashboard{% endblock %} {%
+block extra_css %}
 <style>
-    /* Dashboard-specific modern styles */
-    .hero-section {
-        background: var(--dark-gradient);
-        border-radius: 32px;
-        padding: 4rem 3rem;
-        margin-bottom: 3rem;
-        text-align: center;
-        position: relative;
-        overflow: hidden;
-        border: 1px solid rgba(124, 58, 237, 0.2);
-    }
-
-    .hero-section::before {
-        content: '';
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        height: 6px;
+    /* Dashboard-specific styles */
+    .dashboard-hero {
         background: var(--accent-gradient);
-        animation: progressBar 3s ease-in-out infinite;
-    }
-
-    .hero-title {
-        font-size: 3.5rem;
-        font-weight: 900;
-        background: var(--accent-gradient);
-        -webkit-background-clip: text;
-        background-clip: text;
-        -webkit-text-fill-color: transparent;
-        margin-bottom: 1rem;
-        line-height: 1.1;
-        animation: fadeInUp 0.8s ease-out;
-    }
-
-    .hero-subtitle {
-        font-size: 1.4rem;
-        color: var(--text-secondary);
+        color: white;
+        padding: 3rem 0;
         margin-bottom: 2rem;
-        animation: fadeInUp 0.8s ease-out 0.2s both;
-    }
-
-    /* Enhanced Search Section */
-    .search-section {
-        background: var(--bg-card);
-        border: 1px solid var(--border-primary);
-        border-radius: 32px;
-        padding: 3rem;
-        margin-bottom: 3rem;
-        box-shadow: var(--card-shadow);
+        border-radius: var(--radius-2xl);
         position: relative;
         overflow: hidden;
     }
 
-    .search-section::after {
-        content: '';
+    .dashboard-hero::before {
+        content: "";
         position: absolute;
         top: 0;
         left: 0;
         right: 0;
         bottom: 0;
-        background: 
-            radial-gradient(circle at 20% 20%, rgba(124, 58, 237, 0.1) 0%, transparent 50%),
-            radial-gradient(circle at 80% 80%, rgba(37, 99, 235, 0.05) 0%, transparent 50%);
-        pointer-events: none;
-        z-index: 0;
+        background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grid" width="10" height="10" patternUnits="userSpaceOnUse"><path d="M 10 0 L 0 0 0 10" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="0.5"/></pattern></defs><rect width="100" height="100" fill="url(%23grid)"/></svg>');
+        opacity: 0.3;
     }
 
-    .search-content {
+    .hero-content {
         position: relative;
         z-index: 1;
+        text-align: center;
     }
 
-    .search-form-enhanced {
-        display: flex;
-        gap: 1rem;
-        align-items: flex-end;
-        max-width: 800px;
-        margin: 2rem auto 0;
-        flex-wrap: wrap;
-    }
-
-    .gstin-input-group {
-        flex: 1;
-        min-width: 300px;
-        position: relative;
-    }
-
-    .gstin-input {
-        width: 100%;
-        padding: 1.5rem 1.5rem 1.5rem 4rem;
-        background: var(--bg-input);
-        border: 3px solid var(--border-primary);
-        border-radius: 20px;
-        font-size: 1.1rem;
-        color: var(--text-primary);
-        font-family: 'JetBrains Mono', monospace;
-        letter-spacing: 0.1em;
-        transition: all 0.3s ease;
-        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
-    }
-
-    .gstin-input:focus {
-        outline: none;
-        border-color: var(--primary-500);
-        box-shadow: 
-            0 8px 32px rgba(124, 58, 237, 0.2),
-            0 0 0 4px rgba(124, 58, 237, 0.1);
-        transform: translateY(-3px);
-    }
-
-    .gstin-icon {
-        position: absolute;
-        left: 1.5rem;
-        top: 50%;
-        transform: translateY(-50%);
-        color: var(--text-muted);
-        font-size: 1.3rem;
-        transition: all 0.3s ease;
-    }
-
-    .gstin-input:focus + .gstin-icon {
-        color: var(--primary-500);
-        transform: translateY(-50%) scale(1.1);
-    }
-
-    .search-btn-enhanced {
-        background: var(--accent-gradient);
-        border: none;
-        border-radius: 20px;
-        padding: 1.5rem 2.5rem;
-        color: white;
+    .hero-title {
+        font-size: 2.5rem;
         font-weight: 700;
-        font-size: 1.1rem;
-        cursor: pointer;
-        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        box-shadow: 0 8px 30px rgba(124, 58, 237, 0.4);
-        position: relative;
-        overflow: hidden;
+        margin-bottom: 1rem;
+        text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     }
 
-    .search-btn-enhanced::before {
-        content: '';
-        position: absolute;
-        top: 0;
-        left: -100%;
-        width: 100%;
-        height: 100%;
-        background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
-        transition: left 0.5s;
+    .hero-subtitle {
+        font-size: 1.25rem;
+        opacity: 0.9;
+        margin-bottom: 2rem;
     }
 
-    .search-btn-enhanced:hover::before {
-        left: 100%;
-    }
-
-    .search-btn-enhanced:hover {
-        transform: translateY(-4px) scale(1.05);
-        box-shadow: 0 12px 40px rgba(124, 58, 237, 0.6);
-    }
-
-    /* Enhanced Stats Grid */
-    .stats-grid-enhanced {
+    /* Stats Grid */
+    .stats-grid {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-        gap: 2rem;
+        gap: 1.5rem;
         margin-bottom: 3rem;
     }
 
     .stat-card-enhanced {
         background: var(--bg-card);
         border: 1px solid var(--border-primary);
-        border-radius: 24px;
-        padding: 2.5rem;
-        text-align: center;
-        transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        border-radius: var(--radius-xl);
+        padding: 2rem;
+        box-shadow: var(--card-shadow);
+        transition: all var(--transition);
+        cursor: pointer;
         position: relative;
         overflow: hidden;
-        cursor: pointer;
     }
 
     .stat-card-enhanced::before {
-        content: '';
-        position: absolute;
-        top: -50%;
-        left: -50%;
-        width: 200%;
-        height: 200%;
-        background: conic-gradient(
-            from 0deg,
-            transparent,
-            rgba(124, 58, 237, 0.1),
-            transparent
-        );
-        animation: rotate 8s linear infinite;
-        opacity: 0;
-        transition: opacity 0.3s ease;
-    }
-
-    .stat-card-enhanced:hover::before {
-        opacity: 1;
-    }
-
-    .stat-card-enhanced:hover {
-        transform: translateY(-12px) scale(1.03);
-        box-shadow: 0 25px 50px rgba(124, 58, 237, 0.25);
-        border-color: var(--primary-500);
-    }
-
-    .stat-icon-enhanced {
-        width: 80px;
-        height: 80px;
-        background: var(--accent-gradient);
-        border-radius: 20px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 2.5rem;
-        color: white;
-        margin: 0 auto 1.5rem;
-        position: relative;
-        z-index: 2;
-        box-shadow: 0 8px 32px rgba(124, 58, 237, 0.4);
-    }
-
-    .stat-value-enhanced {
-        font-size: 3.5rem;
-        font-weight: 900;
-        background: var(--accent-gradient);
-        -webkit-background-clip: text;
-        background-clip: text;
-        -webkit-text-fill-color: transparent;
-        margin-bottom: 0.5rem;
-        line-height: 1;
-        position: relative;
-        z-index: 2;
-    }
-
-    .stat-label-enhanced {
-        color: var(--text-secondary);
-        font-size: 1.1rem;
-        font-weight: 600;
-        position: relative;
-        z-index: 2;
-    }
-
-    .stat-trend {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 0.5rem;
-        margin-top: 1rem;
-        font-size: 0.9rem;
-        position: relative;
-        z-index: 2;
-    }
-
-    .stat-trend.positive {
-        color: var(--success);
-    }
-
-    .stat-trend.neutral {
-        color: var(--warning);
-    }
-
-    /* Quick Actions Panel */
-    .quick-actions-panel {
-        background: var(--bg-card);
-        border: 1px solid var(--border-primary);
-        border-radius: 32px;
-        padding: 3rem;
-        margin-bottom: 3rem;
-        box-shadow: var(--card-shadow);
-    }
-
-    .quick-actions-title {
-        font-size: 2rem;
-        font-weight: 700;
-        color: var(--text-primary);
-        margin-bottom: 2rem;
-        text-align: center;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 1rem;
-    }
-
-    .quick-actions-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-        gap: 1.5rem;
-    }
-
-    .quick-action-card {
-        background: var(--bg-hover);
-        border: 1px solid var(--border-primary);
-        border-radius: 20px;
-        padding: 2rem;
-        text-align: center;
-        transition: all 0.3s ease;
-        cursor: pointer;
-        position: relative;
-        overflow: hidden;
-    }
-
-    .quick-action-card::before {
-        content: '';
+        content: "";
         position: absolute;
         top: 0;
         left: 0;
         right: 0;
         height: 4px;
         background: var(--accent-gradient);
-        transform: scaleX(0);
-        transition: transform 0.3s ease;
     }
 
-    .quick-action-card:hover::before {
-        transform: scaleX(1);
+    .stat-card-enhanced:hover {
+        transform: translateY(-4px);
+        box-shadow: var(--hover-shadow);
     }
 
-    .quick-action-card:hover {
-        transform: translateY(-8px);
-        box-shadow: 0 20px 40px rgba(124, 58, 237, 0.2);
-        border-color: var(--primary-500);
-    }
-
-    .quick-action-icon {
+    .stat-icon-enhanced {
         width: 60px;
         height: 60px;
         background: var(--accent-gradient);
-        border-radius: 16px;
+        border-radius: var(--radius-xl);
         display: flex;
         align-items: center;
         justify-content: center;
-        font-size: 1.8rem;
+        margin-bottom: 1.5rem;
         color: white;
-        margin: 0 auto 1rem;
-        box-shadow: 0 8px 24px rgba(124, 58, 237, 0.3);
+        font-size: 1.5rem;
     }
 
-    .quick-action-title {
-        font-size: 1.2rem;
-        font-weight: 600;
+    .stat-value-enhanced {
+        font-size: 2.5rem;
+        font-weight: 700;
         color: var(--text-primary);
         margin-bottom: 0.5rem;
+        line-height: 1;
     }
 
-    .quick-action-desc {
-        font-size: 0.9rem;
+    .stat-label-enhanced {
         color: var(--text-secondary);
-        line-height: 1.5;
+        font-weight: 500;
+        margin-bottom: 1rem;
     }
 
-    /* Tips Section */
-    .tips-section {
-        background: linear-gradient(135deg, rgba(124, 58, 237, 0.1) 0%, rgba(37, 99, 235, 0.1) 100%);
-        border: 1px solid rgba(124, 58, 237, 0.2);
-        border-radius: 24px;
-        padding: 2.5rem;
-        margin-top: 3rem;
-    }
-
-    .tip-card-enhanced {
-        background: var(--bg-card);
-        border: 1px solid rgba(124, 58, 237, 0.2);
-        border-radius: 16px;
-        padding: 2rem;
+    .stat-trend {
         display: flex;
-        align-items: flex-start;
-        gap: 1.5rem;
-        box-shadow: 0 8px 32px rgba(124, 58, 237, 0.1);
+        align-items: center;
+        gap: 0.5rem;
+        font-size: 0.875rem;
+        padding: 0.5rem 1rem;
+        border-radius: var(--radius-full);
+        font-weight: 500;
     }
 
-    .tip-icon {
-        width: 50px;
-        height: 50px;
+    .stat-trend.positive {
+        background: rgba(16, 185, 129, 0.1);
+        color: var(--success);
+    }
+
+    .stat-trend.neutral {
+        background: rgba(59, 130, 246, 0.1);
+        color: var(--info);
+    }
+
+    .stat-trend.negative {
+        background: rgba(239, 68, 68, 0.1);
+        color: var(--error);
+    }
+
+    /* Search Section */
+    .search-section {
+        background: var(--bg-card);
+        border: 1px solid var(--border-primary);
+        border-radius: var(--radius-2xl);
+        padding: 2.5rem;
+        margin-bottom: 3rem;
+        box-shadow: var(--card-shadow);
+    }
+
+    .search-form {
+        max-width: 600px;
+        margin: 0 auto;
+    }
+
+    .search-input-group {
+        position: relative;
+        margin-bottom: 1.5rem;
+    }
+
+    .search-input {
+        width: 100%;
+        padding: 1.25rem 1.5rem 1.25rem 4rem;
+        font-size: 1.125rem;
+        border: 2px solid var(--border-primary);
+        border-radius: var(--radius-xl);
+        background: var(--bg-input);
+        color: var(--text-primary);
+        transition: all var(--transition);
+    }
+
+    .search-input:focus {
+        border-color: var(--accent-primary);
+        box-shadow: 0 0 0 4px rgba(124, 58, 237, 0.1);
+        outline: none;
+    }
+
+    .search-icon {
+        position: absolute;
+        left: 1.25rem;
+        top: 50%;
+        transform: translateY(-50%);
+        color: var(--text-muted);
+        font-size: 1.25rem;
+    }
+
+    .search-button {
+        width: 100%;
+        padding: 1.25rem;
+        font-size: 1.125rem;
+        font-weight: 600;
         background: var(--accent-gradient);
-        border-radius: 12px;
+        color: white;
+        border: none;
+        border-radius: var(--radius-xl);
+        cursor: pointer;
+        transition: all var(--transition);
         display: flex;
         align-items: center;
         justify-content: center;
-        font-size: 1.5rem;
-        color: white;
-        flex-shrink: 0;
+        gap: 0.75rem;
     }
 
-    .tip-content {
+    .search-button:hover {
+        transform: translateY(-2px);
+        box-shadow: var(--hover-shadow), var(--glow);
+    }
+
+    .search-button:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+        transform: none;
+    }
+
+    /* Content Grid */
+    .content-grid {
+        display: grid;
+        grid-template-columns: 2fr 1fr;
+        gap: 2rem;
+        margin-bottom: 3rem;
+    }
+
+    @media (max-width: 768px) {
+        .content-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    /* Recent Activity */
+    .activity-section {
+        background: var(--bg-card);
+        border: 1px solid var(--border-primary);
+        border-radius: var(--radius-xl);
+        padding: 2rem;
+        box-shadow: var(--card-shadow);
+    }
+
+    .section-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 1.5rem;
+        padding-bottom: 1rem;
+        border-bottom: 1px solid var(--border-primary);
+    }
+
+    .section-title {
+        font-size: 1.25rem;
+        font-weight: 600;
+        color: var(--text-primary);
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+
+    .activity-list {
+        space-y: 1rem;
+    }
+
+    .activity-item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 1rem;
+        background: var(--bg-hover);
+        border-radius: var(--radius-lg);
+        transition: all var(--transition);
+    }
+
+    .activity-item:hover {
+        background: var(--bg-input);
+        transform: translateX(4px);
+    }
+
+    .activity-info {
         flex: 1;
     }
 
-    .tip-title {
-        font-size: 1.1rem;
-        font-weight: 600;
+    .activity-company {
+        font-weight: 500;
         color: var(--text-primary);
+        margin-bottom: 0.25rem;
+    }
+
+    .activity-time {
+        font-size: 0.875rem;
+        color: var(--text-muted);
+    }
+
+    .activity-score {
+        display: flex;
+        align-items: center;
+    }
+
+    /* Quick Actions */
+    .quick-actions {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
+        margin-bottom: 2rem;
+    }
+
+    .quick-action {
+        background: var(--bg-card);
+        border: 2px solid var(--border-primary);
+        border-radius: var(--radius-xl);
+        padding: 1.5rem;
+        text-align: center;
+        text-decoration: none;
+        color: var(--text-primary);
+        transition: all var(--transition);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 1rem;
+    }
+
+    .quick-action:hover {
+        border-color: var(--accent-primary);
+        transform: translateY(-2px);
+        box-shadow: var(--card-shadow);
+        text-decoration: none;
+    }
+
+    .quick-action-icon {
+        width: 48px;
+        height: 48px;
+        background: var(--accent-gradient);
+        border-radius: var(--radius-lg);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 1.25rem;
+    }
+
+    .quick-action-label {
+        font-weight: 500;
+        font-size: 0.875rem;
+    }
+
+    /* Mini Charts */
+    .chart-container {
+        position: relative;
+        height: 200px;
+        margin-top: 1rem;
+    }
+
+    .chart-container canvas {
+        border-radius: var(--radius-lg);
+    }
+
+    /* Empty States */
+    .empty-state {
+        text-align: center;
+        padding: 3rem 1rem;
+        color: var(--text-muted);
+    }
+
+    .empty-state-icon {
+        font-size: 3rem;
+        margin-bottom: 1rem;
+        opacity: 0.5;
+    }
+
+    .empty-state-text {
+        font-size: 1.125rem;
         margin-bottom: 0.5rem;
     }
 
-    .tip-text {
-        color: var(--text-secondary);
-        line-height: 1.6;
+    .empty-state-subtext {
+        font-size: 0.875rem;
     }
 
-    /* Animations */
-    @keyframes fadeInUp {
-        from {
-            opacity: 0;
-            transform: translateY(30px);
-        }
-        to {
+    /* Notifications */
+    .notification-banner {
+        background: linear-gradient(135deg, var(--info) 0%, #3b82f6 100%);
+        color: white;
+        padding: 1rem 1.5rem;
+        border-radius: var(--radius-lg);
+        margin-bottom: 2rem;
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+    }
+
+    .notification-banner.success {
+        background: linear-gradient(135deg, var(--success) 0%, #10b981 100%);
+    }
+
+    .notification-banner.warning {
+        background: linear-gradient(135deg, var(--warning) 0%, #f59e0b 100%);
+    }
+
+    .notification-banner-icon {
+        font-size: 1.5rem;
+    }
+
+    .notification-banner-content {
+        flex: 1;
+    }
+
+    .notification-banner-title {
+        font-weight: 600;
+        margin-bottom: 0.25rem;
+    }
+
+    .notification-banner-text {
+        opacity: 0.9;
+        font-size: 0.875rem;
+    }
+
+    .notification-banner-close {
+        background: none;
+        border: none;
+        color: white;
+        cursor: pointer;
+        padding: 0.25rem;
+        border-radius: var(--radius);
+        transition: background-color var(--transition);
+    }
+
+    .notification-banner-close:hover {
+        background: rgba(255, 255, 255, 0.1);
+    }
+
+    /* Loading States */
+    .loading-skeleton {
+        background: var(--bg-hover);
+        border-radius: var(--radius);
+        animation: skeleton-loading 1.5s ease-in-out infinite alternate;
+    }
+
+    @keyframes skeleton-loading {
+        0% {
             opacity: 1;
-            transform: translateY(0);
+        }
+        100% {
+            opacity: 0.4;
         }
     }
 
-    @keyframes progressBar {
-        0% { transform: scaleX(0); }
-        50% { transform: scaleX(1); }
-        100% { transform: scaleX(0); }
+    .skeleton-text {
+        height: 1rem;
+        margin-bottom: 0.5rem;
     }
 
-    @keyframes rotate {
-        from { transform: rotate(0deg); }
-        to { transform: rotate(360deg); }
+    .skeleton-text:last-child {
+        width: 60%;
     }
 
-    @keyframes pulse {
-        0%, 100% { opacity: 1; transform: scale(1); }
-        50% { opacity: 0.8; transform: scale(1.05); }
-    }
-
-    /* Mobile Responsive */
-    @media (max-width: 768px) {
+    /* Responsive Design */
+    @media (max-width: 640px) {
         .hero-title {
-            font-size: 2.5rem;
+            font-size: 2rem;
         }
-        
+
         .hero-subtitle {
-            font-size: 1.1rem;
+            font-size: 1rem;
         }
-        
-        .search-form-enhanced {
-            flex-direction: column;
-            align-items: stretch;
-        }
-        
-        .gstin-input-group {
-            min-width: 100%;
-        }
-        
-        .stats-grid-enhanced {
-            grid-template-columns: 1fr;
-            gap: 1.5rem;
-        }
-        
-        .stat-card-enhanced {
-            padding: 2rem;
-        }
-        
+
         .stat-value-enhanced {
-            font-size: 2.5rem;
+            font-size: 2rem;
+        }
+
+        .search-section {
+            padding: 1.5rem;
+        }
+
+        .stats-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .quick-actions {
+            grid-template-columns: repeat(2, 1fr);
         }
     }
 </style>
-
-<!-- Hero Section -->
-<section class="hero-section">
-    <h1 class="hero-title">GST Intelligence Platform</h1>
-    <p class="hero-subtitle">Advanced compliance analytics with AI-powered insights</p>
-    
-    <!-- Live Status Indicator -->
-    <div style="display: flex; align-items: center; justify-content: center; gap: 1rem; margin-top: 2rem;">
-        <div style="width: 12px; height: 12px; background: var(--success); border-radius: 50%; animation: pulse 2s infinite;"></div>
-        <span style="color: var(--text-secondary); font-size: 1rem;">System Online & Ready</span>
-    </div>
-</section>
-
-<!-- Enhanced Search Section -->
-<section class="search-section">
-    <div class="search-content">
-        <h2 style="font-size: 2.5rem; font-weight: 700; text-align: center; margin-bottom: 1rem; background: var(--accent-gradient); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;">
-            Search Company by GSTIN
-        </h2>
-        <p style="text-align: center; color: var(--text-secondary); font-size: 1.1rem; margin-bottom: 2rem;">
-            Enter a 15-digit GSTIN to get comprehensive compliance analysis
-        </p>
-        
-        <form class="search-form-enhanced" id="enhancedSearchForm" action="/search" method="POST">
-            <div class="gstin-input-group">
-                <input type="text" 
-                       id="gstinEnhanced" 
-                       name="gstin" 
-                       class="gstin-input" 
-                       placeholder="e.g., 27AADCB2230M1Z8"
-                       pattern="[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}"
-                       maxlength="15"
-                       required>
-                <i class="fas fa-search gstin-icon"></i>
-            </div>
-            <button type="submit" class="search-btn-enhanced">
-                <i class="fas fa-chart-line" style="margin-right: 0.5rem;"></i>
-                Analyze
-            </button>
-        </form>
-        
-        <!-- Error Messages -->
-        {% if error %}
-        <div style="background: rgba(239, 68, 68, 0.1); border: 1px solid var(--error); border-radius: 16px; padding: 1.5rem; margin-top: 2rem; display: flex; align-items: center; gap: 1rem;">
-            <i class="fas fa-exclamation-circle" style="color: var(--error); font-size: 1.5rem;"></i>
-            <span style="color: var(--error); font-weight: 500;">{{ error }}</span>
+{% endblock %} {% block content %}
+<div class="dashboard-container">
+    <!-- Dashboard Hero Section -->
+    <section class="dashboard-hero">
+        <div class="hero-content">
+            <h1 class="hero-title">
+                Welcome back, {{ user_display_name or 'User' }}! 👋
+            </h1>
+            <p class="hero-subtitle">
+                Monitor GST compliance with AI-powered insights
+            </p>
         </div>
-        {% endif %}
-    </div>
-</section>
+    </section>
 
-<!-- Enhanced Stats Dashboard -->
-<section>
-    <div style="text-align: center; margin-bottom: 3rem;">
-        <h2 style="font-size: 2.5rem; font-weight: 700; color: var(--text-primary); margin-bottom: 1rem;">
-            <i class="fas fa-chart-pie" style="margin-right: 1rem; color: var(--primary-500);"></i>
-            Quick Analytics
-        </h2>
-        <p style="color: var(--text-secondary); font-size: 1.1rem;">
-            Your search activity and compliance insights at a glance
-        </p>
+    <!-- Notification Banner (if any) -->
+    {% if not user_profile or user_profile.get('total_searches', 0) == 0 %}
+    <div class="notification-banner" id="welcome-banner">
+        <div class="notification-banner-icon">
+            <i class="fas fa-lightbulb"></i>
+        </div>
+        <div class="notification-banner-content">
+            <div class="notification-banner-title">
+                Get Started with GST Intelligence
+            </div>
+            <div class="notification-banner-text">
+                Search your first company by GSTIN to unlock powerful compliance
+                insights and analytics.
+            </div>
+        </div>
+        <button
+            class="notification-banner-close"
+            onclick="this.parentElement.style.display='none'"
+        >
+            <i class="fas fa-times"></i>
+        </button>
     </div>
-    
-    <div class="stats-grid-enhanced">
-        <!-- Total Companies Searched -->
-        <div class="stat-card-enhanced" onclick="window.location.href='/analytics'">
+    {% endif %}
+
+    <!-- Stats Overview -->
+    <section class="stats-grid">
+        <!-- Total Searches -->
+        <div
+            class="stat-card-enhanced"
+            onclick="window.location.href='/history'"
+        >
+            <div class="stat-icon-enhanced">
+                <i class="fas fa-search"></i>
+            </div>
+            <div class="stat-value-enhanced" id="total-searches">
+                {{ user_profile.total_searches if user_profile else 0 }}
+            </div>
+            <div class="stat-label-enhanced">Total Searches</div>
+            <div class="stat-trend positive">
+                <i class="fas fa-arrow-up"></i>
+                <span>Active user</span>
+            </div>
+        </div>
+
+        <!-- Unique Companies -->
+        <div
+            class="stat-card-enhanced"
+            onclick="window.location.href='/analytics'"
+        >
             <div class="stat-icon-enhanced">
                 <i class="fas fa-building"></i>
             </div>
-            <div class="stat-value-enhanced" id="totalCompaniesEnhanced">{{ history | length if history else 0 }}</div>
+            <div class="stat-value-enhanced" id="unique-companies">
+                {{ user_profile.unique_companies if user_profile else 0 }}
+            </div>
             <div class="stat-label-enhanced">Companies Analyzed</div>
             <div class="stat-trend positive">
                 <i class="fas fa-arrow-up"></i>
                 <span>+12% this month</span>
             </div>
         </div>
-        
+
         <!-- Average Compliance Score -->
-        <div class="stat-card-enhanced" onclick="window.location.href='/analytics'">
+        <div
+            class="stat-card-enhanced"
+            onclick="window.location.href='/analytics'"
+        >
             <div class="stat-icon-enhanced">
                 <i class="fas fa-percentage"></i>
             </div>
-            <div class="stat-value-enhanced">
-                {% if history and history[0].compliance_score %}
-                    {{ "%.0f"|format((history|map(attribute='compliance_score')|sum) / (history|length)) }}%
-                {% else %}
-                    N/A
-                {% endif %}
+            <div class="stat-value-enhanced" id="avg-compliance">
+                {% if user_profile and user_profile.avg_compliance %} {{
+                "%.0f"|format(user_profile.avg_compliance) }}% {% else %} N/A {%
+                endif %}
             </div>
             <div class="stat-label-enhanced">Avg Compliance Score</div>
-            <div class="stat-trend {% if history and (history|map(attribute='compliance_score')|sum) / (history|length) >= 75 %}positive{% else %}neutral{% endif %}">
-                <i class="fas {% if history and (history|map(attribute='compliance_score')|sum) / (history|length) >= 75 %}fa-arrow-up{% else %}fa-minus{% endif %}"></i>
-                <span>{% if history and (history|map(attribute='compliance_score')|sum) / (history|length) >= 75 %}Good trend{% else %}Stable{% endif %}</span>
+            <div
+                class="stat-trend {% if user_profile and user_profile.avg_compliance >= 75 %}positive{% else %}neutral{% endif %}"
+            >
+                <i
+                    class="fas {% if user_profile and user_profile.avg_compliance >= 75 %}fa-arrow-up{% else %}fa-minus{% endif %}"
+                ></i>
+                <span
+                    >{% if user_profile and user_profile.avg_compliance >= 75
+                    %}Good trend{% else %}Stable{% endif %}</span
+                >
             </div>
         </div>
-        
+
         <!-- This Month's Activity -->
-        <div class="stat-card-enhanced" onclick="window.location.href='/history'">
+        <div
+            class="stat-card-enhanced"
+            onclick="window.location.href='/history'"
+        >
             <div class="stat-icon-enhanced">
                 <i class="fas fa-calendar-check"></i>
             </div>
-            <div class="stat-value-enhanced">{{ searches_this_month if searches_this_month is defined else history|length if history else 0 }}</div>
+            <div class="stat-value-enhanced" id="recent-searches">
+                {{ searches_this_month if searches_this_month is defined else 0
+                }}
+            </div>
             <div class="stat-label-enhanced">Searches This Month</div>
             <div class="stat-trend positive">
                 <i class="fas fa-clock"></i>
                 <span>Active user</span>
             </div>
         </div>
-        
-        <!-- AI Insights -->
-        <div class="stat-card-enhanced" onclick="openEnhancedProfileModal()">
-            <div class="stat-icon-enhanced">
-                <i class="fas fa-robot"></i>
-            </div>
-            <div class="stat-value-enhanced">AI</div>
-            <div class="stat-label-enhanced">Powered Analytics</div>
-            <div class="stat-trend positive">
-                <i class="fas fa-sparkles"></i>
-                <span>Active</span>
-            </div>
-        </div>
-    </div>
-</section>
+    </section>
 
-<!-- Quick Actions Panel -->
-<section class="quick-actions-panel">
-    <h3 class="quick-actions-title">
-        <i class="fas fa-bolt"></i>
-        Quick Actions
-    </h3>
-    
-    <div class="quick-actions-grid">
-        <div class="quick-action-card" onclick="window.location.href='/history'">
+    <!-- GST Search Section -->
+    <section class="search-section">
+        <div class="section-header">
+            <h2 class="section-title">
+                <i class="fas fa-search"></i>
+                Quick GST Search
+            </h2>
+        </div>
+
+        <form
+            class="search-form"
+            id="gstin-search-form"
+            method="post"
+            action="/api/search"
+        >
+            <div class="search-input-group">
+                <input
+                    type="text"
+                    name="gstin"
+                    class="search-input"
+                    placeholder="Enter GSTIN (e.g., 29AAAPL2356Q1ZS)"
+                    maxlength="15"
+                    pattern="[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}[Z]{1}[0-9A-Z]{1}"
+                    autocomplete="off"
+                    autocapitalize="characters"
+                    required
+                />
+                <i class="fas fa-search search-icon"></i>
+            </div>
+            <button type="submit" class="search-button" id="search-btn">
+                <i class="fas fa-chart-line"></i>
+                <span>Analyze Compliance</span>
+            </button>
+        </form>
+    </section>
+
+    <!-- Quick Actions -->
+    <section class="quick-actions">
+        <a href="/history" class="quick-action">
             <div class="quick-action-icon">
                 <i class="fas fa-history"></i>
             </div>
-            <div class="quick-action-title">View History</div>
-            <div class="quick-action-desc">Browse your previous searches and compliance reports</div>
-        </div>
-        
-        <div class="quick-action-card" onclick="window.location.href='/analytics'">
+            <div class="quick-action-label">Search History</div>
+        </a>
+
+        <a href="/analytics" class="quick-action">
             <div class="quick-action-icon">
                 <i class="fas fa-chart-bar"></i>
             </div>
-            <div class="quick-action-title">Live Analytics</div>
-            <div class="quick-action-desc">Detailed insights and trends from your search data</div>
-        </div>
-        
-        <div class="quick-action-card" onclick="exportToExcel()">
+            <div class="quick-action-label">View Analytics</div>
+        </a>
+
+        <a
+            href="/export/history"
+            class="quick-action"
+            data-quick-action="export-data"
+        >
             <div class="quick-action-icon">
                 <i class="fas fa-download"></i>
             </div>
-            <div class="quick-action-title">Export Data</div>
-            <div class="quick-action-desc">Download your search history as Excel spreadsheet</div>
-        </div>
-        
-        <div class="quick-action-card" onclick="openEnhancedProfileModal()">
+            <div class="quick-action-label">Export Data</div>
+        </a>
+
+        <a href="/admin" class="quick-action">
             <div class="quick-action-icon">
-                <i class="fas fa-user-cog"></i>
+                <i class="fas fa-cog"></i>
             </div>
-            <div class="quick-action-title">Profile Settings</div>
-            <div class="quick-action-desc">Manage your account preferences and settings</div>
+            <div class="quick-action-label">Settings</div>
+        </a>
+    </section>
+
+    <!-- Content Grid -->
+    <div class="content-grid">
+        <!-- Recent Activity -->
+        <section class="activity-section">
+            <div class="section-header">
+                <h3 class="section-title">
+                    <i class="fas fa-clock"></i>
+                    Recent Activity
+                </h3>
+                <button class="btn btn--sm btn--ghost" id="refresh-dashboard">
+                    <i class="fas fa-refresh"></i>
+                    Refresh
+                </button>
+            </div>
+
+            <div class="activity-list" id="recent-activity">
+                {% if history %} {% for item in history[:5] %}
+                <div class="activity-item">
+                    <div class="activity-info">
+                        <div class="activity-company">
+                            {{ item.company_name or 'Unknown Company' }}
+                        </div>
+                        <div class="activity-time">
+                            {{ item.searched_at.strftime('%B %d, %Y at %I:%M
+                            %p') if item.searched_at else 'Recently' }}
+                        </div>
+                    </div>
+                    <div class="activity-score">
+                        {% if item.compliance_score is not none %} {% set
+                        score_class = 'success' if item.compliance_score >= 80
+                        else 'info' if item.compliance_score >= 60 else
+                        'warning' if item.compliance_score >= 40 else 'error' %}
+                        <span class="badge badge--{{ score_class }}">
+                            {{ "%.0f"|format(item.compliance_score) }}%
+                        </span>
+                        {% else %}
+                        <span class="badge badge--neutral">N/A</span>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %} {% else %}
+                <div class="empty-state">
+                    <div class="empty-state-icon">
+                        <i class="fas fa-search"></i>
+                    </div>
+                    <div class="empty-state-text">No searches yet</div>
+                    <div class="empty-state-subtext">
+                        Start by searching for a company's GSTIN above
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </section>
+
+        <!-- Quick Stats & Charts -->
+        <section class="activity-section">
+            <div class="section-header">
+                <h3 class="section-title">
+                    <i class="fas fa-chart-pie"></i>
+                    Quick Insights
+                </h3>
+            </div>
+
+            <!-- Mini Activity Chart -->
+            <div class="chart-container">
+                <canvas id="mini-activity-chart"></canvas>
+            </div>
+
+            <!-- User Level & Achievements -->
+            <div
+                style="
+                    margin-top: 1.5rem;
+                    padding-top: 1.5rem;
+                    border-top: 1px solid var(--border-primary);
+                "
+            >
+                <div
+                    style="
+                        display: flex;
+                        align-items: center;
+                        justify-content: space-between;
+                        margin-bottom: 1rem;
+                    "
+                >
+                    <div>
+                        <div
+                            style="font-weight: 600; color: var(--text-primary)"
+                        >
+                            User Level
+                        </div>
+                        <div
+                            style="
+                                font-size: 0.875rem;
+                                color: var(--text-muted);
+                            "
+                            id="user-level"
+                        >
+                            <i
+                                class="fas fa-user-plus"
+                                style="color: #6b7280"
+                            ></i>
+                            New User
+                        </div>
+                    </div>
+                    <div style="text-align: right">
+                        <div
+                            style="font-weight: 600; color: var(--text-primary)"
+                        >
+                            Last Activity
+                        </div>
+                        <div
+                            style="
+                                font-size: 0.875rem;
+                                color: var(--text-muted);
+                            "
+                            id="last-activity"
+                        >
+                            {% if history and history[0].searched_at %} {{
+                            history[0].searched_at.strftime('%b %d') }} {% else
+                            %} Never {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <!-- Search Results Modal -->
+    <div class="modal-overlay" id="search-results-modal" style="display: none">
+        <div class="modal" style="max-width: 800px">
+            <div class="modal-header">
+                <h3 class="modal-title">GST Compliance Analysis</h3>
+                <button class="modal-close" onclick="closeSearchModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body" id="search-results-content">
+                <!-- Search results will be populated here -->
+            </div>
         </div>
     </div>
-</section>
-
-<!-- Enhanced Tips Section -->
-<section class="tips-section">
-    <h3 style="font-size: 1.8rem; font-weight: 700; color: var(--text-primary); margin-bottom: 2rem; text-align: center;">
-        <i class="fas fa-lightbulb" style="color: var(--primary-500); margin-right: 0.5rem;"></i>
-        Pro Tips & Insights
-    </h3>
-    
-    <div class="tip-card-enhanced">
-        <div class="tip-icon">
-            <i class="fas fa-shield-alt"></i>
-        </div>
-        <div class="tip-content">
-            <div class="tip-title">Compliance Best Practices</div>
-            <div class="tip-text">
-                Companies with compliance scores above 80% typically have consistent filing patterns, maintain proper documentation, and rarely face penalties. Our AI identifies these patterns to help you make informed business decisions.
-            </div>
-        </div>
-    </div>
-</section>
-
-<!-- Floating Action Button -->
-<button class="fab" onclick="document.getElementById('gstinEnhanced').focus()" title="Quick Search">
-    <i class="fas fa-search"></i>
-</button>
-
+</div>
+{% endblock %} {% block extra_js %}
 <script>
-// Enhanced Dashboard functionality
-document.addEventListener('DOMContentLoaded', function() {
-    // Enhanced GSTIN input formatting
-    const gstinInput = document.getElementById('gstinEnhanced');
-    if (gstinInput) {
-        gstinInput.addEventListener('input', function(e) {
-            let value = e.target.value.toUpperCase();
-            
-            // Remove spaces for actual value
-            const cleanValue = value.replace(/\s/g, '');
-            e.target.value = cleanValue;
-            
-            // Visual feedback - use external validation if available
-            if (cleanValue.length === 15 && window.isValidGSTIN && window.isValidGSTIN(cleanValue)) {
-                e.target.style.borderColor = 'var(--success)';
-                e.target.style.boxShadow = '0 8px 32px rgba(16, 185, 129, 0.2), 0 0 0 4px rgba(16, 185, 129, 0.1)';
-            } else if (cleanValue.length === 15) {
-                e.target.style.borderColor = 'var(--error)';
-                e.target.style.boxShadow = '0 8px 32px rgba(239, 68, 68, 0.2), 0 0 0 4px rgba(239, 68, 68, 0.1)';
-            } else {
-                e.target.style.borderColor = 'var(--border-primary)';
-                e.target.style.boxShadow = '0 4px 20px rgba(0, 0, 0, 0.1)';
+    document.addEventListener("DOMContentLoaded", function () {
+        console.log("🏠 Dashboard page loaded");
+
+        // Initialize dashboard functionality
+        if (window.dashboardManager) {
+            console.log("📊 Dashboard manager available");
+        } else {
+            console.warn(
+                "⚠️ Dashboard manager not available, loading basic functionality",
+            );
+            initBasicDashboard();
+        }
+
+        // Initialize search form
+        initSearchForm();
+
+        // Initialize quick actions
+        initQuickActions();
+    });
+
+    function initBasicDashboard() {
+        // Basic dashboard functionality without the full dashboard manager
+        console.log("🔧 Initializing basic dashboard...");
+
+        // Update timestamps
+        updateTimestamps();
+
+        // Set up refresh button
+        const refreshBtn = document.getElementById("refresh-dashboard");
+        if (refreshBtn) {
+            refreshBtn.addEventListener("click", function () {
+                window.location.reload();
+            });
+        }
+    }
+
+    function initSearchForm() {
+        const searchForm = document.getElementById("gstin-search-form");
+        const searchBtn = document.getElementById("search-btn");
+        const searchInput = searchForm?.querySelector('input[name="gstin"]');
+
+        if (!searchForm) return;
+
+        // GSTIN input formatting
+        if (searchInput) {
+            searchInput.addEventListener("input", function (e) {
+                let value = e.target.value
+                    .toUpperCase()
+                    .replace(/[^A-Z0-9]/g, "");
+                if (value.length > 15) value = value.slice(0, 15);
+                e.target.value = value;
+
+                // Validate format
+                const isValid =
+                    /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}[Z]{1}[0-9A-Z]{1}$/.test(
+                        value,
+                    );
+
+                if (searchBtn) {
+                    searchBtn.disabled = !isValid;
+                    searchBtn.style.opacity = isValid ? "1" : "0.6";
+                }
+            });
+
+            // Add placeholder examples
+            const examples = [
+                "29AAAPL2356Q1ZS",
+                "27AAAAA0000A1Z5",
+                "07AAAAA0000A1Z5",
+            ];
+
+            let exampleIndex = 0;
+            setInterval(() => {
+                if (
+                    !searchInput.value &&
+                    document.activeElement !== searchInput
+                ) {
+                    searchInput.placeholder = `Enter GSTIN (e.g., ${examples[exampleIndex]})`;
+                    exampleIndex = (exampleIndex + 1) % examples.length;
+                }
+            }, 3000);
+        }
+
+        // Form submission
+        searchForm.addEventListener("submit", async function (e) {
+            e.preventDefault();
+
+            const formData = new FormData(searchForm);
+            const gstin = formData.get("gstin")?.trim();
+
+            if (!gstin) {
+                window.notificationManager?.show(
+                    "Please enter a GSTIN",
+                    "warning",
+                );
+                return;
+            }
+
+            // Validate GSTIN format
+            if (
+                !/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}[Z]{1}[0-9A-Z]{1}$/.test(
+                    gstin,
+                )
+            ) {
+                window.notificationManager?.show(
+                    "Invalid GSTIN format",
+                    "error",
+                );
+                return;
+            }
+
+            // Show loading state
+            if (searchBtn) {
+                searchBtn.classList.add("btn--loading");
+                searchBtn.disabled = true;
+            }
+
+            try {
+                const response = await fetch("/api/search", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/x-www-form-urlencoded",
+                    },
+                    body: `gstin=${encodeURIComponent(gstin)}`,
+                    credentials: "same-origin",
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    showSearchResults(data.data);
+                    window.notificationManager?.show(
+                        "Search completed successfully",
+                        "success",
+                    );
+
+                    // Clear form
+                    searchForm.reset();
+
+                    // Track analytics
+                    if (window.analytics) {
+                        window.analytics.trackSearch(gstin, true);
+                    }
+                } else {
+                    throw new Error(data.error || "Search failed");
+                }
+            } catch (error) {
+                console.error("Search error:", error);
+                window.notificationManager?.show(
+                    error.message || "Search failed",
+                    "error",
+                );
+
+                if (window.analytics) {
+                    window.analytics.trackSearch(gstin, false);
+                }
+            } finally {
+                if (searchBtn) {
+                    searchBtn.classList.remove("btn--loading");
+                    searchBtn.disabled = false;
+                }
             }
         });
-        
-        // Enhanced paste handling
-        gstinInput.addEventListener('paste', function(e) {
-            setTimeout(() => {
-                const value = e.target.value.trim().toUpperCase();
-                if (value.length === 15 && window.isValidGSTIN && window.isValidGSTIN(value)) {
-                    // Success animation
-                    e.target.style.transform = 'scale(1.02)';
-                    setTimeout(() => e.target.style.transform = '', 200);
-                    
-                    if (window.notificationManager) {
-                        window.notificationManager.showSuccess('✅ Valid GSTIN detected!', 2000);
-                    }
-                    
-                    // Auto-search if enabled
-                    const autoSearch = localStorage.getItem('autoSearch');
-                    if (autoSearch === 'true' || autoSearch === null) {
-                        setTimeout(() => {
-                            document.getElementById('enhancedSearchForm').submit();
-                        }, 500);
-                    }
-                }
-            }, 100);
+    }
+
+    function showSearchResults(data) {
+        const modal = document.getElementById("search-results-modal");
+        const content = document.getElementById("search-results-content");
+
+        if (!modal || !content) return;
+
+        // Create results HTML
+        const complianceClass =
+            data.compliance_score >= 80
+                ? "success"
+                : data.compliance_score >= 60
+                  ? "info"
+                  : data.compliance_score >= 40
+                    ? "warning"
+                    : "error";
+
+        content.innerHTML = `
+        <div class="search-result">
+            <div class="result-header">
+                <h4>${data.legal_name || data.trade_name || "Unknown Company"}</h4>
+                <span class="badge badge--${complianceClass}">
+                    ${Math.round(data.compliance_score || 0)}% Compliance
+                </span>
+            </div>
+
+            <div class="result-details">
+                <div class="detail-row">
+                    <span class="detail-label">GSTIN:</span>
+                    <span class="detail-value">${data.gstin}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Business Status:</span>
+                    <span class="detail-value">${data.business_status || "Unknown"}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Filing Status:</span>
+                    <span class="detail-value">${data.filing_status || "Unknown"}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Registration Date:</span>
+                    <span class="detail-value">${data.registration_date || "Unknown"}</span>
+                </div>
+            </div>
+
+            ${
+                data.ai_synopsis
+                    ? `
+                <div class="ai-synopsis">
+                    <h5><i class="fas fa-robot"></i> AI Analysis</h5>
+                    <p>${data.ai_synopsis}</p>
+                </div>
+            `
+                    : ""
+            }
+
+            <div class="result-actions">
+                <button class="btn btn--primary" onclick="exportPDF('${data.gstin}')">
+                    <i class="fas fa-download"></i> Export PDF
+                </button>
+                <button class="btn btn--outline" onclick="window.open('/history', '_blank')">
+                    <i class="fas fa-history"></i> View History
+                </button>
+            </div>
+        </div>
+    `;
+
+        // Show modal
+        modal.style.display = "flex";
+    }
+
+    function closeSearchModal() {
+        const modal = document.getElementById("search-results-modal");
+        if (modal) {
+            modal.style.display = "none";
+        }
+    }
+
+    function exportPDF(gstin) {
+        const form = document.createElement("form");
+        form.method = "POST";
+        form.action = "/generate-pdf";
+        form.target = "_blank";
+
+        const gstinInput = document.createElement("input");
+        gstinInput.type = "hidden";
+        gstinInput.name = "gstin";
+        gstinInput.value = gstin;
+
+        form.appendChild(gstinInput);
+        document.body.appendChild(form);
+        form.submit();
+        document.body.removeChild(form);
+
+        closeSearchModal();
+    }
+
+    function initQuickActions() {
+        // Handle quick action clicks
+        document.addEventListener("click", function (e) {
+            const quickAction = e.target.closest("[data-quick-action]");
+            if (!quickAction) return;
+
+            e.preventDefault();
+
+            const action = quickAction.dataset.quickAction;
+
+            switch (action) {
+                case "export-data":
+                    handleExportData();
+                    break;
+                default:
+                    console.warn("Unknown quick action:", action);
+            }
         });
     }
-    
-    // Animate stats on load
-    animateStats();
-    
-    // Add ripple effect to stat cards
-    addRippleEffect();
-});
 
-function animateStats() {
-    const statValues = document.querySelectorAll('.stat-value-enhanced');
-    statValues.forEach((stat, index) => {
-        const targetValue = parseInt(stat.textContent) || 0;
-        if (targetValue > 0) {
-            let currentValue = 0;
-            const increment = targetValue / 50;
-            const timer = setInterval(() => {
-                currentValue += increment;
-                if (currentValue >= targetValue) {
-                    currentValue = targetValue;
-                    clearInterval(timer);
-                }
-                stat.textContent = Math.floor(currentValue) + (stat.textContent.includes('%') ? '%' : '');
-            }, 30);
+    async function handleExportData() {
+        try {
+            window.notificationManager?.show("Preparing export...", "info");
+
+            const response = await fetch("/export/history", {
+                method: "GET",
+                credentials: "same-origin",
+            });
+
+            if (!response.ok) {
+                throw new Error(
+                    `HTTP ${response.status}: ${response.statusText}`,
+                );
+            }
+
+            // Create download
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `gst_search_history_${new Date().toISOString().split("T")[0]}.csv`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+
+            window.notificationManager?.show(
+                "Data exported successfully",
+                "success",
+            );
+
+            if (window.analytics) {
+                window.analytics.trackEvent("Export", "History", "CSV");
+            }
+        } catch (error) {
+            console.error("Export error:", error);
+            window.notificationManager?.show("Export failed", "error");
+        }
+    }
+
+    function updateTimestamps() {
+        // Update relative timestamps
+        const timeElements = document.querySelectorAll("[data-timestamp]");
+        timeElements.forEach((element) => {
+            const timestamp = element.dataset.timestamp;
+            if (timestamp) {
+                element.textContent =
+                    window.utils?.formatRelativeTime(timestamp) || "Recently";
+            }
+        });
+    }
+
+    // Close modal when clicking outside
+    document.addEventListener("click", function (e) {
+        const modal = document.getElementById("search-results-modal");
+        if (modal && e.target === modal) {
+            closeSearchModal();
         }
     });
-}
 
-function addRippleEffect() {
-    const cards = document.querySelectorAll('.stat-card-enhanced, .quick-action-card');
-    cards.forEach(card => {
-        card.addEventListener('click', function(e) {
-            const ripple = document.createElement('span');
-            const rect = this.getBoundingClientRect();
-            const size = Math.max(rect.width, rect.height);
-            const x = e.clientX - rect.left - size / 2;
-            const y = e.clientY - rect.top - size / 2;
-            
-            ripple.style.cssText = `
-                position: absolute;
-                width: ${size}px;
-                height: ${size}px;
-                left: ${x}px;
-                top: ${y}px;
-                background: radial-gradient(circle, rgba(124, 58, 237, 0.3) 0%, transparent 70%);
-                border-radius: 50%;
-                transform: scale(0);
-                animation: ripple 0.6s ease-out;
-                pointer-events: none;
-                z-index: 10;
-            `;
-            
-            if (!document.getElementById('rippleStyle')) {
-                const style = document.createElement('style');
-                style.id = 'rippleStyle';
-                style.textContent = `
-                    @keyframes ripple {
-                        to {
-                            transform: scale(2);
-                            opacity: 0;
-                        }
-                    }
-                `;
-                document.head.appendChild(style);
+    // Keyboard shortcuts
+    document.addEventListener("keydown", function (e) {
+        // Escape to close modal
+        if (e.key === "Escape") {
+            closeSearchModal();
+        }
+
+        // Ctrl/Cmd + K to focus search
+        if ((e.ctrlKey || e.metaKey) && e.key === "k") {
+            e.preventDefault();
+            const searchInput = document.querySelector('input[name="gstin"]');
+            if (searchInput) {
+                searchInput.focus();
             }
-            
-            this.style.position = 'relative';
-            this.appendChild(ripple);
-            
-            setTimeout(() => {
-                ripple.remove();
-            }, 600);
-        });
+        }
     });
-}
 
-// Keyboard shortcuts
-document.addEventListener('keydown', function(e) {
-    // Ctrl/Cmd + K for quick search focus
-    if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
-        e.preventDefault();
-        document.getElementById('gstinEnhanced').focus();
-    }
-    
-    // Ctrl/Cmd + H for history
-    if ((e.ctrlKey || e.metaKey) && e.key === 'h') {
-        e.preventDefault();
-        window.location.href = '/history';
-    }
-    
-    // Ctrl/Cmd + A for analytics
-    if ((e.ctrlKey || e.metaKey) && e.key === 'a') {
-        e.preventDefault();
-        window.location.href = '/analytics';
-    }
-});
+    // Update timestamps every 30 seconds
+    setInterval(updateTimestamps, 30000);
+
+    console.log("✅ Dashboard JavaScript initialized successfully");
 </script>
+
+<style>
+    /* Search Results Modal Styles */
+    .search-result {
+        padding: 1rem 0;
+    }
+
+    .result-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 1.5rem;
+        padding-bottom: 1rem;
+        border-bottom: 1px solid var(--border-primary);
+    }
+
+    .result-header h4 {
+        margin: 0;
+        color: var(--text-primary);
+        font-size: 1.25rem;
+    }
+
+    .result-details {
+        margin-bottom: 1.5rem;
+    }
+
+    .detail-row {
+        display: flex;
+        justify-content: space-between;
+        padding: 0.75rem 0;
+        border-bottom: 1px solid var(--border-primary);
+    }
+
+    .detail-row:last-child {
+        border-bottom: none;
+    }
+
+    .detail-label {
+        font-weight: 500;
+        color: var(--text-secondary);
+    }
+
+    .detail-value {
+        color: var(--text-primary);
+        font-weight: 500;
+    }
+
+    .ai-synopsis {
+        background: var(--bg-hover);
+        border-radius: var(--radius-lg);
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .ai-synopsis h5 {
+        margin: 0 0 1rem 0;
+        color: var(--text-primary);
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .ai-synopsis p {
+        margin: 0;
+        color: var(--text-secondary);
+        line-height: 1.6;
+    }
+
+    .result-actions {
+        display: flex;
+        gap: 1rem;
+        justify-content: flex-end;
+    }
+
+    @media (max-width: 640px) {
+        .result-actions {
+            flex-direction: column;
+        }
+
+        .detail-row {
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+    }
+</style>
 {% endblock %}

@@ -89,7 +89,6 @@ ENV/
 env/
 .venv/
 .ENV/
-.env/
 env.bak/
 venv.bak/
 
@@ -201,7 +200,6 @@ jspm_packages/
 .yarn-integrity
 
 # parcel-bundler cache
-.cache
 .parcel-cache
 
 # Next.js build output
@@ -209,10 +207,8 @@ jspm_packages/
 
 # Nuxt.js build / generate output
 .nuxt
-dist
 
 # Gatsby files
-.cache/
 public
 
 # Storybook build outputs
@@ -260,12 +256,6 @@ backups/
 logs/
 log/
 
-# Runtime data
-pids
-*.pid
-*.seed
-*.pid.lock
-
 # Temporary files
 tmp/
 temp/
@@ -273,7 +263,6 @@ temp/
 *.temp
 
 # Cache directories
-.cache/
 cache/
 
 # OS generated files
@@ -306,12 +295,9 @@ Thumbs.db
 *.sublime-workspace
 
 # Vim
-*.swp
-*.swo
 *.swn
 
 # Emacs
-*~
 \#*\#
 /.emacs.desktop
 /.emacs.desktop.lock
@@ -378,7 +364,6 @@ volumes/
 *.ssl
 
 # Private keys
-*.key
 *.private
 
 # SSH keys
@@ -508,10 +493,6 @@ generated_reports/
 uploads/
 user_files/
 
-# Cache files
-search_cache/
-api_cache/
-
 # Session files
 sessions/
 flask_session/
@@ -578,7 +559,7 @@ start_dev.sh
 local_setup.py
 
 # =============================================================================
-# MISCELLANEOUS
+# COMPILED FILES & PACKAGES
 # =============================================================================
 
 # Compiled Python files
@@ -599,9 +580,6 @@ local_setup.py
 # Lock files
 *.lock
 
-# PID files
-*.pid
-
 # Socket files
 *.sock
 
@@ -614,7 +592,6 @@ generated/
 auto_generated/
 
 # Temporary directories
-tmp/
 temporary/
 
 # =============================================================================
@@ -641,7 +618,6 @@ temporary/
 !static/
 !static/css/
 !static/js/
-!static/icons/
 !static/manifest.json
 
 # Keep template structure
@@ -650,8 +626,6 @@ temporary/
 
 # Keep essential Python files
 !main.py
-!config.py
-!migrate_*.py
 !anthro_ai.py
 !razorpay_lending.py
 
@@ -660,4 +634,4 @@ temporary/
 
 # =============================================================================
 # END OF .gitignore
-# =============================================================================
+# =============================================================================s

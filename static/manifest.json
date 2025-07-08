@@ -1,26 +1,28 @@
 {
   "name": "GST Intelligence Platform",
-  "short_name": "GST Intel",
-  "description": "Advanced GST Compliance Analytics Platform with AI-powered insights for Indian businesses. Search, analyze, and monitor GST compliance with real-time data and intelligent recommendations.",
+  "short_name": "GST Intelligence",
+  "description": "Advanced GST Compliance Analytics Platform with AI-powered insights for businesses and tax professionals",
+  "version": "2.0.0",
+  "manifest_version": 3,
+
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
-  "display_override": ["window-controls-overlay", "standalone", "minimal-ui"],
   "orientation": "portrait-primary",
-  "background_color": "#0a0811",
   "theme_color": "#7c3aed",
-  "categories": ["business", "finance", "productivity", "utilities"],
+  "background_color": "#0f172a",
+
+  "categories": [
+    "business",
+    "finance", 
+    "productivity",
+    "utilities"
+  ],
+
   "lang": "en-IN",
   "dir": "ltr",
-  "prefer_related_applications": false,
-  
+
   "icons": [
-    {
-      "src": "/static/icons/icon-48x48.png",
-      "sizes": "48x48",
-      "type": "image/png",
-      "purpose": "any"
-    },
     {
       "src": "/static/icons/icon-72x72.png",
       "sizes": "72x72",
@@ -58,12 +60,6 @@
       "purpose": "any"
     },
     {
-      "src": "/static/icons/icon-256x256.png",
-      "sizes": "256x256",
-      "type": "image/png",
-      "purpose": "any"
-    },
-    {
       "src": "/static/icons/icon-384x384.png",
       "sizes": "384x384",
       "type": "image/png",
@@ -94,7 +90,7 @@
       "purpose": "monochrome"
     }
   ],
-  
+
   "shortcuts": [
     {
       "name": "Quick Search",
@@ -149,59 +145,58 @@
       ]
     }
   ],
-  
+
   "screenshots": [
     {
       "src": "/static/screenshots/desktop-dashboard.png",
-      "type": "image/png",
       "sizes": "1280x720",
+      "type": "image/png",
       "form_factor": "wide",
-      "label": "Main dashboard with search and analytics overview"
+      "label": "GST Intelligence Dashboard - Desktop View"
     },
     {
-      "src": "/static/screenshots/desktop-results.png",
+      "src": "/static/screenshots/mobile-search.png", 
+      "sizes": "640x1136",
       "type": "image/png",
-      "sizes": "1280x720",
-      "form_factor": "wide",
-      "label": "Detailed compliance report with AI insights"
-    },
-    {
-      "src": "/static/screenshots/desktop-analytics.png",
-      "type": "image/png",
-      "sizes": "1280x720",
-      "form_factor": "wide",
-      "label": "Advanced analytics and trends visualization"
-    },
-    {
-      "src": "/static/screenshots/mobile-dashboard.png",
-      "type": "image/png",
-      "sizes": "360x640",
       "form_factor": "narrow",
-      "label": "Mobile dashboard optimized for touch interaction"
+      "label": "GST Search Interface - Mobile View"
     },
     {
-      "src": "/static/screenshots/mobile-search.png",
+      "src": "/static/screenshots/analytics-view.png",
+      "sizes": "1280x720", 
       "type": "image/png",
-      "sizes": "360x640",
-      "form_factor": "narrow",
-      "label": "Mobile search interface with suggestions"
+      "form_factor": "wide",
+      "label": "Analytics and Insights Dashboard"
     }
   ],
-  
+
+  "features": [
+    "GST compliance monitoring",
+    "AI-powered business insights", 
+    "Real-time data analytics",
+    "Bulk GSTIN processing",
+    "Compliance score calculation",
+    "Export capabilities",
+    "Offline functionality",
+    "Dark/Light theme support"
+  ],
+
   "related_applications": [
     {
       "platform": "webapp",
-      "url": "https://gst-intelligence.onrender.com/manifest.json"
+      "url": "https://gst-intelligence.vercel.app"
     }
   ],
-  
+
+  "prefer_related_applications": false,
+
   "protocol_handlers": [
     {
-      "protocol": "web+gstin",
+      "protocol": "web+gst",
       "url": "/search?gstin=%s"
     }
   ],
-  
+
   "file_handlers": [
     {
       "action": "/import",
@@ -212,7 +207,7 @@
       }
     }
   ],
-  
+
   "share_target": {
     "action": "/share",
     "method": "POST",
@@ -224,75 +219,124 @@
       "files": [
         {
           "name": "file",
-          "accept": ["text/csv", ".csv", ".xlsx"]
+          "accept": ["text/csv", "application/vnd.ms-excel", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"]
         }
       ]
     }
   },
-  
+
   "launch_handler": {
-    "client_mode": "navigate-existing"
+    "client_mode": ["navigate-existing", "navigate-new"]
   },
-  
+
   "edge_side_panel": {
     "preferred_width": 400
   },
-  
+
+  "display_override": [
+    "window-controls-overlay",
+    "standalone",
+    "minimal-ui",
+    "browser"
+  ],
+
   "handle_links": "preferred",
-  
+
   "capture_links": "existing-client-navigate",
-  
+
+  "scope_extensions": [
+    {
+      "origin": "https://gst-intelligence.vercel.app"
+    }
+  ],
+
+  "permissions": [
+    "storage",
+    "notifications",
+    "background-sync"
+  ],
+
+  "note_taking": {
+    "new_note_url": "/notes/new"
+  },
+
+  "widgets": [
+    {
+      "name": "Quick GST Search",
+      "description": "Search any GSTIN directly from your home screen",
+      "short_name": "GST Search",
+      "tag": "gst-search",
+      "template": "gst-search-widget",
+      "ms_ac_template": "gst-search-adaptive-card",
+      "data": "/api/widgets/search-data",
+      "type": "application/json",
+      "screenshots": [
+        {
+          "src": "/static/widgets/search-widget.png",
+          "sizes": "400x200",
+          "label": "Quick GST Search Widget"
+        }
+      ],
+      "icons": [
+        {
+          "src": "/static/icons/widget-search.png",
+          "sizes": "144x144",
+          "type": "image/png"
+        }
+      ],
+      "auth": false,
+      "update": 86400
+    },
+    {
+      "name": "Compliance Summary",
+      "description": "View your recent compliance metrics at a glance",
+      "short_name": "Compliance",
+      "tag": "compliance-summary",
+      "template": "compliance-widget",
+      "data": "/api/widgets/compliance-data",
+      "type": "application/json", 
+      "screenshots": [
+        {
+          "src": "/static/widgets/compliance-widget.png",
+          "sizes": "400x300",
+          "label": "Compliance Summary Widget"
+        }
+      ],
+      "icons": [
+        {
+          "src": "/static/icons/widget-compliance.png",
+          "sizes": "144x144",
+          "type": "image/png"
+        }
+      ],
+      "auth": true,
+      "update": 3600
+    }
+  ],
+
   "id": "gst-intelligence-platform",
-  
+
   "iarc_rating_id": "e84b072d-71b3-4d3e-86ae-31a8ce4e53b7",
-  
-  "app_store_id": "gst-intelligence",
-  
-  "play_store_id": "com.gstintelligence.app",
-  
-  "version": "2.0.0",
-  
-  "manifest_version": 3,
-  
-  "gcm_sender_id": "103953800507",
-  
+
   "custom": {
-    "features": [
-      "offline-support",
-      "background-sync",
-      "push-notifications",
-      "ai-insights",
-      "real-time-data",
-      "export-capabilities",
-      "batch-processing"
-    ],
-    "supported_countries": ["IN"],
-    "supported_languages": ["en-IN", "hi-IN"],
-    "api_version": "v2",
-    "last_updated": "2024-01-15",
-    "compliance": {
-      "privacy_policy": "/privacy",
-      "terms_of_service": "/terms",
-      "data_retention": "2 years",
-      "gdpr_compliant": true,
-      "india_data_protection": true
+    "microsoft": {
+      "square150x150logo": "/static/icons/ms-icon-150x150.png",
+      "square310x310logo": "/static/icons/ms-icon-310x310.png",
+      "wide310x150logo": "/static/icons/ms-icon-310x150.png"
     },
-    "analytics": {
-      "provider": "self-hosted",
-      "anonymized": true,
-      "opt_out_available": true
+    "apple": {
+      "apple-touch-icon": "/static/icons/apple-touch-icon.png",
+      "apple-touch-icon-precomposed": "/static/icons/apple-touch-icon-precomposed.png",
+      "apple-touch-startup-image": "/static/icons/apple-startup-image.png"
     },
-    "security": {
-      "https_only": true,
-      "csp_enabled": true,
-      "xss_protection": true,
-      "data_encryption": "AES-256"
-    },
-    "performance": {
-      "lighthouse_score": 95,
-      "first_contentful_paint": "<1.5s",
-      "largest_contentful_paint": "<2.5s",
-      "cumulative_layout_shift": "<0.1"
+    "chrome": {
+      "minimum_chrome_version": "88",
+      "permission_grants": [
+        {
+          "permission": "notifications",
+          "granted": false
+        }
+      ]
     }
   }
 }

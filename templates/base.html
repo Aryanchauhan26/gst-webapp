@@ -165,23 +165,19 @@
             padding: 0.5rem;
             background: none;
             border: none;
-            border-radius: 12px;
+            border-radius: 8px;
+            color: var(--text-primary);
             cursor: pointer;
-            transition: all var(--transition-fast);
-            background: linear-gradient(45deg, rgba(124, 58, 237, 0.1), rgba(167, 139, 250, 0.1));
-            border: 1px solid rgba(124, 58, 237, 0.3);
+            transition: background-color var(--transition-fast);
         }
 
-        .user__trigger:hover,
-        .user__trigger.active {
-            background: var(--accent-primary);
-            color: white;
-            border-color: var(--accent-primary);
+        .user__trigger:hover {
+            background: var(--bg-hover);
         }
 
         .user__avatar {
-            width: 40px;
-            height: 40px;
+            width: 32px;
+            height: 32px;
             background: var(--accent-gradient);
             border-radius: 50%;
             display: flex;
@@ -189,7 +185,6 @@
             justify-content: center;
             color: white;
             font-weight: 600;
-            transition: all var(--transition-fast);
         }
 
         .user__info {
@@ -200,165 +195,209 @@
 
         .user__name {
             font-weight: 600;
-            color: var(--text-primary);
             font-size: 0.875rem;
+            line-height: 1;
         }
 
-        .user__status {
+        .user__role {
             font-size: 0.75rem;
-            color: var(--text-secondary);
+            color: var(--text-muted);
+            line-height: 1;
+        }
+
+        /* Theme Toggle */
+        .theme-toggle-wrapper {
             display: flex;
             align-items: center;
-            gap: 0.25rem;
+            gap: 1rem;
         }
 
-        .user__chevron {
-            color: var(--text-secondary);
-            font-size: 0.75rem;
-            transition: transform var(--transition-fast);
-        }
-
-        .user__trigger.active .user__chevron {
-            transform: rotate(180deg);
-        }
-
-        /* Enhanced Dropdown */
-        .user__dropdown {
-            position: absolute;
-            top: calc(100% + 0.5rem);
-            right: 0;
-            background: var(--bg-card);
-            border: 1px solid var(--border-primary);
-            border-radius: 16px;
-            box-shadow: var(--hover-shadow);
-            padding: 1.5rem;
-            min-width: 320px;
-            opacity: 0;
-            visibility: hidden;
-            transform: translateY(-10px) scale(0.95);
+        .theme-toggle {
+            position: relative;
+            width: 60px;
+            height: 32px;
+            background: var(--bg-hover);
+            border: 2px solid var(--border-primary);
+            border-radius: 24px;
+            cursor: pointer;
             transition: all var(--transition-base);
-            z-index: 1000;
-            backdrop-filter: blur(20px);
+            overflow: hidden;
         }
 
-        .user__dropdown.active {
-            opacity: 1;
-            visibility: visible;
-            transform: translateY(0) scale(1);
+        .theme-toggle:hover {
+            box-shadow: 0 0 10px rgba(124, 58, 237, 0.3);
         }
 
-        .auth-links {
+        .theme-toggle-indicator {
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            width: 24px;
+            height: 24px;
+            background: var(--accent-primary);
+            border-radius: 50%;
+            transition: transform var(--transition-base);
             display: flex;
-            gap: 0.75rem;
-            align-items: center;
-        }
-
-        .btn {
-            display: inline-flex;
             align-items: center;
             justify-content: center;
-            gap: 0.5rem;
-            padding: 0.5rem 1rem;
-            border: 1px solid transparent;
-            border-radius: 8px;
-            font-size: 0.875rem;
-            font-weight: 500;
-            text-decoration: none;
-            cursor: pointer;
-            transition: all var(--transition-fast);
-            white-space: nowrap;
-        }
-
-        .btn--ghost {
-            background: transparent;
-            color: var(--text-secondary);
-        }
-
-        .btn--ghost:hover {
-            background: var(--bg-hover);
-            color: var(--text-primary);
-        }
-
-        .btn--primary {
-            background: var(--accent-gradient);
             color: white;
+            font-size: 12px;
         }
 
-        .btn--primary:hover {
-            transform: translateY(-1px);
-            box-shadow: var(--card-shadow);
+        [data-theme="light"] .theme-toggle-indicator {
+            transform: translateX(28px);
         }
 
-        .main-content {
-            min-height: calc(100vh - 64px);
-            background: var(--bg-primary);
+        .theme-icon {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 14px;
+            color: var(--text-muted);
+            transition: opacity var(--transition-base);
         }
 
-        .container {
-            width: 100%;
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 2rem 1rem;
+        .theme-icon:first-child {
+            left: 6px;
+            opacity: 1;
         }
 
-        .status-indicator {
-            display: inline-block;
-            width: 6px;
-            height: 6px;
-            background: var(--success);
-            border-radius: 50%;
-            animation: pulse 2s infinite;
+        .theme-icon:last-child {
+            right: 6px;
+            opacity: 0;
         }
 
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.5; }
+        [data-theme="light"] .theme-icon:first-child {
+            opacity: 0;
         }
 
-        /* Mobile responsiveness */
+        [data-theme="light"] .theme-icon:last-child {
+            opacity: 1;
+        }
+
+        /* Mobile Navigation */
+        .mobile-nav-toggle {
+            display: none;
+            background: none;
+            border: none;
+            color: var(--text-primary);
+            font-size: 1.5rem;
+            cursor: pointer;
+            padding: 0.5rem;
+            border-radius: 8px;
+            transition: background-color var(--transition-fast);
+        }
+
+        .mobile-nav-toggle:hover {
+            background: var(--bg-hover);
+        }
+
         @media (max-width: 768px) {
             .header__nav {
                 display: none;
             }
 
+            .mobile-nav-toggle {
+                display: block;
+            }
+
+            .header__nav.mobile-nav-open {
+                display: flex;
+                position: absolute;
+                top: 100%;
+                left: 0;
+                right: 0;
+                background: var(--bg-card);
+                border-bottom: 1px solid var(--border-primary);
+                flex-direction: column;
+                padding: 1rem;
+                gap: 0.5rem;
+            }
+
             .user__info {
                 display: none;
             }
-
-            .header__container {
-                padding: 0 1rem;
-            }
-
-            .container {
-                padding: 1rem;
-            }
-
-            .user__dropdown {
-                right: -1rem;
-                left: -1rem;
-                min-width: auto;
-                width: auto;
-            }
         }
 
-        /* Screen reader only */
-        .sr-only {
+        /* Main Content */
+        .main-content {
+            min-height: calc(100vh - 64px);
+            background: var(--bg-primary);
+        }
+
+        /* Footer */
+        .footer {
+            background: var(--bg-card);
+            border-top: 1px solid var(--border-primary);
+            padding: 2rem 0;
+            margin-top: auto;
+        }
+
+        .footer__container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 0 1rem;
+            text-align: center;
+            color: var(--text-muted);
+        }
+
+        /* Loading Overlay */
+        #page-loader {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            backdrop-filter: blur(4px);
+        }
+
+        .loader {
+            width: 48px;
+            height: 48px;
+            border: 4px solid var(--border-primary);
+            border-radius: 50%;
+            border-top-color: var(--accent-primary);
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Accessibility */
+        .skip-link {
             position: absolute;
-            width: 1px;
-            height: 1px;
-            padding: 0;
-            margin: -1px;
-            overflow: hidden;
-            clip: rect(0, 0, 0, 0);
-            white-space: nowrap;
-            border: 0;
+            top: -40px;
+            left: 6px;
+            background: var(--accent-primary);
+            color: white;
+            padding: 8px;
+            text-decoration: none;
+            border-radius: 4px;
+            z-index: 10000;
+        }
+
+        .skip-link:focus {
+            top: 6px;
         }
     </style>
+
+    {% block extra_css %}{% endblock %}
 </head>
 
 <body class="{% block body_class %}{% endblock %}" data-page="{{ request.url.path.split('/')[-1] or 'home' }}">
     <!-- Skip to main content for accessibility -->
-    <a href="#main-content" class="sr-only">Skip to main content</a>
+    <a href="#main-content" class="skip-link">Skip to main content</a>
+
+    <!-- Page Loader -->
+    <div id="page-loader">
+        <div class="loader"></div>
+    </div>
 
     <!-- Header Component -->
     {% if not request.url.path in ['/login', '/signup'] %}
@@ -375,7 +414,7 @@
 
             <!-- Navigation -->
             {% if current_user %}
-            <nav class="header__nav" role="navigation" aria-label="Main navigation">
+            <nav class="header__nav" role="navigation" aria-label="Main navigation" id="main-nav">
                 <a href="/" 
                    class="nav__link {% if request.url.path == '/' %}nav__link--active{% endif %}"
                    {% if request.url.path == '/' %}aria-current="page"{% endif %}>
@@ -400,59 +439,76 @@
                     <i class="fas fa-cog" aria-hidden="true"></i>
                     <span>Admin</span>
                 </a>
-                <a href="/loans" 
-                   class="nav__link {% if request.url.path == '/loans' %}nav__link--active{% endif %}"
-                   {% if request.url.path == '/loans' %}aria-current="page"{% endif %}>
-                    <i class="fas fa-coins" aria-hidden="true"></i>
-                    <span>Loans</span>
-                </a>
             </nav>
 
-            <!-- User Menu -->
-            <div class="user-profile-wrapper">
-                <button class="user__trigger" 
-                        id="userProfileBtn"
-                        aria-expanded="false"
-                        aria-haspopup="true"
-                        aria-label="User menu">
-                    <div class="user__avatar" aria-hidden="true">
-                        {% if user_display_name and user_display_name|length > 0 %}
-                            {{ user_display_name[0]|upper }}
-                        {% elif current_user and current_user|length > 0 %}
-                            {{ current_user[0]|upper }}
-                        {% else %}
-                            U
-                        {% endif %}
-                    </div>
-                    <div class="user__info">
-                        <div class="user__name" id="userDisplayName">
-                            {% if user_display_name %}
-                                {{ user_display_name }}
-                            {% elif current_user %}
-                                User {{ current_user[-4:] if current_user|length >= 4 else current_user }}
-                            {% else %}
-                                User
-                            {% endif %}
-                        </div>
-                        <div class="user__status">
-                            <span class="status-indicator" aria-label="Online"></span>
-                            <span id="userRole">{{ user_profile.designation if user_profile and user_profile.designation else "Member" }}</span>
-                        </div>
-                    </div>
-                    <i class="fas fa-chevron-down user__chevron" aria-hidden="true"></i>
-                </button>
+            <!-- Mobile Navigation Toggle -->
+            <button class="mobile-nav-toggle" aria-label="Toggle navigation" id="mobile-nav-toggle">
+                <i class="fas fa-bars"></i>
+            </button>
 
-                <!-- Enhanced User Dropdown -->
-                <div id="userDropdownMenu" class="user__dropdown" role="menu">
-                    <!-- Dropdown content will be loaded here -->
+            <!-- User Profile & Theme Toggle -->
+            <div class="theme-toggle-wrapper">
+                <!-- Theme Toggle -->
+                <div class="theme-toggle" onclick="toggleTheme()" title="Toggle dark/light mode">
+                    <div class="theme-icon"><i class="fas fa-moon"></i></div>
+                    <div class="theme-icon"><i class="fas fa-sun"></i></div>
+                    <div class="theme-toggle-indicator">
+                        <i class="fas fa-moon" id="theme-indicator-icon"></i>
+                    </div>
+                </div>
+
+                <!-- User Profile -->
+                <div class="user-profile-wrapper">
+                    <div class="dropdown">
+                        <button class="user__trigger dropdown-toggle" aria-label="User menu">
+                            <div class="user__avatar">
+                                {{ (user_display_name or current_user)[:1].upper() if current_user else 'U' }}
+                            </div>
+                            <div class="user__info">
+                                <div class="user__name">
+                                    {{ user_display_name or 'User' }}
+                                </div>
+                                <div class="user__role">Member</div>
+                            </div>
+                            <i class="fas fa-chevron-down" style="font-size: 0.75rem; color: var(--text-muted);"></i>
+                        </button>
+
+                        <div class="dropdown-menu" role="menu">
+                            <a href="/profile" class="dropdown-item" role="menuitem">
+                                <i class="fas fa-user"></i>
+                                <span>Profile</span>
+                            </a>
+                            <a href="/settings" class="dropdown-item" role="menuitem">
+                                <i class="fas fa-cog"></i>
+                                <span>Settings</span>
+                            </a>
+                            <a href="/help" class="dropdown-item" role="menuitem">
+                                <i class="fas fa-question-circle"></i>
+                                <span>Help</span>
+                            </a>
+                            <hr style="margin: 0.5rem 0; border: none; border-top: 1px solid var(--border-primary);">
+                            <a href="/logout" class="dropdown-item" role="menuitem">
+                                <i class="fas fa-sign-out-alt"></i>
+                                <span>Logout</span>
+                            </a>
+                        </div>
+                    </div>
                 </div>
             </div>
-
             {% else %}
-            <!-- Authentication Links -->
-            <div class="auth-links">
-                <a href="/login" class="btn btn--ghost">Login</a>
-                <a href="/signup" class="btn btn--primary">Sign Up</a>
+            <!-- Not logged in - show login/signup links -->
+            <div class="theme-toggle-wrapper">
+                <div class="theme-toggle" onclick="toggleTheme()" title="Toggle dark/light mode">
+                    <div class="theme-icon"><i class="fas fa-moon"></i></div>
+                    <div class="theme-icon"><i class="fas fa-sun"></i></div>
+                    <div class="theme-toggle-indicator">
+                        <i class="fas fa-moon" id="theme-indicator-icon"></i>
+                    </div>
+                </div>
+                <div style="display: flex; gap: 1rem;">
+                    <a href="/login" class="btn btn--outline">Login</a>
+                    <a href="/signup" class="btn btn--primary">Sign Up</a>
+                </div>
             </div>
             {% endif %}
         </div>
@@ -499,6 +555,20 @@
         </div>
     </main>
 
+    <!-- Footer -->
+    {% if not request.url.path in ['/login', '/signup'] %}
+    <footer class="footer">
+        <div class="footer__container">
+            <p>&copy; 2024 GST Intelligence Platform. Built with ❤️ for compliance professionals.</p>
+            <p style="margin-top: 0.5rem; font-size: 0.875rem;">
+                <a href="/privacy" style="color: var(--text-muted); text-decoration: none;">Privacy Policy</a> |
+                <a href="/terms" style="color: var(--text-muted); text-decoration: none;">Terms of Service</a> |
+                <a href="/contact" style="color: var(--text-muted); text-decoration: none;">Contact</a>
+            </p>
+        </div>
+    </footer>
+    {% endif %}
+
     <!-- Core Scripts -->
     <script>
         // Global app state with safe null handling
@@ -507,166 +577,206 @@
             isAuthenticated: {% if current_user %}true{% else %}false{% endif %},
             userProfile: {% if user_profile %}{{ user_profile | tojson }}{% else %}null{% endif %},
             userDisplayName: {% if user_display_name %}"{{ user_display_name }}"{% else %}null{% endif %}
-        }
+        };
 
         // Theme management
         function toggleTheme() {
             const html = document.documentElement;
             const currentTheme = html.getAttribute('data-theme');
-            const newTheme = currentTheme === 'light' ? null : 'light';
+            const newTheme = currentTheme === 'light' ? 'dark' : 'light';
 
-            document.body.classList.add('theme-transitioning');
             html.setAttribute('data-theme', newTheme);
-            localStorage.setItem('theme', newTheme || 'dark');
+            localStorage.setItem('theme', newTheme);
 
-            setTimeout(() => {
-                document.body.classList.remove('theme-transitioning');
-            }, 300);
+            // Update theme indicator
+            const indicator = document.getElementById('theme-indicator-icon');
+            if (indicator) {
+                indicator.className = newTheme === 'dark' ? 'fas fa-moon' : 'fas fa-sun';
+            }
         }
 
-        // Load saved theme
-        (function() {
-            const savedTheme = localStorage.getItem('theme') || 'dark';
-            document.documentElement.setAttribute('data-theme', savedTheme === 'light' ? 'light' : null);
-        })();
+        // Initialize theme from localStorage
+        function initTheme() {
+            const savedTheme = localStorage.getItem('theme');
+            const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+            const theme = savedTheme || (prefersDark ? 'dark' : 'light');
 
-        // User profile dropdown - only initialize if user is authenticated
-        document.addEventListener('DOMContentLoaded', function() {
-            const userBtn = document.getElementById('userProfileBtn');
-            const dropdown = document.getElementById('userDropdownMenu');
+            document.documentElement.setAttribute('data-theme', theme);
 
-            // Only setup user dropdown if user is authenticated
-            if (userBtn && dropdown && window.GST_APP_STATE.isAuthenticated) {
-                userBtn.addEventListener('click', function(e) {
-                    e.stopPropagation();
-
-                    const isOpen = dropdown.classList.contains('active');
-
-                    if (isOpen) {
-                        dropdown.classList.remove('active');
-                        userBtn.classList.remove('active');
-                        userBtn.setAttribute('aria-expanded', 'false');
-                    } else {
-                        dropdown.classList.add('active');
-                        userBtn.classList.add('active');
-                        userBtn.setAttribute('aria-expanded', 'true');
-                        loadUserDropdown();
-                    }
-                });
-
-                document.addEventListener('click', function(e) {
-                    if (!userBtn.contains(e.target) && !dropdown.contains(e.target)) {
-                        dropdown.classList.remove('active');
-                        userBtn.classList.remove('active');
-                        userBtn.setAttribute('aria-expanded', 'false');
-                    }
-                });
+            const indicator = document.getElementById('theme-indicator-icon');
+            if (indicator) {
+                indicator.className = theme === 'dark' ? 'fas fa-moon' : 'fas fa-sun';
             }
-        });
+        }
 
-        // Load user dropdown content with safe null checking
-        async function loadUserDropdown() {
-            const dropdown = document.getElementById('userDropdownMenu');
-            if (!dropdown || !window.GST_APP_STATE.isAuthenticated) return;
+        // Mobile navigation toggle
+        function toggleMobileNav() {
+            const nav = document.getElementById('main-nav');
+            const toggle = document.getElementById('mobile-nav-toggle');
 
-            const state = window.GST_APP_STATE;
-            const userInitial = state.userDisplayName ? state.userDisplayName[0].toUpperCase() : 
-                               (state.currentUser ? state.currentUser[0].toUpperCase() : 'U');
-            const userName = state.userDisplayName || 
-                           (state.currentUser ? `User ${state.currentUser.slice(-4)}` : 'User');
-            const userCompany = (state.userProfile && state.userProfile.company) || 'GST Intelligence Platform';
+            if (nav && toggle) {
+                nav.classList.toggle('mobile-nav-open');
 
-            dropdown.innerHTML = `
-                <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem; padding-bottom: 1rem; border-bottom: 1px solid var(--border-primary);">
-                    <div style="width: 48px; height: 48px; background: var(--accent-gradient); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: 600; font-size: 1.125rem;">
-                        ${userInitial}
-                    </div>
-                    <div>
-                        <div style="font-weight: 600; color: var(--text-primary);">${userName}</div>
-                        <div style="font-size: 0.875rem; color: var(--text-secondary);">${userCompany}</div>
-                    </div>
-                </div>
-
-                <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.75rem; margin-bottom: 1rem;">
-                    <div style="text-align: center; padding: 0.75rem; background: var(--bg-hover); border-radius: 8px;">
-                        <div style="font-size: 1.25rem; font-weight: 700; color: var(--accent-primary);" data-user-stat="total-searches">-</div>
-                        <div style="font-size: 0.75rem; color: var(--text-secondary);">Searches</div>
-                    </div>
-                    <div style="text-align: center; padding: 0.75rem; background: var(--bg-hover); border-radius: 8px;">
-                        <div style="font-size: 1.25rem; font-weight: 700; color: var(--accent-primary);" data-user-stat="avg-compliance">-</div>
-                        <div style="font-size: 0.75rem; color: var(--text-secondary);">Avg Score</div>
-                    </div>
-                </div>
-
-                <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.75rem 0; border-bottom: 1px solid var(--border-primary); margin-bottom: 1rem;">
-                    <span>Theme</span>
-                    <button style="background: var(--bg-hover); border: 1px solid var(--border-primary); border-radius: 20px; padding: 2px; cursor: pointer; display: flex; align-items: center; position: relative; width: 48px; height: 24px;" onclick="toggleTheme()">
-                        <div style="position: absolute; width: 20px; height: 20px; background: var(--accent-primary); border-radius: 50%; transition: transform 0.3s; display: flex; align-items: center; justify-content: center; color: white; font-size: 10px; left: 2px;">
-                            <i class="fas fa-moon"></i>
-                        </div>
-                    </button>
-                </div>
-
-                <div style="display: flex; flex-direction: column; gap: 0.5rem;">
-                    <a href="#" onclick="openEnhancedProfileModal(); return false;" style="display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem; border-radius: 8px; color: var(--text-secondary); text-decoration: none; transition: all 0.3s;">
-                        <i class="fas fa-user-edit"></i>
-                        <span>Edit Profile</span>
-                    </a>
-                    <a href="#" onclick="openSettingsModal(); return false;" style="display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem; border-radius: 8px; color: var(--text-secondary); text-decoration: none; transition: all 0.3s;">
-                        <i class="fas fa-cog"></i>
-                        <span>Settings</span>
-                    </a>
-                    <a href="/export/history" style="display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem; border-radius: 8px; color: var(--text-secondary); text-decoration: none; transition: all 0.3s;">
-                        <i class="fas fa-download"></i>
-                        <span>Export Data</span>
-                    </a>
-                    <hr style="border: none; border-top: 1px solid var(--border-primary); margin: 0.5rem 0;">
-                    <a href="/logout" style="display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem; border-radius: 8px; color: var(--error); text-decoration: none; transition: all 0.3s;">
-                        <i class="fas fa-sign-out-alt"></i>
-                        <span>Logout</span>
-                    </a>
-                </div>
-            `;
-
-            // Load user stats if authenticated
-            if (state.isAuthenticated) {
-                try {
-                    const response = await fetch('/api/user/stats');
-                    const result = await response.json();
-
-                    if (result.success && result.data) {
-                        const totalSearches = dropdown.querySelector('[data-user-stat="total-searches"]');
-                        const avgCompliance = dropdown.querySelector('[data-user-stat="avg-compliance"]');
-
-                        if (totalSearches) totalSearches.textContent = result.data.total_searches || 0;
-                        if (avgCompliance) avgCompliance.textContent = Math.round(result.data.avg_compliance || 0) + '%';
-                    }
-                } catch (error) {
-                    console.error('Error loading user stats:', error);
+                const icon = toggle.querySelector('i');
+                if (icon) {
+                    icon.className = nav.classList.contains('mobile-nav-open') 
+                        ? 'fas fa-times' 
+                        : 'fas fa-bars';
                 }
             }
         }
-    </script>
 
-    <!-- Core Implementation Scripts -->
-    <script src="/static/js/missing-globals.js"></script>
-    <script src="/static/js/app-core.js"></script>
-    <script src="/static/js/keyboard-shortcuts.js"></script>
-    <script src="/static/js/app.js"></script>
-    <script src="/static/js/dashboard.js"></script>
+        // Dropdown functionality
+        function initDropdowns() {
+            document.addEventListener('click', function(e) {
+                const dropdown = e.target.closest('.dropdown');
+                const isToggle = e.target.closest('.dropdown-toggle');
 
-    <script>
-        // Initialize when DOM is ready
+                // Close all dropdowns
+                document.querySelectorAll('.dropdown.active').forEach(dd => {
+                    if (dd !== dropdown) {
+                        dd.classList.remove('active');
+                    }
+                });
+
+                // Toggle current dropdown
+                if (isToggle && dropdown) {
+                    dropdown.classList.toggle('active');
+                }
+            });
+        }
+
+        // Alert close functionality
+        function initAlerts() {
+            document.addEventListener('click', function(e) {
+                if (e.target.closest('.alert__close')) {
+                    const alert = e.target.closest('.alert');
+                    if (alert) {
+                        alert.style.opacity = '0';
+                        alert.style.transform = 'translateX(100%)';
+                        setTimeout(() => {
+                            alert.remove();
+                        }, 300);
+                    }
+                }
+            });
+        }
+
+        // PWA Support
+        function initPWA() {
+            // Service Worker registration
+            if ('serviceWorker' in navigator) {
+                window.addEventListener('load', function() {
+                    navigator.serviceWorker.register('/sw.js')
+                        .then(function(registration) {
+                            console.log('✅ ServiceWorker registered successfully');
+                        })
+                        .catch(function(error) {
+                            console.log('❌ ServiceWorker registration failed:', error);
+                        });
+                });
+            }
+
+            // Install prompt
+            let deferredPrompt;
+            window.addEventListener('beforeinstallprompt', (e) => {
+                e.preventDefault();
+                deferredPrompt = e;
+
+                // Show install button if needed
+                const installButton = document.getElementById('install-app');
+                if (installButton) {
+                    installButton.style.display = 'block';
+                    installButton.addEventListener('click', () => {
+                        deferredPrompt.prompt();
+                        deferredPrompt.userChoice.then((choiceResult) => {
+                            if (choiceResult.outcome === 'accepted') {
+                                console.log('User accepted the install prompt');
+                            }
+                            deferredPrompt = null;
+                        });
+                    });
+                }
+            });
+        }
+
+        // Keyboard shortcuts
+        function initKeyboardShortcuts() {
+            document.addEventListener('keydown', function(e) {
+                // Alt + T: Toggle theme
+                if (e.altKey && e.key === 't') {
+                    e.preventDefault();
+                    toggleTheme();
+                }
+
+                // Alt + S: Focus search (if exists)
+                if (e.altKey && e.key === 's') {
+                    e.preventDefault();
+                    const searchInput = document.querySelector('input[name="gstin"]');
+                    if (searchInput) {
+                        searchInput.focus();
+                    }
+                }
+
+                // Escape: Close modals/dropdowns
+                if (e.key === 'Escape') {
+                    document.querySelectorAll('.dropdown.active').forEach(dd => {
+                        dd.classList.remove('active');
+                    });
+
+                    const mobileNav = document.getElementById('main-nav');
+                    if (mobileNav && mobileNav.classList.contains('mobile-nav-open')) {
+                        toggleMobileNav();
+                    }
+                }
+            });
+        }
+
+        // Initialize everything when DOM is ready
         document.addEventListener('DOMContentLoaded', function() {
-            if (window.GSTPlatform) {
-                console.log('✅ GST Platform Core loaded successfully');
-            } else {
-            console.error('❌ Failed to load GST Platform Core');
+            console.log('🚀 Initializing GST Intelligence Platform...');
+
+            initTheme();
+            initDropdowns();
+            initAlerts();
+            initPWA();
+            initKeyboardShortcuts();
+
+            // Mobile nav toggle
+            const mobileToggle = document.getElementById('mobile-nav-toggle');
+            if (mobileToggle) {
+                mobileToggle.addEventListener('click', toggleMobileNav);
+            }
+
+            console.log('✅ Base functionality initialized');
+        });
+
+        // Handle page visibility changes
+        document.addEventListener('visibilitychange', function() {
+            if (document.visibilityState === 'visible') {
+                // Page is visible again - could refresh data here
+                console.log('📱 Page became visible');
             }
         });
     </script>
 
-    <!-- Page-specific JavaScript -->
+    <!-- Load global dependencies first -->
+    <script src="/static/js/missing-globals.js"></script>
+    <script src="/static/js/app-core.js"></script>
+    <script src="/static/js/keyboard-shortcuts.js"></script>
+    <script src="/static/js/dashboard.js"></script>
+    <script src="/static/js/app.js"></script>
+            
+
+    <!-- Page-specific scripts -->
     {% block extra_js %}{% endblock %}
+
+    <!-- Analytics -->
+    <script>
+        // Track page view
+        if (window.analytics) {
+            window.analytics.trackPageView(window.location.pathname);
+        }
+    </script>
 </body>
 </html>
