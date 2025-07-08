@@ -1,121 +1,102 @@
 # =============================================================================
-# GST Intelligence Platform - Production Dependencies (OPTIMIZED)
+# GST Intelligence Platform - Optimized Dependencies
 # =============================================================================
 
 # Core Web Framework
-fastapi==0.104.1
-uvicorn[standard]==0.24.0
-starlette==0.27.0
+fastapi
+uvicorn[standard]
+starlette
 
 # Database & Async Support
-asyncpg==0.29.0
-redis==5.0.1
-alembic==1.13.1
+asyncpg
+redis
 
-# Template Engine & Forms  
-jinja2==3.1.2
-python-multipart==0.0.6
-markupsafe==2.1.3
+# Template Engine & Forms
+jinja2
+python-multipart
+markupsafe
 
 # Environment & Configuration
-python-dotenv==1.0.0
-python-decouple==3.8
-pydantic==2.5.0
-pydantic-settings==2.1.0
+python-dotenv
+pydantic
+pydantic-settings
 
 # Security & Authentication
-cryptography==41.0.7
-bcrypt==4.1.2
-passlib[bcrypt]==1.7.4
-pyjwt==2.8.0
-python-jose[cryptography]==3.3.0
-itsdangerous==2.1.2
+cryptography
+bcrypt
+passlib[bcrypt]
+pyjwt
+python-jose[cryptography]
 
 # HTTP Client & API Integration
-httpx==0.25.2
-requests==2.31.0
-aiohttp==3.9.1
+httpx
+requests
+aiohttp
 
 # Data Processing & Analytics
-pandas==2.1.4
-numpy==1.26.2
-openpyxl==3.1.2
-xlsxwriter==3.1.9
-xlrd==2.0.1
+pandas
+numpy
+openpyxl
+xlsxwriter
 
-# PDF & Document Generation
-weasyprint==60.2
-reportlab==4.0.7
-python-docx==1.1.0
+# PDF Generation
+weasyprint
+reportlab
 
 # Data Validation
-email-validator==2.1.0
-phonenumbers==8.13.26
-validators==0.22.0
-python-dateutil==2.8.2
+email-validator
+phonenumbers
+validators
+python-dateutil
 
 # Rate Limiting & Security
-slowapi==0.1.9
-limits==3.6.0
+slowapi
+limits
 
 # AI Integration
-anthropic==0.8.1
+anthropic
+google
 
 # Performance & Monitoring
-psutil==5.9.6
-prometheus-client==0.19.0
-sentry-sdk[fastapi]==1.38.0
+psutil
+prometheus-client
 
 # Utilities
-python-slugify==8.0.1
-pytz==2023.3
-arrow==1.3.0
-charset-normalizer==3.3.2
-typing-extensions==4.8.0
-anyio==4.1.0
-urllib3==2.1.0
-certifi==2023.11.17
-colorama==0.4.6
-tqdm==4.66.1
+python-slugify
+pytz
+charset-normalizer
+typing-extensions
+anyio
+urllib3
+certifi
 
-# File & I/O Operations
-aiofiles==23.2.1
-pillow==10.1.0
-python-magic==0.4.27
+# Production Server
+gunicorn
+watchfiles
+uvloop
 
-# JSON & Data Serialization
-orjson==3.9.10
-marshmallow==3.20.1
-
-# Caching
-diskcache==5.6.3
-aiocache==0.12.2
-
-# Production Servers
-gunicorn==21.2.0
-uvloop==0.19.0
-waitress==2.1.2
-watchfiles==0.21.0
-
-# Web Scraping (if needed)
-beautifulsoup4==4.12.2
-lxml==4.9.3
-html5lib==1.1
-bleach==6.1.0
+# Web Scraping (for GST data if needed)
+beautifulsoup4
+lxml
+html5lib
+bleach
 
 # Enhanced Logging
-structlog==23.2.0
+structlog
 
-# Payment Integration
-razorpay==1.4.2
+# Payment Integration (for loan features)
+razorpay
 
-# HTTP utilities
-http-status==1.0.0
-furl==2.1.3
+# Time & Date Processing
+arrow
 
-# Background Tasks
-celery==5.3.4
-asyncio-throttle==1.0.2
+# Background Tasks (if implementing async jobs)
+asyncio-mqtt
 
-# Configuration
-confz==2.0.1
+# Development & Testing
+pytest
+pytest-asyncio
+pytest-cov
+black
+flake8
+pre-commit
