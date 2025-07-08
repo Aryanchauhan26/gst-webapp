@@ -1,5 +1,5 @@
 # =============================================================================
-# GST Intelligence Platform - Optimized Dependencies
+# GST Intelligence Platform - Complete Dependencies (No Versions)
 # =============================================================================
 
 # Core Web Framework
@@ -27,6 +27,7 @@ bcrypt
 passlib[bcrypt]
 pyjwt
 python-jose[cryptography]
+itsdangerous
 
 # HTTP Client & API Integration
 httpx
@@ -55,7 +56,6 @@ limits
 
 # AI Integration
 anthropic
-google
 
 # Performance & Monitoring
 psutil
@@ -75,7 +75,7 @@ gunicorn
 watchfiles
 uvloop
 
-# Web Scraping (for GST data if needed)
+# Web Scraping
 beautifulsoup4
 lxml
 html5lib
@@ -84,14 +84,42 @@ bleach
 # Enhanced Logging
 structlog
 
-# Payment Integration (for loan features)
+# Payment Integration
 razorpay
 
 # Time & Date Processing
 arrow
 
-# Background Tasks (if implementing async jobs)
+# File Operations
+aiofiles
+
+# JSON Processing
+orjson
+
+# Image Processing
+pillow
+
+# Excel Processing
+xlrd
+
+# Background Tasks
 asyncio-mqtt
+celery
+
+# Caching
+diskcache
+
+# Database Migrations
+alembic
+
+# Configuration Management
+confz
+
+# Error Tracking
+sentry-sdk[fastapi]
+
+# Enhanced Async Support
+asyncio-throttle
 
 # Development & Testing
 pytest
@@ -100,3 +128,4 @@ pytest-cov
 black
 flake8
 pre-commit
+mypy
