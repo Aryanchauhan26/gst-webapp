@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-GST Intelligence Platform - Complete Main Application
-Enhanced with clean architecture and comprehensive functionality
+GST Intelligence Platform - Main Application (Fixed Version)
+Enhanced with PostgreSQL database and AI-powered insights
 """
 
 import os
@@ -12,1602 +12,973 @@ import hashlib
 import secrets
 import logging
 import json
-import httpx
 from datetime import datetime, timedelta
-from functools import wraps
-from razorpay_lending import RazorpayLendingClient, LoanManager, LoanConfig, LoanStatus
-from decimal import Decimal, InvalidOperation
 from collections import defaultdict
-from typing import Optional, Dict, List, Any, Tuple, Union, Callable
+from typing import Optional, Dict, List
 from fastapi import FastAPI, Request, Form, Depends, HTTPException, status, Response
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse, StreamingResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
-from io import BytesIO, StringIO
-from enum import Enum
-from validators import EnhancedDataValidator, VALIDATION_RULES
-import jwt
-import redis
-import fnmatch
-import csv
-import time
-import html
-import phonenumbers
-from phonenumbers.phonenumberutil import NumberParseException
-
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-logger = logging.getLogger(__name__)
-
-try:
-    from weasyprint import HTML
-    HAS_WEASYPRINT = True
-except ImportError:
-    logger.warning("WeasyPrint not available - PDF generation disabled")
-    HAS_WEASYPRINT = False
-    HTML = None
-
+from io import BytesIO
+from weasyprint import HTML
 from dotenv import load_dotenv
 from anthro_ai import get_anthropic_synopsis
-from pydantic import BaseModel, field_validator, validator
 
 # Load environment variables
 load_dotenv()
 
-# Configuration
-try:
-    from config import settings as config
-    print(f"✅ Config loaded successfully - Environment: {config.ENVIRONMENT}")
-except Exception as e:
-    print(f"❌ Config loading failed: {e}")
-    raise
+# Set up logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
 
+# Environment Configuration
+RAPIDAPI_KEY = os.getenv("RAPIDAPI_KEY")
+ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY") 
+RAPIDAPI_HOST = os.getenv("RAPIDAPI_HOST", "gst-return-status.p.rapidapi.com")
+POSTGRES_DSN = "postgresql://neondb_owner:npg_i3m7wqMeHXaW@ep-fragrant-cell-a10j16o4-pooler.ap-southeast-1.aws.neon.tech/neondb?sslmode=require"
 
-class DataValidator:
-    """Enhanced data validator with comprehensive error handling."""
+# Initialize FastAPI app
+app = FastAPI(title="GST Intelligence Platform", version="2.0.0")
+app.mount("/static", StaticFiles(directory="static"), name="static")
+templates = Jinja2Templates(directory="templates")
 
-    @staticmethod
-    def validate_gstin(gstin: str) -> bool:
-        """Validate GSTIN format."""
-        if not gstin or len(gstin) != 15:
+# Add template globals
+def setup_template_globals():
+    """Setup global template variables"""
+    templates.env.globals.update({
+        'current_year': datetime.now().year,
+        'app_version': "2.0.0"
+    })
+
+# Authentication functions
+async def get_current_user(request: Request) -> Optional[str]:
+    """Get current user from session"""
+    session_token = request.cookies.get("session_token")
+    if not session_token:
+        return None
+    return await db.get_session(session_token)
+
+async def require_auth(request: Request) -> str:
+    """Require authentication for protected routes"""
+    user = await get_current_user(request)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_303_SEE_OTHER, 
+            headers={"Location": "/login"}
+        )
+    return user
+
+# Rate Limiter
+class RateLimiter:
+    def __init__(self, max_attempts=5, window_minutes=15):
+        self.attempts = defaultdict(list)
+        self.max_attempts = max_attempts
+        self.window = timedelta(minutes=window_minutes)
+    
+    def is_allowed(self, identifier: str) -> bool:
+        now = datetime.now()
+        self.attempts[identifier] = [
+            attempt for attempt in self.attempts[identifier]
+            if now - attempt < self.window
+        ]
+        
+        if len(self.attempts[identifier]) >= self.max_attempts:
             return False
+        
+        self.attempts[identifier].append(now)
+        return True
 
-        pattern = r'^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}[Z]{1}[0-9A-Z]{1}$'
-        return bool(re.match(pattern, gstin.upper()))
+# Initialize rate limiters
+login_limiter = RateLimiter()
+api_limiter = RateLimiter(max_attempts=60, window_minutes=1)
 
-    @staticmethod
-    def validate_mobile(mobile: str) -> bool:
-        """Validate Indian mobile number."""
-        if not mobile or len(mobile) != 10:
-            return False
-
-        pattern = r'^[6-9][0-9]{9}$'
-        return bool(re.match(pattern, mobile))
-
-    @staticmethod
-    def sanitize_input(input_str: str) -> str:
-        """Sanitize user input."""
-        if not input_str:
-            return ""
-
-        # Remove HTML tags and escape special characters
-        sanitized = html.escape(str(input_str).strip())
-        return sanitized
-
-
-class UserRole(Enum):
-    USER = "user"
-    ADMIN = "admin"
-
-
-# Pydantic models
-class LoanApplicationRequest(BaseModel):
-    gstin: str
-    company_name: str
-    loan_amount: float
-    purpose: str
-    tenure_months: int
-    annual_turnover: float
-    monthly_revenue: float
-    compliance_score: float
-    business_vintage_months: int
-
-    @field_validator('gstin')
-    @classmethod
-    def validate_gstin(cls, v):
-        if not DataValidator.validate_gstin(v):
-            raise ValueError('Invalid GSTIN format')
-        return v.upper()
-
-    @field_validator('loan_amount')
-    @classmethod
-    def validate_loan_amount(cls, v):
-        if v <= 0:
-            raise ValueError('Loan amount must be positive')
-        return v
-
-
-# Database Manager
-class EnhancedDatabaseManager:
-
-    def __init__(self, dsn: str):
+# PostgreSQL Database Manager
+# PostgreSQL Database Manager - FIXED VERSION
+class PostgresDB:
+    def __init__(self, dsn=POSTGRES_DSN):
         self.dsn = dsn
         self.pool = None
 
-    async def initialize(self):
-        """Initialize database connection pool."""
-        try:
-            self.pool = await asyncpg.create_pool(dsn=self.dsn,
-                                                  min_size=5,
-                                                  max_size=20,
-                                                  command_timeout=60,
-                                                  server_settings={
-                                                      'jit':
-                                                      'off',
-                                                      'application_name':
-                                                      'gst_intelligence'
-                                                  })
+    async def connect(self):
+        if not self.pool:
+            self.pool = await asyncpg.create_pool(dsn=self.dsn)
 
-            # Test connection
-            async with self.pool.acquire() as conn:
-                await conn.execute("SELECT 1")
+    async def ensure_tables(self):
+        """Ensure all required tables exist with correct schema"""
+        await self.connect()
+        async with self.pool.acquire() as conn:
+            # Create users table
+            await conn.execute("""
+                CREATE TABLE IF NOT EXISTS users (
+                    mobile VARCHAR(10) PRIMARY KEY,
+                    password_hash VARCHAR(128) NOT NULL,
+                    salt VARCHAR(32) NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    last_login TIMESTAMP
+                );
+            """)
+            
+            # Create sessions table
+            await conn.execute("""
+                CREATE TABLE IF NOT EXISTS sessions (
+                    session_token VARCHAR(64) PRIMARY KEY,
+                    mobile VARCHAR(10) NOT NULL,
+                    expires_at TIMESTAMP NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (mobile) REFERENCES users(mobile) ON DELETE CASCADE
+                );
+            """)
+            
+            # Create search_history table (FIXED COLUMN NAME)
+            await conn.execute("""
+                CREATE TABLE IF NOT EXISTS search_history (
+                    id SERIAL PRIMARY KEY,
+                    mobile VARCHAR(10) NOT NULL,
+                    gstin VARCHAR(15) NOT NULL,
+                    company_name TEXT NOT NULL,
+                    compliance_score DECIMAL(5,2),
+                    searched_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (mobile) REFERENCES users(mobile) ON DELETE CASCADE
+                );
+            """)
+            
+            # Create user_preferences table
+            await conn.execute("""
+                CREATE TABLE IF NOT EXISTS user_preferences (
+                    mobile VARCHAR(10) PRIMARY KEY,
+                    preferences JSONB NOT NULL DEFAULT '{}',
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (mobile) REFERENCES users(mobile) ON DELETE CASCADE
+                );
+            """)
+            
+            # Create indexes
+            await conn.execute("CREATE INDEX IF NOT EXISTS idx_sessions_expires ON sessions(expires_at);")
+            await conn.execute("CREATE INDEX IF NOT EXISTS idx_search_history_mobile ON search_history(mobile);")
+            await conn.execute("CREATE INDEX IF NOT EXISTS idx_search_history_searched_at ON search_history(searched_at);")
+            
+            logger.info("✅ All database tables created/verified with correct schema")
 
-            logger.info("✅ Database pool initialized successfully")
-
-        except Exception as e:
-            logger.error(f"❌ Database initialization failed: {e}")
-            raise
-
-    async def execute_query(self, query: str, *args):
-        """Execute a query safely with connection management."""
-        try:
-            async with self.pool.acquire() as conn:
-                return await conn.fetch(query, *args)
-        except Exception as e:
-            logger.error(f"Database query error: {e}")
-            raise
-
-    async def execute_single(self, query: str, *args):
-        """Execute a single query and return one result."""
-        try:
-            async with self.pool.acquire() as conn:
-                return await conn.fetchrow(query, *args)
-        except Exception as e:
-            logger.error(f"Database query error: {e}")
-            raise
-
-    async def create_tables(self):
-        """Create database tables if they don't exist."""
-        try:
-            async with self.pool.acquire() as conn:
-                # Users table
-                await conn.execute("""
-                    CREATE TABLE IF NOT EXISTS users (
-                        mobile VARCHAR(10) PRIMARY KEY,
-                        password_hash VARCHAR(255) NOT NULL,
-                        salt VARCHAR(255) NOT NULL,
-                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                        last_login TIMESTAMP,
-                        is_active BOOLEAN DEFAULT TRUE,
-                        role VARCHAR(10) DEFAULT 'user'
-                    )
-                """)
-
-                # Sessions table
-                await conn.execute("""
-                    CREATE TABLE IF NOT EXISTS user_sessions (
-                        token VARCHAR(255) PRIMARY KEY,
-                        user_mobile VARCHAR(10) NOT NULL,
-                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                        expires_at TIMESTAMP NOT NULL,
-                        is_active BOOLEAN DEFAULT TRUE,
-                        FOREIGN KEY (user_mobile) REFERENCES users(mobile) ON DELETE CASCADE
-                    )
-                """)
-
-                # Search history table
-                await conn.execute("""
-                    CREATE TABLE IF NOT EXISTS search_history (
-                        id SERIAL PRIMARY KEY,
-                        user_mobile VARCHAR(10) NOT NULL,
-                        gstin VARCHAR(15) NOT NULL,
-                        company_name TEXT,
-                        compliance_score DECIMAL(5,2),
-                        search_data JSONB,
-                        searched_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                        FOREIGN KEY (user_mobile) REFERENCES users(mobile) ON DELETE CASCADE
-                    )
-                """)
-
-                # Error logs table
-                await conn.execute("""
-                    CREATE TABLE IF NOT EXISTS error_logs (
-                        id SERIAL PRIMARY KEY,
-                        user_mobile VARCHAR(10),
-                        error_type VARCHAR(50),
-                        message TEXT,
-                        stack_trace TEXT,
-                        request_data JSONB,
-                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                    )
-                """)
-
-                # Create indexes for performance
-                await conn.execute("""
-                    CREATE INDEX IF NOT EXISTS idx_sessions_user_mobile 
-                    ON user_sessions(user_mobile)
-                """)
-
-                await conn.execute("""
-                    CREATE INDEX IF NOT EXISTS idx_search_history_user_mobile 
-                    ON search_history(user_mobile, searched_at DESC)
-                """)
-
-                await conn.execute("""
-                    CREATE INDEX IF NOT EXISTS idx_search_history_gstin 
-                    ON search_history(gstin)
-                """)
-
-                logger.info("✅ Database tables created/verified successfully")
-
-        except Exception as e:
-            logger.error(f"❌ Table creation failed: {e}")
-            raise
-
-    async def create_user(self, mobile: str, password: str) -> bool:
-        """Create a new user."""
-        try:
-            if not DataValidator.validate_mobile(mobile):
-                return False
-
-            salt = secrets.token_hex(16)
-            password_hash = hashlib.sha256(
-                (password + salt).encode()).hexdigest()
-
-            async with self.pool.acquire() as conn:
-                await conn.execute(
-                    """
-                    INSERT INTO users (mobile, password_hash, salt)
-                    VALUES ($1, $2, $3)
-                """, mobile, password_hash, salt)
-
-            return True
-
-        except asyncpg.UniqueViolationError:
-            return False
-        except Exception as e:
-            logger.error(f"User creation error: {e}")
-            return False
+    async def create_user(self, mobile: str, password_hash: str, salt: str):
+        await self.connect()
+        async with self.pool.acquire() as conn:
+            await conn.execute(
+                "INSERT INTO users (mobile, password_hash, salt) VALUES ($1, $2, $3) ON CONFLICT (mobile) DO NOTHING",
+                mobile, password_hash, salt
+            )
 
     async def verify_user(self, mobile: str, password: str) -> bool:
-        """Verify user credentials."""
-        try:
-            async with self.pool.acquire() as conn:
-                user = await conn.fetchrow(
-                    """
-                    SELECT password_hash, salt FROM users 
-                    WHERE mobile = $1 AND is_active = TRUE
-                """, mobile)
-
-            if not user:
+        await self.connect()
+        async with self.pool.acquire() as conn:
+            row = await conn.fetchrow("SELECT password_hash, salt FROM users WHERE mobile=$1", mobile)
+            if not row:
                 return False
+            return check_password(password, row['password_hash'], row['salt'])
 
-            expected_hash = hashlib.sha256(
-                (password + user['salt']).encode()).hexdigest()
-            return user['password_hash'] == expected_hash
-
-        except Exception as e:
-            logger.error(f"User verification error: {e}")
-            return False
-
-    async def create_session(self, mobile: str) -> str:
-        """Create a new session."""
-        try:
-            token = secrets.token_urlsafe(32)
-            expires_at = datetime.now() + timedelta(
-                seconds=config.SESSION_DURATION)
-
-            async with self.pool.acquire() as conn:
-                await conn.execute(
-                    """
-                    INSERT INTO user_sessions (token, user_mobile, expires_at)
-                    VALUES ($1, $2, $3)
-                """, token, mobile, expires_at)
-
-            return token
-
-        except Exception as e:
-            logger.error(f"Session creation error: {e}")
-            return None
-
-    async def get_user_from_session(self, token: str) -> Optional[str]:
-        """Get user from session token."""
-        try:
-            async with self.pool.acquire() as conn:
-                session = await conn.fetchrow(
-                    """
-                    SELECT user_mobile FROM user_sessions 
-                    WHERE token = $1 AND expires_at > CURRENT_TIMESTAMP AND is_active = TRUE
-                """, token)
-
-            return session['user_mobile'] if session else None
-
-        except Exception as e:
-            logger.error(f"Session validation error: {e}")
-            return None
-
-    async def save_search(self, user_mobile: str, gstin: str,
-                          company_name: str, compliance_score: float,
-                          search_data: dict):
-        """Save search to history."""
+    async def create_session(self, mobile: str) -> Optional[str]:
+        session_token = secrets.token_urlsafe(32)
+        expires_at = datetime.now() + timedelta(days=7)
+        await self.connect()
         try:
             async with self.pool.acquire() as conn:
                 await conn.execute(
-                    """
-                    INSERT INTO search_history (user_mobile, gstin, company_name, compliance_score, search_data)
-                    VALUES ($1, $2, $3, $4, $5)
-                """, user_mobile, gstin, company_name, compliance_score,
-                    json.dumps(search_data))
-
+                    "INSERT INTO sessions (session_token, mobile, expires_at) VALUES ($1, $2, $3)",
+                    session_token, mobile, expires_at
+                )
+            return session_token
         except Exception as e:
-            logger.error(f"Save search error: {e}")
+            logger.error(f"Session creation failed: {e}")
+            return None
 
-    async def get_search_history(self,
-                                 user_mobile: str,
-                                 limit: int = 10) -> List[Dict]:
-        """Get user's search history."""
-        try:
-            async with self.pool.acquire() as conn:
-                rows = await conn.fetch(
-                    """
-                    SELECT gstin, company_name, compliance_score, searched_at 
-                    FROM search_history 
-                    WHERE user_mobile = $1 
-                    ORDER BY searched_at DESC 
-                    LIMIT $2
-                """, user_mobile, limit)
+    async def get_session(self, session_token: str) -> Optional[str]:
+        await self.connect()
+        async with self.pool.acquire() as conn:
+            row = await conn.fetchrow(
+                "SELECT mobile, expires_at FROM sessions WHERE session_token=$1",
+                session_token
+            )
+            if row and row['expires_at'] > datetime.now():
+                return row['mobile']
+        return None
 
-            return [dict(row) for row in rows]
-
-        except Exception as e:
-            logger.error(f"Get search history error: {e}")
-            return []
-
-    async def get_all_searches(self, user_mobile: str) -> List[Dict]:
-        """Get all user searches."""
-        try:
-            async with self.pool.acquire() as conn:
-                rows = await conn.fetch(
-                    """
-                    SELECT * FROM search_history 
-                    WHERE user_mobile = $1 
-                    ORDER BY searched_at DESC
-                """, user_mobile)
-
-            return [dict(row) for row in rows]
-
-        except Exception as e:
-            logger.error(f"Get all searches error: {e}")
-            return []
-
-    async def get_user_profile(self, mobile: str) -> Dict:
-        """Get user profile information."""
-        try:
-            async with self.pool.acquire() as conn:
-                user = await conn.fetchrow(
-                    """
-                    SELECT mobile, created_at, last_login, role
-                    FROM users WHERE mobile = $1
-                """, mobile)
-
-            if not user:
-                return {}
-
-                # Get search statistics
-                search_stats = await conn.fetchrow(
-                    """
-                    SELECT 
-                        COUNT(*) as total_searches,
-                        COUNT(DISTINCT gstin) as unique_companies,
-                        AVG(compliance_score) as avg_compliance
-                    FROM search_history 
-                    WHERE user_mobile = $1
-                """, mobile)
-
-            return {
-                **dict(user), 'total_searches':
-                search_stats['total_searches'] or 0,
-                'unique_companies':
-                search_stats['unique_companies'] or 0,
-                'avg_compliance':
-                float(search_stats['avg_compliance'])
-                if search_stats['avg_compliance'] else 0
-            }
-
-        except Exception as e:
-            logger.error(f"Get user profile error: {e}")
-            return {}
+    async def delete_session(self, session_token: str):
+        await self.connect()
+        async with self.pool.acquire() as conn:
+            await conn.execute("DELETE FROM sessions WHERE session_token=$1", session_token)
 
     async def update_last_login(self, mobile: str):
-        """Update user's last login time."""
-        try:
-            async with self.pool.acquire() as conn:
-                await conn.execute(
-                    """
-                    UPDATE users SET last_login = CURRENT_TIMESTAMP 
-                    WHERE mobile = $1
-                """, mobile)
+        await self.connect()
+        async with self.pool.acquire() as conn:
+            await conn.execute("UPDATE users SET last_login=$1 WHERE mobile=$2", datetime.now(), mobile)
 
-        except Exception as e:
-            logger.error(f"Update last login error: {e}")
+    async def add_search_history(self, mobile: str, gstin: str, company_name: str, compliance_score: float = None):
+        await self.connect()
+        async with self.pool.acquire() as conn:
+            await conn.execute(
+                "INSERT INTO search_history (mobile, gstin, company_name, compliance_score) VALUES ($1, $2, $3, $4)",
+                mobile, gstin, company_name, compliance_score
+            )
 
-    async def get_user_stats(self, user_mobile: str) -> Dict:
-        """Get user statistics."""
-        try:
-            async with self.pool.acquire() as conn:
-                stats = await conn.fetchrow(
-                    """
-                    SELECT 
-                        COUNT(*) as total_searches,
-                        COUNT(DISTINCT gstin) as unique_companies,
-                        AVG(compliance_score) as avg_compliance,
-                        COUNT(CASE WHEN searched_at >= CURRENT_DATE - INTERVAL '30 days' THEN 1 END) as recent_searches,
-                        MAX(searched_at) as last_search
-                    FROM search_history 
-                    WHERE user_mobile = $1
-                """, user_mobile)
+    async def get_search_history(self, mobile: str, limit: int = 10) -> List[Dict]:
+        await self.connect()
+        async with self.pool.acquire() as conn:
+            rows = await conn.fetch(
+                "SELECT gstin, company_name, searched_at, compliance_score FROM search_history WHERE mobile=$1 ORDER BY searched_at DESC LIMIT $2",
+                mobile, limit
+            )
+            return [dict(row) for row in rows]
 
-            return dict(stats) if stats else {
-                'total_searches': 0,
-                'unique_companies': 0,
-                'avg_compliance': 0,
-                'recent_searches': 0,
-                'last_search': None
-            }
+    async def get_all_searches(self, mobile: str) -> List[Dict]:
+        await self.connect()
+        async with self.pool.acquire() as conn:
+            rows = await conn.fetch(
+                "SELECT gstin, company_name, searched_at, compliance_score FROM search_history WHERE mobile=$1 ORDER BY searched_at DESC",
+                mobile
+            )
+            return [dict(row) for row in rows]
 
-        except Exception as e:
-            logger.error(f"Get user stats error: {e}")
-            return {
-                'total_searches': 0,
-                'unique_companies': 0,
-                'avg_compliance': 0,
-                'recent_searches': 0,
-                'last_search': None
-            }
-
-    async def get_analytics_data(self, user_mobile: str) -> Dict:
-        """Get analytics data for user."""
-        try:
-            async with self.pool.acquire() as conn:
-                # Daily search activity (last 30 days)
-                daily_searches = await conn.fetch(
-                    """
-                    SELECT DATE(searched_at) as date, COUNT(*) as count
-                    FROM search_history 
-                    WHERE user_mobile = $1 AND searched_at >= CURRENT_DATE - INTERVAL '30 days'
-                    GROUP BY DATE(searched_at)
-                    ORDER BY date
-                """, user_mobile)
-
-                # Score distribution
-                score_distribution = await conn.fetch(
-                    """
-                    SELECT 
-                        CASE 
-                            WHEN compliance_score >= 80 THEN 'Excellent'
-                            WHEN compliance_score >= 60 THEN 'Good'
-                            WHEN compliance_score >= 40 THEN 'Average'
-                            ELSE 'Poor'
-                        END as category,
-                        COUNT(*) as count
-                    FROM search_history 
-                    WHERE user_mobile = $1 AND compliance_score IS NOT NULL
-                    GROUP BY category
-                """, user_mobile)
-
-                # Top companies
-                top_companies = await conn.fetch(
-                    """
-                    SELECT company_name, compliance_score, searched_at
-                    FROM search_history 
-                    WHERE user_mobile = $1 AND company_name IS NOT NULL
-                    ORDER BY searched_at DESC
-                    LIMIT 10
-                """, user_mobile)
-
-            return {
-                'daily_searches': [dict(row) for row in daily_searches],
-                'score_distribution':
-                [dict(row) for row in score_distribution],
-                'top_companies': [dict(row) for row in top_companies]
-            }
-
-        except Exception as e:
-            logger.error(f"Get analytics error: {e}")
-            return {
-                'daily_searches': [],
-                'score_distribution': [],
-                'top_companies': []
-            }
-
-    async def get_admin_stats(self) -> Dict:
-        """Get admin dashboard statistics."""
-        try:
-            async with self.pool.acquire() as conn:
-                # Total users
-                total_users = await conn.fetchval("SELECT COUNT(*) FROM users")
-
-                # Active users (logged in last 30 days)
-                active_users = await conn.fetchval("""
-                    SELECT COUNT(*) FROM users 
-                    WHERE last_login >= CURRENT_DATE - INTERVAL '30 days'
-                """)
-
-                # Total searches
-                total_searches = await conn.fetchval(
-                    "SELECT COUNT(*) FROM search_history")
-
-                # Searches today
-                searches_today = await conn.fetchval("""
-                    SELECT COUNT(*) FROM search_history 
-                    WHERE DATE(searched_at) = CURRENT_DATE
-                """)
-
-            return {
-                'total_users': total_users or 0,
-                'active_users': active_users or 0,
-                'total_searches': total_searches or 0,
-                'searches_today': searches_today or 0
-            }
-
-        except Exception as e:
-            logger.error(f"Get admin stats error: {e}")
-            return {
-                'total_users': 0,
-                'active_users': 0,
-                'total_searches': 0,
-                'searches_today': 0
-            }
-
-    async def get_all_users(self, page: int = 1, limit: int = 50) -> Dict:
-        """Get all users with pagination."""
-        try:
-            offset = (page - 1) * limit
-
-            async with self.pool.acquire() as conn:
-                # Get total count
-                total = await conn.fetchval("SELECT COUNT(*) FROM users")
-
-                # Get users
-                users = await conn.fetch(
-                    """
-                    SELECT 
-                        mobile, 
-                        created_at, 
-                        last_login,
-                        (SELECT COUNT(*) FROM search_history WHERE user_mobile = users.mobile) as search_count
-                    FROM users 
-                    ORDER BY created_at DESC 
-                    LIMIT $1 OFFSET $2
-                """, limit, offset)
-
-            return {
-                'users': [dict(user) for user in users],
-                'total': total,
-                'page': page,
-                'pages': (total + limit - 1) // limit
-            }
-
-        except Exception as e:
-            logger.error(f"Get all users error: {e}")
-            return {'users': [], 'total': 0, 'page': 1, 'pages': 0}
-
-
-# Cache Manager
-class CacheManager:
-
-    def __init__(self, redis_url: Optional[str] = None):
-        self.redis_url = redis_url
-        self.redis_client = None
-        self.memory_cache = {}
-
-        if redis_url:
-            try:
-                self.redis_client = redis.Redis.from_url(redis_url,
-                                                         decode_responses=True)
-                self.redis_client.ping()
-                logger.info("✅ Redis cache connected")
-            except Exception as e:
-                logger.warning(
-                    f"Redis connection failed, using memory cache: {e}")
-                self.redis_client = None
-
-    async def get(self, key: str) -> Optional[str]:
-        """Get value from cache."""
-        try:
-            if self.redis_client:
-                return self.redis_client.get(key)
-            else:
-                return self.memory_cache.get(key)
-        except Exception as e:
-            logger.error(f"Cache get error: {e}")
-            return None
-
-    async def set(self, key: str, value: str, ttl: int = 300) -> bool:
-        """Set value in cache."""
-        try:
-            if self.redis_client:
-                return self.redis_client.setex(key, ttl, value)
-            else:
-                self.memory_cache[key] = value
-                return True
-        except Exception as e:
-            logger.error(f"Cache set error: {e}")
-            return False
-
-    async def clear_pattern(self, pattern: str) -> int:
-        """Clear cache entries matching pattern."""
-        try:
-            if self.redis_client:
-                keys = self.redis_client.keys(pattern)
-                if keys:
-                    return self.redis_client.delete(*keys)
-                return 0
-            else:
-                keys_to_delete = [
-                    k for k in self.memory_cache.keys()
-                    if fnmatch.fnmatch(k, pattern)
-                ]
-                for key in keys_to_delete:
-                    del self.memory_cache[key]
-                return len(keys_to_delete)
-        except Exception as e:
-            logger.error(f"Cache clear error: {e}")
-            return 0
-
-    def get_stats(self) -> Dict:
-        """Get cache statistics."""
-        stats = {
-            'memory_entries': len(self.memory_cache),
-            'redis_configured': bool(self.redis_url),
-            'redis_connected': bool(self.redis_client),
-            'type': 'redis' if self.redis_client else 'memory'
-        }
-
-        if self.redis_client:
-            try:
-                info = self.redis_client.info()
-                stats.update({
-                    'redis_memory':
-                    info.get('used_memory_human', 'unknown'),
-                    'redis_keys':
-                    info.get('keyspace_hits', 0) +
-                    info.get('keyspace_misses', 0),
-                    'redis_hits':
-                    info.get('keyspace_hits', 0),
-                    'redis_misses':
-                    info.get('keyspace_misses', 0)
-                })
-            except Exception:
-                stats['redis_connected'] = False
-
-        return stats
-
-
-# Rate Limiter
-class AdvancedRateLimiter:
-
-    def __init__(self, redis_client=None):
-        self.redis = redis_client
-        self.memory_store = defaultdict(list)
-
-    async def is_allowed(self, identifier: str, limit: int,
-                         window: int) -> bool:
-        """Check if request is allowed under rate limit."""
-        now = time.time()
-        key = f"rate_limit:{identifier}"
-
-        if self.redis:
-            return await self._redis_rate_limit(key, limit, window, now,
-                                                identifier)
-        else:
-            return self._memory_rate_limit(identifier, limit, window, now)
-
-    async def _redis_rate_limit(self, key: str, limit: int, window: int,
-                                now: float, identifier: str) -> bool:
-        """Redis-based rate limiting using sliding window."""
-        try:
-            pipe = self.redis.pipeline()
-            pipe.zremrangebyscore(key, 0, now - window)
-            pipe.zcard(key)
-            pipe.zadd(key, {str(now): now})
-            pipe.expire(key, window)
-            results = pipe.execute()
-
-            current_requests = results[1]
-            return current_requests < limit
-
-        except Exception as e:
-            logger.error(f"Redis rate limit error: {e}")
-            return True  # Allow on error
-
-    def _memory_rate_limit(self, identifier: str, limit: int, window: int,
-                           now: float) -> bool:
-        """Memory-based rate limiting."""
-        requests = self.memory_store[identifier]
-
-        # Remove old requests
-        cutoff = now - window
-        self.memory_store[identifier] = [
-            req_time for req_time in requests if req_time > cutoff
-        ]
-
-        # Check limit
-        if len(self.memory_store[identifier]) >= limit:
-            return False
-
-        # Add current request
-        self.memory_store[identifier].append(now)
-        return True
-
-
-# Initialize components
-db = EnhancedDatabaseManager(config.POSTGRES_DSN)
-cache_manager = CacheManager(config.REDIS_URL)
-login_limiter = AdvancedRateLimiter(cache_manager.redis_client)
-
-# Initialize Razorpay Lending if configured
-razorpay_key = os.getenv("RAZORPAY_KEY_ID")
-razorpay_secret = os.getenv("RAZORPAY_KEY_SECRET")
-is_production = os.getenv("RAZORPAY_ENVIRONMENT", "test") == "live"
-
-if razorpay_key and razorpay_secret:
-    razorpay_lending_client = RazorpayLendingClient(razorpay_key,
-                                                    razorpay_secret,
-                                                    is_production)
-    loan_manager = LoanManager(razorpay_lending_client, db)
-else:
-    razorpay_lending_client = None
-    loan_manager = None
-
+db = PostgresDB()
 
 # GST API Client
-class GSTAPIClient:
-
+class GSAPIClient:
     def __init__(self, api_key: str, host: str):
         self.api_key = api_key
         self.host = host
         self.headers = {
             "x-rapidapi-key": api_key,
             "x-rapidapi-host": host,
-            "User-Agent": "GST-Intelligence-Platform/2.0"
+            "User-Agent": "GST-Compliance-Platform/2.0"
         }
-
+    
     async def fetch_gstin_data(self, gstin: str) -> Dict:
-        """Fetch GSTIN data from API."""
-        try:
-            if not DataValidator.validate_gstin(gstin):
-                raise ValueError("Invalid GSTIN format")
-
-            # Check cache first
-            cache_key = f"gstin:{gstin}"
-            cached_data = await cache_manager.get(cache_key)
-
-            if cached_data:
-                return json.loads(cached_data)
-
-            # Fetch from API
-            async with httpx.AsyncClient(timeout=30.0) as client:
-                response = await client.get(f"https://{self.host}/gst",
-                                            headers=self.headers,
-                                            params={"gstin": gstin})
-
-                if response.status_code == 200:
-                    data = response.json()
-
-                    # Cache the response
-                    await cache_manager.set(cache_key,
-                                            json.dumps(data),
-                                            ttl=3600)
-
-                    return data
+        import httpx
+        url = f"https://{self.host}/free/gstin/{gstin}"
+        async with httpx.AsyncClient(timeout=30) as client:
+            resp = await client.get(url, headers=self.headers)
+            if resp.status_code == 200:
+                json_data = resp.json()
+                if json_data.get("success") and "data" in json_data:
+                    return json_data["data"]
+                elif "data" in json_data:
+                    return json_data["data"]
                 else:
-                    raise HTTPException(status_code=response.status_code,
-                                        detail="API request failed")
+                    return json_data
+            raise HTTPException(status_code=404, detail="GSTIN not found or API error")
 
-        except Exception as e:
-            logger.error(f"GST API error: {e}")
-            raise HTTPException(status_code=500,
-                                detail="Failed to fetch GST data")
+api_client = GSAPIClient(RAPIDAPI_KEY, RAPIDAPI_HOST) if RAPIDAPI_KEY else None
 
+# Validation functions
+def validate_mobile(mobile: str) -> tuple[bool, str]:
+    mobile = mobile.strip()
+    if not mobile.isdigit() or len(mobile) != 10 or mobile[0] not in "6789":
+        return False, "Invalid mobile number"
+    return True, ""
 
-# Initialize API client
-if config.RAPIDAPI_KEY:
-    api_client = GSTAPIClient(config.RAPIDAPI_KEY, config.RAPIDAPI_HOST)
-else:
-    api_client = None
+def validate_gstin(gstin: str) -> bool:
+    pattern = r'^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$'
+    return bool(re.match(pattern, gstin.upper()))
 
-
-# Utility functions
-def calculate_compliance_score(company_data: Dict) -> float:
-    """Calculate compliance score based on company data."""
-    score = 100.0
-
+def calculate_return_due_date(return_type: str, tax_period: str, fy: str) -> datetime:
     try:
-        # Check filing status
-        if company_data.get('filing_status') == 'Non-Filer':
-            score -= 30
-        elif company_data.get('filing_status') == 'Irregular':
-            score -= 15
-
-        # Check business status
-        if company_data.get('business_status') != 'Active':
-            score -= 20
-
-        # Check last filing date
-        last_filing = company_data.get('last_filing_date')
-        if last_filing:
-            try:
-                filing_date = datetime.strptime(last_filing, '%Y-%m-%d')
-                days_since_filing = (datetime.now() - filing_date).days
-
-                if days_since_filing > 90:
-                    score -= 25
-                elif days_since_filing > 60:
-                    score -= 15
-                elif days_since_filing > 30:
-                    score -= 10
-            except:
-                score -= 5
-
-        # Ensure score is within bounds
-        return max(0.0, min(100.0, score))
-
-    except Exception as e:
-        logger.error(f"Compliance score calculation error: {e}")
-        return 50.0  # Default score
-
-
-def generate_pdf_report(company_data: Dict,
-                        compliance_score: float,
-                        synopsis: str = None,
-                        late_filing_analysis: Dict = None) -> BytesIO:
-    """Generate PDF report."""
-    if not HAS_WEASYPRINT:
-        raise HTTPException(status_code=503,
-                            detail="PDF generation not available")
-
-    try:
-        html_content = f"""
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <meta charset="UTF-8">
-            <title>GST Compliance Report</title>
-            <style>
-                body {{ font-family: Arial, sans-serif; margin: 40px; }}
-                .header {{ text-align: center; border-bottom: 2px solid #333; padding-bottom: 20px; }}
-                .score {{ font-size: 24px; font-weight: bold; color: {'#28a745' if compliance_score >= 70 else '#ffc107' if compliance_score >= 50 else '#dc3545'}; }}
-                .section {{ margin: 20px 0; }}
-            </style>
-        </head>
-        <body>
-            <div class="header">
-                <h1>GST Compliance Report</h1>
-                <p>Generated on {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</p>
-            </div>
-
-            <div class="section">
-                <h2>Company Information</h2>
-                <p><strong>GSTIN:</strong> {company_data.get('gstin', 'N/A')}</p>
-                <p><strong>Legal Name:</strong> {company_data.get('legal_name', 'N/A')}</p>
-                <p><strong>Trade Name:</strong> {company_data.get('trade_name', 'N/A')}</p>
-                <p><strong>Status:</strong> {company_data.get('business_status', 'N/A')}</p>
-            </div>
-
-            <div class="section">
-                <h2>Compliance Score</h2>
-                <p class="score">{compliance_score:.1f}/100</p>
-            </div>
-
-            {f'<div class="section"><h2>AI Synopsis</h2><p>{synopsis}</p></div>' if synopsis else ''}
-
-            <div class="section">
-                <h2>Report Details</h2>
-                <p>This report is generated based on publicly available GST data and should be used for informational purposes only.</p>
-            </div>
-        </body>
-        </html>
-        """
-
-        pdf = HTML(string=html_content).write_pdf()
-        return BytesIO(pdf)
-
-    except Exception as e:
-        logger.error(f"PDF generation error: {e}")
-        raise HTTPException(status_code=500, detail="Failed to generate PDF")
-
-
-# Error handler decorator
-def handle_api_errors(func):
-
-    @wraps(func)
-    async def wrapper(*args, **kwargs):
-        try:
-            return await func(*args, **kwargs)
-        except HTTPException:
-            raise
-        except Exception as e:
-            logger.error(f"API error in {func.__name__}: {e}")
-            raise HTTPException(status_code=500,
-                                detail="Internal server error")
-
-    return wrapper
-
-
-# Authentication functions
-async def get_current_user(request: Request) -> Optional[str]:
-    """Get current user from session."""
-    token = request.cookies.get("session_token")
-    if not token:
+        months = {
+            'January': 1, 'February': 2, 'March': 3, 'April': 4,
+            'May': 5, 'June': 6, 'July': 7, 'August': 8,
+            'September': 9, 'October': 10, 'November': 11, 'December': 12
+        }
+        
+        if tax_period in months:
+            month = months[tax_period]
+            fy_parts = fy.split('-')
+            if month >= 4:
+                year = int(fy_parts[0])
+            else:
+                year = int(fy_parts[1])
+            
+            if return_type == "GSTR1":
+                if month == 12:
+                    due_date = datetime(year + 1, 1, 11)
+                else:
+                    due_date = datetime(year, month + 1, 11)
+            elif return_type == "GSTR3B":
+                if month == 12:
+                    due_date = datetime(year + 1, 1, 20)
+                else:
+                    due_date = datetime(year, month + 1, 20)
+            elif return_type == "GSTR9":
+                year = int(fy_parts[1])
+                due_date = datetime(year, 12, 31)
+            else:
+                return None
+                
+            return due_date
+    except:
         return None
+    
+    return None
 
-    return await db.get_user_from_session(token)
+def analyze_late_filings(returns: List[Dict]) -> Dict:
+    late_returns = []
+    on_time_returns = []
+    total_delay_days = 0
+    
+    for return_item in returns:
+        return_type = return_item.get("rtntype")
+        tax_period = return_item.get("taxp")
+        fy = return_item.get("fy")
+        dof = return_item.get("dof")
+        
+        if all([return_type, tax_period, fy, dof]):
+            due_date = calculate_return_due_date(return_type, tax_period, fy)
+            
+            if due_date:
+                try:
+                    filing_date = datetime.strptime(dof, "%d/%m/%Y")
+                    
+                    if filing_date > due_date:
+                        delay_days = (filing_date - due_date).days
+                        late_returns.append({
+                            'return': return_item,
+                            'due_date': due_date,
+                            'filing_date': filing_date,
+                            'delay_days': delay_days
+                        })
+                        total_delay_days += delay_days
+                    else:
+                        on_time_returns.append(return_item)
+                except:
+                    pass
+    
+    return {
+        'late_count': len(late_returns),
+        'on_time_count': len(on_time_returns),
+        'late_returns': late_returns,
+        'total_delay_days': total_delay_days,
+        'average_delay': total_delay_days / len(late_returns) if late_returns else 0
+    }
 
+def calculate_compliance_score(company_data: dict) -> float:
+    """Calculate compliance score with proper logic"""
+    score = 100.0
+    
+    # Registration Status (25 points)
+    if company_data.get("sts") != "Active":
+        score -= 25
+    
+    # Filing Compliance (20 points)
+    returns = company_data.get("returns", [])
+    if returns:
+        current_date = datetime.now()
+        gstr1_returns = [r for r in returns if r.get("rtntype") == "GSTR1"]
+        
+        months_since_reg = 12
+        if company_data.get("rgdt"):
+            try:
+                reg_date = datetime.strptime(company_data["rgdt"], "%d/%m/%Y")
+                months_since_reg = max(1, (current_date - reg_date).days // 30)
+            except:
+                pass
+        
+        expected_returns = min(months_since_reg, 12)
+        filing_ratio = min(len(gstr1_returns) / expected_returns, 1.0) if expected_returns > 0 else 0
+        filing_points = int(filing_ratio * 20)
+        score = score - 20 + filing_points
+    else:
+        score -= 20
+    
+    # Late Filing Analysis (25 points)
+    if returns:
+        late_filing_analysis = analyze_late_filings(returns)
+        late_count = late_filing_analysis['late_count']
+        total_returns = late_count + late_filing_analysis['on_time_count']
+        
+        if total_returns > 0:
+            on_time_ratio = late_filing_analysis['on_time_count'] / total_returns
+            late_filing_points = int(on_time_ratio * 25)
+            
+            avg_delay = late_filing_analysis['average_delay']
+            if avg_delay > 30:
+                late_filing_points = max(0, late_filing_points - 5)
+            
+            score = score - 25 + late_filing_points
+        else:
+            score -= 13
+        
+        company_data['_late_filing_analysis'] = late_filing_analysis
+    else:
+        score -= 25
+    
+    # Filing Recency (15 points)
+    if returns:
+        latest_return_date = None
+        for return_item in returns:
+            if return_item.get("dof"):
+                try:
+                    dof = datetime.strptime(return_item["dof"], "%d/%m/%Y")
+                    if not latest_return_date or dof > latest_return_date:
+                        latest_return_date = dof
+                except:
+                    pass
+        
+        if latest_return_date:
+            days_since_filing = (current_date - latest_return_date).days
+            if days_since_filing <= 30:
+                recency_points = 15
+            elif days_since_filing <= 60:
+                recency_points = 10
+            elif days_since_filing <= 90:
+                recency_points = 5
+            else:
+                recency_points = 0
+            
+            score = score - 15 + recency_points
+    else:
+        score -= 15
+    
+    # Filing Frequency (5 points)
+    filing_freq = company_data.get("fillingFreq", {})
+    if filing_freq:
+        monthly_count = sum(1 for freq in filing_freq.values() if freq == "M")
+        quarterly_count = sum(1 for freq in filing_freq.values() if freq == "Q")
+        
+        if monthly_count >= 6:
+            freq_points = 5
+        elif quarterly_count >= 6:
+            freq_points = 4
+        else:
+            freq_points = 2
+        
+        score = score - 5 + freq_points
+    else:
+        score -= 3
+    
+    # E-Invoice & Annual Returns (5 points each)
+    einvoice = company_data.get("einvoiceStatus", "No")
+    if einvoice != "Yes":
+        score -= 3
+    
+    annual_returns = [r for r in returns if r.get("rtntype") == "GSTR9"]
+    if not annual_returns:
+        score -= 5
+    
+    final_score = max(0, min(100, score))
+    logger.info(f"Calculated compliance score: {final_score} for company {company_data.get('lgnm', 'Unknown')}")
+    return final_score
 
-async def require_auth(request: Request) -> str:
-    """Require authentication."""
-    user = await get_current_user(request)
-    if not user:
-        raise HTTPException(status_code=401, detail="Authentication required")
-    return user
+def check_password(password: str, stored_hash: str, salt: str) -> bool:
+    hash_attempt = hashlib.pbkdf2_hmac('sha256', password.encode('utf-8'), salt.encode('utf-8'), 100000, dklen=64).hex()
+    return hash_attempt == stored_hash
 
-
-async def require_admin(request: Request) -> str:
-    """Require admin authentication."""
-    user = await require_auth(request)
-
-    # Check if user is admin
-    admin_users = config.get_admin_users_list()
-    if user not in admin_users:
-        raise HTTPException(status_code=403, detail="Admin access required")
-
-    return user
-
-
-def require_role(role: UserRole):
-    """Require specific role."""
-
-    async def role_checker(request: Request) -> str:
-        return await require_admin(
-            request) if role == UserRole.ADMIN else await require_auth(request)
-
-    return role_checker
-
-
-async def get_user_display_name(mobile: str) -> str:
-    """Get user display name."""
-    return f"User {mobile[-4:]}"  # Show last 4 digits
-
-
-def add_template_context(request: Request,
-                         current_user: str = None,
-                         **kwargs) -> Dict:
-    """Add common template context."""
-    context = {"request": request, "current_user": current_user, **kwargs}
-    return context
-
-
-# Initialize FastAPI app
-app = FastAPI(title="GST Intelligence Platform",
-              version="2.0.0",
-              description="Advanced GST Compliance Analytics Platform")
-
-
-@app.middleware("http")
-async def security_headers_middleware(request: Request, call_next):
-    """Add security headers to all responses."""
-    response = await call_next(request)
-
-    # Security headers
-    response.headers["X-Content-Type-Options"] = "nosniff"
-    response.headers["X-Frame-Options"] = "DENY"
-    response.headers["X-XSS-Protection"] = "1; mode=block"
-    response.headers[
-        "Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
-    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
-
-    return response
-
-
-@app.on_event("startup")
-async def startup_event():
-    """Initialize security components on startup."""
-    await db.initialize()
-    await db.create_tables()
-    logger.info("🔐 Security system initialized")
-    app.start_time = time.time()
-
-
-# Static files and templates
-app.mount("/static", StaticFiles(directory="static"), name="static")
-templates = Jinja2Templates(directory="templates")
-
-
-# Main Routes
+# Routes
 @app.get("/health")
 async def health_check():
-    """Health check endpoint."""
     try:
-        # Test database connection
-        async with db.pool.acquire() as conn:
-            await conn.execute("SELECT 1")
-
+        db_status = "healthy"
+        try:
+            await db.connect()
+            async with db.pool.acquire() as conn:
+                await conn.execute("SELECT 1")
+        except Exception as e:
+            db_status = f"unhealthy: {str(e)}"
+        
         return {
-            "status": "healthy",
-            "timestamp": datetime.now().isoformat(),
+            "status": "healthy" if db_status == "healthy" else "degraded",
+            "timestamp": datetime.now(),
             "version": "2.0.0",
             "checks": {
-                "database": "healthy",
-                "gst_api": "configured" if config.RAPIDAPI_KEY else "missing",
-                "ai_features":
-                "configured" if config.ANTHROPIC_API_KEY else "disabled",
-                "cache": "redis" if cache_manager.redis_client else "memory"
+                "database": db_status,
+                "gst_api": "configured" if RAPIDAPI_KEY else "missing",
+                "ai_features": "configured" if ANTHROPIC_API_KEY else "disabled"
             }
         }
     except Exception as e:
-        return JSONResponse(status_code=503,
-                            content={
-                                "status": "unhealthy",
-                                "error": str(e),
-                                "timestamp": datetime.now().isoformat()
-                            })
-
+        return JSONResponse(
+            status_code=503,
+            content={"status": "unhealthy", "error": str(e), "timestamp": datetime.now()}
+        )
 
 @app.get("/", response_class=HTMLResponse)
-async def dashboard(request: Request,
-                    current_user: str = Depends(require_auth)):
-    """Main dashboard page."""
+async def home(request: Request, current_user: str = Depends(require_auth)):
     history = await db.get_search_history(current_user)
-    user_profile = await db.get_user_profile(current_user)
-    user_display_name = await get_user_display_name(current_user)
-
-    # Calculate recent activity
-    now = datetime.now()
-    last_30_days = now - timedelta(days=30)
-    searches_this_month = sum(
-        1 for item in history
-        if item.get('searched_at') and item['searched_at'] >= last_30_days)
-
-    context = add_template_context(request=request,
-                                   current_user=current_user,
-                                   user_display_name=user_display_name,
-                                   user_profile=user_profile,
-                                   history=history,
-                                   searches_this_month=searches_this_month)
-
-    return templates.TemplateResponse("index.html", context)
-
-
-@app.get("/admin", response_class=HTMLResponse)
-async def admin_dashboard(request: Request,
-                          current_user: str = Depends(require_admin)):
-    """Admin dashboard page."""
-    user_profile = await db.get_user_profile(current_user)
-    user_display_name = await get_user_display_name(current_user)
-
-    return templates.TemplateResponse(
-        "admin_dashboard.html", {
-            "request": request,
-            "current_user": current_user,
-            "user_display_name": user_display_name,
-            "user_profile": user_profile
-        })
-
+    return templates.TemplateResponse("index.html", {
+        "request": request, 
+        "current_user": current_user, 
+        "history": history
+    })
 
 @app.get("/login", response_class=HTMLResponse)
-async def login_page(request: Request):
-    """Login page."""
-    # Check if user is already logged in
-    current_user = await get_current_user(request)
-    if current_user:
-        return RedirectResponse(url="/", status_code=302)
-
-    return templates.TemplateResponse(
-        "login.html", {
-            "request": request,
-            "current_user": None,
-            "user_display_name": None,
-            "user_profile": None
-        })
-
+async def get_login(request: Request):
+    return templates.TemplateResponse("login.html", {"request": request})
 
 @app.post("/login")
-async def login(request: Request,
-                mobile: str = Form(...),
-                password: str = Form(...)):
-    """Handle login."""
-    client_ip = request.client.host
-    is_allowed = await login_limiter.is_allowed(f"login:{client_ip}", 5,
-                                                900)  # 5 attempts per 15 min
-
-    if not is_allowed:
-        return templates.TemplateResponse(
-            "login.html", {
-                "request": request,
-                "error": "Too many login attempts. Please try again later."
-            })
-
+async def post_login(request: Request, mobile: str = Form(...), password: str = Form(...)):
+    is_valid, message = validate_mobile(mobile)
+    if not is_valid:
+        return templates.TemplateResponse("login.html", {"request": request, "error": message})
+    
     if not await db.verify_user(mobile, password):
-        return templates.TemplateResponse("login.html", {
-            "request": request,
-            "error": "Invalid credentials"
-        })
-
+        return templates.TemplateResponse("login.html", {"request": request, "error": "Invalid credentials"})
+    
     session_token = await db.create_session(mobile)
     if not session_token:
-        return templates.TemplateResponse("login.html", {
-            "request": request,
-            "error": "Failed to create session"
-        })
-
+        return templates.TemplateResponse("login.html", {"request": request, "error": "Failed to create session"})
+    
     await db.update_last_login(mobile)
-
+    
     response = RedirectResponse(url="/", status_code=302)
-    response.set_cookie(key="session_token",
-                        value=session_token,
-                        max_age=config.SESSION_DURATION,
-                        httponly=True,
-                        samesite="lax",
-                        secure=config.SESSION_SECURE)
+    response.set_cookie(
+        key="session_token", value=session_token, max_age=7 * 24 * 60 * 60,
+        httponly=True, samesite="lax", secure=False
+    )
     return response
 
-
 @app.get("/signup", response_class=HTMLResponse)
-async def signup_page(request: Request):
-    """Signup page."""
-    # Check if user is already logged in
-    current_user = await get_current_user(request)
-    if current_user:
-        return RedirectResponse(url="/", status_code=302)
-
-    return templates.TemplateResponse(
-        "signup.html", {
-            "request": request,
-            "current_user": None,
-            "user_display_name": None,
-            "user_profile": None
-        })
-
+async def get_signup(request: Request):
+    return templates.TemplateResponse("signup.html", {"request": request})
 
 @app.post("/signup")
-async def signup(request: Request,
-                 mobile: str = Form(...),
-                 password: str = Form(...),
-                 confirm_password: str = Form(...)):
-    """Handle signup."""
+async def post_signup(request: Request, mobile: str = Form(...), password: str = Form(...), confirm_password: str = Form(...)):
+    is_valid, message = validate_mobile(mobile)
+    if not is_valid:
+        return templates.TemplateResponse("signup.html", {"request": request, "error": message})
+    
+    if len(password) < 6:
+        return templates.TemplateResponse("signup.html", {"request": request, "error": "Password must be at least 6 characters"})
+    
     if password != confirm_password:
-        return templates.TemplateResponse("signup.html", {
-            "request": request,
-            "error": "Passwords do not match"
-        })
-
-    if not DataValidator.validate_mobile(mobile):
-        return templates.TemplateResponse(
-            "signup.html", {
-                "request": request,
-                "error": "Invalid mobile number format"
-            })
-
-    if len(password) < 8:
-        return templates.TemplateResponse(
-            "signup.html", {
-                "request": request,
-                "error": "Password must be at least 8 characters long"
-            })
-
-    success = await db.create_user(mobile, password)
-    if not success:
-        return templates.TemplateResponse(
-            "signup.html", {
-                "request": request,
-                "error": "User already exists or registration failed"
-            })
-
+        return templates.TemplateResponse("signup.html", {"request": request, "error": "Passwords do not match"})
+    
+    salt = secrets.token_hex(16)
+    password_hash = hashlib.pbkdf2_hmac('sha256', password.encode('utf-8'), salt.encode('utf-8'), 100000, dklen=64).hex()
+    
+    await db.create_user(mobile, password_hash, salt)
     return RedirectResponse(url="/login?registered=true", status_code=302)
 
-
 @app.get("/logout")
-async def logout():
-    """Handle logout."""
+async def logout(request: Request):
+    session_token = request.cookies.get("session_token")
+    if session_token:
+        await db.delete_session(session_token)
+    
     response = RedirectResponse(url="/login", status_code=302)
     response.delete_cookie("session_token")
     return response
 
+@app.get("/search")
+async def search_gstin_get(request: Request, gstin: str = None, current_user: str = Depends(require_auth)):
+    if not gstin:
+        return RedirectResponse(url="/", status_code=302)
+    
+    return await process_search(request, gstin, current_user)
+
+@app.post("/search")
+async def search_gstin_post(request: Request, gstin: str = Form(...), current_user: str = Depends(require_auth)):
+    return await process_search(request, gstin, current_user)
+
+async def process_search(request: Request, gstin: str, current_user: str):
+    gstin = gstin.strip().upper()
+    if not validate_gstin(gstin):
+        history = await db.get_search_history(current_user)
+        return templates.TemplateResponse("index.html", {
+            "request": request, "current_user": current_user, "error": "Invalid GSTIN format", "history": history
+        })
+    
+    if not api_limiter.is_allowed(current_user):
+        history = await db.get_search_history(current_user)
+        return templates.TemplateResponse("index.html", {
+            "request": request, "current_user": current_user, 
+            "error": "API rate limit exceeded. Please try again later.", "history": history
+        })
+    
+    try:
+        if not api_client:
+            raise HTTPException(status_code=503, detail="GST API service not configured")
+            
+        company_data = await api_client.fetch_gstin_data(gstin)
+        
+        # Calculate compliance score
+        compliance_score = calculate_compliance_score(company_data)
+        logger.info(f"Final compliance score for template: {compliance_score}")
+        
+        synopsis = None
+        if ANTHROPIC_API_KEY:
+            try:
+                synopsis = await get_anthropic_synopsis(company_data)
+            except Exception as e:
+                logger.error(f"Failed to get AI synopsis: {e}")
+        
+        # Add to search history
+        await db.add_search_history(current_user, gstin, company_data.get("lgnm", "Unknown"), compliance_score)
+        
+        late_filing_analysis = company_data.get('_late_filing_analysis', {})
+        
+        return templates.TemplateResponse("results.html", {
+            "request": request, 
+            "current_user": current_user, 
+            "company_data": company_data,
+            "compliance_score": int(compliance_score),
+            "synopsis": synopsis,
+            "late_filing_analysis": late_filing_analysis
+        })
+        
+    except HTTPException as e:
+        history = await db.get_search_history(current_user)
+        return templates.TemplateResponse("index.html", {
+            "request": request, "current_user": current_user, "error": e.detail, "history": history
+        })
+    except Exception as e:
+        logger.error(f"Search error: {e}")
+        history = await db.get_search_history(current_user)
+        return templates.TemplateResponse("index.html", {
+            "request": request, "current_user": current_user, 
+            "error": "An error occurred while searching. Please try again.", "history": history
+        })
 
 @app.get("/history", response_class=HTMLResponse)
-async def history_page(request: Request,
-                       current_user: str = Depends(require_auth)):
-    """Search history page."""
+async def view_history(request: Request, current_user: str = Depends(require_auth)):
     history = await db.get_all_searches(current_user)
-    user_profile = await db.get_user_profile(current_user)
-    user_display_name = await get_user_display_name(current_user)
-
-    # Calculate recent activity
     now = datetime.now()
     last_30_days = now - timedelta(days=30)
     searches_this_month = sum(
         1 for item in history
-        if item.get('searched_at') and item['searched_at'] >= last_30_days)
-
-    return templates.TemplateResponse(
-        "history.html", {
-            "request": request,
-            "current_user": current_user,
-            "user_display_name": user_display_name,
-            "user_profile": user_profile,
-            "history": history,
-            "searches_this_month": searches_this_month
-        })
-
+        if item.get('searched_at') and item['searched_at'] >= last_30_days
+    )
+    return templates.TemplateResponse("history.html", {
+        "request": request, 
+        "current_user": current_user, 
+        "history": history,
+        "searches_this_month": searches_this_month
+    })
 
 @app.get("/analytics", response_class=HTMLResponse)
-async def analytics_page(request: Request,
-                         current_user: str = Depends(require_auth)):
-    """Analytics dashboard page."""
-    try:
-        user_profile = await db.get_user_profile(current_user)
-        user_display_name = await get_user_display_name(current_user)
+async def analytics_dashboard(request: Request, current_user: str = Depends(require_auth)):
+    await db.connect()
+    async with db.pool.acquire() as conn:
+        daily_searches = await conn.fetch("""
+            SELECT DATE(searched_at) as date, COUNT(*) as search_count, AVG(compliance_score) as avg_score
+            FROM search_history WHERE mobile = $1 AND searched_at >= CURRENT_DATE - INTERVAL '7 days'
+            GROUP BY DATE(searched_at) ORDER BY date
+        """, current_user)
+        
+        score_distribution = await conn.fetch("""
+            SELECT CASE WHEN compliance_score >= 90 THEN 'Excellent (90-100)'
+                        WHEN compliance_score >= 80 THEN 'Very Good (80-89)'
+                        WHEN compliance_score >= 70 THEN 'Good (70-79)'
+                        WHEN compliance_score >= 60 THEN 'Average (60-69)'
+                        ELSE 'Poor (<60)' END as range, COUNT(*) as count
+            FROM search_history WHERE mobile = $1 AND compliance_score IS NOT NULL GROUP BY range ORDER BY range DESC
+        """, current_user)
+        
+        top_companies = await conn.fetch("""
+            SELECT company_name, gstin, COUNT(*) as search_count, MAX(compliance_score) as latest_score
+            FROM search_history WHERE mobile = $1 GROUP BY company_name, gstin
+            ORDER BY search_count DESC LIMIT 10
+        """, current_user)
+        
+        total_searches = await conn.fetchval("SELECT COUNT(*) FROM search_history WHERE mobile = $1", current_user)
+        unique_companies = await conn.fetchval("SELECT COUNT(DISTINCT gstin) FROM search_history WHERE mobile = $1", current_user)
+        avg_compliance = await conn.fetchval("SELECT AVG(compliance_score) FROM search_history WHERE mobile = $1", current_user)
+    
+    daily_searches = [
+        {**dict(row), "date": row["date"].isoformat() if hasattr(row["date"], "isoformat") else row["date"]}
+        for row in daily_searches
+    ]
+    
+    return templates.TemplateResponse("analytics.html", {
+        "request": request, 
+        "current_user": current_user, 
+        "daily_searches": daily_searches,
+        "score_distribution": [dict(row) for row in score_distribution],
+        "top_companies": [dict(row) for row in top_companies],
+        "total_searches": total_searches or 0, 
+        "unique_companies": unique_companies or 0,
+        "avg_compliance": round(avg_compliance or 0, 1)
+    })
 
-        # Get analytics data with better error handling
-        try:
-            analytics_data = await db.get_analytics_data(current_user)
-        except Exception as e:
-            logger.error(f"Analytics data error: {e}")
-            analytics_data = {
-                "daily_searches": [],
-                "score_distribution": [],
-                "top_companies": []
-            }
-
-        # Get overall stats
-        try:
-            stats = await db.get_user_stats(current_user)
-        except Exception as e:
-            logger.error(f"User stats error: {e}")
-            stats = {
-                "total_searches": 0,
-                "unique_companies": 0,
-                "avg_compliance": 0,
-                "recent_searches": 0
-            }
-
-        # Calculate recent activity
-        now = datetime.now()
-        last_30_days = now - timedelta(days=30)
-
-        # Get history for recent searches calculation
-        try:
-            history = await db.get_search_history(current_user)
-            searches_this_month = sum(1 for item in history
-                                      if item.get('searched_at')
-                                      and item['searched_at'] >= last_30_days)
-        except Exception as e:
-            logger.error(f"History data error: {e}")
-            searches_this_month = 0
-
-        return templates.TemplateResponse(
-            "analytics.html",
-            {
-                "request": request,
-                "current_user": current_user,
-                "user_display_name": user_display_name,
-                "user_profile": user_profile,
-                "analytics_data": analytics_data,
-                "stats": stats,
-                "searches_this_month": searches_this_month,
-                **analytics_data  # Unpack analytics data for direct access in template
-            })
-
-    except Exception as e:
-        logger.error(f"Analytics page error: {e}")
-        return templates.TemplateResponse(
-            "analytics.html", {
-                "request": request,
-                "current_user": current_user,
-                "user_display_name": await get_user_display_name(current_user),
-                "user_profile": {},
-                "analytics_data": {
-                    "daily_searches": [],
-                    "score_distribution": [],
-                    "top_companies": []
-                },
-                "stats": {
-                    "total_searches": 0,
-                    "unique_companies": 0,
-                    "avg_compliance": 0,
-                    "recent_searches": 0
-                },
-                "searches_this_month": 0,
-                "daily_searches": [],
-                "score_distribution": [],
-                "top_companies": [],
-                "error": "Failed to load analytics data"
-            })
-
-
-# API Routes
-@app.post("/api/search")
-@handle_api_errors
-async def search_gstin(request: Request,
-                       gstin: str = Form(...),
-                       current_user: str = Depends(require_auth)):
-    """Search GSTIN and return company data."""
-    try:
-        if not api_client:
-            raise HTTPException(status_code=503,
-                                detail="GST API service not configured")
-
-        # Validate GSTIN
-        if not DataValidator.validate_gstin(gstin):
-            raise HTTPException(status_code=400, detail="Invalid GSTIN format")
-
-        # Fetch data
-        company_data = await api_client.fetch_gstin_data(gstin)
-        compliance_score = calculate_compliance_score(company_data)
-
-        # Save search history
-        await db.save_search(current_user, gstin,
-                             company_data.get('legal_name', 'Unknown'),
-                             compliance_score, company_data)
-
-        # Get AI synopsis if available
-        synopsis = None
-        if config.ANTHROPIC_API_KEY:
-            try:
-                synopsis = await get_anthropic_synopsis(company_data)
-            except Exception as e:
-                logger.error(f"AI synopsis error: {e}")
-                synopsis = "AI synopsis temporarily unavailable"
-
-        return {
-            "success": True,
-            "data": {
-                **company_data, "compliance_score": compliance_score,
-                "ai_synopsis": synopsis
-            }
-        }
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Search error: {e}")
-        raise HTTPException(status_code=500, detail="Search failed")
-
-
-@app.get("/api/admin/stats")
-@handle_api_errors
-async def get_admin_stats(current_user: str = Depends(require_admin)):
-    """Get admin statistics."""
-    return await db.get_admin_stats()
-
-
-@app.get("/api/admin/users")
-@handle_api_errors
-async def get_admin_users(page: int = 1,
-                          current_user: str = Depends(require_admin)):
-    """Get all users for admin."""
-    return await db.get_all_users(page)
-
-
-@app.get("/api/cache/stats")
-@handle_api_errors
-async def get_cache_stats(current_user: str = Depends(require_auth)):
-    """Get cache statistics."""
-    try:
-        if cache_manager.redis_client:
-            info = cache_manager.redis_client.info()
-            return {
-                'success': True,
-                'cache_type': 'redis',
-                'used_memory': info.get('used_memory_human'),
-                'connected_clients': info.get('connected_clients'),
-                'keyspace_hits': info.get('keyspace_hits'),
-                'keyspace_misses': info.get('keyspace_misses')
-            }
-        else:
-            return {
-                'success':
-                True,
-                'cache_type':
-                'memory',
-                'entries':
-                len(cache_manager.memory_cache),
-                'memory_usage':
-                f"{len(str(cache_manager.memory_cache))} bytes (approx)"
-            }
-    except Exception as e:
-        return {'success': False, 'error': str(e)}
-
-
-@app.delete("/api/admin/cache/clear")
-@handle_api_errors
-async def clear_cache(pattern: str = "*",
-                      current_user: str = Depends(require_admin)):
-    """Clear cache entries by pattern."""
-    try:
-        count = await cache_manager.clear_pattern(pattern)
-        return {'success': True, 'cleared_count': count, 'pattern': pattern}
-    except Exception as e:
-        return {'success': False, 'error': str(e)}
-
-
-# Export and PDF Routes
 @app.get("/export/history")
 async def export_history(current_user: str = Depends(require_auth)):
-    """Export search history as CSV."""
-    try:
-        history = await db.get_all_searches(current_user)
-        output = StringIO()
-        writer = csv.DictWriter(output,
-                                fieldnames=[
-                                    'searched_at', 'gstin', 'company_name',
-                                    'compliance_score'
-                                ])
-        writer.writeheader()
-
-        for item in history:
-            writer.writerow({
-                'searched_at':
-                item['searched_at'].isoformat() if item['searched_at'] else '',
-                'gstin':
-                item['gstin'],
-                'company_name':
-                item['company_name'],
-                'compliance_score':
-                item['compliance_score'] if item['compliance_score'] else ''
-            })
-
-        content = output.getvalue()
-        output.close()
-
-        return StreamingResponse(
-            BytesIO(content.encode()),
-            media_type="text/csv",
-            headers={
-                "Content-Disposition":
-                f"attachment; filename=gst_search_history_{datetime.now().strftime('%Y%m%d')}.csv"
-            })
-    except Exception as e:
-        logger.error(f"Export error: {e}")
-        raise HTTPException(status_code=500, detail="Export failed")
-
+    from io import StringIO
+    import csv
+    history = await db.get_all_searches(current_user)
+    output = StringIO()
+    writer = csv.DictWriter(output, fieldnames=['searched_at', 'gstin', 'company_name', 'compliance_score'])
+    writer.writeheader()
+    writer.writerows(history)
+    content = output.getvalue()
+    output.close()
+    
+    return StreamingResponse(
+        BytesIO(content.encode()), media_type="text/csv",
+        headers={"Content-Disposition": f"attachment; filename=gst_search_history_{datetime.now().strftime('%Y%m%d')}.csv"}
+    )
 
 @app.post("/generate-pdf")
-async def generate_pdf_route(request: Request,
-                             gstin: str = Form(...),
-                             current_user: str = Depends(require_auth)):
-    """Generate PDF report."""
-    if not HAS_WEASYPRINT:
-        raise HTTPException(status_code=503,
-                            detail="PDF generation not available")
-
+async def generate_pdf(request: Request, gstin: str = Form(...), current_user: str = Depends(require_auth)):
     try:
         if not api_client:
-            raise HTTPException(status_code=503,
-                                detail="GST API service not configured")
-
+            raise HTTPException(status_code=503, detail="GST API service not configured")
+            
         company_data = await api_client.fetch_gstin_data(gstin)
         compliance_score = calculate_compliance_score(company_data)
-
+        
         synopsis = None
-        if config.ANTHROPIC_API_KEY:
+        if ANTHROPIC_API_KEY:
             try:
                 synopsis = await get_anthropic_synopsis(company_data)
             except:
                 synopsis = "AI synopsis not available"
-
-        pdf_content = generate_pdf_report(company_data, compliance_score,
-                                          synopsis)
-
+        
+        late_filing_analysis = company_data.get('_late_filing_analysis', None)
+        pdf_content = generate_pdf_report(company_data, compliance_score, synopsis, late_filing_analysis)
+        
         return StreamingResponse(
-            pdf_content,
-            media_type="application/pdf",
-            headers={
-                "Content-Disposition":
-                f"attachment; filename=GST_Report_{gstin}.pdf"
-            })
-
+            pdf_content, media_type="application/pdf",
+            headers={"Content-Disposition": f"attachment; filename=GST_Report_{gstin}.pdf"}
+        )
+        
     except Exception as e:
         logger.error(f"PDF generation error: {e}")
         raise HTTPException(status_code=500, detail="Failed to generate PDF")
 
+def generate_pdf_report(company_data: dict, compliance_score: float, synopsis: str = None, late_filing_analysis: dict = None) -> BytesIO:
+    """Generate comprehensive PDF report"""
+    company_name = company_data.get("lgnm", "Unknown Company")
+    gstin = company_data.get("gstin", "N/A")
+    status = company_data.get("sts", "N/A")
+    returns = company_data.get('returns', [])
+    
+    if compliance_score >= 90:
+        grade, grade_text, grade_color = "A+", "Excellent", "#10b981"
+    elif compliance_score >= 80:
+        grade, grade_text, grade_color = "A", "Very Good", "#34d399"
+    elif compliance_score >= 70:
+        grade, grade_text, grade_color = "B", "Good", "#f59e0b"
+    elif compliance_score >= 60:
+        grade, grade_text, grade_color = "C", "Average", "#f97316"
+    else:
+        grade, grade_text, grade_color = "D", "Needs Improvement", "#ef4444"
+    
+    html_content = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="UTF-8">
+        <style>
+            @page {{ size: A4; margin: 15mm; }}
+            * {{ margin: 0; padding: 0; box-sizing: border-box; }}
+            body {{ font-family: Arial, sans-serif; color: #1f2937; line-height: 1.6; }}
+            
+            .header {{ background: linear-gradient(135deg, #7c3aed 0%, #2563eb 100%); color: white;
+                     padding: 30px; margin: -15mm -15mm 20px -15mm; }}
+            .header-title {{ font-size: 28px; font-weight: 800; margin-bottom: 5px; }}
+            .header-subtitle {{ font-size: 14px; opacity: 0.9; }}
+            
+            .company-section {{ background: #f8f9fa; border-radius: 12px; padding: 20px;
+                              margin-bottom: 20px; border-left: 4px solid #7c3aed; }}
+            .company-name {{ font-size: 24px; font-weight: 700; margin-bottom: 5px; }}
+            
+            .compliance-section {{ background: linear-gradient(135deg, #7c3aed 0%, #2563eb 100%);
+                                 color: white; border-radius: 12px; padding: 25px; text-align: center; margin-bottom: 20px; }}
+            .score-value {{ font-size: 36px; font-weight: 800; }}
+            .score-grade {{ font-size: 20px; font-weight: 600; padding: 5px 20px;
+                          background-color: {grade_color}; border-radius: 20px; display: inline-block; }}
+            
+            .info-grid {{ display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; margin-bottom: 20px; }}
+            .info-card {{ background: #ffffff; border: 1px solid #e5e7eb; border-radius: 10px; padding: 20px; }}
+            .info-card-title {{ font-size: 16px; font-weight: 700; margin-bottom: 15px;
+                              padding-bottom: 10px; border-bottom: 2px solid #7c3aed; }}
+            .info-item {{ display: flex; justify-content: space-between; padding: 8px 0;
+                        border-bottom: 1px solid #f3f4f6; }}
+            .info-item:last-child {{ border-bottom: none; }}
+            .info-label {{ font-size: 13px; color: #6b7280; font-weight: 500; }}
+            .info-value {{ font-size: 13px; color: #1f2937; font-weight: 600; }}
+        </style>
+    </head>
+    <body>
+        <div class="header">
+            <div class="header-title">GST Compliance Report</div>
+            <div class="header-subtitle">Advanced Business Analytics Platform</div>
+            <div style="text-align: right; font-size: 12px;">Generated on {datetime.now().strftime("%d %B %Y")}</div>
+        </div>
+        
+        <div class="company-section">
+            <div class="company-name">{company_name}</div>
+            <div>GSTIN: {gstin}</div>
+        </div>
+        
+        <div class="compliance-section">
+            <h2 style="margin-bottom: 15px;">Overall Compliance Score</h2>
+            <div class="score-value">{int(compliance_score)}%</div>
+            <div class="score-grade">{grade} ({grade_text})</div>
+        </div>
+        
+        {f'<div style="background: #e0e7ff; border-radius: 12px; padding: 20px; margin-bottom: 20px;"><h3>Company Overview</h3><p>{synopsis}</p></div>' if synopsis else ''}
+        
+        <div class="info-grid">
+            <div class="info-card">
+                <h3 class="info-card-title">Company Information</h3>
+                <div class="info-item"><span class="info-label">Status</span><span class="info-value">{status}</span></div>
+                <div class="info-item"><span class="info-label">Business Type</span><span class="info-value">{company_data.get('ctb', 'N/A')}</span></div>
+                <div class="info-item"><span class="info-label">Registration Date</span><span class="info-value">{company_data.get('rgdt', 'N/A')}</span></div>
+            </div>
+            <div class="info-card">
+                <h3 class="info-card-title">Returns Summary</h3>
+                <div class="info-item"><span class="info-label">Total Returns</span><span class="info-value">{len(returns)}</span></div>
+                <div class="info-item"><span class="info-label">GSTR-1 Filed</span><span class="info-value">{len([r for r in returns if r.get('rtntype') == 'GSTR1'])}</span></div>
+                <div class="info-item"><span class="info-label">GSTR-3B Filed</span><span class="info-value">{len([r for r in returns if r.get('rtntype') == 'GSTR3B'])}</span></div>
+            </div>
+        </div>
+        
+        {f'<div style="background: #fef3c7; border: 1px solid #fbbf24; border-radius: 8px; padding: 12px; margin-bottom: 15px;"><strong>Late Filing Alert:</strong> {late_filing_analysis["late_count"]} returns filed late with average delay of {late_filing_analysis["average_delay"]:.1f} days.</div>' if late_filing_analysis and late_filing_analysis.get('late_count', 0) > 0 else ''}
+        
+        <div style="margin-top: 30px; text-align: center; font-size: 11px; color: #6b7280;">
+            <p>© {datetime.now().year} GST Intelligence Platform. This report is generated based on available GST data.</p>
+        </div>
+    </body>
+    </html>
+    """
+    
+    pdf_file = BytesIO()
+    HTML(string=html_content).write_pdf(target=pdf_file)
+    pdf_file.seek(0)
+    return pdf_file
 
-# Loan Management Routes (if enabled)
-@app.post("/api/loans/apply")
-@handle_api_errors
-async def apply_for_loan(request: LoanApplicationRequest,
-                         current_user: str = Depends(require_auth)):
-    """Apply for a business loan"""
+# API endpoints for enhanced user features
+@app.get("/api/user/stats")
+async def get_user_stats(request: Request, current_user: str = Depends(require_auth)):
+    """Get user statistics for profile display"""
     try:
-        if not loan_manager:
-            return JSONResponse(status_code=503,
-                                content={
-                                    "success": False,
-                                    "error": "Loan service not available"
-                                })
-
-        # Validate application data
-        application_data = request.dict()
-        is_valid, message = LoanConfig.validate_loan_application(
-            application_data)
-
-        if not is_valid:
-            return JSONResponse(status_code=400,
-                                content={
-                                    "success": False,
-                                    "error": message
-                                })
-
-        # Submit loan application
-        result = await loan_manager.submit_loan_application(
-            current_user, application_data)
-
-        if result["success"]:
+        await db.connect()
+        async with db.pool.acquire() as conn:
+            # Get basic stats
+            total_searches = await conn.fetchval(
+                "SELECT COUNT(*) FROM search_history WHERE mobile = $1", 
+                current_user
+            )
+            
+            unique_companies = await conn.fetchval(
+                "SELECT COUNT(DISTINCT gstin) FROM search_history WHERE mobile = $1", 
+                current_user
+            )
+            
+            # Find this line around 850 and replace:
+            avg_compliance = await conn.fetchval(
+                "SELECT ROUND(AVG(compliance_score)::numeric, 1) FROM search_history WHERE mobile = $1 AND compliance_score IS NOT NULL", 
+                current_user
+            )
+            
+            # Get recent activity (last 30 days)
+            recent_searches = await conn.fetchval("""
+                SELECT COUNT(*) FROM search_history 
+                WHERE mobile = $1 AND searched_at >= CURRENT_DATE - INTERVAL '30 days'
+            """, current_user)
+            
+            # Get last search date
+            last_search = await conn.fetchval(
+                "SELECT MAX(searched_at) FROM search_history WHERE mobile = $1", 
+                current_user
+            )
+            
             return {
                 "success": True,
-                "data": result,
-                "message": "Loan application submitted successfully"
+                "data": {
+                    "total_searches": total_searches or 0,
+                    "unique_companies": unique_companies or 0,
+                    "avg_compliance": float(avg_compliance) if avg_compliance else 0,
+                    "recent_searches": recent_searches or 0,
+                    "last_search": last_search.isoformat() if last_search else None,
+                    "user_level": get_user_level(total_searches or 0),
+                    "achievements": get_user_achievements(total_searches or 0, avg_compliance or 0)
+                }
             }
-        else:
-            return JSONResponse(status_code=400,
-                                content={
-                                    "success":
-                                    False,
-                                    "error":
-                                    result.get("error", "Application failed")
-                                })
-
+            
     except Exception as e:
-        logger.error(f"Loan application error: {e}")
-        return JSONResponse(status_code=500,
-                            content={
-                                "success": False,
-                                "error": "Loan application failed"
-                            })
+        logger.error(f"Error fetching user stats: {e}")
+        return {"success": False, "error": "Failed to fetch user statistics"}
 
+def get_user_level(total_searches: int) -> dict:
+    """Determine user level based on activity"""
+    if total_searches >= 100:
+        return {"level": "Expert", "icon": "fas fa-crown", "color": "#f59e0b"}
+    elif total_searches >= 50:
+        return {"level": "Advanced", "icon": "fas fa-star", "color": "#3b82f6"}
+    elif total_searches >= 20:
+        return {"level": "Intermediate", "icon": "fas fa-chart-line", "color": "#10b981"}
+    elif total_searches >= 5:
+        return {"level": "Beginner", "icon": "fas fa-seedling", "color": "#8b5cf6"}
+    else:
+        return {"level": "New User", "icon": "fas fa-user-plus", "color": "#6b7280"}
 
-# Static file routes
+def get_user_achievements(total_searches: int, avg_compliance: float) -> list:
+    """Get user achievements based on activity"""
+    achievements = []
+    
+    if total_searches >= 1:
+        achievements.append({
+            "title": "First Search",
+            "description": "Completed your first GST search",
+            "icon": "fas fa-search",
+            "unlocked": True
+        })
+    
+    if total_searches >= 10:
+        achievements.append({
+            "title": "Research Enthusiast",
+            "description": "Completed 10 searches",
+            "icon": "fas fa-chart-bar",
+            "unlocked": True
+        })
+    
+    if total_searches >= 50:
+        achievements.append({
+            "title": "Compliance Expert",
+            "description": "Completed 50 searches",
+            "icon": "fas fa-medal",
+            "unlocked": True
+        })
+    
+    if avg_compliance >= 80:
+        achievements.append({
+            "title": "Quality Finder",
+            "description": "Average compliance score above 80%",
+            "icon": "fas fa-trophy",
+            "unlocked": True
+        })
+    
+    return achievements
+
 @app.get("/favicon.ico")
 async def favicon():
-    """Favicon route."""
-    # Simple 1x1 PNG favicon
     favicon_bytes = b'\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\rIDATx\x9cc\xf8\x0f\x00\x00\x01\x01\x00\x05\x00\x01\x8d\xc8\x02\x00\x00\x00\x00IEND\xaeB`\x82'
     return Response(content=favicon_bytes, media_type="image/png")
 
+# Error handlers
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request: Request, exc: HTTPException):
+    if exc.status_code == 303 and exc.headers and "Location" in exc.headers:
+        return RedirectResponse(url=exc.headers["Location"], status_code=303)
+    return JSONResponse(status_code=exc.status_code, content={"error": exc.detail})
 
-@app.get("/manifest.json")
-async def get_manifest():
-    """PWA manifest route."""
-    with open("static/manifest.json", "r") as f:
-        manifest_content = f.read()
-    return Response(content=manifest_content, media_type="application/json")
+@app.exception_handler(Exception)
+async def general_exception_handler(request: Request, exc: Exception):
+    logger.error(f"Unhandled exception: {exc}", exc_info=True)
+    return JSONResponse(status_code=500, content={"error": "An internal error occurred"})
 
+# Startup/Shutdown
+@app.on_event("startup")
+async def startup_event():
+    logger.info("GST Intelligence Platform starting up...")
+    await db.ensure_tables()  # Use ensure_tables instead of create_tables
+    setup_template_globals()
+    await db.connect()
+    async with db.pool.acquire() as conn:
+        await conn.execute('DELETE FROM sessions WHERE expires_at < $1', datetime.now())
+    logger.info("✅ Startup complete")
 
-@app.get("/sw.js")
-async def get_service_worker():
-    """Service worker route."""
-    with open("sw.js", "r") as f:
-        sw_content = f.read()
-    return Response(content=sw_content, media_type="application/javascript")
-
+@app.on_event("shutdown")
+async def shutdown_event():
+    logger.info("GST Intelligence Platform shutting down...")
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("main:app",
-                host=config.HOST,
-                port=config.PORT,
-                reload=config.DEBUG,
-                log_level="info")
+    uvicorn.run(app, host="0.0.0.0", port=8000)
