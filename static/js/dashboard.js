@@ -1,1063 +1,746 @@
-// /static/js/dashboard.js - Complete Dashboard Functionality
-"use strict";
+// Enhanced User Dashboard Component
+// Add this to your common-scripts.js or create a separate dashboard.js file
 
-console.log("📊 Loading dashboard functionality...");
-
-// =============================================================================
-// 1. GLOBAL DASHBOARD CONFIGURATION
-// =============================================================================
-window.GST_DASHBOARD = {
-    CONFIG: {
-        CACHE_DURATION: 5 * 60 * 1000, // 5 minutes
-        CHART_ANIMATION_DURATION: 1000,
-        REFRESH_INTERVAL: 30 * 1000, // 30 seconds
-        DEBOUNCE_DELAY: 300,
-        MAX_RETRY_ATTEMPTS: 3,
-    },
-
-    state: {
-        isInitialized: false,
-        currentUser: null,
-        userStats: null,
-        analyticsData: null,
-        lastRefresh: null,
-        activeCharts: new Map(),
-        refreshInterval: null,
-    },
-
-    utils: {
-        log: (message, ...args) =>
-            console.log(`[Dashboard] ${message}`, ...args),
-        error: (message, ...args) =>
-            console.error(`[Dashboard] ${message}`, ...args),
-        warn: (message, ...args) =>
-            console.warn(`[Dashboard] ${message}`, ...args),
-    },
-};
-
-// =============================================================================
-// 2. DASHBOARD MANAGER
-// =============================================================================
-class DashboardManager {
+class UserDashboard {
     constructor() {
-        this.cache = new Map();
-        this.isLoading = false;
-        this.retryCount = 0;
-        this.refreshTimer = null;
+        this.userStats = null;
+        this.charts = {};
+        this.init();
     }
 
     async init() {
-        if (window.GST_DASHBOARD.state.isInitialized) {
-            window.GST_DASHBOARD.utils.warn("Dashboard already initialized");
-            return;
-        }
+        await this.loadUserStats();
+        this.updateUserProfile();
+        this.initializeCharts();
+        this.setupRealTimeUpdates();
+        
+        debugLog('Enhanced user dashboard initialized');
+    }
 
+    async loadUserStats() {
         try {
-            window.GST_DASHBOARD.utils.log("Initializing dashboard...");
-
-            // Get current user from global state
-            window.GST_DASHBOARD.state.currentUser =
-                window.GST_APP_STATE?.currentUser;
-
-            if (!window.GST_DASHBOARD.state.currentUser) {
-                throw new Error("User not authenticated");
+            const response = await fetch('/api/user/stats');
+            const result = await response.json();
+            
+            if (result.success) {
+                this.userStats = result.data;
+                this.updateQuickStats();
+                this.updateAchievements();
             }
-
-            // Load initial data
-            await this.loadDashboardData();
-
-            // Initialize charts
-            await this.initializeCharts();
-
-            // Set up event listeners
-            this.setupEventListeners();
-
-            // Start auto-refresh
-            this.startAutoRefresh();
-
-            window.GST_DASHBOARD.state.isInitialized = true;
-            window.GST_DASHBOARD.utils.log(
-                "Dashboard initialized successfully",
-            );
         } catch (error) {
-            window.GST_DASHBOARD.utils.error(
-                "Dashboard initialization failed:",
-                error,
-            );
-            window.GSTPlatform?.errorHandler?.handleAPIError(error, {
-                context: "dashboard_init",
-            });
+            console.error('Error loading user stats:', error);
         }
     }
 
-    async loadDashboardData() {
-        if (this.isLoading) {
-            window.GST_DASHBOARD.utils.warn("Data loading already in progress");
-            return;
-        }
+    updateUserProfile() {
+        const userStatsElements = {
+            searchCount: document.getElementById('userSearchCount'),
+            avgScore: document.getElementById('userAvgScore'),
+            userLevel: document.querySelector('.user-level'),
+            userProgress: document.querySelector('.user-progress')
+        };
 
-        try {
-            this.isLoading = true;
-            const loaderId = window.loadingManager?.show("dashboard-data");
-
-            window.GST_DASHBOARD.utils.log("Loading dashboard data...");
-
-            // Load user stats and analytics in parallel
-            const [userStats, analyticsData] = await Promise.all([
-                this.fetchUserStats(),
-                this.fetchAnalyticsData(),
-            ]);
-
-            // Update state
-            window.GST_DASHBOARD.state.userStats = userStats;
-            window.GST_DASHBOARD.state.analyticsData = analyticsData;
-            window.GST_DASHBOARD.state.lastRefresh = new Date();
-
-            // Update UI
-            this.updateStatsDisplay(userStats);
-            this.updateRecentActivity();
-
-            // Trigger custom event
-            window.dispatchEvent(
-                new CustomEvent("dashboardDataLoaded", {
-                    detail: { userStats, analyticsData },
-                }),
-            );
-
-            this.retryCount = 0; // Reset retry count on success
-
-            if (loaderId) {
-                window.loadingManager?.hide(loaderId);
+        if (this.userStats) {
+            // Update dropdown stats
+            if (userStatsElements.searchCount) {
+                this.animateNumber(userStatsElements.searchCount, 0, this.userStats.total_searches, 800);
+            }
+            
+            if (userStatsElements.avgScore) {
+                this.animateNumber(userStatsElements.avgScore, 0, Math.round(this.userStats.avg_compliance), 1000, '%');
             }
 
-            window.GST_DASHBOARD.utils.log(
-                "Dashboard data loaded successfully",
-            );
-        } catch (error) {
-            window.GST_DASHBOARD.utils.error(
-                "Failed to load dashboard data:",
-                error,
-            );
-
-            if (
-                this.retryCount < window.GST_DASHBOARD.CONFIG.MAX_RETRY_ATTEMPTS
-            ) {
-                this.retryCount++;
-                window.GST_DASHBOARD.utils.log(
-                    `Retrying data load (${this.retryCount}/${window.GST_DASHBOARD.CONFIG.MAX_RETRY_ATTEMPTS})...`,
-                );
-
-                setTimeout(() => {
-                    this.loadDashboardData();
-                }, 2000 * this.retryCount); // Exponential backoff
-            } else {
-                window.GSTPlatform?.errorHandler?.handleAPIError(error, {
-                    context: "dashboard_data",
-                });
-            }
-        } finally {
-            this.isLoading = false;
-        }
-    }
-
-    async fetchUserStats() {
-        const cacheKey = "user_stats";
-        const cached = this.getFromCache(cacheKey);
-
-        if (cached) {
-            window.GST_DASHBOARD.utils.log("Using cached user stats");
-            return cached;
-        }
-
-        try {
-            const response = await fetch("/api/user/stats", {
-                method: "GET",
-                headers: {
-                    "Content-Type": "application/json",
-                },
-                credentials: "same-origin",
-            });
-
-            if (!response.ok) {
-                throw new Error(
-                    `HTTP ${response.status}: ${response.statusText}`,
-                );
-            }
-
-            const data = await response.json();
-            this.setCache(cacheKey, data);
-
-            return data;
-        } catch (error) {
-            window.GST_DASHBOARD.utils.error(
-                "Failed to fetch user stats:",
-                error,
-            );
-
-            // Return default stats on error
-            return this.getDefaultStats();
-        }
-    }
-
-    async fetchAnalyticsData() {
-        const cacheKey = "analytics_data";
-        const cached = this.getFromCache(cacheKey);
-
-        if (cached) {
-            window.GST_DASHBOARD.utils.log("Using cached analytics data");
-            return cached;
-        }
-
-        try {
-            const response = await fetch("/api/analytics/dashboard", {
-                method: "GET",
-                headers: {
-                    "Content-Type": "application/json",
-                },
-                credentials: "same-origin",
-            });
-
-            if (!response.ok) {
-                throw new Error(
-                    `HTTP ${response.status}: ${response.statusText}`,
-                );
-            }
-
-            const data = await response.json();
-            this.setCache(cacheKey, data);
-
-            return data;
-        } catch (error) {
-            window.GST_DASHBOARD.utils.error(
-                "Failed to fetch analytics data:",
-                error,
-            );
-
-            // Return default analytics data on error
-            return this.getDefaultAnalyticsData();
-        }
-    }
-
-    updateStatsDisplay(stats) {
-        try {
-            // Update stat cards
-            const statElements = {
-                totalSearches: document.getElementById("total-searches"),
-                uniqueCompanies: document.getElementById("unique-companies"),
-                avgCompliance: document.getElementById("avg-compliance"),
-                recentSearches: document.getElementById("recent-searches"),
-            };
-
-            if (statElements.totalSearches) {
-                statElements.totalSearches.textContent =
-                    window.utils?.formatNumber(stats.total_searches) ||
-                    stats.total_searches ||
-                    "0";
-            }
-
-            if (statElements.uniqueCompanies) {
-                statElements.uniqueCompanies.textContent =
-                    window.utils?.formatNumber(stats.unique_companies) ||
-                    stats.unique_companies ||
-                    "0";
-            }
-
-            if (statElements.avgCompliance) {
-                const avgScore = stats.avg_compliance || 0;
-                statElements.avgCompliance.textContent = `${Math.round(avgScore)}%`;
-
-                // Update compliance score color
-                const scoreElement = statElements.avgCompliance.closest(
-                    ".stat-card-enhanced",
-                );
-                if (scoreElement) {
-                    scoreElement.className = scoreElement.className.replace(
-                        /compliance-\w+/,
-                        "",
-                    );
-                    if (avgScore >= 80) {
-                        scoreElement.classList.add("compliance-excellent");
-                    } else if (avgScore >= 60) {
-                        scoreElement.classList.add("compliance-good");
-                    } else if (avgScore >= 40) {
-                        scoreElement.classList.add("compliance-average");
-                    } else {
-                        scoreElement.classList.add("compliance-poor");
-                    }
-                }
-            }
-
-            if (statElements.recentSearches) {
-                statElements.recentSearches.textContent =
-                    window.utils?.formatNumber(stats.recent_searches) ||
-                    stats.recent_searches ||
-                    "0";
-            }
-
-            // Update user level if available
-            if (stats.user_level) {
-                const userLevelElement = document.getElementById("user-level");
-                if (userLevelElement) {
-                    userLevelElement.innerHTML = `
-                        <i class="${stats.user_level.icon}" style="color: ${stats.user_level.color}"></i>
-                        ${stats.user_level.level}
-                    `;
-                }
-            }
-
-            // Update last activity
-            if (stats.last_search) {
-                const lastActivityElement =
-                    document.getElementById("last-activity");
-                if (lastActivityElement) {
-                    lastActivityElement.textContent =
-                        window.utils?.formatRelativeTime(stats.last_search) ||
-                        "Never";
-                }
-            }
-
-            window.GST_DASHBOARD.utils.log("Stats display updated");
-        } catch (error) {
-            window.GST_DASHBOARD.utils.error(
-                "Failed to update stats display:",
-                error,
-            );
-        }
-    }
-
-    updateRecentActivity() {
-        try {
-            const analyticsData = window.GST_DASHBOARD.state.analyticsData;
-            if (!analyticsData || !analyticsData.top_companies) {
-                return;
-            }
-
-            const activityContainer =
-                document.getElementById("recent-activity");
-            if (!activityContainer) {
-                return;
-            }
-
-            const companies = analyticsData.top_companies.slice(0, 5); // Show only top 5
-
-            if (companies.length === 0) {
-                activityContainer.innerHTML = `
-                    <div class="no-activity">
-                        <i class="fas fa-search text-muted"></i>
-                        <p class="text-muted">No recent searches</p>
+            // Update user level display
+            if (userStatsElements.userLevel) {
+                const level = this.userStats.user_level;
+                userStatsElements.userLevel.innerHTML = `
+                    <div style="display: flex; align-items: center; gap: 0.5rem; margin-top: 0.5rem;">
+                        <i class="${level.icon}" style="color: ${level.color};"></i>
+                        <span style="color: ${level.color}; font-weight: 600;">${level.level}</span>
                     </div>
                 `;
-                return;
             }
 
-            activityContainer.innerHTML = companies
-                .map(
-                    (company) => `
-                <div class="activity-item">
-                    <div class="activity-info">
-                        <div class="activity-company">${company.company_name || "Unknown Company"}</div>
-                        <div class="activity-time">${window.utils?.formatRelativeTime(company.searched_at) || "Recently"}</div>
-                    </div>
-                    <div class="activity-score">
-                        <span class="badge ${this.getScoreBadgeClass(company.compliance_score)}">
-                            ${Math.round(company.compliance_score || 0)}%
-                        </span>
-                    </div>
-                </div>
-            `,
-                )
-                .join("");
-
-            window.GST_DASHBOARD.utils.log("Recent activity updated");
-        } catch (error) {
-            window.GST_DASHBOARD.utils.error(
-                "Failed to update recent activity:",
-                error,
-            );
+            // Update progress indicators
+            this.updateUserProgress();
         }
     }
 
-    getScoreBadgeClass(score) {
-        if (score >= 80) return "badge--success";
-        if (score >= 60) return "badge--info";
-        if (score >= 40) return "badge--warning";
-        return "badge--error";
+    updateUserProgress() {
+        const level = this.userStats?.user_level;
+        const totalSearches = this.userStats?.total_searches || 0;
+        
+        // Determine next milestone
+        let nextMilestone = 5;
+        if (totalSearches >= 5) nextMilestone = 20;
+        if (totalSearches >= 20) nextMilestone = 50;
+        if (totalSearches >= 50) nextMilestone = 100;
+        if (totalSearches >= 100) nextMilestone = 200;
+
+        const progressElement = document.querySelector('.user-progress');
+        if (progressElement && totalSearches < nextMilestone) {
+            const progress = (totalSearches / nextMilestone) * 100;
+            progressElement.innerHTML = `
+                <div style="margin-top: 0.75rem;">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 0.25rem;">
+                        <span style="font-size: 0.75rem; color: var(--text-secondary);">Progress to next level</span>
+                        <span style="font-size: 0.75rem; color: var(--text-secondary);">${totalSearches}/${nextMilestone}</span>
+                    </div>
+                    <div style="background: var(--bg-secondary); height: 4px; border-radius: 2px; overflow: hidden;">
+                        <div style="background: var(--accent-gradient); height: 100%; width: ${progress}%; transition: width 1s ease;"></div>
+                    </div>
+                </div>
+            `;
+        }
+    }
+
+    updateQuickStats() {
+        const statsElements = document.querySelectorAll('[data-user-stat]');
+        
+        statsElements.forEach(element => {
+            const statType = element.getAttribute('data-user-stat');
+            let value = 0;
+            
+            switch (statType) {
+                case 'total-searches':
+                    value = this.userStats.total_searches;
+                    break;
+                case 'unique-companies':
+                    value = this.userStats.unique_companies;
+                    break;
+                case 'avg-compliance':
+                    value = Math.round(this.userStats.avg_compliance);
+                    break;
+                case 'recent-searches':
+                    value = this.userStats.recent_searches;
+                    break;
+            }
+            
+            this.animateNumber(element, 0, value, 1000, statType === 'avg-compliance' ? '%' : '');
+        });
+    }
+
+    updateAchievements() {
+        const achievementsContainer = document.querySelector('.user-achievements');
+        if (!achievementsContainer || !this.userStats.achievements) return;
+
+        const achievementsHTML = this.userStats.achievements.map(achievement => `
+            <div class="achievement-item ${achievement.unlocked ? 'unlocked' : 'locked'}" 
+                 data-tooltip="${achievement.description}${achievement.progress ? ` (${achievement.progress}/${achievement.target})` : ''}">
+                <div class="achievement-icon">
+                    <i class="${achievement.icon}"></i>
+                </div>
+                <div class="achievement-info">
+                    <div class="achievement-title">${achievement.title}</div>
+                    ${achievement.progress ? `
+                        <div class="achievement-progress">
+                            <div class="progress-bar">
+                                <div class="progress-fill" style="width: ${(achievement.progress / achievement.target) * 100}%"></div>
+                            </div>
+                            <span class="progress-text">${achievement.progress}/${achievement.target}</span>
+                        </div>
+                    ` : ''}
+                </div>
+            </div>
+        `).join('');
+
+        achievementsContainer.innerHTML = achievementsHTML;
     }
 
     async initializeCharts() {
         try {
-            window.GST_DASHBOARD.utils.log("Initializing charts...");
-
-            const chartManager = new ChartManager();
-            await chartManager.ensureChartJS();
-
-            const analyticsData = window.GST_DASHBOARD.state.analyticsData;
-            if (!analyticsData) {
-                window.GST_DASHBOARD.utils.warn(
-                    "No analytics data available for charts",
-                );
-                return;
+            const response = await fetch('/api/user/activity?days=30');
+            const result = await response.json();
+            
+            if (result.success) {
+                this.createActivityChart(result.data.daily_activity);
+                this.createHourlyChart(result.data.hourly_activity);
             }
-
-            // Initialize mini charts on dashboard
-            this.initMiniActivityChart(analyticsData.daily_searches || []);
-            this.initMiniScoreChart(analyticsData.score_distribution || []);
-
-            window.GST_DASHBOARD.utils.log("Charts initialized successfully");
         } catch (error) {
-            window.GST_DASHBOARD.utils.error(
-                "Failed to initialize charts:",
-                error,
-            );
+            console.error('Error loading activity data:', error);
         }
     }
 
-    initMiniActivityChart(data) {
-        const canvas = document.getElementById("mini-activity-chart");
-        if (!canvas || !window.Chart) {
-            return;
+    createActivityChart(dailyData) {
+        const canvas = document.getElementById('userActivityChart');
+        if (!canvas) return;
+
+        const ctx = canvas.getContext('2d');
+        
+        // Destroy existing chart if it exists
+        if (this.charts.activity) {
+            this.charts.activity.destroy();
         }
 
-        try {
-            // Destroy existing chart
-            const existingChart =
-                window.GST_DASHBOARD.state.activeCharts.get("mini-activity");
-            if (existingChart) {
-                existingChart.destroy();
-            }
-
-            const ctx = canvas.getContext("2d");
-            const chart = new window.Chart(ctx, {
-                type: "line",
-                data: {
-                    labels: data.map((item) => {
-                        const date = new Date(item.date);
-                        return date.toLocaleDateString("en-US", {
-                            month: "short",
-                            day: "numeric",
-                        });
-                    }),
-                    datasets: [
-                        {
-                            data: data.map((item) => item.count),
-                            borderColor: "#7c3aed",
-                            backgroundColor: "rgba(124, 58, 237, 0.1)",
-                            borderWidth: 2,
-                            fill: true,
-                            tension: 0.4,
-                            pointRadius: 0,
-                            pointHoverRadius: 4,
-                        },
-                    ],
+        this.charts.activity = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: dailyData.map(d => new Date(d.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })),
+                datasets: [{
+                    label: 'Daily Searches',
+                    data: dailyData.map(d => d.searches),
+                    borderColor: '#7c3aed',
+                    backgroundColor: 'rgba(124, 58, 237, 0.1)',
+                    tension: 0.4,
+                    fill: true,
+                    pointBackgroundColor: '#7c3aed',
+                    pointBorderColor: '#ffffff',
+                    pointBorderWidth: 2,
+                    pointRadius: 4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        backgroundColor: 'rgba(26, 26, 26, 0.9)',
+                        titleColor: '#ffffff',
+                        bodyColor: '#a1a1aa',
+                        borderColor: '#7c3aed',
+                        borderWidth: 1,
+                        cornerRadius: 8,
+                        displayColors: false,
+                        callbacks: {
+                            title: function(context) {
+                                return `${context[0].label}`;
+                            },
+                            label: function(context) {
+                                return `${context.parsed.y} searches`;
+                            }
+                        }
+                    }
                 },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: { display: false },
-                        tooltip: {
-                            mode: "index",
-                            intersect: false,
-                            backgroundColor: "var(--bg-card)",
-                            titleColor: "var(--text-primary)",
-                            bodyColor: "var(--text-secondary)",
-                            borderColor: "var(--border-primary)",
-                            borderWidth: 1,
+                scales: {
+                    x: {
+                        grid: {
+                            color: 'rgba(39, 39, 42, 0.3)'
                         },
+                        ticks: {
+                            color: '#a1a1aa'
+                        }
                     },
-                    scales: {
-                        x: { display: false },
-                        y: { display: false },
-                    },
-                    interaction: {
-                        intersect: false,
-                        mode: "index",
-                    },
-                    animation: {
-                        duration:
-                            window.GST_DASHBOARD.CONFIG
-                                .CHART_ANIMATION_DURATION,
-                    },
-                },
-            });
-
-            window.GST_DASHBOARD.state.activeCharts.set("mini-activity", chart);
-        } catch (error) {
-            window.GST_DASHBOARD.utils.error(
-                "Failed to create mini activity chart:",
-                error,
-            );
-        }
-    }
-
-    initMiniScoreChart(data) {
-        const canvas = document.getElementById("mini-score-chart");
-        if (!canvas || !window.Chart) {
-            return;
-        }
-
-        try {
-            // Destroy existing chart
-            const existingChart =
-                window.GST_DASHBOARD.state.activeCharts.get("mini-score");
-            if (existingChart) {
-                existingChart.destroy();
-            }
-
-            const ctx = canvas.getContext("2d");
-            const chart = new window.Chart(ctx, {
-                type: "doughnut",
-                data: {
-                    labels: data.map((item) => item.category),
-                    datasets: [
-                        {
-                            data: data.map((item) => item.count),
-                            backgroundColor: [
-                                "#10b981", // Excellent - Green
-                                "#3b82f6", // Good - Blue
-                                "#f59e0b", // Average - Yellow
-                                "#ef4444", // Poor - Red
-                            ],
-                            borderWidth: 0,
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            stepSize: 1,
+                            color: '#a1a1aa'
                         },
-                    ],
+                        grid: {
+                            color: 'rgba(39, 39, 42, 0.3)'
+                        }
+                    }
                 },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: { display: false },
-                        tooltip: {
-                            backgroundColor: "var(--bg-card)",
-                            titleColor: "var(--text-primary)",
-                            bodyColor: "var(--text-secondary)",
-                            borderColor: "var(--border-primary)",
-                            borderWidth: 1,
-                        },
-                    },
-                    cutout: "60%",
-                    animation: {
-                        duration:
-                            window.GST_DASHBOARD.CONFIG
-                                .CHART_ANIMATION_DURATION,
-                    },
-                },
-            });
-
-            window.GST_DASHBOARD.state.activeCharts.set("mini-score", chart);
-        } catch (error) {
-            window.GST_DASHBOARD.utils.error(
-                "Failed to create mini score chart:",
-                error,
-            );
-        }
-    }
-
-    setupEventListeners() {
-        try {
-            window.GST_DASHBOARD.utils.log("Setting up event listeners...");
-
-            // Refresh button
-            const refreshBtn = document.getElementById("refresh-dashboard");
-            if (refreshBtn) {
-                refreshBtn.addEventListener("click", () => {
-                    this.handleRefreshClick();
-                });
-            }
-
-            // Search form
-            const searchForm = document.getElementById("gstin-search-form");
-            if (searchForm) {
-                searchForm.addEventListener("submit", (e) => {
-                    this.handleSearchSubmit(e);
-                });
-            }
-
-            // Quick actions
-            const quickActions = document.querySelectorAll(
-                "[data-quick-action]",
-            );
-            quickActions.forEach((action) => {
-                action.addEventListener("click", (e) => {
-                    this.handleQuickAction(e);
-                });
-            });
-
-            // Window events
-            window.addEventListener("focus", () => {
-                // Refresh data when window gains focus
-                if (this.shouldRefreshOnFocus()) {
-                    this.loadDashboardData();
+                interaction: {
+                    mode: 'nearest',
+                    axis: 'x',
+                    intersect: false
                 }
-            });
-
-            // Custom events
-            window.addEventListener("searchCompleted", (e) => {
-                // Refresh dashboard after successful search
-                setTimeout(() => {
-                    this.loadDashboardData();
-                }, 1000);
-            });
-
-            window.GST_DASHBOARD.utils.log(
-                "Event listeners set up successfully",
-            );
-        } catch (error) {
-            window.GST_DASHBOARD.utils.error(
-                "Failed to set up event listeners:",
-                error,
-            );
-        }
+            }
+        });
     }
 
-    async handleRefreshClick() {
-        try {
-            window.GST_DASHBOARD.utils.log("Manual refresh triggered");
+    createHourlyChart(hourlyData) {
+        const canvas = document.getElementById('userHourlyChart');
+        if (!canvas) return;
 
-            const refreshBtn = document.getElementById("refresh-dashboard");
-            if (refreshBtn) {
-                refreshBtn.classList.add("btn--loading");
-                refreshBtn.disabled = true;
-            }
-
-            // Clear cache to force fresh data
-            this.cache.clear();
-
-            await this.loadDashboardData();
-
-            // Update charts with new data
-            await this.initializeCharts();
-
-            window.notificationManager?.show(
-                "Dashboard refreshed successfully",
-                "success",
-                3000,
-            );
-        } catch (error) {
-            window.GST_DASHBOARD.utils.error(
-                "Failed to refresh dashboard:",
-                error,
-            );
-            window.notificationManager?.show(
-                "Failed to refresh dashboard",
-                "error",
-            );
-        } finally {
-            const refreshBtn = document.getElementById("refresh-dashboard");
-            if (refreshBtn) {
-                refreshBtn.classList.remove("btn--loading");
-                refreshBtn.disabled = false;
-            }
-        }
-    }
-
-    async handleSearchSubmit(e) {
-        e.preventDefault();
-
-        const formData = new FormData(e.target);
-        const gstin = formData.get("gstin")?.trim();
-
-        if (!gstin) {
-            window.notificationManager?.show("Please enter a GSTIN", "warning");
-            return;
+        const ctx = canvas.getContext('2d');
+        
+        if (this.charts.hourly) {
+            this.charts.hourly.destroy();
         }
 
-        // Validate GSTIN format
-        const validation = window.formValidator?.validateGSTIN(gstin);
-        if (!validation?.valid) {
-            window.notificationManager?.show(
-                validation?.message || "Invalid GSTIN format",
-                "error",
-            );
-            return;
-        }
+        // Fill missing hours with 0
+        const fullHourlyData = Array.from({ length: 24 }, (_, i) => {
+            const hourData = hourlyData.find(h => h.hour === i);
+            return hourData ? hourData.searches : 0;
+        });
 
-        try {
-            window.GST_DASHBOARD.utils.log(
-                "Submitting search for GSTIN:",
-                validation.value,
-            );
-
-            const submitBtn = e.target.querySelector('button[type="submit"]');
-            if (submitBtn) {
-                submitBtn.classList.add("btn--loading");
-                submitBtn.disabled = true;
-            }
-
-            const response = await fetch("/api/search", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/x-www-form-urlencoded",
+        this.charts.hourly = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: Array.from({ length: 24 }, (_, i) => i === 0 ? '12 AM' : i === 12 ? '12 PM' : i < 12 ? `${i} AM` : `${i - 12} PM`),
+                datasets: [{
+                    label: 'Searches by Hour',
+                    data: fullHourlyData,
+                    backgroundColor: 'rgba(124, 58, 237, 0.6)',
+                    borderColor: '#7c3aed',
+                    borderWidth: 1,
+                    borderRadius: 4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        backgroundColor: 'rgba(26, 26, 26, 0.9)',
+                        titleColor: '#ffffff',
+                        bodyColor: '#a1a1aa',
+                        borderColor: '#7c3aed',
+                        borderWidth: 1,
+                        cornerRadius: 8,
+                        displayColors: false
+                    }
                 },
-                body: `gstin=${encodeURIComponent(validation.value)}`,
-                credentials: "same-origin",
-            });
-
-            if (!response.ok) {
-                throw new Error(
-                    `HTTP ${response.status}: ${response.statusText}`,
-                );
+                scales: {
+                    x: {
+                        grid: {
+                            display: false
+                        },
+                        ticks: {
+                            color: '#a1a1aa',
+                            maxRotation: 45
+                        }
+                    },
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            stepSize: 1,
+                            color: '#a1a1aa'
+                        },
+                        grid: {
+                            color: 'rgba(39, 39, 42, 0.3)'
+                        }
+                    }
+                }
             }
-
-            const data = await response.json();
-
-            if (data.success) {
-                window.notificationManager?.show(
-                    "Search completed successfully",
-                    "success",
-                );
-
-                // Trigger custom event
-                window.dispatchEvent(
-                    new CustomEvent("searchCompleted", {
-                        detail: { gstin: validation.value, data: data.data },
-                    }),
-                );
-
-                // Clear form
-                e.target.reset();
-
-                // Track analytics
-                window.analytics?.trackSearch(validation.value, true);
-            } else {
-                throw new Error(data.error || "Search failed");
-            }
-        } catch (error) {
-            window.GST_DASHBOARD.utils.error("Search failed:", error);
-            window.notificationManager?.show(
-                error.message || "Search failed",
-                "error",
-            );
-            window.analytics?.trackSearch(gstin, false);
-        } finally {
-            const submitBtn = e.target.querySelector('button[type="submit"]');
-            if (submitBtn) {
-                submitBtn.classList.remove("btn--loading");
-                submitBtn.disabled = false;
-            }
-        }
+        });
     }
 
-    handleQuickAction(e) {
-        const action = e.currentTarget.dataset.quickAction;
+    setupRealTimeUpdates() {
+        // Update stats every 5 minutes
+        setInterval(() => {
+            this.loadUserStats();
+        }, 5 * 60 * 1000);
 
-        switch (action) {
-            case "view-history":
-                window.location.href = "/history";
-                break;
-            case "view-analytics":
-                window.location.href = "/analytics";
-                break;
-            case "export-data":
-                this.handleExportData();
-                break;
-            case "clear-history":
-                this.handleClearHistory();
-                break;
-            default:
-                window.GST_DASHBOARD.utils.warn(
-                    "Unknown quick action:",
-                    action,
-                );
-        }
+        // Listen for search completion events
+        document.addEventListener('searchCompleted', () => {
+            setTimeout(() => {
+                this.loadUserStats();
+            }, 1000);
+        });
     }
 
-    async handleExportData() {
-        try {
-            window.GST_DASHBOARD.utils.log("Exporting user data...");
-
-            window.notificationManager?.show("Preparing export...", "info");
-
-            const response = await fetch("/export/history", {
-                method: "GET",
-                credentials: "same-origin",
-            });
-
-            if (!response.ok) {
-                throw new Error(
-                    `HTTP ${response.status}: ${response.statusText}`,
-                );
+    animateNumber(element, start, end, duration, suffix = '') {
+        const startTime = performance.now();
+        const difference = end - start;
+        
+        function step(currentTime) {
+            const elapsed = currentTime - startTime;
+            const progress = Math.min(elapsed / duration, 1);
+            const current = Math.floor(start + (difference * progress));
+            
+            element.textContent = current + suffix;
+            
+            if (progress < 1) {
+                requestAnimationFrame(step);
             }
-
-            // Create download link
-            const blob = await response.blob();
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement("a");
-            a.href = url;
-            a.download = `gst_search_history_${new Date().toISOString().split("T")[0]}.csv`;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            window.URL.revokeObjectURL(url);
-
-            window.notificationManager?.show(
-                "Data exported successfully",
-                "success",
-            );
-            window.analytics?.trackEvent("Export", "History", "CSV");
-        } catch (error) {
-            window.GST_DASHBOARD.utils.error("Export failed:", error);
-            window.notificationManager?.show("Export failed", "error");
         }
-    }
-
-    async handleClearHistory() {
-        if (
-            !confirm(
-                "Are you sure you want to clear your search history? This action cannot be undone.",
-            )
-        ) {
-            return;
-        }
-
-        try {
-            window.GST_DASHBOARD.utils.log("Clearing user history...");
-
-            const response = await fetch("/api/user/clear-history", {
-                method: "DELETE",
-                credentials: "same-origin",
-            });
-
-            if (!response.ok) {
-                throw new Error(
-                    `HTTP ${response.status}: ${response.statusText}`,
-                );
-            }
-
-            // Refresh dashboard
-            this.cache.clear();
-            await this.loadDashboardData();
-            await this.initializeCharts();
-
-            window.notificationManager?.show(
-                "History cleared successfully",
-                "success",
-            );
-            window.analytics?.trackEvent("User", "Clear History");
-        } catch (error) {
-            window.GST_DASHBOARD.utils.error("Failed to clear history:", error);
-            window.notificationManager?.show(
-                "Failed to clear history",
-                "error",
-            );
-        }
-    }
-
-    startAutoRefresh() {
-        // Clear existing interval
-        if (this.refreshTimer) {
-            clearInterval(this.refreshTimer);
-        }
-
-        this.refreshTimer = setInterval(() => {
-            if (document.visibilityState === "visible") {
-                this.loadDashboardData();
-            }
-        }, window.GST_DASHBOARD.CONFIG.REFRESH_INTERVAL);
-
-        window.GST_DASHBOARD.utils.log("Auto-refresh started");
-    }
-
-    stopAutoRefresh() {
-        if (this.refreshTimer) {
-            clearInterval(this.refreshTimer);
-            this.refreshTimer = null;
-            window.GST_DASHBOARD.utils.log("Auto-refresh stopped");
-        }
-    }
-
-    shouldRefreshOnFocus() {
-        const lastRefresh = window.GST_DASHBOARD.state.lastRefresh;
-        if (!lastRefresh) return true;
-
-        const timeSinceRefresh = Date.now() - lastRefresh.getTime();
-        return timeSinceRefresh > window.GST_DASHBOARD.CONFIG.CACHE_DURATION;
+        
+        requestAnimationFrame(step);
     }
 
     async refreshData() {
-        try {
-            // Clear cache and reload
-            this.cache.clear();
-            await this.loadDashboardData();
-
-            // Dispatch refresh event
-            window.dispatchEvent(
-                new CustomEvent("dashboardDataRefreshed", {
-                    detail: {
-                        userStats: window.GST_DASHBOARD.state.userStats,
-                        analyticsData: window.GST_DASHBOARD.state.analyticsData,
-                    },
-                }),
-            );
-
-            return {
-                userStats: window.GST_DASHBOARD.state.userStats,
-                analyticsData: window.GST_DASHBOARD.state.analyticsData,
-            };
-        } finally {
-            this.isLoading = false;
-        }
-    }
-
-    getFromCache(key) {
-        const cached = this.cache.get(key);
-        if (!cached) return null;
-
-        if (
-            Date.now() - cached.timestamp >
-            window.GST_DASHBOARD.CONFIG.CACHE_DURATION
-        ) {
-            this.cache.delete(key);
-            return null;
-        }
-
-        return cached.data;
-    }
-
-    setCache(key, data) {
-        this.cache.set(key, {
-            data,
-            timestamp: Date.now(),
-        });
-    }
-
-    getDefaultStats() {
-        return {
-            total_searches: 0,
-            unique_companies: 0,
-            avg_compliance: 0,
-            recent_searches: 0,
-            last_search: null,
-            user_level: {
-                level: "New User",
-                icon: "fas fa-user-plus",
-                color: "#6b7280",
-            },
-            achievements: [],
-        };
-    }
-
-    getDefaultAnalyticsData() {
-        return {
-            daily_searches: [],
-            score_distribution: [],
-            top_companies: [],
-        };
-    }
-
-    destroy() {
-        // Stop auto-refresh
-        this.stopAutoRefresh();
-
-        // Destroy charts
-        window.GST_DASHBOARD.state.activeCharts.forEach((chart) => {
-            chart.destroy();
-        });
-        window.GST_DASHBOARD.state.activeCharts.clear();
-
-        // Clear cache
-        this.cache.clear();
-
-        // Reset state
-        window.GST_DASHBOARD.state.isInitialized = false;
-
-        window.GST_DASHBOARD.utils.log("Dashboard destroyed");
+        await this.loadUserStats();
+        await this.initializeCharts();
+        notificationManager.showToast('Dashboard data refreshed', 'success', 2000);
     }
 }
 
-// =============================================================================
-// 3. CHART MANAGER
-// =============================================================================
-class ChartManager {
+// Enhanced User Profile Manager
+class UserProfileManager {
     constructor() {
-        this.charts = new Map();
-        this.chartJS = null;
+        this.preferences = null;
+        this.init();
     }
 
-    async ensureChartJS() {
-        if (this.chartJS) return this.chartJS;
+    async init() {
+        await this.loadPreferences();
+        this.setupProfileDropdown();
+        this.setupAvatarGeneration();
+        
+        debugLog('Enhanced user profile manager initialized');
+    }
 
-        if (window.Chart) {
-            this.chartJS = window.Chart;
-            this.configureDefaults();
-            return this.chartJS;
+    async loadPreferences() {
+        try {
+            const response = await fetch('/api/user/preferences');
+            const result = await response.json();
+            
+            if (result.success) {
+                this.preferences = result.data;
+                this.applyPreferences();
+            }
+        } catch (error) {
+            console.error('Error loading preferences:', error);
+        }
+    }
+
+    applyPreferences() {
+        if (!this.preferences) return;
+
+        // Apply theme
+        if (this.preferences.theme !== themeManager.currentTheme) {
+            themeManager.setTheme(this.preferences.theme, false);
         }
 
-        return new Promise((resolve, reject) => {
-            const script = document.createElement("script");
-            script.src =
-                "https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.min.js";
-            script.onload = () => {
-                this.chartJS = window.Chart;
-                this.configureDefaults();
-                window.GST_DASHBOARD.utils.log("Chart.js loaded successfully");
-                resolve(this.chartJS);
-            };
-            script.onerror = () => {
-                window.GST_DASHBOARD.utils.error("Failed to load Chart.js");
-                reject(new Error("Failed to load Chart.js"));
-            };
-            document.head.appendChild(script);
+        // Apply compact mode
+        if (this.preferences.compactMode) {
+            document.body.classList.add('compact-mode');
+        }
+
+        // Store in localStorage for client-side access
+        localStorage.setItem(GST_CONFIG.USER_PREFERENCES_KEY, JSON.stringify(this.preferences));
+    }
+
+    setupProfileDropdown() {
+        const profileBtn = document.getElementById('userProfileBtn');
+        const dropdownMenu = document.getElementById('userDropdownMenu');
+        
+        if (!profileBtn || !dropdownMenu) return;
+
+        // Enhanced dropdown with animations
+        profileBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            this.toggleDropdown();
+        });
+
+        // Close on outside click
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.user-profile-wrapper')) {
+                this.closeDropdown();
+            }
+        });
+
+        // Add keyboard navigation
+        dropdownMenu.addEventListener('keydown', (e) => {
+            const items = dropdownMenu.querySelectorAll('.dropdown-item');
+            const currentIndex = Array.from(items).findIndex(item => item === document.activeElement);
+            
+            switch (e.key) {
+                case 'ArrowDown':
+                    e.preventDefault();
+                    const nextIndex = currentIndex < items.length - 1 ? currentIndex + 1 : 0;
+                    items[nextIndex].focus();
+                    break;
+                case 'ArrowUp':
+                    e.preventDefault();
+                    const prevIndex = currentIndex > 0 ? currentIndex - 1 : items.length - 1;
+                    items[prevIndex].focus();
+                    break;
+                case 'Enter':
+                case ' ':
+                    e.preventDefault();
+                    document.activeElement.click();
+                    break;
+            }
         });
     }
 
-    configureDefaults() {
-        if (!this.chartJS) return;
-
-        this.chartJS.defaults.color = "var(--text-secondary)";
-        this.chartJS.defaults.borderColor = "var(--border-color)";
-        this.chartJS.defaults.backgroundColor = "rgba(124, 58, 237, 0.1)";
-        this.chartJS.defaults.plugins.legend.display = false;
-        this.chartJS.defaults.responsive = true;
-        this.chartJS.defaults.maintainAspectRatio = false;
-        this.chartJS.defaults.animation.duration =
-            window.GST_DASHBOARD.CONFIG.CHART_ANIMATION_DURATION;
+    toggleDropdown() {
+        const btn = document.getElementById('userProfileBtn');
+        const menu = document.getElementById('userDropdownMenu');
+        
+        const isActive = btn.classList.contains('active');
+        
+        if (isActive) {
+            this.closeDropdown();
+        } else {
+            this.openDropdown();
+        }
     }
-}
 
-// =============================================================================
-// 4. INITIALIZATION
-// =============================================================================
-let dashboardManager = null;
+    openDropdown() {
+        const btn = document.getElementById('userProfileBtn');
+        const menu = document.getElementById('userDropdownMenu');
+        
+        btn.classList.add('active');
+        menu.classList.add('active');
+        
+        // Focus first focusable element
+        setTimeout(() => {
+            const firstFocusable = menu.querySelector('.dropdown-item');
+            if (firstFocusable) {
+                firstFocusable.focus();
+            }
+        }, 100);
+        
+        // Load fresh stats
+        if (window.userDashboard) {
+            window.userDashboard.loadUserStats();
+        }
+    }
 
-document.addEventListener("DOMContentLoaded", async function () {
-    try {
-        window.GST_DASHBOARD.utils.log("DOM loaded, initializing dashboard...");
+    closeDropdown() {
+        const btn = document.getElementById('userProfileBtn');
+        const menu = document.getElementById('userDropdownMenu');
+        
+        btn.classList.remove('active');
+        menu.classList.remove('active');
+        
+        // Return focus to button
+        btn.focus();
+    }
 
-        // Check if user is authenticated
-        if (!window.GST_APP_STATE?.isAuthenticated) {
-            window.GST_DASHBOARD.utils.warn(
-                "User not authenticated, skipping dashboard initialization",
-            );
+    setupAvatarGeneration() {
+        const avatarElements = document.querySelectorAll('.user-avatar, .dropdown-avatar');
+        const userName = document.querySelector('.user-name')?.textContent || 'User';
+        
+        avatarElements.forEach(avatar => {
+            // Generate gradient based on username
+            const colors = this.generateAvatarColors(userName);
+            avatar.style.background = `linear-gradient(135deg, ${colors.primary}, ${colors.secondary})`;
+            
+            // Add hover effect
+            avatar.addEventListener('mouseenter', () => {
+                avatar.style.transform = 'scale(1.1) rotate(5deg)';
+            });
+            
+            avatar.addEventListener('mouseleave', () => {
+                avatar.style.transform = 'scale(1) rotate(0deg)';
+            });
+        });
+    }
+
+    generateAvatarColors(name) {
+        const colors = [
+            { primary: '#7c3aed', secondary: '#a855f7' },
+            { primary: '#3b82f6', secondary: '#60a5fa' },
+            { primary: '#10b981', secondary: '#34d399' },
+            { primary: '#f59e0b', secondary: '#fbbf24' },
+            { primary: '#ef4444', secondary: '#f87171' },
+            { primary: '#8b5cf6', secondary: '#a78bfa' },
+            { primary: '#06b6d4', secondary: '#22d3ee' },
+            { primary: '#84cc16', secondary: '#a3e635' }
+        ];
+        
+        const hash = name.split('').reduce((a, b) => {
+            a = ((a << 5) - a) + b.charCodeAt(0);
+            return a & a;
+        }, 0);
+        
+        return colors[Math.abs(hash) % colors.length];
+    }
+
+    async updateProfile(profileData) {
+        try {
+            const response = await fetch('/api/user/preferences', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(profileData)
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                this.preferences = { ...this.preferences, ...profileData };
+                this.applyPreferences();
+                return true;
+            }
+        } catch (error) {
+            console.error('Error updating profile:', error);
+        }
+        
+        return false;
+    }
+
+    async clearUserData() {
+        if (!confirm('Are you sure you want to clear all your search history? This action cannot be undone.')) {
             return;
         }
 
-        // Initialize dashboard manager
-        dashboardManager = new DashboardManager();
-        await dashboardManager.init();
-
-        // Make dashboard manager globally available
-        window.dashboardManager = dashboardManager;
-
-        window.GST_DASHBOARD.utils.log("Dashboard ready");
-    } catch (error) {
-        window.GST_DASHBOARD.utils.error(
-            "Failed to initialize dashboard:",
-            error,
-        );
+        try {
+            const response = await fetch('/api/user/data', {
+                method: 'DELETE'
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                notificationManager.showToast(`Cleared ${result.deleted_count} search records`, 'success');
+                
+                // Refresh dashboard
+                if (window.userDashboard) {
+                    setTimeout(() => {
+                        window.userDashboard.refreshData();
+                    }, 1000);
+                }
+            } else {
+                notificationManager.showToast('Failed to clear data', 'error');
+            }
+        } catch (error) {
+            console.error('Error clearing data:', error);
+            notificationManager.showToast('Failed to clear data', 'error');
+        }
     }
-});
-
-// Cleanup on page unload
-window.addEventListener("beforeunload", function () {
-    if (dashboardManager) {
-        dashboardManager.destroy();
-    }
-});
-
-// Export for module systems
-if (typeof module !== "undefined" && module.exports) {
-    module.exports = { DashboardManager, ChartManager };
 }
 
-console.log("✅ Dashboard functionality loaded successfully");
+// Initialize enhanced user components
+document.addEventListener('DOMContentLoaded', function() {
+    // Only initialize on pages with user profile
+    if (document.getElementById('userProfileBtn')) {
+        window.userDashboard = new UserDashboard();
+        window.userProfileManager = new UserProfileManager();
+        
+        // Add achievement styles
+        const achievementStyles = `
+            <style>
+                .user-achievements {
+                    display: flex;
+                    flex-direction: column;
+                    gap: 0.5rem;
+                    margin-top: 1rem;
+                }
+
+                .achievement-item {
+                    display: flex;
+                    align-items: center;
+                    gap: 0.75rem;
+                    padding: 0.5rem;
+                    border-radius: 8px;
+                    transition: all 0.2s;
+                }
+
+                .achievement-item.unlocked {
+                    background: rgba(16, 185, 129, 0.1);
+                    border: 1px solid rgba(16, 185, 129, 0.3);
+                }
+
+                .achievement-item.locked {
+                    background: var(--bg-secondary);
+                    border: 1px solid var(--border-color);
+                    opacity: 0.6;
+                }
+
+                .achievement-icon {
+                    width: 24px;
+                    height: 24px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    font-size: 12px;
+                }
+
+                .achievement-item.unlocked .achievement-icon {
+                    color: var(--success);
+                }
+
+                .achievement-item.locked .achievement-icon {
+                    color: var(--text-muted);
+                }
+
+                .achievement-info {
+                    flex: 1;
+                    min-width: 0;
+                }
+
+                .achievement-title {
+                    font-size: 0.8rem;
+                    font-weight: 600;
+                    color: var(--text-primary);
+                    margin-bottom: 0.25rem;
+                }
+
+                .achievement-progress {
+                    display: flex;
+                    align-items: center;
+                    gap: 0.5rem;
+                }
+
+                .progress-bar {
+                    flex: 1;
+                    height: 4px;
+                    background: var(--bg-hover);
+                    border-radius: 2px;
+                    overflow: hidden;
+                }
+
+                .progress-fill {
+                    height: 100%;
+                    background: var(--accent-gradient);
+                    transition: width 1s ease;
+                }
+
+                .progress-text {
+                    font-size: 0.7rem;
+                    color: var(--text-secondary);
+                    white-space: nowrap;
+                }
+            </style>
+        `;
+        
+        document.head.insertAdjacentHTML('beforeend', achievementStyles);
+    }
+});
+
+// Export functions for global access
+window.openEnhancedProfileModal = function() {
+    const userData = window.userDashboard?.userStats;
+    
+    modalManager.createModal({
+        title: 'My Profile & Stats',
+        content: `
+            <div style="display: flex; flex-direction: column; gap: 2rem;">
+                <!-- User Stats Overview -->
+                <div style="background: var(--bg-hover); border-radius: 12px; padding: 1.5rem;">
+                    <h4 style="margin-bottom: 1rem; color: var(--text-primary);">Your Activity</h4>
+                    <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem;">
+                        <div style="text-align: center;">
+                            <div style="font-size: 1.5rem; font-weight: 700; color: var(--accent-primary);">${userData?.total_searches || 0}</div>
+                            <div style="font-size: 0.8rem; color: var(--text-secondary);">Total Searches</div>
+                        </div>
+                        <div style="text-align: center;">
+                            <div style="font-size: 1.5rem; font-weight: 700; color: var(--accent-primary);">${Math.round(userData?.avg_compliance || 0)}%</div>
+                            <div style="font-size: 0.8rem; color: var(--text-secondary);">Avg Compliance</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Profile Form -->
+                <form id="enhancedProfileForm">
+                    <div style="display: flex; flex-direction: column; gap: 1rem;">
+                        <div>
+                            <label style="display: block; margin-bottom: 0.5rem; color: var(--text-secondary); font-weight: 500;">Display Name</label>
+                            <input type="text" name="displayName" class="form-input" placeholder="Enter your name" style="width: 100%; padding: 0.75rem; background: var(--bg-input); border: 1px solid var(--border-color); border-radius: 8px; color: var(--text-primary);">
+                        </div>
+                        <div>
+                            <label style="display: block; margin-bottom: 0.5rem; color: var(--text-secondary); font-weight: 500;">Company</label>
+                            <input type="text" name="company" class="form-input" placeholder="Company name" style="width: 100%; padding: 0.75rem; background: var(--bg-input); border: 1px solid var(--border-color); border-radius: 8px; color: var(--text-primary);">
+                        </div>
+                        <div>
+                            <label style="display: block; margin-bottom: 0.5rem; color: var(--text-secondary); font-weight: 500;">User Level</label>
+                            <div style="display: flex; align-items: center; gap: 0.5rem; padding: 0.75rem; background: var(--bg-input); border: 1px solid var(--border-color); border-radius: 8px;">
+                                <i class="${userData?.user_level?.icon || 'fas fa-user'}" style="color: ${userData?.user_level?.color || 'var(--accent-primary)'};"></i>
+                                <span style="color: var(--text-primary); font-weight: 600;">${userData?.user_level?.level || 'New User'}</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div style="display: flex; gap: 1rem; margin-top: 2rem;">
+                        <button type="submit" class="btn btn-primary" style="flex: 1; padding: 0.75rem; background: var(--accent-gradient); color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer;">Save Profile</button>
+                        <button type="button" onclick="window.userProfileManager.clearUserData(); modalManager.closeAllModals();" class="btn btn-danger" style="padding: 0.75rem 1rem; background: var(--danger); color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer;">Clear Data</button>
+                    </div>
+                </form>
+            </div>
+        `,
+        onSubmit: async function(formData) {
+            const success = await window.userProfileManager.updateProfile(formData);
+            if (success) {
+                notificationManager.showToast('Profile updated successfully!', 'success');
+                return true;
+            } else {
+                notificationManager.showToast('Failed to update profile', 'error');
+                return false;
+            }
+        }
+    });
+};
