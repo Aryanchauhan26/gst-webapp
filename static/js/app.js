@@ -647,7 +647,9 @@ function enhanceFormInputs() {
 
 window.exportToExcel = function() {
     window.location.href = '/export/history';
-    notificationManager.showSuccess('📊 Exporting data to Excel...', 3000);
+    if (window.notificationManager) {
+        window.notificationManager.showToast('📊 Exporting data...', 'info');
+    }
 };
 
 // ===========================================

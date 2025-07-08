@@ -499,7 +499,7 @@ async def dashboard(request: Request, current_user: str = Depends(require_auth))
     # Get user search history
     history = await db.get_search_history(current_user, limit=10)
     
-    # Calculate searches this month
+    # Calculate searches this month and user statistics
     async with db.pool.acquire() as conn:
         searches_this_month = await conn.fetchval("""
             SELECT COUNT(*) FROM search_history 
@@ -978,6 +978,17 @@ async def search_suggestions(q: str, current_user: str = Depends(require_auth)):
         "suggestions": [{"gstin": row["gstin"], "company_name": row["company_name"]} for row in suggestions]
     })
 
+@app.post("/api/system/log-error")
+async def log_error(request: Request, current_user: str = Depends(require_auth)):
+    """Log client-side errors"""
+    try:
+        data = await request.json()
+        logger.error(f"Client error from {current_user}: {data}")
+        return JSONResponse({"success": True})
+    except Exception as e:
+        logger.error(f"Error logging client error: {e}")
+        return JSONResponse({"success": False})
+
 @app.post("/api/search")
 async def api_search(request: Request, gstin: str = Form(...), current_user: str = Depends(require_auth)):
     """API endpoint for search functionality"""
@@ -1066,8 +1077,8 @@ async def user_profile(current_user: str = Depends(require_auth)):
         "success": True,
         "data": {
             "mobile": current_user,
-            "created_at": user_data["created_at"].isoformat() if user_data["created_at"] else None,
-            "last_login": user_data["last_login"].isoformat() if user_data["last_login"] else None,
+            "created_at": user_data["created_at"].isoformat() if user_data and user_data["created_at"] else None,
+            "last_login": user_data["last_login"].isoformat() if user_data and user_data["last_login"] else None,
             "search_count": search_count
         }
     })
@@ -1151,6 +1162,11 @@ def get_user_achievements(total_searches: int, avg_compliance: float) -> list:
     
     return achievements
 
+def check_password(password: str, stored_hash: str, salt: str) -> bool:
+    """Verify password against stored hash"""
+    hash_attempt = hashlib.pbkdf2_hmac('sha256', password.encode('utf-8'), salt.encode('utf-8'), 100000, dklen=64).hex()
+    return hash_attempt == stored_hash
+
 @app.get("/favicon.ico")
 async def favicon():
     return FileResponse("static/icons/favicon.png", media_type="image/png")
@@ -1164,6 +1180,7 @@ async def service_worker():
     return FileResponse("sw.js", media_type="application/javascript")
 
 # Error handlers
+
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request: Request, exc: HTTPException):
     if exc.status_code == 303 and exc.headers and "Location" in exc.headers:

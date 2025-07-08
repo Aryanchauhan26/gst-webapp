@@ -451,7 +451,50 @@ window.analytics = {
 };
 
 // =============================================================================
-// 8. INITIALIZATION
+// 8. ENHANCED SEARCH FUNCTIONALITY
+// =============================================================================
+window.searchCompany = function(gstin) {
+    if (gstin) {
+        window.location.href = `/search?gstin=${gstin}`;
+    }
+};
+
+// Enhanced export functionality
+window.exportToExcel = function() {
+    window.location.href = '/export/history';
+    if (window.notificationManager) {
+        window.notificationManager.showToast('📊 Exporting data...', 'info');
+    }
+};
+
+// Enhanced profile modal
+window.openEnhancedProfileModal = function() {
+    if (window.modalManager) {
+        window.modalManager.createModal({
+            title: 'User Profile',
+            content: `
+                <div style="text-align: center; padding: 2rem;">
+                    <h4>Enhanced Profile Features</h4>
+                    <p>Profile management coming soon...</p>
+                </div>
+            `
+        });
+    }
+};
+
+// Enhanced clear data function
+window.clearUserData = function() {
+    if (confirm('Are you sure you want to clear all data?')) {
+        localStorage.clear();
+        if (window.notificationManager) {
+            window.notificationManager.showToast('Data cleared successfully', 'success');
+        }
+        setTimeout(() => window.location.reload(), 1000);
+    }
+};
+
+// =============================================================================
+// 9. INITIALIZATION
 // =============================================================================
 document.addEventListener("DOMContentLoaded", function () {
     // Initialize theme manager
