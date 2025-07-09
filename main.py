@@ -14,6 +14,7 @@ import logging
 import json
 import httpx
 import uvicorn
+import csv
 from datetime import datetime, timedelta
 from collections import defaultdict
 from typing import Optional, Dict, List
@@ -21,10 +22,11 @@ from fastapi import FastAPI, Request, Form, Depends, HTTPException, status, Resp
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse, StreamingResponse, FileResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
-from io import BytesIO
-from weasyprint import HTML
+from io import BytesIO, StringIO
 from dotenv import load_dotenv
 from anthro_ai import get_anthropic_synopsis
+from validators import EnhancedDataValidator, get_validation_rules
+
 
 # Load environment variables
 load_dotenv()
@@ -33,6 +35,12 @@ load_dotenv()
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
+try:
+    from weasyprint import HTML
+    WEASYPRINT_AVAILABLE = True
+except ImportError:
+    logger.warning("WeasyPrint not available - PDF generation disabled")
+    WEASYPRINT_AVAILABLE = False
 # Environment Configuration
 RAPIDAPI_KEY = os.getenv("RAPIDAPI_KEY")
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY") 
@@ -265,16 +273,16 @@ class GSAPIClient:
 
 api_client = GSAPIClient(RAPIDAPI_KEY, RAPIDAPI_HOST) if RAPIDAPI_KEY else None
 
-# Validation functions
 def validate_mobile(mobile: str) -> tuple[bool, str]:
-    mobile = mobile.strip()
-    if not mobile.isdigit() or len(mobile) != 10 or mobile[0] not in "6789":
-        return False, "Invalid mobile number"
-    return True, ""
+    return EnhancedDataValidator.validate_mobile(mobile)
 
 def validate_gstin(gstin: str) -> bool:
-    pattern = r'^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$'
-    return bool(re.match(pattern, gstin.upper()))
+    is_valid, _ = EnhancedDataValidator.validate_gstin(gstin)
+    return is_valid
+
+def validate_email(email: str) -> bool:
+    is_valid, _ = EnhancedDataValidator.validate_email(email)
+    return is_valid
 
 # Complete these missing calculation functions:
 
@@ -543,11 +551,22 @@ async def get_login(request: Request):
 
 @app.post("/login")
 async def post_login(request: Request, mobile: str = Form(...), password: str = Form(...)):
-    is_valid, message = validate_mobile(mobile)
-    if not is_valid:
+    form_data = {
+        'mobile': mobile,
+        'password': password
+    }
+
+    validation_rules = {
+        'mobile': {'type': 'mobile', 'required': True},
+        'password': {'type': 'text', 'required': True}
+    }
+
+    validation_result = EnhancedDataValidator.validate_form_data(form_data, validation_rules)
+
+    if not validation_result['is_valid']:
         return templates.TemplateResponse("login.html", {
-            "request": request, 
-            "error": message
+            "request": request,
+            "error": list(validation_result['errors'].values())[0]
         })
     
     if not login_limiter.is_allowed(mobile):
@@ -807,15 +826,36 @@ async def contact_post(
     message: str = Form(...),
     current_user: Optional[str] = Depends(get_current_user)
 ):
-    """Handle contact form submission"""
     try:
-        # Log contact submission
-        logger.info(f"Contact form submitted by {name} ({email}): {subject}")
+        # Validate form data
+        form_data = {
+            'name': name,
+            'email': email,
+            'subject': subject,
+            'message': message
+        }
         
-        # Here you would typically:
-        # - Send email notification
-        # - Store in database
-        # - Send confirmation email
+        validation_rules = {
+            'name': {'type': 'text', 'required': True},
+            'email': {'type': 'email', 'required': True},
+            'subject': {'type': 'text', 'required': True},
+            'message': {'type': 'text', 'required': True}
+        }
+        
+        validation_result = EnhancedDataValidator.validate_form_data(form_data, validation_rules)
+        
+        if not validation_result['is_valid']:
+            return templates.TemplateResponse("contact.html", {
+                "request": request,
+                "current_user": current_user,
+                "error_message": list(validation_result['errors'].values())[0]
+            })
+        
+        # Use cleaned data
+        cleaned_data = validation_result['cleaned_data']
+        
+        # Log contact submission
+        logger.info(f"Contact form submitted by {cleaned_data['name']} ({cleaned_data['email']}): {cleaned_data['subject']}")
         
         return templates.TemplateResponse("contact.html", {
             "request": request,
@@ -837,11 +877,24 @@ async def get_signup(request: Request):
 
 @app.post("/signup")
 async def post_signup(request: Request, mobile: str = Form(...), password: str = Form(...), confirm_password: str = Form(...)):
-    is_valid, message = validate_mobile(mobile)
-    if not is_valid:
+    form_data = {
+        'mobile': mobile,
+        'password': password,
+        'confirm_password': confirm_password
+    }
+
+    validation_rules = {
+        'mobile': {'type': 'mobile', 'required': True},
+        'password': {'type': 'text', 'required': True},
+        'confirm_password': {'type': 'text', 'required': True}
+    }
+
+    validation_result = EnhancedDataValidator.validate_form_data(form_data, validation_rules)
+
+    if not validation_result['is_valid']:
         return templates.TemplateResponse("signup.html", {
-            "request": request, 
-            "error": message
+            "request": request,
+            "error": list(validation_result['errors'].values())[0]
         })
     
     if password != confirm_password:
@@ -972,20 +1025,32 @@ async def analytics_dashboard(request: Request, current_user: str = Depends(requ
 
 @app.get("/export/history")
 async def export_history(current_user: str = Depends(require_auth)):
-    from io import StringIO
-    import csv
-    history = await db.get_all_searches(current_user)
-    output = StringIO()
-    writer = csv.DictWriter(output, fieldnames=['searched_at', 'gstin', 'company_name', 'compliance_score'])
-    writer.writeheader()
-    writer.writerows(history)
-    content = output.getvalue()
-    output.close()
-    
-    return StreamingResponse(
-        BytesIO(content.encode()), media_type="text/csv",
-        headers={"Content-Disposition": f"attachment; filename=gst_search_history_{datetime.now().strftime('%Y%m%d')}.csv"}
-    )
+    """Export search history as CSV"""
+    try:
+        await db.connect()
+        history = await db.get_all_searches(current_user)
+        
+        output = StringIO()
+        writer = csv.DictWriter(output, fieldnames=['searched_at', 'gstin', 'company_name', 'compliance_score'])
+        writer.writeheader()
+        
+        # Convert datetime objects to strings for CSV
+        for row in history:
+            if row.get('searched_at'):
+                row['searched_at'] = row['searched_at'].isoformat()
+            writer.writerow(row)
+        
+        content = output.getvalue()
+        output.close()
+        
+        return StreamingResponse(
+            BytesIO(content.encode()), 
+            media_type="text/csv",
+            headers={"Content-Disposition": f"attachment; filename=gst_search_history_{datetime.now().strftime('%Y%m%d')}.csv"}
+        )
+    except Exception as e:
+        logger.error(f"Export history error: {e}")
+        raise HTTPException(status_code=500, detail="Failed to export history")
 
 @app.post("/generate-pdf")
 async def generate_pdf(request: Request, gstin: str = Form(...), current_user: str = Depends(require_auth)):
@@ -1017,6 +1082,9 @@ async def generate_pdf(request: Request, gstin: str = Form(...), current_user: s
 
 def generate_pdf_report(company_data: dict, compliance_score: float, synopsis: str = None, late_filing_analysis: dict = None) -> BytesIO:
     """Generate comprehensive PDF report"""
+    if not WEASYPRINT_AVAILABLE:
+        raise HTTPException(status_code=503, detail="PDF generation not available")
+    
     company_name = company_data.get("lgnm", "Unknown Company")
     gstin = company_data.get("gstin", "N/A")
     status = company_data.get("sts", "N/A")
@@ -1230,17 +1298,6 @@ async def api_search(request: Request, gstin: str = Form(...), current_user: str
         logger.error(f"API search error: {e}")
         return JSONResponse({"success": False, "error": str(e)})
 
-@app.post("/api/system/error")
-async def log_error(request: Request, current_user: str = Depends(require_auth)):
-    """Log client-side errors"""
-    try:
-        data = await request.json()
-        logger.error(f"Client error from {current_user}: {data}")
-        return JSONResponse({"success": True})
-    except Exception as e:
-        logger.error(f"Error logging client error: {e}")
-        return JSONResponse({"success": False})
-
 @app.post("/change-password")
 async def change_password_route(
     request: Request,
@@ -1431,11 +1488,12 @@ def get_user_achievements(total_searches: int, avg_compliance: float) -> list:
 
 async def process_search(request: Request, gstin: str, current_user: str):
     gstin = gstin.strip().upper()
-    if not validate_gstin(gstin):
+    is_valid, error_message = EnhancedDataValidator.validate_gstin(gstin)
+    if not is_valid:
         return templates.TemplateResponse("index.html", {
             "request": request, 
             "current_user": current_user,
-            "error": "Invalid GSTIN format. Please enter a valid 15-digit GSTIN."
+            "error": error_message
         })
     
     if not api_limiter.is_allowed(current_user):
@@ -1494,11 +1552,6 @@ async def process_search(request: Request, gstin: str, current_user: str):
             "current_user": current_user,
             "error": "An error occurred while fetching data. Please try again."
         })
-
-def check_password(password: str, stored_hash: str, salt: str) -> bool:
-    """Verify password against stored hash"""
-    hash_attempt = hashlib.pbkdf2_hmac('sha256', password.encode('utf-8'), salt.encode('utf-8'), 100000, dklen=64).hex()
-    return hash_attempt == stored_hash
 
 def get_template_context(request: Request, current_user: str = None, **kwargs):
     """Get common template context"""
