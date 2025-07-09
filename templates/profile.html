@@ -1,0 +1,589 @@
+{% extends "base.html" %}
+
+{% block title %}User Profile - GST Intelligence Platform{% endblock %}
+{% block body_class %}page-profile{% endblock %}
+
+{% block extra_css %}
+<style>
+    .profile-container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 2rem 1rem;
+    }
+    
+    .profile-header {
+        background: var(--accent-gradient);
+        color: white;
+        border-radius: var(--radius-2xl);
+        padding: 2rem;
+        margin-bottom: 2rem;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .profile-avatar {
+        width: 100px;
+        height: 100px;
+        background: rgba(255, 255, 255, 0.2);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 3rem;
+        margin-bottom: 1rem;
+        backdrop-filter: blur(10px);
+    }
+    
+    .header-content {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 1.5rem;
+    }
+    
+    .profile-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 2rem;
+        margin-bottom: 2rem;
+    }
+    
+    .profile-card {
+        background: var(--bg-card);
+        border-radius: var(--radius-2xl);
+        padding: 2rem;
+        box-shadow: var(--card-shadow);
+        border: 1px solid var(--border-primary);
+        transition: all var(--transition);
+    }
+    
+    .profile-card:hover {
+        box-shadow: var(--hover-shadow);
+        transform: translateY(-2px);
+    }
+    
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
+        margin-bottom: 2rem;
+    }
+    
+    .stat-item {
+        text-align: center;
+        padding: 1.5rem;
+        background: var(--bg-hover);
+        border-radius: var(--radius-xl);
+        border: 1px solid var(--border-primary);
+        transition: all var(--transition);
+    }
+    
+    .stat-item:hover {
+        background: var(--bg-card);
+        transform: translateY(-2px);
+        box-shadow: var(--card-shadow);
+    }
+    
+    .stat-value {
+        font-size: 2rem;
+        font-weight: var(--font-bold);
+        color: var(--text-primary);
+        display: block;
+        margin-bottom: var(--space-2);
+    }
+    
+    .stat-label {
+        color: var(--text-secondary);
+        font-size: var(--text-sm);
+        font-weight: var(--font-medium);
+    }
+    
+    .activity-item {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        padding: 1rem;
+        border-radius: var(--radius-lg);
+        background: var(--bg-hover);
+        margin-bottom: 0.75rem;
+        border: 1px solid var(--border-primary);
+        transition: all var(--transition);
+    }
+    
+    .activity-item:hover {
+        background: var(--bg-card);
+        transform: translateX(4px);
+    }
+    
+    .activity-icon {
+        width: 40px;
+        height: 40px;
+        border-radius: var(--radius-lg);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 1.25rem;
+        flex-shrink: 0;
+    }
+    
+    .security-section {
+        background: rgba(124, 58, 237, 0.05);
+        border: 1px solid rgba(124, 58, 237, 0.2);
+        border-radius: var(--radius-xl);
+        padding: 1.5rem;
+        margin-top: 2rem;
+    }
+    
+    .quick-actions {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
+        margin-top: 2rem;
+    }
+    
+    .quick-action {
+        padding: 1.5rem;
+        text-align: center;
+        background: var(--bg-card);
+        border: 2px solid var(--border-primary);
+        border-radius: var(--radius-xl);
+        text-decoration: none;
+        color: var(--text-primary);
+        transition: all var(--transition);
+        cursor: pointer;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.75rem;
+    }
+    
+    .quick-action:hover {
+        border-color: var(--accent-primary);
+        transform: translateY(-3px);
+        box-shadow: var(--hover-shadow);
+        background: var(--bg-hover);
+    }
+    
+    .quick-action i {
+        font-size: 2rem;
+        margin-bottom: 0.5rem;
+    }
+    
+    .quick-action-title {
+        font-weight: var(--font-semibold);
+        font-size: var(--text-base);
+    }
+    
+    .quick-action-desc {
+        font-size: var(--text-sm);
+        color: var(--text-secondary);
+    }
+    
+    .info-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: var(--space-3) 0;
+        border-bottom: 1px solid var(--border-primary);
+    }
+    
+    .info-item:last-child {
+        border-bottom: none;
+    }
+    
+    .info-label {
+        font-weight: var(--font-medium);
+        color: var(--text-secondary);
+        font-size: var(--text-sm);
+    }
+    
+    .info-value {
+        font-weight: var(--font-semibold);
+        color: var(--text-primary);
+        font-size: var(--text-sm);
+    }
+    
+    .status-badge {
+        padding: var(--space-1) var(--space-3);
+        border-radius: var(--radius-full);
+        font-size: var(--text-xs);
+        font-weight: var(--font-semibold);
+        text-transform: uppercase;
+        letter-spacing: 0.025em;
+    }
+    
+    .status-active {
+        background: rgba(16, 185, 129, 0.1);
+        color: var(--success);
+        border: 1px solid rgba(16, 185, 129, 0.3);
+    }
+    
+    .compliance-badge {
+        padding: var(--space-1) var(--space-2);
+        border-radius: var(--radius-full);
+        font-size: var(--text-xs);
+        font-weight: var(--font-semibold);
+    }
+    
+    .score-excellent { background: rgba(16, 185, 129, 0.1); color: var(--success); }
+    .score-good { background: rgba(245, 158, 11, 0.1); color: var(--warning); }
+    .score-average { background: rgba(239, 68, 68, 0.1); color: var(--error); }
+    
+    @media (max-width: 768px) {
+        .profile-grid {
+            grid-template-columns: 1fr;
+        }
+        
+        .header-content {
+            text-align: center;
+        }
+        
+        .profile-container {
+            padding: 1rem;
+        }
+        
+        .quick-actions {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="profile-container">
+    <!-- Profile Header -->
+    <div class="profile-header">
+        <div class="header-content">
+            <div class="profile-avatar">
+                <i class="fas fa-user"></i>
+            </div>
+            <div style="flex: 1; text-align: center;">
+                <h1 style="font-size: var(--text-3xl); font-weight: var(--font-bold); margin-bottom: 0.5rem;">{{ current_user }}</h1>
+                <p style="font-size: var(--text-xl); opacity: 0.9; margin-bottom: 0.5rem;">Active GST Intelligence User</p>
+                <div style="display: flex; flex-wrap: wrap; justify-content: center; gap: 1rem; font-size: var(--text-sm); opacity: 0.8;">
+                    {% if profile_data.user_info.created_at %}
+                    <span><i class="fas fa-calendar" style="margin-right: 0.25rem;"></i>Member since {{ profile_data.user_info.created_at[:10] }}</span>
+                    {% endif %}
+                    {% if profile_data.user_info.last_login %}
+                    <span><i class="fas fa-clock" style="margin-right: 0.25rem;"></i>Last active {{ profile_data.user_info.last_login[:10] }}</span>
+                    {% endif %}
+                </div>
+            </div>
+            <div style="text-align: center;">
+                <button onclick="showChangePasswordModal()" class="btn btn--outline" style="background: rgba(255, 255, 255, 0.2); border-color: rgba(255, 255, 255, 0.3); color: white;">
+                    <i class="fas fa-key"></i>
+                    Change Password
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Statistics -->
+    <div class="stats-grid">
+        <div class="stat-item">
+            <span class="stat-value" style="color: var(--info);">{{ profile_data.search_stats.total_searches or 0 }}</span>
+            <span class="stat-label">Total Searches</span>
+        </div>
+        <div class="stat-item">
+            <span class="stat-value" style="color: var(--success);">{{ "%.1f"|format(profile_data.search_stats.avg_compliance or 0) }}%</span>
+            <span class="stat-label">Average Compliance</span>
+        </div>
+        <div class="stat-item">
+            <span class="stat-value" style="color: var(--accent-primary);">{{ profile_data.search_stats.unique_companies or 0 }}</span>
+            <span class="stat-label">Companies Analyzed</span>
+        </div>
+        <div class="stat-item">
+            <span class="stat-value" style="color: var(--warning);">{{ profile_data.search_stats.searches_this_month or 0 }}</span>
+            <span class="stat-label">This Month</span>
+        </div>
+    </div>
+
+    <!-- Profile Content Grid -->
+    <div class="profile-grid">
+        <!-- Account Information -->
+        <div class="profile-card">
+            <h3 style="font-size: var(--text-xl); font-weight: var(--font-bold); color: var(--text-primary); margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;">
+                <i class="fas fa-user-circle" style="color: var(--info);"></i>
+                Account Information
+            </h3>
+            
+            <div style="display: flex; flex-direction: column; gap: 0;">
+                <div class="info-item">
+                    <span class="info-label">Mobile Number</span>
+                    <span class="info-value" style="font-family: var(--font-mono, monospace);">{{ current_user }}</span>
+                </div>
+                
+                {% if profile_data.user_info.created_at %}
+                <div class="info-item">
+                    <span class="info-label">Account Created</span>
+                    <span class="info-value">{{ profile_data.user_info.created_at[:10] }}</span>
+                </div>
+                {% endif %}
+                
+                {% if profile_data.user_info.last_login %}
+                <div class="info-item">
+                    <span class="info-label">Last Login</span>
+                    <span class="info-value">{{ profile_data.user_info.last_login[:10] }}</span>
+                </div>
+                {% endif %}
+                
+                <div class="info-item">
+                    <span class="info-label">Account Status</span>
+                    <span class="status-badge status-active">
+                        <i class="fas fa-check-circle"></i>
+                        Active
+                    </span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Recent Activity -->
+        <div class="profile-card">
+            <h3 style="font-size: var(--text-xl); font-weight: var(--font-bold); color: var(--text-primary); margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;">
+                <i class="fas fa-history" style="color: var(--success);"></i>
+                Recent Activity
+            </h3>
+            
+            {% if profile_data.recent_searches %}
+            <div style="display: flex; flex-direction: column; gap: 0;">
+                {% for search in profile_data.recent_searches[:5] %}
+                <div class="activity-item">
+                    <div class="activity-icon" style="background: var(--accent-gradient);">
+                        <i class="fas fa-search"></i>
+                    </div>
+                    <div style="flex: 1; min-width: 0;">
+                        <div style="font-weight: var(--font-medium); color: var(--text-primary); margin-bottom: 0.25rem;">{{ search.company_name }}</div>
+                        <div style="font-size: var(--text-sm); color: var(--text-secondary); font-family: var(--font-mono, monospace);">{{ search.gstin }}</div>
+                        <div style="font-size: var(--text-xs); color: var(--text-muted);">{{ search.searched_at.strftime('%B %d, %Y') if search.searched_at else 'Unknown date' }}</div>
+                    </div>
+                    {% if search.compliance_score is not none %}
+                    <div style="text-align: right;">
+                        <span class="compliance-badge {% if search.compliance_score >= 80 %}score-excellent{% elif search.compliance_score >= 60 %}score-good{% else %}score-average{% endif %}">
+                            {{ "%.0f"|format(search.compliance_score) }}%
+                        </span>
+                    </div>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div style="text-align: center; padding: 2rem; color: var(--text-secondary);">
+                <i class="fas fa-search" style="font-size: 3rem; margin-bottom: 1rem; opacity: 0.5;"></i>
+                <p style="margin-bottom: 0.5rem;">No recent activity</p>
+                <p style="font-size: var(--text-sm);">Start searching to see your activity here</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Security Section -->
+    <div class="security-section">
+        <h3 style="font-size: var(--text-lg); font-weight: var(--font-bold); color: var(--accent-primary); margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;">
+            <i class="fas fa-shield-alt"></i>
+            Security & Privacy
+        </h3>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem;">
+            <div style="display: flex; align-items: center; gap: 0.75rem;">
+                <i class="fas fa-check-circle" style="color: var(--success);"></i>
+                <span style="color: var(--text-primary);">Account secured with password</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 0.75rem;">
+                <i class="fas fa-check-circle" style="color: var(--success);"></i>
+                <span style="color: var(--text-primary);">Data encrypted in transit</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 0.75rem;">
+                <i class="fas fa-check-circle" style="color: var(--success);"></i>
+                <span style="color: var(--text-primary);">Session management active</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 0.75rem;">
+                <i class="fas fa-check-circle" style="color: var(--success);"></i>
+                <span style="color: var(--text-primary);">GDPR compliant data handling</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="quick-actions">
+        <a href="/" class="quick-action">
+            <i class="fas fa-search" style="color: var(--info);"></i>
+            <div class="quick-action-title">New Search</div>
+            <div class="quick-action-desc">Search company GST data</div>
+        </a>
+        
+        <a href="/analytics" class="quick-action">
+            <i class="fas fa-chart-line" style="color: var(--accent-primary);"></i>
+            <div class="quick-action-title">Analytics</div>
+            <div class="quick-action-desc">View detailed insights</div>
+        </a>
+        
+        <button onclick="exportProfile()" class="quick-action">
+            <i class="fas fa-download" style="color: var(--warning);"></i>
+            <div class="quick-action-title">Export Data</div>
+            <div class="quick-action-desc">Download your data</div>
+        </button>
+        
+        <a href="/contact" class="quick-action">
+            <i class="fas fa-headset" style="color: var(--success);"></i>
+            <div class="quick-action-title">Support</div>
+            <div class="quick-action-desc">Get help & assistance</div>
+        </a>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Export profile data
+async function exportProfile() {
+    try {
+        const response = await fetch('/api/user/export');
+        if (!response.ok) throw new Error('Export failed');
+        
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `profile_data_${new Date().toISOString().split('T')[0]}.json`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+        
+        if (window.notificationManager) {
+            window.notificationManager.show('Profile data exported successfully!', 'success');
+        }
+    } catch (error) {
+        console.error('Export error:', error);
+        if (window.notificationManager) {
+            window.notificationManager.show('Failed to export profile data', 'error');
+        }
+    }
+}
+
+function showChangePasswordModal() {
+    // Create modal for password change
+    const modal = document.createElement('div');
+    modal.className = 'modal-overlay';
+    modal.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.6);
+        backdrop-filter: blur(10px);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 10000;
+        animation: fadeIn 0.3s ease;
+    `;
+    
+    modal.innerHTML = `
+        <div style="background: var(--bg-card); padding: 2rem; border-radius: var(--radius-2xl); max-width: 400px; width: 90%; border: 1px solid var(--border-primary); box-shadow: var(--shadow-xl);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                <h3 style="margin: 0; color: var(--text-primary); font-size: var(--text-xl); font-weight: var(--font-bold);">Change Password</h3>
+                <button onclick="this.closest('.modal-overlay').remove()" style="background: var(--bg-hover); border: none; width: 32px; height: 32px; border-radius: var(--radius); cursor: pointer; color: var(--text-muted); display: flex; align-items: center; justify-content: center;">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <form id="changePasswordForm">
+                <div style="margin-bottom: 1rem;">
+                    <label style="display: block; margin-bottom: 0.5rem; color: var(--text-secondary); font-weight: var(--font-medium);">Current Password</label>
+                    <input type="password" name="current_password" required class="form-input">
+                </div>
+                <div style="margin-bottom: 1rem;">
+                    <label style="display: block; margin-bottom: 0.5rem; color: var(--text-secondary); font-weight: var(--font-medium);">New Password</label>
+                    <input type="password" name="new_password" required class="form-input" minlength="8">
+                </div>
+                <div style="margin-bottom: 1.5rem;">
+                    <label style="display: block; margin-bottom: 0.5rem; color: var(--text-secondary); font-weight: var(--font-medium);">Confirm Password</label>
+                    <input type="password" name="confirm_password" required class="form-input" minlength="8">
+                </div>
+                <div style="display: flex; gap: 1rem;">
+                    <button type="submit" class="btn btn--primary" style="flex: 1;">Update Password</button>
+                    <button type="button" onclick="this.closest('.modal-overlay').remove()" class="btn btn--secondary">Cancel</button>
+                </div>
+            </form>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+    
+    // Handle form submission
+    modal.querySelector('#changePasswordForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const formData = new FormData(this);
+        
+        // Validate passwords match
+        if (formData.get('new_password') !== formData.get('confirm_password')) {
+            if (window.notificationManager) {
+                window.notificationManager.show('Passwords do not match', 'error');
+            }
+            return;
+        }
+        
+        try {
+            const response = await fetch('/change-password', {
+                method: 'POST',
+                body: formData
+            });
+            const result = await response.json();
+            
+            if (result.success) {
+                if (window.notificationManager) {
+                    window.notificationManager.show('Password updated successfully!', 'success');
+                }
+                modal.remove();
+            } else {
+                if (window.notificationManager) {
+                    window.notificationManager.show(result.error || 'Failed to update password', 'error');
+                }
+            }
+        } catch (error) {
+            console.error('Password change error:', error);
+            if (window.notificationManager) {
+                window.notificationManager.show('Error updating password', 'error');
+            }
+        }
+    });
+    
+    // Focus first input
+    setTimeout(() => {
+        const firstInput = modal.querySelector('input');
+        if (firstInput) firstInput.focus();
+    }, 100);
+}
+
+// Close modal on outside click
+document.addEventListener('click', function(e) {
+    if (e.target.classList.contains('modal-overlay')) {
+        e.target.remove();
+    }
+});
+
+// Escape key to close modal
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        const modal = document.querySelector('.modal-overlay');
+        if (modal) modal.remove();
+    }
+});
+
+// Add fade in animation
+const fadeInCSS = `
+    @keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+    }
+`;
+
+if (!document.getElementById('modal-animations')) {
+    const style = document.createElement('style');
+    style.id = 'modal-animations';
+    style.textContent = fadeInCSS;
+    document.head.appendChild(style);
+}
+</script>
+{% endblock %}

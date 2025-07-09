@@ -1,0 +1,463 @@
+{% extends "base.html" %}
+
+{% block title %}Contact Us - GST Intelligence Platform{% endblock %}
+{% block body_class %}page-contact{% endblock %}
+
+{% block extra_css %}
+<style>
+    .contact-container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 2rem 1rem;
+    }
+    
+    .contact-header {
+        text-align: center;
+        margin-bottom: 3rem;
+    }
+    
+    .contact-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 3rem;
+        margin-bottom: 3rem;
+    }
+    
+    .contact-form {
+        background: var(--bg-card);
+        border-radius: var(--radius-2xl);
+        padding: 2rem;
+        box-shadow: var(--card-shadow);
+        border: 1px solid var(--border-primary);
+    }
+    
+    .contact-info {
+        background: var(--accent-gradient);
+        color: white;
+        border-radius: var(--radius-2xl);
+        padding: 2rem;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .form-group {
+        margin-bottom: var(--space-6);
+    }
+    
+    .form-label {
+        display: block;
+        margin-bottom: var(--space-2);
+        font-weight: var(--font-semibold);
+        color: var(--text-primary);
+        font-size: var(--text-sm);
+    }
+    
+    .contact-item {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        margin-bottom: 2rem;
+        padding: 1rem;
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: var(--radius-lg);
+        backdrop-filter: blur(10px);
+    }
+    
+    .contact-icon {
+        width: 50px;
+        height: 50px;
+        background: rgba(255, 255, 255, 0.2);
+        border-radius: var(--radius-lg);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.5rem;
+        flex-shrink: 0;
+    }
+    
+    .faq-section {
+        background: var(--bg-card);
+        border-radius: var(--radius-2xl);
+        padding: 2rem;
+        box-shadow: var(--card-shadow);
+        border: 1px solid var(--border-primary);
+    }
+    
+    .faq-item {
+        border-bottom: 1px solid var(--border-primary);
+        padding: 1rem 0;
+    }
+    
+    .faq-item:last-child {
+        border-bottom: none;
+    }
+    
+    .faq-question {
+        font-weight: var(--font-semibold);
+        color: var(--text-primary);
+        cursor: pointer;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: var(--space-2) 0;
+        transition: color var(--transition);
+    }
+    
+    .faq-question:hover {
+        color: var(--accent-primary);
+    }
+    
+    .faq-answer {
+        color: var(--text-secondary);
+        margin-top: var(--space-2);
+        line-height: 1.6;
+        display: none;
+        padding-left: var(--space-4);
+    }
+    
+    .faq-answer.show {
+        display: block;
+        animation: slideDown 0.3s ease;
+    }
+    
+    .faq-icon {
+        transition: transform var(--transition);
+    }
+    
+    .faq-item.active .faq-icon {
+        transform: rotate(180deg);
+    }
+    
+    @keyframes slideDown {
+        from {
+            opacity: 0;
+            transform: translateY(-10px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    @media (max-width: 768px) {
+        .contact-grid {
+            grid-template-columns: 1fr;
+            gap: 2rem;
+        }
+        
+        .contact-container {
+            padding: 1rem;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="contact-container">
+    <!-- Header -->
+    <div class="contact-header">
+        <h1 style="font-size: var(--text-4xl); font-weight: var(--font-bold); color: var(--text-primary); margin-bottom: 1rem;">Get in Touch</h1>
+        <p style="font-size: var(--text-xl); color: var(--text-secondary);">We're here to help with your GST intelligence and compliance needs</p>
+    </div>
+
+    <!-- Contact Grid -->
+    <div class="contact-grid">
+        <!-- Contact Form -->
+        <div class="contact-form">
+            <h2 style="font-size: var(--text-2xl); font-weight: var(--font-bold); color: var(--text-primary); margin-bottom: 1.5rem;">Send us a Message</h2>
+            
+            {% if success_message %}
+            <div class="alert alert--success" style="margin-bottom: 1.5rem;">
+                <div class="alert__icon">
+                    <i class="fas fa-check-circle"></i>
+                </div>
+                <div class="alert__content">
+                    <div class="alert__message">{{ success_message }}</div>
+                </div>
+            </div>
+            {% endif %}
+            
+            {% if error_message %}
+            <div class="alert alert--error" style="margin-bottom: 1.5rem;">
+                <div class="alert__icon">
+                    <i class="fas fa-exclamation-circle"></i>
+                </div>
+                <div class="alert__content">
+                    <div class="alert__message">{{ error_message }}</div>
+                </div>
+            </div>
+            {% endif %}
+            
+            <form method="post" action="/contact" id="contactForm">
+                <div class="form-group">
+                    <label for="name" class="form-label">Full Name</label>
+                    <input type="text" id="name" name="name" class="form-input" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="email" class="form-label">Email Address</label>
+                    <input type="email" id="email" name="email" class="form-input" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="subject" class="form-label">Subject</label>
+                    <select id="subject" name="subject" class="form-select" required>
+                        <option value="">Select a subject</option>
+                        <option value="general">General Inquiry</option>
+                        <option value="support">Technical Support</option>
+                        <option value="loan">Loan Application Help</option>
+                        <option value="api">API Issues</option>
+                        <option value="billing">Billing Question</option>
+                        <option value="partnership">Business Partnership</option>
+                        <option value="other">Other</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="message" class="form-label">Message</label>
+                    <textarea id="message" name="message" class="form-textarea" placeholder="Please describe your inquiry in detail..." required></textarea>
+                </div>
+                
+                <button type="submit" class="btn btn--primary" style="width: 100%;">
+                    <i class="fas fa-paper-plane"></i>
+                    Send Message
+                </button>
+            </form>
+        </div>
+
+        <!-- Contact Information -->
+        <div class="contact-info">
+            <h2 style="font-size: var(--text-2xl); font-weight: var(--font-bold); margin-bottom: 1.5rem;">Contact Information</h2>
+            
+            <div class="contact-item">
+                <div class="contact-icon">
+                    <i class="fas fa-envelope"></i>
+                </div>
+                <div>
+                    <h3 style="font-weight: var(--font-semibold); font-size: var(--text-lg);">Email</h3>
+                    <p style="opacity: 0.9;">support@gstintelligence.com</p>
+                    <p style="font-size: var(--text-sm); opacity: 0.75;">We'll respond within 24 hours</p>
+                </div>
+            </div>
+            
+            <div class="contact-item">
+                <div class="contact-icon">
+                    <i class="fas fa-phone"></i>
+                </div>
+                <div>
+                    <h3 style="font-weight: var(--font-semibold); font-size: var(--text-lg);">Phone</h3>
+                    <p style="opacity: 0.9;">+91 8000 000 000</p>
+                    <p style="font-size: var(--text-sm); opacity: 0.75;">Mon-Fri: 9:00 AM - 6:00 PM IST</p>
+                </div>
+            </div>
+            
+            <div class="contact-item">
+                <div class="contact-icon">
+                    <i class="fas fa-map-marker-alt"></i>
+                </div>
+                <div>
+                    <h3 style="font-weight: var(--font-semibold); font-size: var(--text-lg);">Office</h3>
+                    <p style="opacity: 0.9;">Delhi, India</p>
+                    <p style="font-size: var(--text-sm); opacity: 0.75;">Available for in-person meetings</p>
+                </div>
+            </div>
+            
+            <div class="contact-item">
+                <div class="contact-icon">
+                    <i class="fas fa-clock"></i>
+                </div>
+                <div>
+                    <h3 style="font-weight: var(--font-semibold); font-size: var(--text-lg);">Business Hours</h3>
+                    <p style="opacity: 0.9;">Monday - Friday</p>
+                    <p style="font-size: var(--text-sm); opacity: 0.75;">9:00 AM - 6:00 PM IST</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- FAQ Section -->
+    <div class="faq-section">
+        <h2 style="font-size: var(--text-2xl); font-weight: var(--font-bold); color: var(--text-primary); margin-bottom: 1.5rem;">Frequently Asked Questions</h2>
+        
+        <div class="faq-item">
+            <div class="faq-question" onclick="toggleFAQ(this)">
+                <span>How accurate is the GST compliance scoring?</span>
+                <i class="fas fa-chevron-down faq-icon"></i>
+            </div>
+            <div class="faq-answer">
+                Our compliance scoring algorithm analyzes multiple factors including filing regularity, business status, vintage, and activities. The scores are based on official GST data and provide a reliable assessment of business compliance health.
+            </div>
+        </div>
+        
+        <div class="faq-item">
+            <div class="faq-question" onclick="toggleFAQ(this)">
+                <span>What documents are required for loan applications?</span>
+                <i class="fas fa-chevron-down faq-icon"></i>
+            </div>
+            <div class="faq-answer">
+                You'll need: PAN card, Aadhaar card, bank statements (last 6 months), GST returns (last 12 months), and business address proof. All documents can be uploaded directly through our secure platform.
+            </div>
+        </div>
+        
+        <div class="faq-item">
+            <div class="faq-question" onclick="toggleFAQ(this)">
+                <span>How long does loan approval take?</span>
+                <i class="fas fa-chevron-down faq-icon"></i>
+            </div>
+            <div class="faq-answer">
+                Most loan applications are processed within 2-3 business days after document verification. Our AI-powered eligibility check gives you instant pre-approval status.
+            </div>
+        </div>
+        
+        <div class="faq-item">
+            <div class="faq-question" onclick="toggleFAQ(this)">
+                <span>Is my business data secure?</span>
+                <i class="fas fa-chevron-down faq-icon"></i>
+            </div>
+            <div class="faq-answer">
+                Yes, we use bank-grade encryption for all data transmission and storage. We're GDPR compliant and never share your business information with third parties without consent.
+            </div>
+        </div>
+        
+        <div class="faq-item">
+            <div class="faq-question" onclick="toggleFAQ(this)">
+                <span>Can I track my loan application status?</span>
+                <i class="fas fa-chevron-down faq-icon"></i>
+            </div>
+            <div class="faq-answer">
+                Absolutely! Once you submit an application, you can track its progress in real-time through your dashboard. You'll receive updates via SMS and email at each stage.
+            </div>
+        </div>
+        
+        <div class="faq-item">
+            <div class="faq-question" onclick="toggleFAQ(this)">
+                <span>What if my compliance score is below the minimum requirement?</span>
+                <i class="fas fa-chevron-down faq-icon"></i>
+            </div>
+            <div class="faq-answer">
+                We provide detailed recommendations to improve your compliance score. Focus on timely GST filing, maintaining active business status, and ensuring all business information is up to date.
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// FAQ toggle functionality
+function toggleFAQ(element) {
+    const faqItem = element.parentElement;
+    const answer = element.nextElementSibling;
+    const icon = element.querySelector('.faq-icon');
+    
+    // Close other open FAQs
+    document.querySelectorAll('.faq-item.active').forEach(item => {
+        if (item !== faqItem) {
+            item.classList.remove('active');
+            item.querySelector('.faq-answer').classList.remove('show');
+        }
+    });
+    
+    // Toggle current FAQ
+    faqItem.classList.toggle('active');
+    answer.classList.toggle('show');
+}
+
+// Form submission handling
+document.getElementById('contactForm').addEventListener('submit', function(e) {
+    const submitBtn = this.querySelector('button[type="submit"]');
+    const originalText = submitBtn.innerHTML;
+    
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending...';
+    
+    // Re-enable after timeout as fallback
+    setTimeout(() => {
+        if (submitBtn.disabled) {
+            submitBtn.innerHTML = originalText;
+            submitBtn.disabled = false;
+        }
+    }, 10000);
+});
+
+// Enhanced form validation
+const form = document.getElementById('contactForm');
+const inputs = form.querySelectorAll('input, textarea, select');
+
+inputs.forEach(input => {
+    input.addEventListener('blur', function() {
+        validateField(this);
+    });
+    
+    input.addEventListener('input', function() {
+        clearFieldError(this);
+    });
+});
+
+function validateField(field) {
+    const value = field.value.trim();
+    let isValid = true;
+    let message = '';
+    
+    switch(field.type) {
+        case 'email':
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (!emailRegex.test(value)) {
+                isValid = false;
+                message = 'Please enter a valid email address';
+            }
+            break;
+        case 'text':
+            if (value.length < 2) {
+                isValid = false;
+                message = 'Please enter at least 2 characters';
+            }
+            break;
+        default:
+            if (field.hasAttribute('required') && !value) {
+                isValid = false;
+                message = 'This field is required';
+            }
+    }
+    
+    if (!isValid) {
+        showFieldError(field, message);
+    } else {
+        clearFieldError(field);
+    }
+    
+    return isValid;
+}
+
+function showFieldError(field, message) {
+    clearFieldError(field);
+    
+    field.style.borderColor = 'var(--error)';
+    field.style.boxShadow = '0 0 0 3px rgba(239, 68, 68, 0.1)';
+    
+    const errorDiv = document.createElement('div');
+    errorDiv.className = 'field-error-message';
+    errorDiv.textContent = message;
+    errorDiv.style.cssText = `
+        color: var(--error);
+        font-size: var(--text-sm);
+        margin-top: var(--space-1);
+        display: flex;
+        align-items: center;
+        gap: var(--space-1);
+    `;
+    
+    field.parentNode.appendChild(errorDiv);
+}
+
+function clearFieldError(field) {
+    field.style.borderColor = '';
+    field.style.boxShadow = '';
+    
+    const errorMsg = field.parentNode.querySelector('.field-error-message');
+    if (errorMsg) {
+        errorMsg.remove();
+    }
+}
+</script>
+{% endblock %}

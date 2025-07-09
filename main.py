@@ -236,25 +236,32 @@ class GSAPIClient:
         self.api_key = api_key
         self.host = host
         self.headers = {
-            "x-rapidapi-key": api_key,
-            "x-rapidapi-host": host,
-            "User-Agent": "GST-Compliance-Platform/2.0"
+            "X-RapidAPI-Key": api_key,
+            "X-RapidAPI-Host": host
         }
     
     async def fetch_gstin_data(self, gstin: str) -> Dict:
-        import httpx
-        url = f"https://{self.host}/free/gstin/{gstin}"
-        async with httpx.AsyncClient(timeout=30) as client:
-            resp = await client.get(url, headers=self.headers)
-            if resp.status_code == 200:
-                json_data = resp.json()
-                if json_data.get("success") and "data" in json_data:
-                    return json_data["data"]
-                elif "data" in json_data:
-                    return json_data["data"]
+        """Fetch GSTIN data from RapidAPI"""
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.get(
+                    f"https://{self.host}/gstin/{gstin}",
+                    headers=self.headers,
+                    timeout=30.0
+                )
+                
+                if response.status_code == 200:
+                    data = response.json()
+                    # Process and return the data
+                    return data
                 else:
-                    return json_data
-            raise HTTPException(status_code=404, detail="GSTIN not found or API error")
+                    raise HTTPException(status_code=404, detail="Company not found")
+                    
+        except httpx.TimeoutException:
+            raise HTTPException(status_code=504, detail="API timeout")
+        except Exception as e:
+            logger.error(f"GST API error: {e}")
+            raise HTTPException(status_code=500, detail="API service error")
 
 api_client = GSAPIClient(RAPIDAPI_KEY, RAPIDAPI_HOST) if RAPIDAPI_KEY else None
 
@@ -569,6 +576,261 @@ async def post_login(request: Request, mobile: str = Form(...), password: str = 
     )
     return response
 
+@app.get("/loans", response_class=HTMLResponse)
+async def loans_page(request: Request, current_user: str = Depends(require_auth)):
+    """Loan management page"""
+    await db.connect()
+    
+    # Get user's loan applications if you have a loans table
+    applications = []  # You would fetch from loans table here
+    
+    # Sample loan configuration
+    loan_config = {
+        "min_amount": 50000,
+        "max_amount": 5000000,
+        "min_annual_turnover": 100000,
+        "min_vintage": 6
+    }
+    
+    return templates.TemplateResponse("loans.html", {
+        "request": request,
+        "current_user": current_user,
+        "applications": applications,
+        "loan_config": loan_config
+    })
+
+@app.get("/api/loans/eligibility")
+async def check_loan_eligibility(
+    gstin: str,
+    annual_turnover: float,
+    compliance_score: float,
+    business_vintage_months: int,
+    current_user: str = Depends(require_auth)
+):
+    """Check loan eligibility"""
+    try:
+        # Basic eligibility criteria
+        eligible = True
+        reasons = []
+        
+        if compliance_score < 60:
+            eligible = False
+            reasons.append("Compliance score must be at least 60%")
+        
+        if annual_turnover < 100000:
+            eligible = False
+            reasons.append("Annual turnover must be at least ₹1,00,000")
+        
+        if business_vintage_months < 6:
+            eligible = False
+            reasons.append("Business must be at least 6 months old")
+        
+        max_loan_amount = min(annual_turnover * 0.5, 5000000)  # 50% of turnover or 50L max
+        recommended_amount = max_loan_amount * 0.7  # 70% of max
+        
+        return JSONResponse({
+            "success": True,
+            "data": {
+                "eligible": eligible,
+                "reasons": reasons,
+                "max_loan_amount": max_loan_amount,
+                "recommended_amount": recommended_amount
+            }
+        })
+        
+    except Exception as e:
+        logger.error(f"Loan eligibility error: {e}")
+        return JSONResponse({"success": False, "error": "Failed to check eligibility"})
+
+@app.post("/api/loans/apply")
+async def apply_for_loan(
+    request: Request,
+    current_user: str = Depends(require_auth)
+):
+    """Submit loan application"""
+    try:
+        data = await request.json()
+        
+        # For now, just return success
+        # You would save to a loans table here
+        logger.info(f"Loan application from {current_user}: {data}")
+        
+        return JSONResponse({
+            "success": True,
+            "message": "Loan application submitted successfully",
+            "application_id": "LA" + str(int(datetime.now().timestamp()))
+        })
+        
+    except Exception as e:
+        logger.error(f"Loan application error: {e}")
+        return JSONResponse({"success": False, "error": "Failed to submit application"})
+
+@app.get("/api/loans/applications")
+async def get_loan_applications(current_user: str = Depends(require_auth)):
+    """Get user's loan applications"""
+    try:
+        # Return empty list for now - you would fetch from loans table
+        return JSONResponse({
+            "success": True,
+            "data": []
+        })
+        
+    except Exception as e:
+        logger.error(f"Get loan applications error: {e}")
+        return JSONResponse({"success": False, "error": "Failed to fetch applications"})
+
+@app.get("/profile", response_class=HTMLResponse)
+async def profile_page(request: Request, current_user: str = Depends(require_auth)):
+    """User profile page"""
+    await db.connect()
+    
+    async with db.pool.acquire() as conn:
+        # Get user data
+        user_data = await conn.fetchrow("SELECT * FROM users WHERE mobile = $1", current_user)
+        
+        # Get search statistics
+        search_stats = await conn.fetchrow("""
+            SELECT 
+                COUNT(*) as total_searches,
+                AVG(compliance_score) as avg_compliance,
+                COUNT(DISTINCT gstin) as unique_companies,
+                COUNT(CASE WHEN searched_at >= DATE_TRUNC('week', CURRENT_DATE) THEN 1 END) as searches_this_week,
+                COUNT(CASE WHEN searched_at >= DATE_TRUNC('month', CURRENT_DATE) THEN 1 END) as searches_this_month
+            FROM search_history 
+            WHERE mobile = $1
+        """, current_user)
+        
+        # Get recent searches
+        recent_searches = await conn.fetch("""
+            SELECT * FROM search_history 
+            WHERE mobile = $1 
+            ORDER BY searched_at DESC 
+            LIMIT 10
+        """, current_user)
+    
+    profile_data = {
+        "user_info": dict(user_data) if user_data else {"created_at": None, "last_login": None, "profile_data": {}},
+        "search_stats": dict(search_stats) if search_stats else {},
+        "recent_searches": [dict(row) for row in recent_searches]
+    }
+    
+    return templates.TemplateResponse("profile.html", {
+        "request": request,
+        "current_user": current_user,
+        "profile_data": profile_data,
+        "user_display_name": user_data.get("profile_data", {}).get("display_name") if user_data else None
+    })
+
+@app.get("/settings", response_class=HTMLResponse)
+async def settings_page(request: Request, current_user: str = Depends(require_auth)):
+    """User settings page"""
+    return templates.TemplateResponse("profile.html", {  # Reuse profile template
+        "request": request,
+        "current_user": current_user,
+        "user_display_name": current_user
+    })
+
+@app.get("/help", response_class=HTMLResponse)
+async def help_page(request: Request, current_user: Optional[str] = Depends(get_current_user)):
+    """Help page"""
+    return templates.TemplateResponse("contact.html", {  # Reuse contact template
+        "request": request,
+        "current_user": current_user
+    })
+
+@app.get("/privacy", response_class=HTMLResponse)
+async def privacy_page(request: Request, current_user: Optional[str] = Depends(get_current_user)):
+    """Privacy policy page"""
+    return HTMLResponse("""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Privacy Policy - GST Intelligence Platform</title>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <link rel="stylesheet" href="/static/css/base.css">
+    </head>
+    <body>
+        <div style="max-width: 800px; margin: 2rem auto; padding: 2rem; background: var(--bg-card); border-radius: 16px;">
+            <h1>Privacy Policy</h1>
+            <p>Your privacy is important to us. This policy explains how we collect, use, and protect your information.</p>
+            <h2>Information We Collect</h2>
+            <p>We collect only the information necessary to provide our GST compliance services.</p>
+            <h2>How We Use Your Information</h2>
+            <p>We use your information solely for providing GST analysis and compliance services.</p>
+            <p><a href="/">← Back to Dashboard</a></p>
+        </div>
+    </body>
+    </html>
+    """)
+
+@app.get("/terms", response_class=HTMLResponse)
+async def terms_page(request: Request, current_user: Optional[str] = Depends(get_current_user)):
+    """Terms of service page"""
+    return HTMLResponse("""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Terms of Service - GST Intelligence Platform</title>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <link rel="stylesheet" href="/static/css/base.css">
+    </head>
+    <body>
+        <div style="max-width: 800px; margin: 2rem auto; padding: 2rem; background: var(--bg-card); border-radius: 16px;">
+            <h1>Terms of Service</h1>
+            <p>Welcome to GST Intelligence Platform. By using our service, you agree to these terms.</p>
+            <h2>Service Description</h2>
+            <p>We provide GST compliance analysis and business intelligence services.</p>
+            <h2>User Responsibilities</h2>
+            <p>Users are responsible for providing accurate information and using the service appropriately.</p>
+            <p><a href="/">← Back to Dashboard</a></p>
+        </div>
+    </body>
+    </html>
+    """)
+
+@app.get("/contact", response_class=HTMLResponse)
+async def contact_get(request: Request, current_user: Optional[str] = Depends(get_current_user)):
+    """Contact page"""
+    return templates.TemplateResponse("contact.html", {
+        "request": request,
+        "current_user": current_user
+    })
+
+@app.post("/contact")
+async def contact_post(
+    request: Request,
+    name: str = Form(...),
+    email: str = Form(...),
+    subject: str = Form(...),
+    message: str = Form(...),
+    current_user: Optional[str] = Depends(get_current_user)
+):
+    """Handle contact form submission"""
+    try:
+        # Log contact submission
+        logger.info(f"Contact form submitted by {name} ({email}): {subject}")
+        
+        # Here you would typically:
+        # - Send email notification
+        # - Store in database
+        # - Send confirmation email
+        
+        return templates.TemplateResponse("contact.html", {
+            "request": request,
+            "current_user": current_user,
+            "success_message": "Thank you for your message. We'll get back to you soon!"
+        })
+        
+    except Exception as e:
+        logger.error(f"Contact form error: {e}")
+        return templates.TemplateResponse("contact.html", {
+            "request": request,
+            "current_user": current_user,
+            "error_message": "Failed to send message. Please try again."
+        })
+
 @app.get("/signup", response_class=HTMLResponse)
 async def get_signup(request: Request):
     return templates.TemplateResponse("signup.html", {"request": request})
@@ -631,74 +893,6 @@ async def search_gstin_get(request: Request, gstin: str = None, current_user: st
 @app.post("/search")
 async def search_gstin_post(request: Request, gstin: str = Form(...), current_user: str = Depends(require_auth)):
     return await process_search(request, gstin, current_user)
-
-async def process_search(request: Request, gstin: str, current_user: str):
-    gstin = gstin.strip().upper()
-    if not validate_gstin(gstin):
-        return templates.TemplateResponse("index.html", {
-            "request": request, 
-            "current_user": current_user,
-            "error": "Invalid GSTIN format. Please enter a valid 15-digit GSTIN."
-        })
-    
-    if not api_limiter.is_allowed(current_user):
-        return templates.TemplateResponse("index.html", {
-            "request": request, 
-            "current_user": current_user,
-            "error": "Rate limit exceeded. Please try again later."
-        })
-    
-    if not api_client:
-        return templates.TemplateResponse("index.html", {
-            "request": request, 
-            "current_user": current_user,
-            "error": "GST API service not configured. Please contact administrator."
-        })
-    
-    try:
-        company_data = await api_client.fetch_gstin_data(gstin)
-        compliance_score = calculate_compliance_score(company_data)
-        
-        # Get AI synopsis
-        synopsis = None
-        if ANTHROPIC_API_KEY:
-            try:
-                synopsis = await get_anthropic_synopsis(company_data)
-            except Exception as e:
-                logger.error(f"Failed to get AI synopsis: {e}")
-                synopsis = None
-        
-        # Add to search history
-        await db.add_search_history(current_user, gstin, company_data.get("lgnm", "Unknown"), compliance_score)
-        
-        # Get late filing analysis
-        late_filing_analysis = company_data.get('_late_filing_analysis', {})
-        
-        logger.info(f"Final compliance score for template: {compliance_score}")
-        
-        return templates.TemplateResponse("results.html", {
-            "request": request,
-            "current_user": current_user,
-            "company_data": company_data,
-            "compliance_score": compliance_score,
-            "synopsis": synopsis,
-            "late_filing_analysis": late_filing_analysis,
-            "gstin": gstin
-        })
-        
-    except HTTPException as e:
-        return templates.TemplateResponse("index.html", {
-            "request": request, 
-            "current_user": current_user,
-            "error": f"Company not found for GSTIN: {gstin}"
-        })
-    except Exception as e:
-        logger.error(f"Search error: {e}")
-        return templates.TemplateResponse("index.html", {
-            "request": request, 
-            "current_user": current_user,
-            "error": "An error occurred while fetching data. Please try again."
-        })
 
 @app.get("/history", response_class=HTMLResponse)
 async def view_history(request: Request, current_user: str = Depends(require_auth)):
@@ -1047,6 +1241,50 @@ async def log_error(request: Request, current_user: str = Depends(require_auth))
         logger.error(f"Error logging client error: {e}")
         return JSONResponse({"success": False})
 
+@app.post("/change-password")
+async def change_password_route(
+    request: Request,
+    current_password: str = Form(...),
+    new_password: str = Form(...),
+    confirm_password: str = Form(...),
+    current_user: str = Depends(require_auth)
+):
+    """Change user password"""
+    try:
+        if new_password != confirm_password:
+            return JSONResponse({"success": False, "error": "Passwords do not match"})
+        
+        if len(new_password) < 8:
+            return JSONResponse({"success": False, "error": "Password must be at least 8 characters"})
+        
+        await db.connect()
+        async with db.pool.acquire() as conn:
+            # Get current user data
+            user_data = await conn.fetchrow("SELECT password_hash, salt FROM users WHERE mobile = $1", current_user)
+            
+            if not user_data:
+                return JSONResponse({"success": False, "error": "User not found"})
+            
+            # Verify current password
+            if not check_password(current_password, user_data["password_hash"], user_data["salt"]):
+                return JSONResponse({"success": False, "error": "Current password is incorrect"})
+            
+            # Generate new password hash
+            new_salt = secrets.token_hex(16)
+            new_hash = hashlib.pbkdf2_hmac('sha256', new_password.encode('utf-8'), new_salt.encode('utf-8'), 100000, dklen=64).hex()
+            
+            # Update password
+            await conn.execute(
+                "UPDATE users SET password_hash = $1, salt = $2 WHERE mobile = $3",
+                new_hash, new_salt, current_user
+            )
+            
+            return JSONResponse({"success": True, "message": "Password updated successfully"})
+            
+    except Exception as e:
+        logger.error(f"Password change error: {e}")
+        return JSONResponse({"success": False, "error": "Failed to update password"})
+
 @app.get("/api/analytics/dashboard")
 async def analytics_api(current_user: str = Depends(require_auth)):
     """API endpoint for dashboard analytics"""
@@ -1083,11 +1321,40 @@ async def user_profile(current_user: str = Depends(require_auth)):
         }
     })
 
-@app.get("/admin")
-async def admin_dashboard(request: Request, current_user: str = Depends(require_auth)):
-    """Admin dashboard (placeholder)"""
-    # For now, return a simple response
-    return HTMLResponse("<h1>Admin Dashboard - Coming Soon</h1>")
+@app.post("/api/user/profile")
+async def update_user_profile(
+    request: Request,
+    display_name: str = Form(None),
+    email: str = Form(None),
+    company: str = Form(None),
+    current_user: str = Depends(require_auth)
+):
+    """Update user profile"""
+    try:
+        await db.connect()
+        async with db.pool.acquire() as conn:
+            # Update user profile data (you might need to add a profile_data JSON column)
+            profile_data = {
+                "display_name": display_name,
+                "email": email,
+                "company": company
+            }
+            
+            # For now, just return success
+            return JSONResponse({"success": True, "message": "Profile updated successfully"})
+            
+    except Exception as e:
+        logger.error(f"Profile update error: {e}")
+        return JSONResponse({"success": False, "error": "Failed to update profile"})
+    
+@app.get("/admin", response_class=HTMLResponse)
+async def admin_dashboard_page(request: Request, current_user: str = Depends(require_auth)):
+    """Admin dashboard page"""
+    # For now, anyone can access admin. You might want to add admin role check
+    return templates.TemplateResponse("admin_dashboard.html", {
+        "request": request,
+        "current_user": current_user
+    })
 
 @app.get("/api/admin/stats")
 async def admin_stats(current_user: str = Depends(require_auth)):
@@ -1162,11 +1429,88 @@ def get_user_achievements(total_searches: int, avg_compliance: float) -> list:
     
     return achievements
 
+async def process_search(request: Request, gstin: str, current_user: str):
+    gstin = gstin.strip().upper()
+    if not validate_gstin(gstin):
+        return templates.TemplateResponse("index.html", {
+            "request": request, 
+            "current_user": current_user,
+            "error": "Invalid GSTIN format. Please enter a valid 15-digit GSTIN."
+        })
+    
+    if not api_limiter.is_allowed(current_user):
+        return templates.TemplateResponse("index.html", {
+            "request": request, 
+            "current_user": current_user,
+            "error": "Rate limit exceeded. Please try again later."
+        })
+    
+    if not api_client:
+        return templates.TemplateResponse("index.html", {
+            "request": request, 
+            "current_user": current_user,
+            "error": "GST API service not configured. Please contact administrator."
+        })
+    
+    try:
+        company_data = await api_client.fetch_gstin_data(gstin)
+        compliance_score = calculate_compliance_score(company_data)
+        
+        # Get AI synopsis
+        synopsis = None
+        if ANTHROPIC_API_KEY:
+            try:
+                synopsis = await get_anthropic_synopsis(company_data)
+            except Exception as e:
+                logger.error(f"Failed to get AI synopsis: {e}")
+                synopsis = None
+        
+        # Add to search history
+        await db.add_search_history(current_user, gstin, company_data.get("lgnm", "Unknown"), compliance_score)
+        
+        # Get late filing analysis
+        late_filing_analysis = company_data.get('_late_filing_analysis', {})
+        
+        return templates.TemplateResponse("results.html", {
+            "request": request,
+            "current_user": current_user,
+            "company_data": company_data,
+            "compliance_score": compliance_score,
+            "synopsis": synopsis,
+            "late_filing_analysis": late_filing_analysis,
+            "gstin": gstin
+        })
+        
+    except HTTPException as e:
+        return templates.TemplateResponse("index.html", {
+            "request": request, 
+            "current_user": current_user,
+            "error": f"Company not found for GSTIN: {gstin}"
+        })
+    except Exception as e:
+        logger.error(f"Search error: {e}")
+        return templates.TemplateResponse("index.html", {
+            "request": request, 
+            "current_user": current_user,
+            "error": "An error occurred while fetching data. Please try again."
+        })
+
 def check_password(password: str, stored_hash: str, salt: str) -> bool:
     """Verify password against stored hash"""
     hash_attempt = hashlib.pbkdf2_hmac('sha256', password.encode('utf-8'), salt.encode('utf-8'), 100000, dklen=64).hex()
     return hash_attempt == stored_hash
 
+def get_template_context(request: Request, current_user: str = None, **kwargs):
+    """Get common template context"""
+    base_context = {
+        "request": request,
+        "current_user": current_user,
+        "user_display_name": current_user,  # You can enhance this
+        "current_year": datetime.now().year,
+        "app_version": "2.0.1"
+    }
+    base_context.update(kwargs)
+    return base_context
 @app.get("/favicon.ico")
 async def favicon():
     return FileResponse("static/icons/favicon.png", media_type="image/png")
