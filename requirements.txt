@@ -9,6 +9,7 @@ starlette
 
 # Database & Async Support
 asyncpg
+psycopg2-binary
 redis
 
 # Template Engine & Forms
