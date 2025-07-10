@@ -106,7 +106,7 @@ class DeploymentTester:
             
         try:
             # Check core tables
-            core_tables = ['users', 'user_sessions', 'search_history']
+            core_tables = ['users', 'user_sessions', 'gst_search_history']
             for table in core_tables:
                 result = await self.conn.fetchval(
                     "SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = $1)",

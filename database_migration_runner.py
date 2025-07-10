@@ -111,7 +111,7 @@ class DatabaseMigrationRunner:
         
         # Search history table
         await self.conn.execute("""
-            CREATE TABLE IF NOT EXISTS search_history (
+            CREATE TABLE IF NOT EXISTS gst_search_history (
                 id SERIAL PRIMARY KEY,
                 mobile VARCHAR(15) NOT NULL REFERENCES users(mobile) ON DELETE CASCADE,
                 gstin VARCHAR(15) NOT NULL,
@@ -243,9 +243,9 @@ class DatabaseMigrationRunner:
         await self.conn.execute("CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);")
         await self.conn.execute("CREATE INDEX IF NOT EXISTS idx_sessions_user_mobile ON user_sessions(user_mobile);")
         await self.conn.execute("CREATE INDEX IF NOT EXISTS idx_sessions_expires ON user_sessions(expires_at);")
-        await self.conn.execute("CREATE INDEX IF NOT EXISTS idx_search_history_mobile ON search_history(mobile);")
-        await self.conn.execute("CREATE INDEX IF NOT EXISTS idx_search_history_gstin ON search_history(gstin);")
-        await self.conn.execute("CREATE INDEX IF NOT EXISTS idx_search_history_date ON search_history(searched_at);")
+        await self.conn.execute("CREATE INDEX IF NOT EXISTS idx_search_history_mobile ON gst_search_history(mobile);")
+        await self.conn.execute("CREATE INDEX IF NOT EXISTS idx_search_history_gstin ON gst_search_history(gstin);")
+        await self.conn.execute("CREATE INDEX IF NOT EXISTS idx_search_history_date ON gst_search_history(searched_at);")
         
         # Loan table indexes
         await self.conn.execute("CREATE INDEX IF NOT EXISTS idx_loan_applications_user ON loan_applications(user_mobile);")
@@ -299,7 +299,7 @@ class DatabaseMigrationRunner:
         logger.info("📋 Verifying migrations...")
         
         # Check core tables
-        core_tables = ['users', 'user_sessions', 'search_history']
+        core_tables = ['users', 'user_sessions', 'gst_search_history']
         for table in core_tables:
             count = await self.conn.fetchval(f"SELECT COUNT(*) FROM {table}")
             logger.info(f"  ✅ Table {table}: {count} records")

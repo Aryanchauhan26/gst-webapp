@@ -354,7 +354,7 @@ async def health_check():
     try:
         db_status = "healthy"
         try:
-            await db.connect()
+            await db.initialize()
             async with db.pool.acquire() as conn:
                 await conn.fetchval("SELECT 1")
         except Exception as e:
@@ -378,7 +378,7 @@ async def health_check():
 
 @app.get("/", response_class=HTMLResponse)
 async def dashboard(request: Request, current_user: str = Depends(require_auth)):
-    await db.connect()
+    await db.initialize()
     
     # Get user search history
     history = await db.get_search_history(current_user, limit=10)
@@ -386,16 +386,16 @@ async def dashboard(request: Request, current_user: str = Depends(require_auth))
     # Calculate searches this month and user statistics
     async with db.pool.acquire() as conn:
         searches_this_month = await conn.fetchval("""
-            SELECT COUNT(*) FROM search_history 
+            SELECT COUNT(*) FROM gst_search_history 
             WHERE mobile = $1 AND searched_at >= DATE_TRUNC('month', CURRENT_DATE)
         """, current_user)
         
         total_searches = await conn.fetchval(
-            "SELECT COUNT(*) FROM search_history WHERE mobile = $1", current_user
+            "SELECT COUNT(*) FROM gst_search_history WHERE mobile = $1", current_user
         )
         
         avg_compliance = await conn.fetchval(
-            "SELECT AVG(compliance_score) FROM search_history WHERE mobile = $1", current_user
+            "SELECT AVG(compliance_score) FROM gst_search_history WHERE mobile = $1", current_user
         )
     
     # Create user profile data
@@ -444,7 +444,7 @@ async def post_login(request: Request, mobile: str = Form(...), password: str = 
             "error": "Too many login attempts. Please try again later."
         })
     
-    await db.connect()
+    await db.initialize()
     if not await db.verify_user(mobile, password):
         return templates.TemplateResponse("login.html", {
             "request": request, 
@@ -467,7 +467,7 @@ async def post_login(request: Request, mobile: str = Form(...), password: str = 
 @app.get("/loans", response_class=HTMLResponse)
 async def loans_page(request: Request, current_user: str = Depends(require_auth)):
     """Loan management page"""
-    await db.connect()
+    await db.initialize()
     
     # Get user's loan applications if you have a loans table
     applications = []  # You would fetch from loans table here
@@ -570,7 +570,7 @@ async def get_loan_applications(current_user: str = Depends(require_auth)):
 @app.get("/profile", response_class=HTMLResponse)
 async def profile_page(request: Request, current_user: str = Depends(require_auth)):
     """User profile page"""
-    await db.connect()
+    await db.initialize()
     
     async with db.pool.acquire() as conn:
         # Get user data
@@ -584,13 +584,13 @@ async def profile_page(request: Request, current_user: str = Depends(require_aut
                 COUNT(DISTINCT gstin) as unique_companies,
                 COUNT(CASE WHEN searched_at >= DATE_TRUNC('week', CURRENT_DATE) THEN 1 END) as searches_this_week,
                 COUNT(CASE WHEN searched_at >= DATE_TRUNC('month', CURRENT_DATE) THEN 1 END) as searches_this_month
-            FROM search_history 
+            FROM gst_search_history 
             WHERE mobile = $1
         """, current_user)
         
         # Get recent searches
         recent_searches = await conn.fetch("""
-            SELECT * FROM search_history 
+            SELECT * FROM gst_search_history 
             WHERE mobile = $1 
             ORDER BY searched_at DESC 
             LIMIT 10
@@ -779,7 +779,7 @@ async def post_signup(request: Request, mobile: str = Form(...), password: str =
         })
     
     try:
-        await db.connect()
+        await db.initialize()
         salt = secrets.token_hex(16)
         password_hash = hashlib.pbkdf2_hmac('sha256', password.encode('utf-8'), salt.encode('utf-8'), 100000, dklen=64).hex()
         
@@ -818,7 +818,7 @@ async def search_gstin_post(request: Request, gstin: str = Form(...), current_us
 
 @app.get("/history", response_class=HTMLResponse)
 async def view_history(request: Request, current_user: str = Depends(require_auth)):
-    await db.connect()
+    await db.initialize()
     history = await db.get_all_searches(current_user)
     
     # Calculate statistics
@@ -837,12 +837,12 @@ async def view_history(request: Request, current_user: str = Depends(require_aut
 
 @app.get("/analytics", response_class=HTMLResponse)
 async def analytics_dashboard(request: Request, current_user: str = Depends(require_auth)):
-    await db.connect()
+    await db.initialize()
     async with db.pool.acquire() as conn:
         # Get daily searches for the last 7 days
         daily_searches = await conn.fetch("""
             SELECT DATE(searched_at) as date, COUNT(*) as search_count, AVG(compliance_score) as avg_score
-            FROM search_history WHERE mobile = $1 AND searched_at >= CURRENT_DATE - INTERVAL '7 days'
+            FROM gst_search_history WHERE mobile = $1 AND searched_at >= CURRENT_DATE - INTERVAL '7 days'
             GROUP BY DATE(searched_at) ORDER BY date
         """, current_user)
         
@@ -853,24 +853,24 @@ async def analytics_dashboard(request: Request, current_user: str = Depends(requ
                         WHEN compliance_score >= 70 THEN 'Good (70-79)'
                         WHEN compliance_score >= 60 THEN 'Average (60-69)'
                         ELSE 'Poor (<60)' END as range, COUNT(*) as count
-            FROM search_history WHERE mobile = $1 AND compliance_score IS NOT NULL GROUP BY range ORDER BY range DESC
+            FROM gst_search_history WHERE mobile = $1 AND compliance_score IS NOT NULL GROUP BY range ORDER BY range DESC
         """, current_user)
         
         # Get top searched companies
         top_companies = await conn.fetch("""
             SELECT company_name, gstin, COUNT(*) as search_count, MAX(compliance_score) as latest_score
-            FROM search_history WHERE mobile = $1 GROUP BY company_name, gstin
+            FROM gst_search_history WHERE mobile = $1 GROUP BY company_name, gstin
             ORDER BY search_count DESC LIMIT 10
         """, current_user)
         
         # Calculate summary statistics
-        total_searches = await conn.fetchval("SELECT COUNT(*) FROM search_history WHERE mobile = $1", current_user)
-        unique_companies = await conn.fetchval("SELECT COUNT(DISTINCT gstin) FROM search_history WHERE mobile = $1", current_user)
-        avg_compliance = await conn.fetchval("SELECT AVG(compliance_score) FROM search_history WHERE mobile = $1", current_user)
+        total_searches = await conn.fetchval("SELECT COUNT(*) FROM gst_search_history WHERE mobile = $1", current_user)
+        unique_companies = await conn.fetchval("SELECT COUNT(DISTINCT gstin) FROM gst_search_history WHERE mobile = $1", current_user)
+        avg_compliance = await conn.fetchval("SELECT AVG(compliance_score) FROM gst_search_history WHERE mobile = $1", current_user)
         
         # Calculate searches this month
         searches_this_month = await conn.fetchval("""
-            SELECT COUNT(*) FROM search_history 
+            SELECT COUNT(*) FROM gst_search_history 
             WHERE mobile = $1 AND searched_at >= DATE_TRUNC('month', CURRENT_DATE)
         """, current_user)
     
@@ -896,7 +896,7 @@ async def analytics_dashboard(request: Request, current_user: str = Depends(requ
 async def export_history(current_user: str = Depends(require_auth)):
     """Export search history as CSV"""
     try:
-        await db.connect()
+        await db.initialize()
         history = await db.get_all_searches(current_user)
         
         output = StringIO()
@@ -1059,19 +1059,19 @@ def generate_pdf_report(company_data: dict, compliance_score: float, synopsis: s
 @app.get("/api/user/stats")
 async def get_user_stats(request: Request, current_user: str = Depends(require_auth)):
     """Get user statistics for profile display"""
-    await db.connect()
+    await db.initialize()
     async with db.pool.acquire() as conn:
         total_searches = await conn.fetchval(
-            "SELECT COUNT(*) FROM search_history WHERE mobile = $1", current_user
+            "SELECT COUNT(*) FROM gst_search_history WHERE mobile = $1", current_user
         )
         avg_compliance = await conn.fetchval(
-            "SELECT AVG(compliance_score) FROM search_history WHERE mobile = $1", current_user
+            "SELECT AVG(compliance_score) FROM gst_search_history WHERE mobile = $1", current_user
         )
         unique_companies = await conn.fetchval(
-            "SELECT COUNT(DISTINCT gstin) FROM search_history WHERE mobile = $1", current_user
+            "SELECT COUNT(DISTINCT gstin) FROM gst_search_history WHERE mobile = $1", current_user
         )
         recent_searches = await conn.fetchval("""
-            SELECT COUNT(*) FROM search_history 
+            SELECT COUNT(*) FROM gst_search_history 
             WHERE mobile = $1 AND searched_at >= NOW() - INTERVAL '7 days'
         """, current_user)
     
@@ -1096,11 +1096,11 @@ async def search_suggestions(q: str, current_user: str = Depends(require_auth)):
     if len(q) < 3:
         return JSONResponse({"suggestions": []})
     
-    await db.connect()
+    await db.initialize()
     async with db.pool.acquire() as conn:
         suggestions = await conn.fetch("""
             SELECT DISTINCT gstin, company_name 
-            FROM search_history 
+            FROM gst_search_history 
             WHERE mobile = $1 AND (gstin ILIKE $2 OR company_name ILIKE $2)
             ORDER BY searched_at DESC LIMIT 5
         """, current_user, f"%{q}%")
@@ -1183,7 +1183,7 @@ async def change_password_route(
         if len(new_password) < 8:
             return JSONResponse({"success": False, "error": "Password must be at least 8 characters"})
         
-        await db.connect()
+        await db.initialize()
         async with db.pool.acquire() as conn:
             # Get current user data
             user_data = await conn.fetchrow("SELECT password_hash, salt FROM users WHERE mobile = $1", current_user)
@@ -1214,11 +1214,11 @@ async def change_password_route(
 @app.get("/api/analytics/dashboard")
 async def analytics_api(current_user: str = Depends(require_auth)):
     """API endpoint for dashboard analytics"""
-    await db.connect()
+    await db.initialize()
     async with db.pool.acquire() as conn:
         recent_searches = await conn.fetch("""
             SELECT gstin, company_name, compliance_score, searched_at
-            FROM search_history WHERE mobile = $1 
+            FROM gst_search_history WHERE mobile = $1 
             ORDER BY searched_at DESC LIMIT 5
         """, current_user)
     
@@ -1232,10 +1232,10 @@ async def analytics_api(current_user: str = Depends(require_auth)):
 @app.get("/api/user/profile")
 async def user_profile(current_user: str = Depends(require_auth)):
     """Get user profile information"""
-    await db.connect()
+    await db.initialize()
     async with db.pool.acquire() as conn:
         user_data = await conn.fetchrow("SELECT * FROM users WHERE mobile = $1", current_user)
-        search_count = await conn.fetchval("SELECT COUNT(*) FROM search_history WHERE mobile = $1", current_user)
+        search_count = await conn.fetchval("SELECT COUNT(*) FROM gst_search_history WHERE mobile = $1", current_user)
     
     return JSONResponse({
         "success": True,
@@ -1257,7 +1257,7 @@ async def update_user_profile(
 ):
     """Update user profile"""
     try:
-        await db.connect()
+        await db.initialize()
         async with db.pool.acquire() as conn:
             # Update user profile data (you might need to add a profile_data JSON column)
             profile_data = {
@@ -1460,11 +1460,13 @@ async def general_exception_handler(request: Request, exc: Exception):
 
 # Startup/Shutdown
 
+# REPLACE the startup/shutdown section with this:
+
 @app.on_event("startup")
 async def startup_event():
     logger.info("🚀 Starting GST Intelligence Platform...")
     try:
-        await db.connect()
+        await db.initialize()  # ✅ CORRECT METHOD
         setup_template_globals()
         logger.info("✅ Application started successfully!")
     except Exception as e:

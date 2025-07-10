@@ -764,22 +764,22 @@ class EnhancedDatabaseManager:
             async with self.get_connection() as conn:
                 # Get search count
                 search_count = await conn.fetchval(
-                    "SELECT COUNT(*) FROM search_history WHERE mobile = $1", mobile
+                    "SELECT COUNT(*) FROM gst_search_history WHERE mobile = $1", mobile
                 )
 
                 # Get average compliance score
                 avg_compliance = await conn.fetchval(
-                    "SELECT AVG(compliance_score) FROM search_history WHERE mobile = $1", mobile
+                    "SELECT AVG(compliance_score) FROM gst_search_history WHERE mobile = $1", mobile
                 )
 
                 # Get unique companies searched
                 unique_companies = await conn.fetchval(
-                    "SELECT COUNT(DISTINCT gstin) FROM search_history WHERE mobile = $1", mobile
+                    "SELECT COUNT(DISTINCT gstin) FROM gst_search_history WHERE mobile = $1", mobile
                 )
 
                 # Get recent searches (last 7 days)
                 recent_searches = await conn.fetchval(
-                    """SELECT COUNT(*) FROM search_history 
+                    """SELECT COUNT(*) FROM gst_search_history 
                        WHERE mobile = $1 AND searched_at >= NOW() - INTERVAL '7 days'""", mobile
                 )
 
@@ -821,7 +821,7 @@ class EnhancedDatabaseManager:
             async with self.get_connection() as conn:
                 history = await conn.fetch(
                     """SELECT gstin, company_name, compliance_score, ai_synopsis, searched_at 
-                       FROM search_history 
+                       FROM gst_search_history 
                        WHERE mobile = $1 
                        ORDER BY searched_at DESC 
                        LIMIT $2""", 
@@ -841,7 +841,7 @@ class EnhancedDatabaseManager:
                 monthly_searches = await conn.fetch(
                     """SELECT DATE_TRUNC('month', searched_at) as month, 
                               COUNT(*) as count
-                       FROM search_history 
+                       FROM gst_search_history 
                        WHERE mobile = $1 
                        GROUP BY month 
                        ORDER BY month DESC 
@@ -859,7 +859,7 @@ class EnhancedDatabaseManager:
                            ELSE 'Poor'
                          END as category,
                          COUNT(*) as count
-                       FROM search_history 
+                       FROM gst_search_history 
                        WHERE mobile = $1 
                        GROUP BY category""", 
                     mobile
@@ -880,7 +880,7 @@ class EnhancedDatabaseManager:
         try:
             async with self.get_connection() as conn:
                 await conn.execute(
-                    """INSERT INTO search_history 
+                    """INSERT INTO gst_search_history 
                        (mobile, gstin, company_name, search_data, compliance_score, ai_synopsis) 
                        VALUES ($1, $2, $3, $4, $5, $6)""",
                     mobile, gstin, company_name, search_data, compliance_score, ai_synopsis
@@ -974,7 +974,63 @@ class EnhancedDatabaseManager:
         except Exception as e:
             logger.error(f"Error verifying user: {e}")
             return False
+        
+    # Add these methods inside the EnhancedDatabaseManager class:
 
+async def connect(self):
+    """Compatibility method - calls initialize()"""
+    await self.initialize()
+
+async def add_search_history(self, mobile: str, gstin: str, company_name: str, compliance_score: float) -> bool:
+    """Add search to history (compatibility method)"""
+    try:
+        async with self.get_connection() as conn:
+            await conn.execute(
+                """INSERT INTO gst_search_history 
+                   (mobile, gstin, company_name, compliance_score, searched_at) 
+                   VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP)""",
+                mobile, gstin, company_name, compliance_score
+            )
+            return True
+    except Exception as e:
+        logger.error(f"Error adding search history: {e}")
+        return False
+
+async def get_all_searches(self, mobile: str) -> List[Dict]:
+    """Get all searches for user (compatibility method)"""
+    try:
+        async with self.get_connection() as conn:
+            history = await conn.fetch(
+                """SELECT gstin, company_name, compliance_score, searched_at 
+                   FROM gst_search_history 
+                   WHERE mobile = $1 
+                   ORDER BY searched_at DESC""", 
+                mobile
+            )
+            return [dict(row) for row in history]
+    except Exception as e:
+        logger.error(f"Error getting all searches: {e}")
+        return []
+    
+async def get_search_history(self, mobile: str, limit: int = 50) -> List[Dict]:
+        """Get user search history with limit"""
+        try:
+            async with self.get_connection() as conn:
+                history = await conn.fetch(
+                    """SELECT gstin, 
+                              (search_params->>'company_name') as company_name,
+                              (response_data->>'compliance_score')::float as compliance_score,
+                              created_at as searched_at
+                       FROM gst_search_history 
+                       WHERE user_mobile = $1 AND success = true
+                       ORDER BY created_at DESC 
+                       LIMIT $2""", 
+                    mobile, limit
+                )
+                return [dict(row) for row in history]
+        except Exception as e:
+            logger.error(f"Error getting search history: {e}")
+            return []
 
 # Global database instance
 db_manager = None
