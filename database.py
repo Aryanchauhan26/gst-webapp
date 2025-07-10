@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Enhanced Database Manager with Connection Pooling and Error Handling
-Complete implementation for GST Intelligence Platform
+Enhanced Database Manager for GST Intelligence Platform
+Clean version - Database operations only (schema creation handled by complete_database_setup.py)
 """
 
 import asyncio
@@ -92,8 +92,8 @@ class EnhancedDatabaseManager:
                         f"⚠️ Redis connection failed, using memory cache: {e}")
                     self.redis_client = None
 
-            # Ensure all tables exist
-            await self.ensure_tables()
+            # Verify all tables exist (they should be created by complete_database_setup.py)
+            await self.verify_tables()
 
             self._initialized = True
             logger.info("✅ Database initialized successfully")
@@ -102,316 +102,31 @@ class EnhancedDatabaseManager:
             logger.error(f"❌ Database initialization failed: {e}")
             raise
 
-    async def ensure_tables(self):
-        """Create all required tables with proper indexes and constraints"""
-        async with self.pool.acquire() as conn:
-
-            # Start transaction for schema creation
-            async with conn.transaction():
-
-                # Users table with enhanced security
-                await conn.execute("""
-                    CREATE TABLE IF NOT EXISTS users (
-                        mobile VARCHAR(15) PRIMARY KEY CHECK (mobile ~ '^[+]?[0-9]{10,15}$'),
-                        password_hash VARCHAR(255) NOT NULL,
-                        salt VARCHAR(64) NOT NULL,
-                        email VARCHAR(255) UNIQUE,
-                        is_active BOOLEAN DEFAULT TRUE,
-                        is_verified BOOLEAN DEFAULT FALSE,
-                        failed_login_attempts INTEGER DEFAULT 0,
-                        last_login_attempt TIMESTAMP,
-                        account_locked_until TIMESTAMP,
-                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                        last_password_change TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                        two_factor_enabled BOOLEAN DEFAULT FALSE,
-                        two_factor_secret VARCHAR(32),
-                        backup_codes TEXT[],
-                        profile_data JSONB DEFAULT '{}',
-                        preferences JSONB DEFAULT '{}',
-                        metadata JSONB DEFAULT '{}'
-                    );
-                """)
-
-                # User profiles table
-                await conn.execute("""
-                    CREATE TABLE IF NOT EXISTS user_profiles (
-                        mobile VARCHAR(15) PRIMARY KEY REFERENCES users(mobile) ON DELETE CASCADE,
-                        display_name VARCHAR(255),
-                        full_name VARCHAR(255),
-                        company_name VARCHAR(500),
-                        gstin VARCHAR(15),
-                        pan VARCHAR(10),
-                        business_type VARCHAR(100),
-                        annual_turnover DECIMAL(15,2),
-                        business_address TEXT,
-                        city VARCHAR(100),
-                        state VARCHAR(100),
-                        pincode VARCHAR(10),
-                        website VARCHAR(500),
-                        industry_type VARCHAR(100),
-                        employee_count INTEGER,
-                        registration_date DATE,
-                        compliance_score INTEGER DEFAULT 0,
-                        risk_category VARCHAR(20) DEFAULT 'UNKNOWN',
-                        kyc_status VARCHAR(20) DEFAULT 'PENDING',
-                        profile_completion_percent INTEGER DEFAULT 0,
-                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                    );
-                """)
-
-                # GST search history with enhanced tracking
-                await conn.execute("""
-                    CREATE TABLE IF NOT EXISTS gst_search_history (
-                        id SERIAL PRIMARY KEY,
-                        user_mobile VARCHAR(15) NOT NULL REFERENCES users(mobile) ON DELETE CASCADE,
-                        gstin VARCHAR(15) NOT NULL,
-                        search_type VARCHAR(50) DEFAULT 'basic',
-                        search_params JSONB DEFAULT '{}',
-                        response_data JSONB,
-                        response_time_ms INTEGER,
-                        api_source VARCHAR(100),
-                        success BOOLEAN DEFAULT TRUE,
-                        error_message TEXT,
-                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                        ip_address INET,
-                        user_agent TEXT,
-                        session_id VARCHAR(128)
-                    );
-                """)
-
-                # Enhanced sessions table
-                await conn.execute("""
-                    CREATE TABLE IF NOT EXISTS user_sessions (
-                        session_id VARCHAR(128) PRIMARY KEY,
-                        user_mobile VARCHAR(15) NOT NULL REFERENCES users(mobile) ON DELETE CASCADE,
-                        session_data JSONB DEFAULT '{}',
-                        expires_at TIMESTAMP NOT NULL,
-                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                        last_activity TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                        ip_address INET,
-                        user_agent TEXT,
-                        is_active BOOLEAN DEFAULT TRUE,
-                        device_fingerprint VARCHAR(128),
-                        location_data JSONB
-                    );
-                """)
-
-                # API usage tracking
-                await conn.execute("""
-                    CREATE TABLE IF NOT EXISTS api_usage_logs (
-                        id SERIAL PRIMARY KEY,
-                        user_mobile VARCHAR(15) REFERENCES users(mobile) ON DELETE SET NULL,
-                        endpoint VARCHAR(255) NOT NULL,
-                        method VARCHAR(10) NOT NULL,
-                        request_params JSONB,
-                        response_status INTEGER,
-                        response_time_ms INTEGER,
-                        api_key_used VARCHAR(50),
-                        rate_limited BOOLEAN DEFAULT FALSE,
-                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                        ip_address INET,
-                        user_agent TEXT,
-                        request_size_bytes INTEGER,
-                        response_size_bytes INTEGER
-                    );
-                """)
-
-                # Error logging table
-                await conn.execute("""
-                    CREATE TABLE IF NOT EXISTS error_logs (
-                        id SERIAL PRIMARY KEY,
-                        error_type VARCHAR(100) NOT NULL,
-                        error_code VARCHAR(50),
-                        message TEXT NOT NULL,
-                        stack_trace TEXT,
-                        url TEXT,
-                        method VARCHAR(10),
-                        user_mobile VARCHAR(15) REFERENCES users(mobile) ON DELETE SET NULL,
-                        session_id VARCHAR(128),
-                        request_data JSONB,
-                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                        resolved BOOLEAN DEFAULT FALSE,
-                        resolution_notes TEXT,
-                        severity VARCHAR(20) DEFAULT 'ERROR',
-                        environment VARCHAR(20),
-                        version VARCHAR(20),
-                        additional_data JSONB
-                    );
-                """)
-
-                # System health metrics
-                await conn.execute("""
-                    CREATE TABLE IF NOT EXISTS system_metrics (
-                        id SERIAL PRIMARY KEY,
-                        metric_name VARCHAR(100) NOT NULL,
-                        metric_value DECIMAL(15,4),
-                        metric_unit VARCHAR(20),
-                        tags JSONB DEFAULT '{}',
-                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                    );
-                """)
-
-                # User activity logs
-                await conn.execute("""
-                    CREATE TABLE IF NOT EXISTS user_activity_logs (
-                        id SERIAL PRIMARY KEY,
-                        user_mobile VARCHAR(15) NOT NULL REFERENCES users(mobile) ON DELETE CASCADE,
-                        activity_type VARCHAR(100) NOT NULL,
-                        activity_data JSONB DEFAULT '{}',
-                        ip_address INET,
-                        user_agent TEXT,
-                        session_id VARCHAR(128),
-                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                    );
-                """)
-
-                # Notification queue
-                await conn.execute("""
-                    CREATE TABLE IF NOT EXISTS notification_queue (
-                        id SERIAL PRIMARY KEY,
-                        user_mobile VARCHAR(15) REFERENCES users(mobile) ON DELETE CASCADE,
-                        notification_type VARCHAR(50) NOT NULL,
-                        title VARCHAR(255) NOT NULL,
-                        message TEXT NOT NULL,
-                        data JSONB DEFAULT '{}',
-                        delivery_method VARCHAR(20) DEFAULT 'web',
-                        status VARCHAR(20) DEFAULT 'pending',
-                        scheduled_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                        sent_at TIMESTAMP,
-                        expires_at TIMESTAMP,
-                        priority INTEGER DEFAULT 5,
-                        attempts INTEGER DEFAULT 0,
-                        max_attempts INTEGER DEFAULT 3,
-                        error_message TEXT,
-                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                    );
-                """)
-
-                # File uploads tracking
-                await conn.execute("""
-                    CREATE TABLE IF NOT EXISTS file_uploads (
-                        id SERIAL PRIMARY KEY,
-                        user_mobile VARCHAR(15) NOT NULL REFERENCES users(mobile) ON DELETE CASCADE,
-                        filename VARCHAR(500) NOT NULL,
-                        original_filename VARCHAR(500) NOT NULL,
-                        file_size BIGINT NOT NULL,
-                        mime_type VARCHAR(100),
-                        file_hash VARCHAR(128),
-                        storage_path TEXT NOT NULL,
-                        upload_purpose VARCHAR(100),
-                        processed BOOLEAN DEFAULT FALSE,
-                        processing_status VARCHAR(50) DEFAULT 'pending',
-                        processing_result JSONB,
-                        expires_at TIMESTAMP,
-                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                        processed_at TIMESTAMP
-                    );
-                """)
-
-            # Create all necessary indexes
-            await self.create_indexes(conn)
-
-            # Create triggers for updated_at timestamps
-            await self.create_triggers(conn)
-
-            logger.info("✅ All database tables created/verified successfully")
-
-    async def create_indexes(self, conn):
-        """Create database indexes for performance optimization"""
-        indexes = [
-            # User table indexes
-            "CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);",
-            "CREATE INDEX IF NOT EXISTS idx_users_is_active ON users(is_active);",
-            "CREATE INDEX IF NOT EXISTS idx_users_created_at ON users(created_at);",
-            "CREATE INDEX IF NOT EXISTS idx_users_last_login ON users(last_login_attempt);",
-
-            # User profiles indexes
-            "CREATE INDEX IF NOT EXISTS idx_profiles_gstin ON user_profiles(gstin);",
-            "CREATE INDEX IF NOT EXISTS idx_profiles_company_name ON user_profiles(company_name);",
-            "CREATE INDEX IF NOT EXISTS idx_profiles_compliance_score ON user_profiles(compliance_score);",
-            "CREATE INDEX IF NOT EXISTS idx_profiles_business_type ON user_profiles(business_type);",
-
-            # GST search history indexes
-            "CREATE INDEX IF NOT EXISTS idx_gst_search_user_mobile ON gst_search_history(user_mobile);",
-            "CREATE INDEX IF NOT EXISTS idx_gst_search_gstin ON gst_search_history(gstin);",
-            "CREATE INDEX IF NOT EXISTS idx_gst_search_created_at ON gst_search_history(created_at);",
-            "CREATE INDEX IF NOT EXISTS idx_gst_search_success ON gst_search_history(success);",
-            "CREATE INDEX IF NOT EXISTS idx_gst_search_type ON gst_search_history(search_type);",
-
-            # Sessions indexes
-            "CREATE INDEX IF NOT EXISTS idx_sessions_user_mobile ON user_sessions(user_mobile);",
-            "CREATE INDEX IF NOT EXISTS idx_sessions_expires_at ON user_sessions(expires_at);",
-            "CREATE INDEX IF NOT EXISTS idx_sessions_is_active ON user_sessions(is_active);",
-            "CREATE INDEX IF NOT EXISTS idx_sessions_last_activity ON user_sessions(last_activity);",
-
-            # API usage indexes
-            "CREATE INDEX IF NOT EXISTS idx_api_usage_user_mobile ON api_usage_logs(user_mobile);",
-            "CREATE INDEX IF NOT EXISTS idx_api_usage_endpoint ON api_usage_logs(endpoint);",
-            "CREATE INDEX IF NOT EXISTS idx_api_usage_created_at ON api_usage_logs(created_at);",
-            "CREATE INDEX IF NOT EXISTS idx_api_usage_response_status ON api_usage_logs(response_status);",
-
-            # Error logs indexes
-            "CREATE INDEX IF NOT EXISTS idx_error_logs_error_type ON error_logs(error_type);",
-            "CREATE INDEX IF NOT EXISTS idx_error_logs_created_at ON error_logs(created_at);",
-            "CREATE INDEX IF NOT EXISTS idx_error_logs_user_mobile ON error_logs(user_mobile);",
-            "CREATE INDEX IF NOT EXISTS idx_error_logs_resolved ON error_logs(resolved);",
-            "CREATE INDEX IF NOT EXISTS idx_error_logs_severity ON error_logs(severity);",
-
-            # System metrics indexes
-            "CREATE INDEX IF NOT EXISTS idx_metrics_name_created ON system_metrics(metric_name, created_at);",
-            "CREATE INDEX IF NOT EXISTS idx_metrics_created_at ON system_metrics(created_at);",
-
-            # Activity logs indexes
-            "CREATE INDEX IF NOT EXISTS idx_activity_user_mobile ON user_activity_logs(user_mobile);",
-            "CREATE INDEX IF NOT EXISTS idx_activity_type ON user_activity_logs(activity_type);",
-            "CREATE INDEX IF NOT EXISTS idx_activity_created_at ON user_activity_logs(created_at);",
-
-            # Notifications indexes
-            "CREATE INDEX IF NOT EXISTS idx_notifications_user_mobile ON notification_queue(user_mobile);",
-            "CREATE INDEX IF NOT EXISTS idx_notifications_status ON notification_queue(status);",
-            "CREATE INDEX IF NOT EXISTS idx_notifications_scheduled_at ON notification_queue(scheduled_at);",
-            "CREATE INDEX IF NOT EXISTS idx_notifications_priority ON notification_queue(priority);",
-
-            # File uploads indexes
-            "CREATE INDEX IF NOT EXISTS idx_uploads_user_mobile ON file_uploads(user_mobile);",
-            "CREATE INDEX IF NOT EXISTS idx_uploads_processed ON file_uploads(processed);",
-            "CREATE INDEX IF NOT EXISTS idx_uploads_created_at ON file_uploads(created_at);",
-            "CREATE INDEX IF NOT EXISTS idx_uploads_expires_at ON file_uploads(expires_at);"
-        ]
-
-        for index_sql in indexes:
-            try:
-                await conn.execute(index_sql)
-            except Exception as e:
-                logger.warning(f"Index creation warning: {e}")
-
-    async def create_triggers(self, conn):
-        """Create database triggers for automatic timestamp updates"""
-
-        # Updated_at trigger function
-        await conn.execute("""
-            CREATE OR REPLACE FUNCTION update_updated_at_column()
-            RETURNS TRIGGER AS $$
-            BEGIN
-                NEW.updated_at = CURRENT_TIMESTAMP;
-                RETURN NEW;
-            END;
-            $$ language 'plpgsql';
-        """)
-
-        # Apply trigger to tables with updated_at columns
-        tables_with_updated_at = ['users', 'user_profiles']
-
-        for table in tables_with_updated_at:
-            await conn.execute(f"""
-                DROP TRIGGER IF EXISTS update_{table}_updated_at ON {table};
-                CREATE TRIGGER update_{table}_updated_at
-                    BEFORE UPDATE ON {table}
-                    FOR EACH ROW
-                    EXECUTE FUNCTION update_updated_at_column();
-            """)
+    async def verify_tables(self):
+        """Verify that required tables exist (tables should be created by complete_database_setup.py)"""
+        try:
+            async with self.pool.acquire() as conn:
+                # Check that essential tables exist
+                required_tables = [
+                    'users', 'user_profiles', 'user_sessions', 
+                    'search_history', 'gst_search_history',
+                    'loan_applications', 'loan_offers', 'active_loans',
+                    'api_usage_logs', 'error_logs', 'system_metrics'
+                ]
+                
+                for table in required_tables:
+                    try:
+                        await conn.fetchval(f"SELECT 1 FROM {table} LIMIT 1")
+                    except Exception:
+                        logger.error(f"❌ Required table '{table}' not found.")
+                        logger.error("Please run 'python complete_database_setup.py' first to create the database schema.")
+                        raise Exception(f"Database not properly initialized. Missing table: {table}")
+                
+                logger.info("✅ All required tables verified successfully")
+                
+        except Exception as e:
+            logger.error(f"❌ Database table verification failed: {e}")
+            raise
 
     @asynccontextmanager
     async def get_connection(self):
@@ -569,8 +284,7 @@ class EnhancedDatabaseManager:
             logger.error(f"❌ User creation failed: {e}")
             return False
 
-    async def verify_user(self, mobile: str,
-                          password_hash: str) -> Optional[dict]:
+    async def verify_user(self, mobile: str, password_hash: str) -> Optional[dict]:
         """Verify user credentials with security features"""
         try:
             async with self.get_connection() as conn:
@@ -609,7 +323,8 @@ class EnhancedDatabaseManager:
                         """
                         UPDATE users 
                         SET failed_login_attempts = 0, 
-                            last_login_attempt = CURRENT_TIMESTAMP
+                            last_login_attempt = CURRENT_TIMESTAMP,
+                            last_login = CURRENT_TIMESTAMP
                         WHERE mobile = $1
                     """, mobile)
 
@@ -651,308 +366,12 @@ class EnhancedDatabaseManager:
             logger.error(f"❌ User verification failed: {e}")
             return None
 
-    # Logging methods
-    async def log_user_activity(self,
-                                mobile: str,
-                                activity_type: str,
-                                activity_data: dict = None,
-                                ip_address: str = None,
-                                user_agent: str = None):
-        """Log user activity"""
-        try:
-            async with self.get_connection() as conn:
-                await conn.execute(
-                    """
-                    INSERT INTO user_activity_logs 
-                    (user_mobile, activity_type, activity_data, ip_address, user_agent)
-                    VALUES ($1, $2, $3, $4, $5)
-                """, mobile, activity_type, json.dumps(activity_data or {}),
-                    ip_address, user_agent)
-        except Exception as e:
-            logger.error(f"Failed to log user activity: {e}")
-
-    async def log_security_event(self,
-                                 mobile: str,
-                                 event_type: str,
-                                 event_data: dict = None):
-        """Log security events"""
-        try:
-            await self.log_user_activity(mobile, f"SECURITY_{event_type}",
-                                         event_data)
-        except Exception as e:
-            logger.error(f"Failed to log security event: {e}")
-
-    async def log_error(self,
-                        error_type: str,
-                        message: str,
-                        stack_trace: str = None,
-                        user_mobile: str = None,
-                        additional_data: dict = None,
-                        severity: str = "ERROR"):
-        """Log application errors"""
-        try:
-            async with self.get_connection() as conn:
-                await conn.execute(
-                    """
-                    INSERT INTO error_logs 
-                    (error_type, message, stack_trace, user_mobile, additional_data, severity)
-                    VALUES ($1, $2, $3, $4, $5, $6)
-                """, error_type, message, stack_trace, user_mobile,
-                    json.dumps(additional_data or {}), severity)
-        except Exception as e:
-            logger.error(f"Failed to log error: {e}")
-
-    async def cleanup_expired_data(self):
-        """Clean up expired data from database"""
-        try:
-            async with self.get_connection() as conn:
-                # Clean expired sessions
-                await conn.execute("""
-                    DELETE FROM user_sessions 
-                    WHERE expires_at < CURRENT_TIMESTAMP
-                """)
-
-                # Clean old error logs (keep 30 days)
-                await conn.execute("""
-                    DELETE FROM error_logs 
-                    WHERE created_at < CURRENT_TIMESTAMP - INTERVAL '30 days'
-                    AND resolved = TRUE
-                """)
-
-                # Clean old activity logs (keep 90 days)
-                await conn.execute("""
-                    DELETE FROM user_activity_logs 
-                    WHERE created_at < CURRENT_TIMESTAMP - INTERVAL '90 days'
-                """)
-
-                # Clean expired file uploads
-                await conn.execute("""
-                    DELETE FROM file_uploads 
-                    WHERE expires_at < CURRENT_TIMESTAMP
-                """)
-
-                # Clean processed notifications (keep 7 days)
-                await conn.execute("""
-                    DELETE FROM notification_queue 
-                    WHERE status = 'sent' 
-                    AND sent_at < CURRENT_TIMESTAMP - INTERVAL '7 days'
-                """)
-
-                logger.info("✅ Database cleanup completed")
-
-        except Exception as e:
-            logger.error(f"❌ Database cleanup failed: {e}")
-
-    async def close(self):
-        """Close database connections"""
-        try:
-            if self.redis_client:
-                await self.redis_client.close()
-
-            if self.pool:
-                await self.pool.close()
-
-            self._initialized = False
-            logger.info("✅ Database connections closed")
-
-        except Exception as e:
-            logger.error(f"❌ Error closing database connections: {e}")
-
-    async def get_user_stats(self, mobile: str) -> Dict[str, Any]:
-        """Get user statistics for dashboard"""
-        try:
-            async with self.get_connection() as conn:
-                # Get search count
-                search_count = await conn.fetchval(
-                    "SELECT COUNT(*) FROM gst_search_history WHERE mobile = $1", mobile
-                )
-
-                # Get average compliance score
-                avg_compliance = await conn.fetchval(
-                    "SELECT AVG(compliance_score) FROM gst_search_history WHERE mobile = $1", mobile
-                )
-
-                # Get unique companies searched
-                unique_companies = await conn.fetchval(
-                    "SELECT COUNT(DISTINCT gstin) FROM gst_search_history WHERE mobile = $1", mobile
-                )
-
-                # Get recent searches (last 7 days)
-                recent_searches = await conn.fetchval(
-                    """SELECT COUNT(*) FROM gst_search_history 
-                       WHERE mobile = $1 AND searched_at >= NOW() - INTERVAL '7 days'""", mobile
-                )
-
-                return {
-                    "total_searches": search_count or 0,
-                    "avg_compliance": round(avg_compliance or 0, 1),
-                    "unique_companies": unique_companies or 0,
-                    "recent_searches": recent_searches or 0
-                }
-        except Exception as e:
-            logger.error(f"Error getting user stats: {e}")
-            return {"total_searches": 0, "avg_compliance": 0, "unique_companies": 0, "recent_searches": 0}
-
-    async def get_user_profile(self, mobile: str) -> Dict[str, Any]:
-        """Get user profile information"""
-        try:
-            async with self.get_connection() as conn:
-                user_data = await conn.fetchrow(
-                    "SELECT mobile, email, created_at, last_login, profile_data FROM users WHERE mobile = $1", 
-                    mobile
-                )
-
-                if user_data:
-                    return {
-                        "mobile": user_data["mobile"],
-                        "email": user_data["email"],
-                        "created_at": user_data["created_at"],
-                        "last_login": user_data["last_login"],
-                        "profile_data": user_data["profile_data"] or {}
-                    }
-                return {}
-        except Exception as e:
-            logger.error(f"Error getting user profile: {e}")
-            return {}
-
-    async def get_search_history(self, mobile: str, limit: int = 50) -> List[Dict]:
-        """Get user search history"""
-        try:
-            async with self.get_connection() as conn:
-                history = await conn.fetch(
-                    """SELECT gstin, company_name, compliance_score, ai_synopsis, searched_at 
-                       FROM gst_search_history 
-                       WHERE mobile = $1 
-                       ORDER BY searched_at DESC 
-                       LIMIT $2""", 
-                    mobile, limit
-                )
-                
-                return [dict(row) for row in history]
-        except Exception as e:
-            logger.error(f"Error getting search history: {e}")
-            return []
-
-    async def get_analytics_data(self, mobile: str) -> Dict[str, Any]:
-        """Get analytics data for user"""
-        try:
-            async with self.get_connection() as conn:
-                # Get monthly search trends
-                monthly_searches = await conn.fetch(
-                    """SELECT DATE_TRUNC('month', searched_at) as month, 
-                              COUNT(*) as count
-                       FROM gst_search_history 
-                       WHERE mobile = $1 
-                       GROUP BY month 
-                       ORDER BY month DESC 
-                       LIMIT 12""", 
-                    mobile
-                )
-                
-                # Get compliance score distribution
-                compliance_distribution = await conn.fetch(
-                    """SELECT 
-                         CASE 
-                           WHEN compliance_score >= 80 THEN 'Excellent'
-                           WHEN compliance_score >= 60 THEN 'Good'
-                           WHEN compliance_score >= 40 THEN 'Average'
-                           ELSE 'Poor'
-                         END as category,
-                         COUNT(*) as count
-                       FROM gst_search_history 
-                       WHERE mobile = $1 
-                       GROUP BY category""", 
-                    mobile
-                )
-                
-                return {
-                    "monthly_searches": [dict(row) for row in monthly_searches],
-                    "compliance_distribution": [dict(row) for row in compliance_distribution]
-                }
-        except Exception as e:
-            logger.error(f"Error getting analytics data: {e}")
-            return {"monthly_searches": [], "compliance_distribution": []}
-
-    async def save_search_result(self, mobile: str, gstin: str, company_name: str, 
-                               search_data: Dict, compliance_score: float, 
-                               ai_synopsis: str = None) -> bool:
-        """Save search result to history"""
-        try:
-            async with self.get_connection() as conn:
-                await conn.execute(
-                    """INSERT INTO gst_search_history 
-                       (mobile, gstin, company_name, search_data, compliance_score, ai_synopsis) 
-                       VALUES ($1, $2, $3, $4, $5, $6)""",
-                    mobile, gstin, company_name, search_data, compliance_score, ai_synopsis
-                )
-                return True
-        except Exception as e:
-            logger.error(f"Error saving search result: {e}")
-            return False
-
-    async def update_last_login(self, mobile: str) -> bool:
-        """Update user's last login timestamp"""
-        try:
-            async with self.get_connection() as conn:
-                await conn.execute(
-                    "UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE mobile = $1",
-                    mobile
-                )
-                return True
-        except Exception as e:
-            logger.error(f"Error updating last login: {e}")
-            return False
-
-    async def delete_session(self, session_token: str) -> bool:
-        """Delete user session"""
-        try:
-            async with self.get_connection() as conn:
-                await conn.execute(
-                    "DELETE FROM user_sessions WHERE session_id = $1",
-                    session_token
-                )
-                return True
-        except Exception as e:
-            logger.error(f"Error deleting session: {e}")
-            return False
-
-    async def get_session(self, session_token: str) -> Optional[str]:
-        """Get user from session token"""
+    async def verify_user_password(self, mobile: str, password: str) -> bool:
+        """Verify user credentials (simplified version for compatibility)"""
         try:
             async with self.get_connection() as conn:
                 result = await conn.fetchrow(
-                    """SELECT user_mobile FROM user_sessions 
-                       WHERE session_id = $1 AND expires_at > CURRENT_TIMESTAMP""",
-                    session_token
-                )
-                return result["user_mobile"] if result else None
-        except Exception as e:
-            logger.error(f"Error getting session: {e}")
-            return None
-
-    async def create_session(self, mobile: str) -> str:
-        """Create new user session"""
-        try:
-            session_id = secrets.token_urlsafe(32)
-            expires_at = datetime.now() + timedelta(days=30)
-            
-            async with self.get_connection() as conn:
-                await conn.execute(
-                    """INSERT INTO user_sessions (session_id, user_mobile, expires_at) 
-                       VALUES ($1, $2, $3)""",
-                    session_id, mobile, expires_at
-                )
-                return session_id
-        except Exception as e:
-            logger.error(f"Error creating session: {e}")
-            return None
-
-    async def verify_user(self, mobile: str, password: str) -> bool:
-        """Verify user credentials"""
-        try:
-            async with self.get_connection() as conn:
-                result = await conn.fetchrow(
-                    "SELECT password_hash, salt FROM users WHERE mobile = $1",
+                    "SELECT password_hash, salt FROM users WHERE mobile = $1 AND is_active = TRUE",
                     mobile
                 )
                 
@@ -974,56 +393,107 @@ class EnhancedDatabaseManager:
         except Exception as e:
             logger.error(f"Error verifying user: {e}")
             return False
-        
-    # Add these methods inside the EnhancedDatabaseManager class:
 
-async def connect(self):
-    """Compatibility method - calls initialize()"""
-    await self.initialize()
+    # Session management
+    async def create_session(self, mobile: str, ip_address: str = None, user_agent: str = None) -> str:
+        """Create new user session"""
+        try:
+            session_id = secrets.token_urlsafe(32)
+            expires_at = datetime.now() + timedelta(days=30)
+            
+            async with self.get_connection() as conn:
+                await conn.execute(
+                    """INSERT INTO user_sessions (session_id, user_mobile, expires_at, ip_address, user_agent) 
+                       VALUES ($1, $2, $3, $4, $5)""",
+                    session_id, mobile, expires_at, ip_address, user_agent
+                )
+                return session_id
+        except Exception as e:
+            logger.error(f"Error creating session: {e}")
+            return None
 
-async def add_search_history(self, mobile: str, gstin: str, company_name: str, compliance_score: float) -> bool:
-    """Add search to history (compatibility method)"""
-    try:
-        async with self.get_connection() as conn:
-            await conn.execute(
-                """INSERT INTO gst_search_history 
-                   (mobile, gstin, company_name, compliance_score, searched_at) 
-                   VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP)""",
-                mobile, gstin, company_name, compliance_score
-            )
-            return True
-    except Exception as e:
-        logger.error(f"Error adding search history: {e}")
-        return False
+    async def get_session(self, session_token: str) -> Optional[str]:
+        """Get user from session token"""
+        try:
+            async with self.get_connection() as conn:
+                result = await conn.fetchrow(
+                    """SELECT user_mobile FROM user_sessions 
+                       WHERE session_id = $1 AND expires_at > CURRENT_TIMESTAMP AND is_active = TRUE""",
+                    session_token
+                )
+                
+                if result:
+                    # Update last activity
+                    await conn.execute(
+                        "UPDATE user_sessions SET last_activity = CURRENT_TIMESTAMP WHERE session_id = $1",
+                        session_token
+                    )
+                    return result["user_mobile"]
+                return None
+        except Exception as e:
+            logger.error(f"Error getting session: {e}")
+            return None
 
-async def get_all_searches(self, mobile: str) -> List[Dict]:
-    """Get all searches for user (compatibility method)"""
-    try:
-        async with self.get_connection() as conn:
-            history = await conn.fetch(
-                """SELECT gstin, company_name, compliance_score, searched_at 
-                   FROM gst_search_history 
-                   WHERE mobile = $1 
-                   ORDER BY searched_at DESC""", 
-                mobile
-            )
-            return [dict(row) for row in history]
-    except Exception as e:
-        logger.error(f"Error getting all searches: {e}")
-        return []
-    
-async def get_search_history(self, mobile: str, limit: int = 50) -> List[Dict]:
-        """Get user search history with limit"""
+    async def delete_session(self, session_token: str) -> bool:
+        """Delete user session"""
+        try:
+            async with self.get_connection() as conn:
+                await conn.execute(
+                    "UPDATE user_sessions SET is_active = FALSE WHERE session_id = $1",
+                    session_token
+                )
+                return True
+        except Exception as e:
+            logger.error(f"Error deleting session: {e}")
+            return False
+
+    async def update_last_login(self, mobile: str) -> bool:
+        """Update user's last login timestamp"""
+        try:
+            async with self.get_connection() as conn:
+                await conn.execute(
+                    "UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE mobile = $1",
+                    mobile
+                )
+                return True
+        except Exception as e:
+            logger.error(f"Error updating last login: {e}")
+            return False
+
+    # Search history management
+    async def add_search_history(self, mobile: str, gstin: str, company_name: str, compliance_score: float, search_data: dict = None, ai_synopsis: str = None) -> bool:
+        """Add search to history"""
+        try:
+            async with self.get_connection() as conn:
+                # Add to both tables for compatibility
+                await conn.execute(
+                    """INSERT INTO search_history 
+                       (mobile, gstin, company_name, compliance_score, search_data, ai_synopsis) 
+                       VALUES ($1, $2, $3, $4, $5, $6)""",
+                    mobile, gstin, company_name, compliance_score, json.dumps(search_data or {}), ai_synopsis
+                )
+                
+                await conn.execute(
+                    """INSERT INTO gst_search_history 
+                       (user_mobile, mobile, gstin, company_name, compliance_score, search_data, ai_synopsis, response_data) 
+                       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)""",
+                    mobile, mobile, gstin, company_name, compliance_score, 
+                    json.dumps(search_data or {}), ai_synopsis, json.dumps(search_data or {})
+                )
+                return True
+        except Exception as e:
+            logger.error(f"Error adding search history: {e}")
+            return False
+
+    async def get_search_history(self, mobile: str, limit: int = 50) -> List[Dict]:
+        """Get user search history"""
         try:
             async with self.get_connection() as conn:
                 history = await conn.fetch(
-                    """SELECT gstin, 
-                              (search_params->>'company_name') as company_name,
-                              (response_data->>'compliance_score')::float as compliance_score,
-                              created_at as searched_at
-                       FROM gst_search_history 
-                       WHERE user_mobile = $1 AND success = true
-                       ORDER BY created_at DESC 
+                    """SELECT gstin, company_name, compliance_score, ai_synopsis, searched_at 
+                       FROM search_history 
+                       WHERE mobile = $1 
+                       ORDER BY searched_at DESC 
                        LIMIT $2""", 
                     mobile, limit
                 )
@@ -1031,6 +501,264 @@ async def get_search_history(self, mobile: str, limit: int = 50) -> List[Dict]:
         except Exception as e:
             logger.error(f"Error getting search history: {e}")
             return []
+
+    async def get_all_searches(self, mobile: str) -> List[Dict]:
+        """Get all searches for user"""
+        try:
+            async with self.get_connection() as conn:
+                history = await conn.fetch(
+                    """SELECT gstin, company_name, compliance_score, searched_at 
+                       FROM search_history 
+                       WHERE mobile = $1 
+                       ORDER BY searched_at DESC""", 
+                    mobile
+                )
+                return [dict(row) for row in history]
+        except Exception as e:
+            logger.error(f"Error getting all searches: {e}")
+            return []
+
+    # User statistics and analytics
+    async def get_user_stats(self, mobile: str) -> Dict[str, Any]:
+        """Get user statistics for dashboard"""
+        try:
+            async with self.get_connection() as conn:
+                # Get search count
+                search_count = await conn.fetchval(
+                    "SELECT COUNT(*) FROM search_history WHERE mobile = $1", mobile
+                )
+
+                # Get average compliance score
+                avg_compliance = await conn.fetchval(
+                    "SELECT AVG(compliance_score) FROM search_history WHERE mobile = $1", mobile
+                )
+
+                # Get unique companies searched
+                unique_companies = await conn.fetchval(
+                    "SELECT COUNT(DISTINCT gstin) FROM search_history WHERE mobile = $1", mobile
+                )
+
+                # Get recent searches (last 30 days)
+                searches_this_month = await conn.fetchval(
+                    """SELECT COUNT(*) FROM search_history 
+                       WHERE mobile = $1 AND searched_at >= DATE_TRUNC('month', CURRENT_DATE)""", 
+                    mobile
+                )
+
+                return {
+                    "total_searches": search_count or 0,
+                    "avg_compliance": round(float(avg_compliance or 0), 1),
+                    "unique_companies": unique_companies or 0,
+                    "searches_this_month": searches_this_month or 0
+                }
+        except Exception as e:
+            logger.error(f"Error getting user stats: {e}")
+            return {"total_searches": 0, "avg_compliance": 0, "unique_companies": 0, "searches_this_month": 0}
+
+    async def get_user_profile_data(self, mobile: str) -> Dict[str, Any]:
+        """Get user profile data"""
+        try:
+            async with self.get_connection() as conn:
+                user_data = await conn.fetchrow(
+                    "SELECT mobile, email, created_at, last_login, profile_data FROM users WHERE mobile = $1", 
+                    mobile
+                )
+                
+                search_stats = await self.get_user_stats(mobile)
+                recent_searches = await self.get_search_history(mobile, 5)
+                
+                return {
+                    "user_info": dict(user_data) if user_data else {},
+                    "search_stats": search_stats,
+                    "recent_searches": recent_searches
+                }
+        except Exception as e:
+            logger.error(f"Error getting user profile: {e}")
+            return {"user_info": {}, "search_stats": {}, "recent_searches": []}
+
+    # Logging methods
+    async def log_user_activity(self,
+                                mobile: str,
+                                activity_type: str,
+                                activity_data: dict = None,
+                                ip_address: str = None,
+                                user_agent: str = None,
+                                session_id: str = None):
+        """Log user activity"""
+        try:
+            async with self.get_connection() as conn:
+                await conn.execute(
+                    """
+                    INSERT INTO user_activity_logs 
+                    (user_mobile, activity_type, activity_data, ip_address, user_agent, session_id)
+                    VALUES ($1, $2, $3, $4, $5, $6)
+                """, mobile, activity_type, json.dumps(activity_data or {}),
+                    ip_address, user_agent, session_id)
+        except Exception as e:
+            logger.error(f"Failed to log user activity: {e}")
+
+    async def log_security_event(self,
+                                 mobile: str,
+                                 event_type: str,
+                                 event_data: dict = None):
+        """Log security events"""
+        try:
+            await self.log_user_activity(mobile, f"SECURITY_{event_type}",
+                                         event_data)
+        except Exception as e:
+            logger.error(f"Failed to log security event: {e}")
+
+    async def log_error(self,
+                        error_type: str,
+                        message: str,
+                        stack_trace: str = None,
+                        user_mobile: str = None,
+                        additional_data: dict = None,
+                        severity: str = "ERROR",
+                        url: str = None,
+                        method: str = None):
+        """Log application errors"""
+        try:
+            async with self.get_connection() as conn:
+                await conn.execute(
+                    """
+                    INSERT INTO error_logs 
+                    (error_type, message, stack_trace, user_mobile, additional_data, severity, url, method)
+                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+                """, error_type, message, stack_trace, user_mobile,
+                    json.dumps(additional_data or {}), severity, url, method)
+        except Exception as e:
+            logger.error(f"Failed to log error: {e}")
+
+    async def log_api_usage(self,
+                           user_mobile: str,
+                           endpoint: str,
+                           method: str,
+                           response_status: int,
+                           response_time_ms: int,
+                           ip_address: str = None,
+                           user_agent: str = None,
+                           request_params: dict = None):
+        """Log API usage"""
+        try:
+            async with self.get_connection() as conn:
+                await conn.execute(
+                    """
+                    INSERT INTO api_usage_logs 
+                    (user_mobile, endpoint, method, response_status, response_time_ms, 
+                     ip_address, user_agent, request_params)
+                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+                """, user_mobile, endpoint, method, response_status, response_time_ms,
+                    ip_address, user_agent, json.dumps(request_params or {}))
+        except Exception as e:
+            logger.error(f"Failed to log API usage: {e}")
+
+    # System maintenance
+    async def cleanup_expired_data(self):
+        """Clean up expired data from database"""
+        try:
+            async with self.get_connection() as conn:
+                # Clean expired sessions
+                deleted_sessions = await conn.fetchval("""
+                    DELETE FROM user_sessions 
+                    WHERE expires_at < CURRENT_TIMESTAMP
+                    RETURNING COUNT(*)
+                """)
+
+                # Clean old error logs (keep 30 days for resolved, 90 days for unresolved)
+                deleted_errors = await conn.fetchval("""
+                    DELETE FROM error_logs 
+                    WHERE (resolved = TRUE AND created_at < CURRENT_TIMESTAMP - INTERVAL '30 days')
+                       OR (resolved = FALSE AND created_at < CURRENT_TIMESTAMP - INTERVAL '90 days')
+                    RETURNING COUNT(*)
+                """)
+
+                # Clean old activity logs (keep 90 days)
+                deleted_activities = await conn.fetchval("""
+                    DELETE FROM user_activity_logs 
+                    WHERE created_at < CURRENT_TIMESTAMP - INTERVAL '90 days'
+                    RETURNING COUNT(*)
+                """)
+
+                # Clean expired file uploads
+                deleted_files = await conn.fetchval("""
+                    DELETE FROM file_uploads 
+                    WHERE expires_at IS NOT NULL AND expires_at < CURRENT_TIMESTAMP
+                    RETURNING COUNT(*)
+                """)
+
+                # Clean processed notifications (keep 7 days)
+                deleted_notifications = await conn.fetchval("""
+                    DELETE FROM notification_queue 
+                    WHERE status = 'sent' 
+                    AND sent_at < CURRENT_TIMESTAMP - INTERVAL '7 days'
+                    RETURNING COUNT(*)
+                """)
+
+                logger.info(f"✅ Database cleanup completed: {deleted_sessions} sessions, "
+                          f"{deleted_errors} errors, {deleted_activities} activities, "
+                          f"{deleted_files} files, {deleted_notifications} notifications")
+
+        except Exception as e:
+            logger.error(f"❌ Database cleanup failed: {e}")
+
+    # Loan-related methods (basic support)
+    async def get_user_loan_applications(self, mobile: str) -> List[Dict]:
+        """Get user's loan applications"""
+        try:
+            async with self.get_connection() as conn:
+                applications = await conn.fetch(
+                    """SELECT * FROM loan_applications 
+                       WHERE user_mobile = $1 
+                       ORDER BY created_at DESC""",
+                    mobile
+                )
+                return [dict(row) for row in applications]
+        except Exception as e:
+            logger.error(f"Error getting loan applications: {e}")
+            return []
+
+    async def get_user_active_loans(self, mobile: str) -> List[Dict]:
+        """Get user's active loans"""
+        try:
+            async with self.get_connection() as conn:
+                loans = await conn.fetch(
+                    """SELECT al.*, la.company_name, la.gstin 
+                       FROM active_loans al
+                       JOIN loan_applications la ON al.application_id = la.application_id
+                       WHERE al.user_mobile = $1 AND al.status = 'active'
+                       ORDER BY al.created_at DESC""",
+                    mobile
+                )
+                return [dict(row) for row in loans]
+        except Exception as e:
+            logger.error(f"Error getting active loans: {e}")
+            return []
+
+    async def close(self):
+        """Close database connections"""
+        try:
+            if self.redis_client:
+                await self.redis_client.close()
+
+            if self.pool:
+                await self.pool.close()
+
+            self._initialized = False
+            logger.info("✅ Database connections closed")
+
+        except Exception as e:
+            logger.error(f"❌ Error closing database connections: {e}")
+
+    # Compatibility methods (for existing code)
+    async def connect(self):
+        """Compatibility method - calls initialize()"""
+        await self.initialize()
+
+    async def verify_user(self, mobile: str, password: str) -> bool:
+        """Verify user credentials (simple version for compatibility)"""
+        return await self.verify_user_password(mobile, password)
+
 
 # Global database instance
 db_manager = None
