@@ -167,6 +167,13 @@ body {
   transition: background-color var(--transition), color var(--transition);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.main-content {
+  flex: 1;
 }
 
 /* Selection */
@@ -1630,4 +1637,20 @@ pre code {
 
 [data-theme="light"] .theme-icon:last-child {
   opacity: 1;
+}
+
+/* Add to your existing base.css */
+body {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+.main-content {
+    flex: 1;
+}
+
+/* Enhanced header backdrop filter */
+.header {
+    backdrop-filter: blur(10px);
 }

@@ -11,8 +11,8 @@ import time
 import json
 import hashlib
 import secrets
-from typing import Dict, Any, Optional, List, Union
 from datetime import datetime, timedelta
+from typing import Dict, Any, Optional, List, Union
 from contextlib import asynccontextmanager
 from decimal import Decimal
 from dataclasses import dataclass, asdict
@@ -757,6 +757,223 @@ class EnhancedDatabaseManager:
 
         except Exception as e:
             logger.error(f"❌ Error closing database connections: {e}")
+
+    async def get_user_stats(self, mobile: str) -> Dict[str, Any]:
+        """Get user statistics for dashboard"""
+        try:
+            async with self.get_connection() as conn:
+                # Get search count
+                search_count = await conn.fetchval(
+                    "SELECT COUNT(*) FROM search_history WHERE mobile = $1", mobile
+                )
+
+                # Get average compliance score
+                avg_compliance = await conn.fetchval(
+                    "SELECT AVG(compliance_score) FROM search_history WHERE mobile = $1", mobile
+                )
+
+                # Get unique companies searched
+                unique_companies = await conn.fetchval(
+                    "SELECT COUNT(DISTINCT gstin) FROM search_history WHERE mobile = $1", mobile
+                )
+
+                # Get recent searches (last 7 days)
+                recent_searches = await conn.fetchval(
+                    """SELECT COUNT(*) FROM search_history 
+                       WHERE mobile = $1 AND searched_at >= NOW() - INTERVAL '7 days'""", mobile
+                )
+
+                return {
+                    "total_searches": search_count or 0,
+                    "avg_compliance": round(avg_compliance or 0, 1),
+                    "unique_companies": unique_companies or 0,
+                    "recent_searches": recent_searches or 0
+                }
+        except Exception as e:
+            logger.error(f"Error getting user stats: {e}")
+            return {"total_searches": 0, "avg_compliance": 0, "unique_companies": 0, "recent_searches": 0}
+
+    async def get_user_profile(self, mobile: str) -> Dict[str, Any]:
+        """Get user profile information"""
+        try:
+            async with self.get_connection() as conn:
+                user_data = await conn.fetchrow(
+                    "SELECT mobile, email, created_at, last_login, profile_data FROM users WHERE mobile = $1", 
+                    mobile
+                )
+
+                if user_data:
+                    return {
+                        "mobile": user_data["mobile"],
+                        "email": user_data["email"],
+                        "created_at": user_data["created_at"],
+                        "last_login": user_data["last_login"],
+                        "profile_data": user_data["profile_data"] or {}
+                    }
+                return {}
+        except Exception as e:
+            logger.error(f"Error getting user profile: {e}")
+            return {}
+
+    async def get_search_history(self, mobile: str, limit: int = 50) -> List[Dict]:
+        """Get user search history"""
+        try:
+            async with self.get_connection() as conn:
+                history = await conn.fetch(
+                    """SELECT gstin, company_name, compliance_score, ai_synopsis, searched_at 
+                       FROM search_history 
+                       WHERE mobile = $1 
+                       ORDER BY searched_at DESC 
+                       LIMIT $2""", 
+                    mobile, limit
+                )
+                
+                return [dict(row) for row in history]
+        except Exception as e:
+            logger.error(f"Error getting search history: {e}")
+            return []
+
+    async def get_analytics_data(self, mobile: str) -> Dict[str, Any]:
+        """Get analytics data for user"""
+        try:
+            async with self.get_connection() as conn:
+                # Get monthly search trends
+                monthly_searches = await conn.fetch(
+                    """SELECT DATE_TRUNC('month', searched_at) as month, 
+                              COUNT(*) as count
+                       FROM search_history 
+                       WHERE mobile = $1 
+                       GROUP BY month 
+                       ORDER BY month DESC 
+                       LIMIT 12""", 
+                    mobile
+                )
+                
+                # Get compliance score distribution
+                compliance_distribution = await conn.fetch(
+                    """SELECT 
+                         CASE 
+                           WHEN compliance_score >= 80 THEN 'Excellent'
+                           WHEN compliance_score >= 60 THEN 'Good'
+                           WHEN compliance_score >= 40 THEN 'Average'
+                           ELSE 'Poor'
+                         END as category,
+                         COUNT(*) as count
+                       FROM search_history 
+                       WHERE mobile = $1 
+                       GROUP BY category""", 
+                    mobile
+                )
+                
+                return {
+                    "monthly_searches": [dict(row) for row in monthly_searches],
+                    "compliance_distribution": [dict(row) for row in compliance_distribution]
+                }
+        except Exception as e:
+            logger.error(f"Error getting analytics data: {e}")
+            return {"monthly_searches": [], "compliance_distribution": []}
+
+    async def save_search_result(self, mobile: str, gstin: str, company_name: str, 
+                               search_data: Dict, compliance_score: float, 
+                               ai_synopsis: str = None) -> bool:
+        """Save search result to history"""
+        try:
+            async with self.get_connection() as conn:
+                await conn.execute(
+                    """INSERT INTO search_history 
+                       (mobile, gstin, company_name, search_data, compliance_score, ai_synopsis) 
+                       VALUES ($1, $2, $3, $4, $5, $6)""",
+                    mobile, gstin, company_name, search_data, compliance_score, ai_synopsis
+                )
+                return True
+        except Exception as e:
+            logger.error(f"Error saving search result: {e}")
+            return False
+
+    async def update_last_login(self, mobile: str) -> bool:
+        """Update user's last login timestamp"""
+        try:
+            async with self.get_connection() as conn:
+                await conn.execute(
+                    "UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE mobile = $1",
+                    mobile
+                )
+                return True
+        except Exception as e:
+            logger.error(f"Error updating last login: {e}")
+            return False
+
+    async def delete_session(self, session_token: str) -> bool:
+        """Delete user session"""
+        try:
+            async with self.get_connection() as conn:
+                await conn.execute(
+                    "DELETE FROM user_sessions WHERE session_id = $1",
+                    session_token
+                )
+                return True
+        except Exception as e:
+            logger.error(f"Error deleting session: {e}")
+            return False
+
+    async def get_session(self, session_token: str) -> Optional[str]:
+        """Get user from session token"""
+        try:
+            async with self.get_connection() as conn:
+                result = await conn.fetchrow(
+                    """SELECT user_mobile FROM user_sessions 
+                       WHERE session_id = $1 AND expires_at > CURRENT_TIMESTAMP""",
+                    session_token
+                )
+                return result["user_mobile"] if result else None
+        except Exception as e:
+            logger.error(f"Error getting session: {e}")
+            return None
+
+    async def create_session(self, mobile: str) -> str:
+        """Create new user session"""
+        try:
+            session_id = secrets.token_urlsafe(32)
+            expires_at = datetime.now() + timedelta(days=30)
+            
+            async with self.get_connection() as conn:
+                await conn.execute(
+                    """INSERT INTO user_sessions (session_id, user_mobile, expires_at) 
+                       VALUES ($1, $2, $3)""",
+                    session_id, mobile, expires_at
+                )
+                return session_id
+        except Exception as e:
+            logger.error(f"Error creating session: {e}")
+            return None
+
+    async def verify_user(self, mobile: str, password: str) -> bool:
+        """Verify user credentials"""
+        try:
+            async with self.get_connection() as conn:
+                result = await conn.fetchrow(
+                    "SELECT password_hash, salt FROM users WHERE mobile = $1",
+                    mobile
+                )
+                
+                if result:
+                    stored_hash = result["password_hash"]
+                    salt = result["salt"]
+                    
+                    # Hash the provided password with the stored salt
+                    password_hash = hashlib.pbkdf2_hmac(
+                        'sha256', 
+                        password.encode('utf-8'), 
+                        salt.encode('utf-8'), 
+                        100000, 
+                        dklen=64
+                    ).hex()
+                    
+                    return password_hash == stored_hash
+                return False
+        except Exception as e:
+            logger.error(f"Error verifying user: {e}")
+            return False
 
 
 # Global database instance
