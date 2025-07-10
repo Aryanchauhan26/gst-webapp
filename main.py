@@ -63,12 +63,13 @@ def setup_template_globals():
 
 # Enhanced Database Manager
 class FixedDatabaseManager:
-    """Fixed database manager with all required methods"""
+    """Fixed database manager with graceful handling of missing columns"""
     
     def __init__(self, postgres_dsn: str):
         self.postgres_dsn = postgres_dsn
         self.pool = None
         self._initialized = False
+        self._column_cache = {}  # Cache for column existence checks
 
     async def initialize(self):
         """Initialize database connection"""
@@ -93,6 +94,9 @@ class FixedDatabaseManager:
             async with self.pool.acquire() as conn:
                 await conn.execute("SELECT 1")
             
+            # Cache column information
+            await self._cache_table_columns()
+            
             self._initialized = True
             logger.info("✅ Database initialized successfully")
             
@@ -100,24 +104,85 @@ class FixedDatabaseManager:
             logger.error(f"❌ Database initialization failed: {e}")
             raise
 
-    async def create_user(self, mobile: str, password_hash: str, salt: str, email: str = None) -> bool:
-        """Create new user"""
+    async def _cache_table_columns(self):
+        """Cache information about which columns exist in each table"""
         try:
             async with self.pool.acquire() as conn:
-                await conn.execute(
-                    """
-                    INSERT INTO users (mobile, password_hash, salt, email)
-                    VALUES ($1, $2, $3, $4)
-                    """, mobile, password_hash, salt, email
-                )
+                # Get all columns for important tables
+                tables_to_check = ['users', 'user_profiles', 'user_sessions', 'search_history', 'gst_search_history']
                 
-                # Initialize user profile
-                await conn.execute(
-                    """
-                    INSERT INTO user_profiles (mobile, display_name)
-                    VALUES ($1, $2)
-                    """, mobile, f"User {mobile[-4:]}"
-                )
+                for table in tables_to_check:
+                    columns = await conn.fetch("""
+                        SELECT column_name 
+                        FROM information_schema.columns 
+                        WHERE table_name = $1 AND table_schema = 'public'
+                    """, table)
+                    
+                    self._column_cache[table] = {row['column_name'] for row in columns}
+                    logger.info(f"Cached columns for {table}: {self._column_cache[table]}")
+                    
+        except Exception as e:
+            logger.warning(f"Could not cache column information: {e}")
+            # Set default empty cache
+            self._column_cache = {}
+
+    def _has_column(self, table: str, column: str) -> bool:
+        """Check if a table has a specific column"""
+        return self._column_cache.get(table, set()).get(column, False) if self._column_cache else True
+
+    def _build_safe_select(self, table: str, columns: list, where_clause: str = "") -> str:
+        """Build a SELECT query with only existing columns"""
+        if table not in self._column_cache:
+            # If we don't have cached info, assume all columns exist
+            return f"SELECT {', '.join(columns)} FROM {table} {where_clause}"
+        
+        safe_columns = []
+        for col in columns:
+            if col in self._column_cache[table]:
+                safe_columns.append(col)
+            else:
+                # Add a NULL placeholder for missing columns
+                safe_columns.append(f"NULL as {col}")
+        
+        return f"SELECT {', '.join(safe_columns)} FROM {table} {where_clause}"
+
+    async def create_user(self, mobile: str, password_hash: str, salt: str, email: str = None) -> bool:
+        """Create new user with safe column handling"""
+        try:
+            async with self.pool.acquire() as conn:
+                # Check which columns exist in users table
+                base_columns = ['mobile', 'password_hash', 'salt']
+                base_values = [mobile, password_hash, salt]
+                placeholders = ['$1', '$2', '$3']
+                
+                # Add optional columns if they exist
+                if email and self._has_column('users', 'email'):
+                    base_columns.append('email')
+                    base_values.append(email)
+                    placeholders.append('$4')
+                
+                # Add profile_data if it exists
+                if self._has_column('users', 'profile_data'):
+                    base_columns.append('profile_data')
+                    base_values.append('{}')
+                    placeholders.append(f'${len(placeholders) + 1}')
+                
+                query = f"""
+                    INSERT INTO users ({', '.join(base_columns)})
+                    VALUES ({', '.join(placeholders)})
+                """
+                
+                await conn.execute(query, *base_values)
+                
+                # Try to initialize user profile if table exists
+                if 'user_profiles' in self._column_cache:
+                    try:
+                        await conn.execute(
+                            "INSERT INTO user_profiles (mobile, display_name) VALUES ($1, $2)",
+                            mobile, f"User {mobile[-4:]}"
+                        )
+                    except Exception as e:
+                        logger.warning(f"Could not create user profile: {e}")
                 
                 logger.info(f"✅ User created successfully: {mobile}")
                 return True
@@ -130,13 +195,18 @@ class FixedDatabaseManager:
             return False
 
     async def verify_user(self, mobile: str, password: str) -> bool:
-        """Verify user credentials"""
+        """Verify user credentials with safe column handling"""
         try:
             async with self.pool.acquire() as conn:
-                result = await conn.fetchrow(
-                    "SELECT password_hash, salt FROM users WHERE mobile = $1 AND is_active = TRUE",
-                    mobile
-                )
+                # Build safe query for users table
+                columns = ['password_hash', 'salt']
+                if self._has_column('users', 'is_active'):
+                    where_clause = "WHERE mobile = $1 AND is_active = TRUE"
+                else:
+                    where_clause = "WHERE mobile = $1"
+                
+                query = self._build_safe_select('users', columns, where_clause)
+                result = await conn.fetchrow(query, mobile)
                 
                 if result:
                     stored_hash = result["password_hash"]
@@ -157,162 +227,264 @@ class FixedDatabaseManager:
             logger.error(f"Error verifying user: {e}")
             return False
 
-    async def create_session(self, mobile: str) -> str:
-        """Create new user session"""
+    async def create_session(self, mobile: str, ip_address: str = None, user_agent: str = None) -> str:
+        """Create new user session with safe column handling"""
         try:
             session_id = secrets.token_urlsafe(32)
             expires_at = datetime.now() + timedelta(days=30)
             
             async with self.pool.acquire() as conn:
-                await conn.execute(
-                    """INSERT INTO user_sessions (session_id, user_mobile, expires_at) 
-                       VALUES ($1, $2, $3)""",
-                    session_id, mobile, expires_at
-                )
+                # Build safe insert for user_sessions
+                base_columns = ['session_id', 'user_mobile', 'expires_at']
+                base_values = [session_id, mobile, expires_at]
+                placeholders = ['$1', '$2', '$3']
+                
+                # Add optional columns if they exist
+                if ip_address and self._has_column('user_sessions', 'ip_address'):
+                    base_columns.append('ip_address')
+                    base_values.append(ip_address)
+                    placeholders.append(f'${len(placeholders) + 1}')
+                
+                if user_agent and self._has_column('user_sessions', 'user_agent'):
+                    base_columns.append('user_agent')
+                    base_values.append(user_agent)
+                    placeholders.append(f'${len(placeholders) + 1}')
+                
+                query = f"""
+                    INSERT INTO user_sessions ({', '.join(base_columns)}) 
+                    VALUES ({', '.join(placeholders)})
+                """
+                
+                await conn.execute(query, *base_values)
                 return session_id
         except Exception as e:
             logger.error(f"Error creating session: {e}")
             return None
 
     async def get_session(self, session_token: str) -> Optional[str]:
-        """Get user from session token"""
+        """Get user from session token with safe column handling"""
         try:
             async with self.pool.acquire() as conn:
-                result = await conn.fetchrow(
-                    """SELECT user_mobile FROM user_sessions 
-                       WHERE session_id = $1 AND expires_at > CURRENT_TIMESTAMP AND is_active = TRUE""",
-                    session_token
-                )
-                return result["user_mobile"] if result else None
+                # Build safe query
+                columns = ['user_mobile']
+                
+                if self._has_column('user_sessions', 'is_active'):
+                    where_clause = "WHERE session_id = $1 AND expires_at > CURRENT_TIMESTAMP AND is_active = TRUE"
+                else:
+                    where_clause = "WHERE session_id = $1 AND expires_at > CURRENT_TIMESTAMP"
+                
+                query = self._build_safe_select('user_sessions', columns, where_clause)
+                result = await conn.fetchrow(query, session_token)
+                
+                if result:
+                    # Try to update last activity if column exists
+                    if self._has_column('user_sessions', 'last_activity'):
+                        try:
+                            await conn.execute(
+                                "UPDATE user_sessions SET last_activity = CURRENT_TIMESTAMP WHERE session_id = $1",
+                                session_token
+                            )
+                        except Exception:
+                            pass  # Ignore if update fails
+                    
+                    return result["user_mobile"]
+                return None
         except Exception as e:
             logger.error(f"Error getting session: {e}")
             return None
 
     async def delete_session(self, session_token: str) -> bool:
-        """Delete user session"""
+        """Delete user session with safe column handling"""
         try:
             async with self.pool.acquire() as conn:
-                await conn.execute(
-                    "DELETE FROM user_sessions WHERE session_id = $1",
-                    session_token
-                )
+                if self._has_column('user_sessions', 'is_active'):
+                    # Soft delete by setting is_active to False
+                    await conn.execute(
+                        "UPDATE user_sessions SET is_active = FALSE WHERE session_id = $1",
+                        session_token
+                    )
+                else:
+                    # Hard delete
+                    await conn.execute(
+                        "DELETE FROM user_sessions WHERE session_id = $1",
+                        session_token
+                    )
                 return True
         except Exception as e:
             logger.error(f"Error deleting session: {e}")
             return False
 
     async def update_last_login(self, mobile: str) -> bool:
-        """Update user's last login timestamp"""
+        """Update user's last login timestamp with safe column handling"""
         try:
             async with self.pool.acquire() as conn:
-                await conn.execute(
-                    "UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE mobile = $1",
-                    mobile
-                )
+                if self._has_column('users', 'last_login'):
+                    await conn.execute(
+                        "UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE mobile = $1",
+                        mobile
+                    )
                 return True
         except Exception as e:
             logger.error(f"Error updating last login: {e}")
             return False
 
     async def add_search_history(self, mobile: str, gstin: str, company_name: str, compliance_score: float, search_data: dict = None, ai_synopsis: str = None) -> bool:
-        """Add search to history"""
+        """Add search to history with safe column handling"""
         try:
             async with self.pool.acquire() as conn:
-                # Add to both tables for compatibility
-                await conn.execute(
-                    """INSERT INTO search_history 
-                       (mobile, gstin, company_name, compliance_score, search_data, ai_synopsis) 
-                       VALUES ($1, $2, $3, $4, $5, $6)""",
-                    mobile, gstin, company_name, compliance_score, json.dumps(search_data or {}), ai_synopsis
-                )
+                # Always try to add to search_history table
+                search_data_json = json.dumps(search_data or {})
                 
-                await conn.execute(
-                    """INSERT INTO gst_search_history 
-                       (user_mobile, mobile, gstin, company_name, compliance_score, search_data, ai_synopsis, response_data) 
-                       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)""",
-                    mobile, mobile, gstin, company_name, compliance_score, json.dumps(search_data or {}), ai_synopsis, json.dumps(search_data or {})
-                )
+                base_columns = ['mobile', 'gstin', 'company_name', 'compliance_score']
+                base_values = [mobile, gstin, company_name, compliance_score]
+                placeholders = ['$1', '$2', '$3', '$4']
+                
+                # Add optional columns if they exist
+                if self._has_column('search_history', 'search_data'):
+                    base_columns.append('search_data')
+                    base_values.append(search_data_json)
+                    placeholders.append(f'${len(placeholders) + 1}')
+                
+                if ai_synopsis and self._has_column('search_history', 'ai_synopsis'):
+                    base_columns.append('ai_synopsis')
+                    base_values.append(ai_synopsis)
+                    placeholders.append(f'${len(placeholders) + 1}')
+                
+                query = f"""
+                    INSERT INTO search_history ({', '.join(base_columns)}) 
+                    VALUES ({', '.join(placeholders)})
+                """
+                
+                await conn.execute(query, *base_values)
+                
+                # Try to add to gst_search_history if it exists
+                if 'gst_search_history' in self._column_cache:
+                    try:
+                        gst_columns = ['user_mobile', 'mobile', 'gstin', 'company_name', 'compliance_score', 'search_data', 'response_data']
+                        gst_values = [mobile, mobile, gstin, company_name, compliance_score, search_data_json, search_data_json]
+                        gst_placeholders = ['$1', '$2', '$3', '$4', '$5', '$6', '$7']
+                        
+                        if ai_synopsis and self._has_column('gst_search_history', 'ai_synopsis'):
+                            gst_columns.append('ai_synopsis')
+                            gst_values.append(ai_synopsis)
+                            gst_placeholders.append('$8')
+                        
+                        gst_query = f"""
+                            INSERT INTO gst_search_history ({', '.join(gst_columns)}) 
+                            VALUES ({', '.join(gst_placeholders)})
+                        """
+                        
+                        await conn.execute(gst_query, *gst_values)
+                    except Exception as e:
+                        logger.warning(f"Could not add to gst_search_history: {e}")
+                
                 return True
         except Exception as e:
             logger.error(f"Error adding search history: {e}")
             return False
 
     async def get_search_history(self, mobile: str, limit: int = 50) -> List[Dict]:
-        """Get user search history"""
+        """Get user search history with safe column handling"""
         try:
             async with self.pool.acquire() as conn:
-                history = await conn.fetch(
-                    """SELECT gstin, company_name, compliance_score, ai_synopsis, searched_at 
-                       FROM search_history 
-                       WHERE mobile = $1 
-                       ORDER BY searched_at DESC 
-                       LIMIT $2""", 
-                    mobile, limit
+                columns = ['gstin', 'company_name', 'compliance_score', 'searched_at']
+                
+                if self._has_column('search_history', 'ai_synopsis'):
+                    columns.append('ai_synopsis')
+                
+                query = self._build_safe_select(
+                    'search_history', 
+                    columns, 
+                    "WHERE mobile = $1 ORDER BY searched_at DESC LIMIT $2"
                 )
+                
+                history = await conn.fetch(query, mobile, limit)
                 return [dict(row) for row in history]
         except Exception as e:
             logger.error(f"Error getting search history: {e}")
             return []
 
     async def get_all_searches(self, mobile: str) -> List[Dict]:
-        """Get all searches for user"""
+        """Get all searches for user with safe column handling"""
         try:
             async with self.pool.acquire() as conn:
-                history = await conn.fetch(
-                    """SELECT gstin, company_name, compliance_score, searched_at 
-                       FROM search_history 
-                       WHERE mobile = $1 
-                       ORDER BY searched_at DESC""", 
-                    mobile
+                columns = ['gstin', 'company_name', 'compliance_score', 'searched_at']
+                
+                query = self._build_safe_select(
+                    'search_history', 
+                    columns, 
+                    "WHERE mobile = $1 ORDER BY searched_at DESC"
                 )
+                
+                history = await conn.fetch(query, mobile)
                 return [dict(row) for row in history]
         except Exception as e:
             logger.error(f"Error getting all searches: {e}")
             return []
 
     async def get_user_stats(self, mobile: str) -> Dict:
-        """Get user statistics"""
+        """Get user statistics with safe column handling"""
         try:
             async with self.pool.acquire() as conn:
                 stats = await conn.fetchrow("""
                     SELECT 
                         COUNT(*) as total_searches,
-                        AVG(compliance_score) as avg_compliance,
+                        COALESCE(AVG(compliance_score), 0) as avg_compliance,
                         COUNT(DISTINCT gstin) as unique_companies,
                         COUNT(CASE WHEN searched_at >= DATE_TRUNC('month', CURRENT_DATE) THEN 1 END) as searches_this_month
                     FROM search_history 
                     WHERE mobile = $1
                 """, mobile)
                 
-                return dict(stats) if stats else {
-                    "total_searches": 0, "avg_compliance": 0, 
-                    "unique_companies": 0, "searches_this_month": 0
-                }
+                if stats:
+                    return {
+                        "total_searches": int(stats["total_searches"]),
+                        "avg_compliance": float(stats["avg_compliance"]),
+                        "unique_companies": int(stats["unique_companies"]),
+                        "searches_this_month": int(stats["searches_this_month"])
+                    }
+                else:
+                    return {"total_searches": 0, "avg_compliance": 0, "unique_companies": 0, "searches_this_month": 0}
         except Exception as e:
             logger.error(f"Error getting user stats: {e}")
             return {"total_searches": 0, "avg_compliance": 0, "unique_companies": 0, "searches_this_month": 0}
 
     async def get_user_profile_data(self, mobile: str) -> Dict:
-        """Get user profile data"""
+        """Get user profile data with safe column handling"""
         try:
             async with self.pool.acquire() as conn:
-                user_data = await conn.fetchrow(
-                    "SELECT mobile, email, created_at, last_login, profile_data FROM users WHERE mobile = $1", 
-                    mobile
-                )
+                # Get user data with safe column selection
+                user_columns = ['mobile', 'created_at']
+                
+                # Add optional columns if they exist
+                optional_columns = ['email', 'last_login', 'profile_data']
+                for col in optional_columns:
+                    if self._has_column('users', col):
+                        user_columns.append(col)
+                
+                user_query = self._build_safe_select('users', user_columns, "WHERE mobile = $1")
+                user_data = await conn.fetchrow(user_query, mobile)
                 
                 search_stats = await self.get_user_stats(mobile)
                 recent_searches = await self.get_search_history(mobile, 5)
                 
+                # Convert user_data to dict and handle missing columns
+                user_info = {}
+                if user_data:
+                    user_info = dict(user_data)
+                    # Ensure required fields exist with defaults
+                    user_info.setdefault('email', None)
+                    user_info.setdefault('profile_data', {})
+                    user_info.setdefault('last_login', None)
+                
                 return {
-                    "user_info": dict(user_data) if user_data else {},
+                    "user_info": user_info,
                     "search_stats": search_stats,
                     "recent_searches": recent_searches
                 }
         except Exception as e:
             logger.error(f"Error getting user profile: {e}")
             return {"user_info": {}, "search_stats": {}, "recent_searches": []}
-
 # Initialize database
 db = FixedDatabaseManager(postgres_dsn=POSTGRES_DSN)
 
