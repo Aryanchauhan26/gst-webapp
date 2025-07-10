@@ -11,6 +11,7 @@ import asyncio
 import asyncpg
 import hashlib
 import secrets
+import time
 import logging
 import json
 import httpx
@@ -18,7 +19,7 @@ import uvicorn
 import csv
 from datetime import datetime, timedelta
 from collections import defaultdict
-from typing import Optional, Dict, List
+from typing import Dict, Any, Optional, List, Union
 from fastapi import FastAPI, Request, Form, Depends, HTTPException, status, Response
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse, StreamingResponse, FileResponse
 from fastapi.templating import Jinja2Templates
@@ -27,6 +28,10 @@ from io import BytesIO, StringIO
 from dotenv import load_dotenv
 from anthro_ai import get_anthropic_synopsis
 from validators import EnhancedDataValidator, get_validation_rules
+from dataclasses import dataclass, asdict
+from contextlib import asynccontextmanager
+from decimal import Decimal
+
 
 # Load environment variables
 load_dotenv()
@@ -62,8 +67,9 @@ def setup_template_globals():
     })
 
 # Enhanced Database Manager
+
 class FixedDatabaseManager:
-    """Fixed database manager with graceful handling of missing columns"""
+    """Fixed database manager with corrected set handling"""
     
     def __init__(self, postgres_dsn: str):
         self.postgres_dsn = postgres_dsn
@@ -112,23 +118,33 @@ class FixedDatabaseManager:
                 tables_to_check = ['users', 'user_profiles', 'user_sessions', 'search_history', 'gst_search_history']
                 
                 for table in tables_to_check:
-                    columns = await conn.fetch("""
-                        SELECT column_name 
-                        FROM information_schema.columns 
-                        WHERE table_name = $1 AND table_schema = 'public'
-                    """, table)
-                    
-                    self._column_cache[table] = {row['column_name'] for row in columns}
-                    logger.info(f"Cached columns for {table}: {self._column_cache[table]}")
-                    
+                    try:
+                        columns = await conn.fetch("""
+                            SELECT column_name 
+                            FROM information_schema.columns 
+                            WHERE table_name = $1 AND table_schema = 'public'
+                        """, table)
+                        
+                        # Store as set for fast lookup
+                        self._column_cache[table] = {row['column_name'] for row in columns}
+                        logger.info(f"Cached {len(self._column_cache[table])} columns for {table}")
+                        
+                    except Exception as e:
+                        logger.warning(f"Could not cache columns for {table}: {e}")
+                        self._column_cache[table] = set()
+                        
         except Exception as e:
             logger.warning(f"Could not cache column information: {e}")
             # Set default empty cache
             self._column_cache = {}
 
     def _has_column(self, table: str, column: str) -> bool:
-        """Check if a table has a specific column"""
-        return self._column_cache.get(table, set()).get(column, False) if self._column_cache else True
+        """Check if a table has a specific column - FIXED VERSION"""
+        if not self._column_cache:
+            return True  # Assume column exists if we don't have cache info
+        
+        table_columns = self._column_cache.get(table, set())
+        return column in table_columns  # Use 'in' operator for sets, not .get()
 
     def _build_safe_select(self, table: str, columns: list, where_clause: str = "") -> str:
         """Build a SELECT query with only existing columns"""
@@ -138,11 +154,12 @@ class FixedDatabaseManager:
         
         safe_columns = []
         for col in columns:
-            if col in self._column_cache[table]:
+            if self._has_column(table, col):
                 safe_columns.append(col)
             else:
                 # Add a NULL placeholder for missing columns
                 safe_columns.append(f"NULL as {col}")
+                logger.warning(f"Column {col} not found in {table}, using NULL")
         
         return f"SELECT {', '.join(safe_columns)} FROM {table} {where_clause}"
 
@@ -165,7 +182,7 @@ class FixedDatabaseManager:
                 if self._has_column('users', 'profile_data'):
                     base_columns.append('profile_data')
                     base_values.append('{}')
-                    placeholders.append(f'${len(placeholders) + 1}')
+                    placeholders.append(f'${len(base_values) + 1}')
                 
                 query = f"""
                     INSERT INTO users ({', '.join(base_columns)})
@@ -200,6 +217,7 @@ class FixedDatabaseManager:
             async with self.pool.acquire() as conn:
                 # Build safe query for users table
                 columns = ['password_hash', 'salt']
+                
                 if self._has_column('users', 'is_active'):
                     where_clause = "WHERE mobile = $1 AND is_active = TRUE"
                 else:
@@ -243,12 +261,12 @@ class FixedDatabaseManager:
                 if ip_address and self._has_column('user_sessions', 'ip_address'):
                     base_columns.append('ip_address')
                     base_values.append(ip_address)
-                    placeholders.append(f'${len(placeholders) + 1}')
+                    placeholders.append(f'${len(base_values)}')
                 
                 if user_agent and self._has_column('user_sessions', 'user_agent'):
                     base_columns.append('user_agent')
                     base_values.append(user_agent)
-                    placeholders.append(f'${len(placeholders) + 1}')
+                    placeholders.append(f'${len(base_values)}')
                 
                 query = f"""
                     INSERT INTO user_sessions ({', '.join(base_columns)}) 
@@ -343,12 +361,12 @@ class FixedDatabaseManager:
                 if self._has_column('search_history', 'search_data'):
                     base_columns.append('search_data')
                     base_values.append(search_data_json)
-                    placeholders.append(f'${len(placeholders) + 1}')
+                    placeholders.append(f'${len(base_values)}')
                 
                 if ai_synopsis and self._has_column('search_history', 'ai_synopsis'):
                     base_columns.append('ai_synopsis')
                     base_values.append(ai_synopsis)
-                    placeholders.append(f'${len(placeholders) + 1}')
+                    placeholders.append(f'${len(base_values)}')
                 
                 query = f"""
                     INSERT INTO search_history ({', '.join(base_columns)}) 
@@ -360,14 +378,24 @@ class FixedDatabaseManager:
                 # Try to add to gst_search_history if it exists
                 if 'gst_search_history' in self._column_cache:
                     try:
-                        gst_columns = ['user_mobile', 'mobile', 'gstin', 'company_name', 'compliance_score', 'search_data', 'response_data']
-                        gst_values = [mobile, mobile, gstin, company_name, compliance_score, search_data_json, search_data_json]
-                        gst_placeholders = ['$1', '$2', '$3', '$4', '$5', '$6', '$7']
+                        gst_columns = ['user_mobile', 'mobile', 'gstin', 'company_name', 'compliance_score']
+                        gst_values = [mobile, mobile, gstin, company_name, compliance_score]
+                        gst_placeholders = ['$1', '$2', '$3', '$4', '$5']
+                        
+                        if self._has_column('gst_search_history', 'search_data'):
+                            gst_columns.append('search_data')
+                            gst_values.append(search_data_json)
+                            gst_placeholders.append(f'${len(gst_values)}')
+                        
+                        if self._has_column('gst_search_history', 'response_data'):
+                            gst_columns.append('response_data')
+                            gst_values.append(search_data_json)
+                            gst_placeholders.append(f'${len(gst_values)}')
                         
                         if ai_synopsis and self._has_column('gst_search_history', 'ai_synopsis'):
                             gst_columns.append('ai_synopsis')
                             gst_values.append(ai_synopsis)
-                            gst_placeholders.append('$8')
+                            gst_placeholders.append(f'${len(gst_values)}')
                         
                         gst_query = f"""
                             INSERT INTO gst_search_history ({', '.join(gst_columns)}) 
@@ -485,6 +513,56 @@ class FixedDatabaseManager:
         except Exception as e:
             logger.error(f"Error getting user profile: {e}")
             return {"user_info": {}, "search_stats": {}, "recent_searches": []}
+
+    # Additional methods for loan management (if needed)
+    async def get_user_loan_applications(self, mobile: str) -> List[Dict]:
+        """Get user's loan applications"""
+        try:
+            if 'loan_applications' not in self._column_cache:
+                return []  # Table doesn't exist
+                
+            async with self.pool.acquire() as conn:
+                applications = await conn.fetch(
+                    """SELECT * FROM loan_applications 
+                       WHERE user_mobile = $1 
+                       ORDER BY created_at DESC""",
+                    mobile
+                )
+                return [dict(row) for row in applications]
+        except Exception as e:
+            logger.error(f"Error getting loan applications: {e}")
+            return []
+
+    async def get_user_active_loans(self, mobile: str) -> List[Dict]:
+        """Get user's active loans"""
+        try:
+            if 'active_loans' not in self._column_cache:
+                return []  # Table doesn't exist
+                
+            async with self.pool.acquire() as conn:
+                loans = await conn.fetch(
+                    """SELECT al.*, la.company_name, la.gstin 
+                       FROM active_loans al
+                       JOIN loan_applications la ON al.application_id = la.application_id
+                       WHERE al.user_mobile = $1 AND al.status = 'active'
+                       ORDER BY al.created_at DESC""",
+                    mobile
+                )
+                return [dict(row) for row in loans]
+        except Exception as e:
+            logger.error(f"Error getting active loans: {e}")
+            return []
+
+    async def close(self):
+        """Close database connections"""
+        try:
+            if self.pool:
+                await self.pool.close()
+            self._initialized = False
+            logger.info("✅ Database connections closed")
+        except Exception as e:
+            logger.error(f"❌ Error closing database connections: {e}")
+
 # Initialize database
 db = FixedDatabaseManager(postgres_dsn=POSTGRES_DSN)
 
@@ -1163,6 +1241,11 @@ async def settings_page(request: Request, current_user: str = Depends(require_au
         "user_display_name": current_user
     })
 
+@app.get("/static/icons/icon-144x144.png")
+async def icon_fallback():
+    """Fallback for missing icon"""
+    return FileResponse("static/icons/favicon.png", media_type="image/png")
+
 @app.get("/favicon.ico")
 async def favicon():
     return FileResponse("static/icons/favicon.png", media_type="image/png")
@@ -1736,6 +1819,16 @@ async def log_error(request: Request, current_user: str = Depends(require_auth))
         return JSONResponse({"success": True})
     except Exception as e:
         logger.error(f"Error logging client error: {e}")
+        return JSONResponse({"success": False})
+    
+@app.post("/api/system/error")
+async def log_client_error(request: Request):
+    """Handle client-side error logging"""
+    try:
+        data = await request.json()
+        logger.warning(f"Client error: {data}")
+        return JSONResponse({"success": True})
+    except:
         return JSONResponse({"success": False})
 
 # Startup/Shutdown
