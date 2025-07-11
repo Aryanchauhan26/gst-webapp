@@ -1510,6 +1510,33 @@ async def export_user_data(current_user: str = Depends(require_auth)):
         logger.error(f"Export error: {e}")
         raise HTTPException(status_code=500, detail="Failed to export data")
 
+@app.get("/api/user/activity")
+async def get_user_activity(days: int = 30, current_user: str = Depends(require_auth)):
+    """Get user activity data"""
+    try:
+        await db.initialize()
+        # Return empty data for now
+        return JSONResponse({
+            "success": True,
+            "data": {
+                "daily_activity": [],
+                "hourly_activity": []
+            }
+        })
+    except Exception as e:
+        return JSONResponse({"success": False, "error": str(e)}, status_code=500)
+
+@app.get("/api/user/preferences")
+async def get_user_preferences(current_user: str = Depends(require_auth)):
+    """Get user preferences"""
+    return JSONResponse({
+        "success": True,
+        "data": {
+            "theme": "dark",
+            "compactMode": False
+        }
+    })
+
 @app.get("/api/user/profile")
 async def user_profile(current_user: str = Depends(require_auth)):
     await db.initialize()

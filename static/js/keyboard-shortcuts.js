@@ -46,7 +46,11 @@ if (!window.KeyboardShortcuts) {
             if (event.shiftKey) parts.push('shift');
             if (event.metaKey) parts.push('meta');
 
-            parts.push(event.key.toLowerCase());
+            // Add null check for event.key
+            const key = event.key;
+            if (key && typeof key === 'string') {
+                parts.push(key.toLowerCase());
+            }
 
             return parts.join('+');
         }

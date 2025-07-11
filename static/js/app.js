@@ -176,18 +176,19 @@ class GSTIntelligenceApp {
     }
 
     initializeTheme() {
-        const savedTheme = localStorage.getItem('theme');
-        const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-        const theme = savedTheme || systemTheme;
-        
+        const savedTheme = localStorage.getItem('theme') || 'dark';
+    const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    const theme = savedTheme || systemTheme;
+    
+    if (document.documentElement) {
         document.documentElement.setAttribute('data-theme', theme);
-        
-        // Update theme toggle indicator
-        const indicator = document.getElementById('theme-indicator-icon');
-        if (indicator) {
-            indicator.className = theme === 'dark' ? 'fas fa-moon' : 'fas fa-sun';
-        }
     }
+    
+    const indicator = document.getElementById('theme-indicator-icon');
+    if (indicator) {
+        indicator.className = theme === 'dark' ? 'fas fa-moon' : 'fas fa-sun';
+    }
+}
 
     initializeUI() {
         // Initialize dropdowns
@@ -284,9 +285,13 @@ class GSTIntelligenceApp {
     handleDropdownKeyboard(e, menu) {
         const items = menu.querySelectorAll('a, button, [tabindex]:not([tabindex="-1"])');
         const currentIndex = Array.from(items).indexOf(document.activeElement);
-        
+    
+        // Add null check for e.key
+        if (!e.key) return;
+    
         switch (e.key) {
             case 'ArrowDown':
+            // ... rest of the code
                 e.preventDefault();
                 const nextIndex = currentIndex < items.length - 1 ? currentIndex + 1 : 0;
                 items[nextIndex].focus();
@@ -673,48 +678,6 @@ class GSTIntelligenceApp {
                 module.cleanup();
             }
         }
-    }
-
-    // Utility methods
-    debounce(func, wait) {
-        let timeout;
-        return function executedFunction(...args) {
-            const later = () => {
-                clearTimeout(timeout);
-                func(...args);
-            };
-            clearTimeout(timeout);
-            timeout = setTimeout(later, wait);
-        };
-    }
-
-    throttle(func, limit) {
-        let inThrottle;
-        return function() {
-            const args = arguments;
-            const context = this;
-            if (!inThrottle) {
-                func.apply(context, args);
-                inThrottle = true;
-                setTimeout(() => inThrottle = false, limit);
-            }
-        };
-    }
-
-    formatCurrency(amount, currency = 'INR') {
-        return new Intl.NumberFormat('en-IN', {
-            style: 'currency',
-            currency: currency
-        }).format(amount);
-    }
-
-    formatDate(date, options = {}) {
-        const defaultOptions = {
-            year: 'numeric',
-            month: 'short',
-            day: 'numeric'
-        };
-        return new Intl.DateTimeFormat('en-IN', { ...defaultOptions, ...options }).format(new Date(date));
     }
 
     // Module getter

@@ -1094,7 +1094,7 @@
 {% block extra_js %}
 <script>
 // Results-specific functionality
-function toggleCategory(header) {
+window.toggleCategory = function(header) {
     const content = header.nextElementSibling;
     const isActive = header.classList.contains('active');
     
@@ -1123,7 +1123,7 @@ function toggleCategory(header) {
 }
 
 // Share functionality
-function shareResults() {
+window.shareResults = function() {
     const shareData = {
         title: 'GST Compliance Report',
         text: `Check out this GST compliance report for {{ company_data.lgnm }}`,

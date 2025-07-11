@@ -6,6 +6,13 @@
 
 console.log("🔧 Loading missing globals...");
 
+// Debug logging function
+window.debugLog = function(message, data = null) {
+    if (console && console.log) {
+        console.log(`🔧 ${message}`, data || '');
+    }
+};
+
 // =============================================================================
 // 1. NOTIFICATION MANAGER (Referenced by multiple files)
 // =============================================================================
