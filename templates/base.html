@@ -32,6 +32,50 @@
     {% block extra_css %}{% endblock %}
     
     <style>
+/* Add this to base.html <head> section */
+.user-progress {
+    margin-top: 0.75rem;
+}
+
+.modal-overlay {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(10px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10000;
+}
+
+.btn {
+    padding: 0.75rem 1.5rem;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border: none;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+}
+
+.btn--primary {
+    background: var(--accent-gradient);
+    color: white;
+}
+
+.btn--secondary {
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    border: 1px solid var(--border-primary);
+}
+</style>
+
+    <style>
+
         /* CRITICAL CSS FIXES */
         
         /* Theme Variables */
@@ -448,51 +492,92 @@
             </button>
 
             <!-- User Profile & Theme Toggle -->
-            <div class="user-profile-wrapper">
-                <!-- Theme Toggle -->
-                <div class="theme-toggle" onclick="toggleTheme()" title="Toggle dark/light mode">
-                    <div class="theme-toggle-indicator">
-                        <i class="fas fa-moon" id="theme-indicator-icon"></i>
-                    </div>
-                </div>
+            <!-- FIXED User Profile Dropdown Section - Replace in base.html -->
+<!-- Insert this in the header section where the user profile is -->
 
-                <!-- User Profile Dropdown - FIXED -->
-                <div class="dropdown" id="userProfileDropdown">
-                    <button class="user__trigger" id="userProfileBtn" aria-haspopup="true" aria-expanded="false">
-                        <div class="user__avatar">
-                            {{ current_user[0]|upper if current_user else 'U' }}
+<div class="user-profile-wrapper">
+    <!-- Theme Toggle -->
+    <div class="theme-toggle" onclick="toggleTheme()" title="Toggle dark/light mode">
+        <div class="theme-toggle-indicator">
+            <i class="fas fa-moon" id="theme-indicator-icon"></i>
+        </div>
+    </div>
+
+    <!-- User Profile Dropdown - FIXED -->
+    <div class="dropdown" id="userProfileDropdown">
+        <button class="user__trigger" id="userProfileBtn" aria-haspopup="true" aria-expanded="false">
+            <div class="user__avatar">
+                {{ current_user[0]|upper if current_user else 'U' }}
+            </div>
+            <div class="user__info">
+                <span class="user__name">{{ current_user or 'User' }}</span>
+                <span class="user__role">Member</span>
+            </div>
+            <i class="fas fa-chevron-down" style="font-size: 0.75rem; color: var(--text-muted);"></i>
+        </button>
+        
+        <div class="dropdown-menu" id="userDropdownMenu" role="menu">
+            <!-- User Stats in Dropdown - FIXED -->
+            <div style="padding: 1rem; border-bottom: 1px solid var(--border-primary); background: var(--bg-hover);">
+                <div style="text-align: center; margin-bottom: 0.75rem;">
+                    <div style="font-weight: 600; color: var(--text-primary); margin-bottom: 0.25rem;">{{ current_user }}</div>
+                    <div style="font-size: 0.75rem; color: var(--text-secondary);">Active Member</div>
+                </div>
+                
+                <!-- Quick Stats -->
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-bottom: 0.75rem;">
+                    <div style="text-align: center;">
+                        <div id="userSearchCount" style="font-weight: 700; color: var(--accent-primary); font-size: 1.1rem;">
+                            {% if profile_data and profile_data.search_stats %}{{ profile_data.search_stats.total_searches }}{% else %}0{% endif %}
                         </div>
-                        <div class="user__info">
-                            <span class="user__name">{{ current_user or 'User' }}</span>
-                            <span class="user__role">Member</span>
+                        <div style="font-size: 0.7rem; color: var(--text-secondary);">Searches</div>
+                    </div>
+                    <div style="text-align: center;">
+                        <div id="userAvgScore" style="font-weight: 700; color: var(--success); font-size: 1.1rem;">
+                            {% if profile_data and profile_data.search_stats %}{{ "%.0f"|format(profile_data.search_stats.avg_compliance) }}%{% else %}0%{% endif %}
                         </div>
-                        <i class="fas fa-chevron-down" style="font-size: 0.75rem; color: var(--text-muted);"></i>
-                    </button>
-                    
-                    <div class="dropdown-menu" id="userDropdownMenu" role="menu">
-                        <a href="/profile" class="dropdown-item" role="menuitem">
-                            <i class="fas fa-user"></i>
-                            <span>Profile</span>
-                        </a>
-                        <a href="/history" class="dropdown-item" role="menuitem">
-                            <i class="fas fa-history"></i>
-                            <span>Search History</span>
-                        </a>
-                        <a href="/analytics" class="dropdown-item" role="menuitem">
-                            <i class="fas fa-chart-bar"></i>
-                            <span>Analytics</span>
-                        </a>
-                        <div class="dropdown-item" role="menuitem" style="border-top: 1px solid var(--border-primary); margin-top: 0.5rem; padding-top: 0.75rem;">
-                            <i class="fas fa-cog"></i>
-                            <span>Settings</span>
-                        </div>
-                        <a href="/logout" class="dropdown-item" role="menuitem" style="color: var(--error);">
-                            <i class="fas fa-sign-out-alt"></i>
-                            <span>Logout</span>
-                        </a>
+                        <div style="font-size: 0.7rem; color: var(--text-secondary);">Avg Score</div>
                     </div>
                 </div>
+                
+                <!-- User Level -->
+                <div class="user-level" style="text-align: center;">
+                    <div style="display: flex; align-items: center; justify-content: center; gap: 0.5rem;">
+                        <i class="fas fa-user-plus" style="color: #6b7280;"></i>
+                        <span style="color: #6b7280; font-weight: 600; font-size: 0.8rem;">
+                            {% if profile_data and profile_data.search_stats.total_searches >= 100 %}Expert{% elif profile_data and profile_data.search_stats.total_searches >= 50 %}Advanced{% elif profile_data and profile_data.search_stats.total_searches >= 20 %}Intermediate{% elif profile_data and profile_data.search_stats.total_searches >= 5 %}Beginner{% else %}New User{% endif %}
+                        </span>
+                    </div>
+                </div>
+                
+                <!-- Progress to next level -->
+                <div class="user-progress"></div>
             </div>
+            
+            <!-- Menu Items -->
+            <a href="/profile" class="dropdown-item" role="menuitem">
+                <i class="fas fa-user"></i>
+                <span>Profile</span>
+            </a>
+            <a href="/history" class="dropdown-item" role="menuitem">
+                <i class="fas fa-history"></i>
+                <span>Search History</span>
+            </a>
+            <a href="/analytics" class="dropdown-item" role="menuitem">
+                <i class="fas fa-chart-bar"></i>
+                <span>Analytics</span>
+            </a>
+            <div class="dropdown-item" role="menuitem" style="border-top: 1px solid var(--border-primary); margin-top: 0.5rem; padding-top: 0.75rem;" onclick="openEnhancedProfileModal()">
+                <i class="fas fa-cog"></i>
+                <span>Settings</span>
+            </div>
+            <a href="/logout" class="dropdown-item" role="menuitem" style="color: var(--error);">
+                <i class="fas fa-sign-out-alt"></i>
+                <span>Logout</span>
+            </a>
+        </div>
+    </div>
+</div>
             {% else %}
             <!-- Guest navigation -->
             <div class="theme-toggle-wrapper">
@@ -535,150 +620,306 @@
 
     <!-- Core Scripts -->
     <script>
-    // Global app state - FIXED
-    window.GST_APP_STATE = {
-        currentUser: {% if current_user %}{{ current_user|tojson|safe }}{% else %}null{% endif %},
-        isAuthenticated: {{ 'true' if current_user else 'false' }},
-        theme: localStorage.getItem('theme') || 'dark'
-    };
+// FIXED JavaScript for base.html - Replace the script section
 
-        // Theme management - FIXED
-        function toggleTheme() {
-            const html = document.documentElement;
-            const currentTheme = html.getAttribute('data-theme');
-            const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+// Global app state - FIXED
+window.GST_APP_STATE = {
+    currentUser: {% if current_user %}{{ current_user|tojson|safe }}{% else %}null{% endif %},
+    isAuthenticated: {{ 'true' if current_user else 'false' }},
+    theme: localStorage.getItem('theme') || 'dark',
+    profileData: {% if profile_data %}{{ profile_data|tojson|safe }}{% else %}null{% endif %}
+};
 
-            html.setAttribute('data-theme', newTheme);
-            localStorage.setItem('theme', newTheme);
+// Theme management - FIXED
+function toggleTheme() {
+    const html = document.documentElement;
+    const currentTheme = html.getAttribute('data-theme');
+    const newTheme = currentTheme === 'light' ? 'dark' : 'light';
 
-            // Update theme indicator
-            const indicator = document.getElementById('theme-indicator-icon');
-            if (indicator) {
-                indicator.className = newTheme === 'dark' ? 'fas fa-moon' : 'fas fa-sun';
-            }
-        }
+    html.setAttribute('data-theme', newTheme);
+    localStorage.setItem('theme', newTheme);
 
-        // Initialize theme
-        function initTheme() {
-            const savedTheme = localStorage.getItem('theme');
-            const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-            const theme = savedTheme || (prefersDark ? 'dark' : 'light');
+    // Update theme indicator
+    const indicator = document.getElementById('theme-indicator-icon');
+    if (indicator) {
+        indicator.className = newTheme === 'dark' ? 'fas fa-moon' : 'fas fa-sun';
+    }
 
-            document.documentElement.setAttribute('data-theme', theme);
+    console.log('Theme changed to:', newTheme);
+}
 
-            const indicator = document.getElementById('theme-indicator-icon');
-            if (indicator) {
-                indicator.className = theme === 'dark' ? 'fas fa-moon' : 'fas fa-sun';
-            }
-        }
+// Initialize theme
+function initTheme() {
+    const savedTheme = localStorage.getItem('theme');
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    const theme = savedTheme || (prefersDark ? 'dark' : 'light');
 
-        // Profile dropdown - FIXED
-        function initProfileDropdown() {
-            const dropdown = document.getElementById('userProfileDropdown');
-            const button = document.getElementById('userProfileBtn');
-            const menu = document.getElementById('userDropdownMenu');
+    document.documentElement.setAttribute('data-theme', theme);
 
-            if (!dropdown || !button || !menu) return;
+    const indicator = document.getElementById('theme-indicator-icon');
+    if (indicator) {
+        indicator.className = theme === 'dark' ? 'fas fa-moon' : 'fas fa-sun';
+    }
+}
 
-            // Toggle dropdown on button click
-            button.addEventListener('click', function(e) {
-                e.stopPropagation();
-                const isActive = dropdown.classList.contains('active');
-                
-                // Close any other open dropdowns
-                document.querySelectorAll('.dropdown.active').forEach(d => {
-                    if (d !== dropdown) d.classList.remove('active');
-                });
-                
-                // Toggle this dropdown
-                dropdown.classList.toggle('active');
-                button.setAttribute('aria-expanded', dropdown.classList.contains('active'));
-            });
+// Profile dropdown - FIXED
+function initProfileDropdown() {
+    const dropdown = document.getElementById('userProfileDropdown');
+    const button = document.getElementById('userProfileBtn');
+    const menu = document.getElementById('userDropdownMenu');
 
-            // Close dropdown when clicking outside
-            document.addEventListener('click', function(e) {
-                if (!dropdown.contains(e.target)) {
-                    dropdown.classList.remove('active');
-                    button.setAttribute('aria-expanded', 'false');
-                }
-            });
+    if (!dropdown || !button || !menu) {
+        console.warn('Profile dropdown elements not found');
+        return;
+    }
 
-            // Close dropdown on escape key
-            document.addEventListener('keydown', function(e) {
-                if (e.key === 'Escape' && dropdown.classList.contains('active')) {
-                    dropdown.classList.remove('active');
-                    button.setAttribute('aria-expanded', 'false');
-                    button.focus();
-                }
-            });
-        }
-
-        // Mobile navigation - FIXED
-        function initMobileNav() {
-            const toggle = document.getElementById('mobile-nav-toggle');
-            const nav = document.getElementById('main-nav');
-
-            if (!toggle || !nav) return;
-
-            toggle.addEventListener('click', function() {
-                nav.classList.toggle('mobile-nav-open');
-                const isOpen = nav.classList.contains('mobile-nav-open');
-                
-                // Update icon
-                const icon = toggle.querySelector('i');
-                if (icon) {
-                    icon.className = isOpen ? 'fas fa-times' : 'fas fa-bars';
-                }
-                
-                // Update aria label
-                toggle.setAttribute('aria-label', isOpen ? 'Close navigation' : 'Open navigation');
-            });
-
-            // Close mobile nav when clicking nav links
-            nav.addEventListener('click', function(e) {
-                if (e.target.matches('.nav__link')) {
-                    nav.classList.remove('mobile-nav-open');
-                    const icon = toggle.querySelector('i');
-                    if (icon) {
-                        icon.className = 'fas fa-bars';
-                    }
-                    toggle.setAttribute('aria-label', 'Open navigation');
-                }
-            });
-        }
-
-        // Initialize everything - FIXED
-        document.addEventListener('DOMContentLoaded', function() {
-            console.log('🚀 Initializing GST Intelligence Platform...');
-            
-            initTheme();
-            initProfileDropdown();
-            initMobileNav();
-            
-            // Add loading states
-            document.querySelectorAll('form').forEach(form => {
-                form.addEventListener('submit', function() {
-                    const submitBtn = form.querySelector('button[type="submit"]');
-                    if (submitBtn) {
-                        submitBtn.disabled = true;
-                        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading...';
-                    }
-                });
-            });
-            
-            console.log('✅ Base functionality initialized');
+    // Toggle dropdown on button click
+    button.addEventListener('click', function(e) {
+        e.stopPropagation();
+        const isActive = dropdown.classList.contains('active');
+        
+        // Close any other open dropdowns
+        document.querySelectorAll('.dropdown.active').forEach(d => {
+            if (d !== dropdown) d.classList.remove('active');
         });
+        
+        // Toggle this dropdown
+        dropdown.classList.toggle('active');
+        button.setAttribute('aria-expanded', dropdown.classList.contains('active'));
+        
+        // Load user stats when opening
+        if (dropdown.classList.contains('active')) {
+            loadUserStatsInDropdown();
+        }
+    });
 
-        // Handle page visibility changes
-        document.addEventListener('visibilitychange', function() {
-            if (document.visibilityState === 'visible') {
-                console.log('📱 Page became visible');
-                // Refresh user data if needed
-                if (window.GST_APP_STATE.isAuthenticated) {
-                    // Could trigger a refresh here
-                }
+    // Close dropdown when clicking outside
+    document.addEventListener('click', function(e) {
+        if (!dropdown.contains(e.target)) {
+            dropdown.classList.remove('active');
+            button.setAttribute('aria-expanded', 'false');
+        }
+    });
+
+    // Close dropdown on escape key
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape' && dropdown.classList.contains('active')) {
+            dropdown.classList.remove('active');
+            button.setAttribute('aria-expanded', 'false');
+            button.focus();
+        }
+    });
+}
+
+// Load user stats in dropdown - FIXED
+async function loadUserStatsInDropdown() {
+    try {
+        const response = await fetch('/api/user/stats');
+        const result = await response.json();
+        
+        if (result.success && result.data) {
+            // Update search count
+            const searchCountEl = document.getElementById('userSearchCount');
+            if (searchCountEl) {
+                animateNumber(searchCountEl, 0, result.data.total_searches || 0, 800);
             }
+            
+            // Update average score
+            const avgScoreEl = document.getElementById('userAvgScore');
+            if (avgScoreEl) {
+                animateNumber(avgScoreEl, 0, Math.round(result.data.avg_compliance || 0), 1000, '%');
+            }
+            
+            // Update user level
+            updateUserLevel(result.data);
+            
+            console.log('User stats updated in dropdown');
+        }
+    } catch (error) {
+        console.error('Error loading user stats:', error);
+    }
+}
+
+// Update user level display
+function updateUserLevel(data) {
+    const levelElement = document.querySelector('.user-level');
+    if (!levelElement || !data.user_level) return;
+    
+    const level = data.user_level;
+    levelElement.innerHTML = `
+        <div style="display: flex; align-items: center; justify-content: center; gap: 0.5rem; margin-top: 0.5rem;">
+            <i class="${level.icon}" style="color: ${level.color};"></i>
+            <span style="color: ${level.color}; font-weight: 600; font-size: 0.8rem;">${level.level}</span>
+        </div>
+    `;
+}
+
+// Animate numbers
+function animateNumber(element, start, end, duration, suffix = '') {
+    const startTime = performance.now();
+    const difference = end - start;
+    
+    function step(currentTime) {
+        const elapsed = currentTime - startTime;
+        const progress = Math.min(elapsed / duration, 1);
+        const current = Math.floor(start + (difference * progress));
+        
+        element.textContent = current + suffix;
+        
+        if (progress < 1) {
+            requestAnimationFrame(step);
+        }
+    }
+    
+    requestAnimationFrame(step);
+}
+
+// Mobile navigation - FIXED
+function initMobileNav() {
+    const toggle = document.getElementById('mobile-nav-toggle');
+    const nav = document.getElementById('main-nav');
+
+    if (!toggle || !nav) return;
+
+    toggle.addEventListener('click', function() {
+        nav.classList.toggle('mobile-nav-open');
+        const isOpen = nav.classList.contains('mobile-nav-open');
+        
+        // Update icon
+        const icon = toggle.querySelector('i');
+        if (icon) {
+            icon.className = isOpen ? 'fas fa-times' : 'fas fa-bars';
+        }
+        
+        // Update aria label
+        toggle.setAttribute('aria-label', isOpen ? 'Close navigation' : 'Open navigation');
+    });
+
+    // Close mobile nav when clicking nav links
+    nav.addEventListener('click', function(e) {
+        if (e.target.matches('.nav__link')) {
+            nav.classList.remove('mobile-nav-open');
+            const icon = toggle.querySelector('i');
+            if (icon) {
+                icon.className = 'fas fa-bars';
+            }
+            toggle.setAttribute('aria-label', 'Open navigation');
+        }
+    });
+}
+
+// Enhanced profile modal
+window.openEnhancedProfileModal = function() {
+    const profileData = window.GST_APP_STATE.profileData;
+    const userStats = profileData ? profileData.search_stats : {};
+    
+    // Create modal
+    const modal = document.createElement('div');
+    modal.className = 'modal-overlay';
+    modal.style.cssText = `
+        position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+        background: rgba(0, 0, 0, 0.6); backdrop-filter: blur(10px);
+        display: flex; align-items: center; justify-content: center;
+        z-index: 10000; animation: fadeIn 0.3s ease;
+    `;
+    
+    modal.innerHTML = `
+        <div style="background: var(--bg-card); padding: 2rem; border-radius: 16px; max-width: 500px; width: 90%; border: 1px solid var(--border-primary); box-shadow: var(--shadow-xl);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                <h3 style="margin: 0; color: var(--text-primary);">Enhanced Profile</h3>
+                <button onclick="this.closest('.modal-overlay').remove()" style="background: var(--bg-hover); border: none; width: 32px; height: 32px; border-radius: 8px; cursor: pointer; color: var(--text-muted);">×</button>
+            </div>
+            
+            <div style="text-align: center; margin-bottom: 1.5rem;">
+                <div style="width: 80px; height: 80px; background: var(--accent-gradient); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 1rem; color: white; font-size: 2rem;">
+                    ${window.GST_APP_STATE.currentUser ? window.GST_APP_STATE.currentUser[0].toUpperCase() : 'U'}
+                </div>
+                <h4 style="margin: 0; color: var(--text-primary);">${window.GST_APP_STATE.currentUser || 'User'}</h4>
+                <p style="color: var(--text-secondary); margin: 0.5rem 0;">GST Intelligence Member</p>
+            </div>
+            
+            <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; margin-bottom: 1.5rem;">
+                <div style="text-align: center; padding: 1rem; background: var(--bg-hover); border-radius: 12px;">
+                    <div style="font-size: 1.5rem; font-weight: 700; color: var(--accent-primary);">${userStats.total_searches || 0}</div>
+                    <div style="font-size: 0.875rem; color: var(--text-secondary);">Total Searches</div>
+                </div>
+                <div style="text-align: center; padding: 1rem; background: var(--bg-hover); border-radius: 12px;">
+                    <div style="font-size: 1.5rem; font-weight: 700; color: var(--success);">${Math.round(userStats.avg_compliance || 0)}%</div>
+                    <div style="font-size: 0.875rem; color: var(--text-secondary);">Avg Compliance</div>
+                </div>
+            </div>
+            
+            <div style="display: flex; gap: 1rem;">
+                <button onclick="window.location.href='/profile'" class="btn btn--primary" style="flex: 1;">View Full Profile</button>
+                <button onclick="this.closest('.modal-overlay').remove()" class="btn btn--secondary">Close</button>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+};
+
+// Initialize everything - FIXED
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('🚀 Initializing GST Intelligence Platform...');
+    
+    try {
+        initTheme();
+        initProfileDropdown();
+        initMobileNav();
+        
+        // Add loading states to forms
+        document.querySelectorAll('form').forEach(form => {
+            form.addEventListener('submit', function() {
+                const submitBtn = form.querySelector('button[type="submit"]');
+                if (submitBtn && !submitBtn.disabled) {
+                    submitBtn.disabled = true;
+                    const originalText = submitBtn.innerHTML;
+                    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading...';
+                    
+                    // Reset after 5 seconds as fallback
+                    setTimeout(() => {
+                        submitBtn.disabled = false;
+                        submitBtn.innerHTML = originalText;
+                    }, 5000);
+                }
+            });
         });
+        
+        console.log('✅ Base functionality initialized');
+        
+        // Load user stats in dropdown after a delay
+        if (window.GST_APP_STATE.isAuthenticated) {
+            setTimeout(loadUserStatsInDropdown, 1000);
+        }
+        
+    } catch (error) {
+        console.error('❌ Initialization error:', error);
+    }
+});
+
+// Handle page visibility changes
+document.addEventListener('visibilitychange', function() {
+    if (document.visibilityState === 'visible' && window.GST_APP_STATE.isAuthenticated) {
+        console.log('📱 Page became visible - refreshing user data');
+        setTimeout(loadUserStatsInDropdown, 500);
+    }
+});
+
+// Add fade in animation CSS
+const fadeInCSS = `
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+`;
+
+if (!document.getElementById('modal-animations')) {
+    const style = document.createElement('style');
+    style.id = 'modal-animations';
+    style.textContent = fadeInCSS;
+    document.head.appendChild(style);
+}
     </script>
 
     <!-- Load additional scripts -->

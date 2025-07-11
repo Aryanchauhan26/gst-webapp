@@ -349,87 +349,64 @@ class FixedDatabaseManager:
             return False
 
     async def add_search_history(self, mobile: str, gstin: str, company_name: str, compliance_score: float, search_data: dict = None, ai_synopsis: str = None) -> bool:
-        """Add search to history with safe column handling"""
+        """Add search to history with safe column handling - FIXED"""
         try:
             async with self.pool.acquire() as conn:
-                # Always try to add to search_history table
+                # Use a simple, reliable insert
                 search_data_json = json.dumps(search_data or {})
                 
-                base_columns = ['mobile', 'gstin', 'company_name', 'compliance_score']
-                base_values = [mobile, gstin, company_name, compliance_score]
-                placeholders = ['$1', '$2', '$3', '$4']
+                # Try main search_history table first
+                try:
+                    await conn.execute("""
+                        INSERT INTO search_history (mobile, gstin, company_name, compliance_score, search_data, ai_synopsis) 
+                        VALUES ($1, $2, $3, $4, $5, $6)
+                    """, mobile, gstin, company_name, compliance_score, search_data_json, ai_synopsis)
+                    
+                    logger.info(f"✅ Search history added: {gstin} for {mobile}")
+                    
+                except Exception as e:
+                    logger.error(f"Error inserting to search_history: {e}")
+                    # Try minimal insert
+                    await conn.execute("""
+                        INSERT INTO search_history (mobile, gstin, company_name, compliance_score) 
+                        VALUES ($1, $2, $3, $4)
+                    """, mobile, gstin, company_name, compliance_score)
                 
-                # Add optional columns if they exist
-                if self._has_column('search_history', 'search_data'):
-                    base_columns.append('search_data')
-                    base_values.append(search_data_json)
-                    placeholders.append(f'${len(base_values)}')
-                
-                if ai_synopsis and self._has_column('search_history', 'ai_synopsis'):
-                    base_columns.append('ai_synopsis')
-                    base_values.append(ai_synopsis)
-                    placeholders.append(f'${len(base_values)}')
-                
-                query = f"""
-                    INSERT INTO search_history ({', '.join(base_columns)}) 
-                    VALUES ({', '.join(placeholders)})
-                """
-                
-                await conn.execute(query, *base_values)
-                
-                # Try to add to gst_search_history if it exists
-                if 'gst_search_history' in self._column_cache:
-                    try:
-                        gst_columns = ['user_mobile', 'mobile', 'gstin', 'company_name', 'compliance_score']
-                        gst_values = [mobile, mobile, gstin, company_name, compliance_score]
-                        gst_placeholders = ['$1', '$2', '$3', '$4', '$5']
-                        
-                        if self._has_column('gst_search_history', 'search_data'):
-                            gst_columns.append('search_data')
-                            gst_values.append(search_data_json)
-                            gst_placeholders.append(f'${len(gst_values)}')
-                        
-                        if self._has_column('gst_search_history', 'response_data'):
-                            gst_columns.append('response_data')
-                            gst_values.append(search_data_json)
-                            gst_placeholders.append(f'${len(gst_values)}')
-                        
-                        if ai_synopsis and self._has_column('gst_search_history', 'ai_synopsis'):
-                            gst_columns.append('ai_synopsis')
-                            gst_values.append(ai_synopsis)
-                            gst_placeholders.append(f'${len(gst_values)}')
-                        
-                        gst_query = f"""
-                            INSERT INTO gst_search_history ({', '.join(gst_columns)}) 
-                            VALUES ({', '.join(gst_placeholders)})
-                        """
-                        
-                        await conn.execute(gst_query, *gst_values)
-                    except Exception as e:
-                        logger.warning(f"Could not add to gst_search_history: {e}")
+                # Try gst_search_history table if it exists
+                try:
+                    await conn.execute("""
+                        INSERT INTO gst_search_history 
+                        (user_mobile, mobile, gstin, company_name, compliance_score, search_data, ai_synopsis, response_data) 
+                        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+                    """, mobile, mobile, gstin, company_name, compliance_score, 
+                        search_data_json, ai_synopsis, search_data_json)
+                except Exception as e:
+                    logger.warning(f"Could not add to gst_search_history: {e}")
                 
                 return True
+                
         except Exception as e:
             logger.error(f"Error adding search history: {e}")
             return False
 
     async def get_search_history(self, mobile: str, limit: int = 50) -> List[Dict]:
-        """Get user search history with safe column handling"""
+        """Get user search history with safe column handling - FIXED"""
         try:
             async with self.pool.acquire() as conn:
-                columns = ['gstin', 'company_name', 'compliance_score', 'searched_at']
+                # Use a robust query with COALESCE for missing columns
+                history = await conn.fetch("""
+                    SELECT gstin, company_name, 
+                           COALESCE(compliance_score, 0) as compliance_score,
+                           searched_at,
+                           COALESCE(ai_synopsis, '') as ai_synopsis
+                    FROM search_history 
+                    WHERE mobile = $1 
+                    ORDER BY searched_at DESC 
+                    LIMIT $2
+                """, mobile, limit)
                 
-                if self._has_column('search_history', 'ai_synopsis'):
-                    columns.append('ai_synopsis')
-                
-                query = self._build_safe_select(
-                    'search_history', 
-                    columns, 
-                    "WHERE mobile = $1 ORDER BY searched_at DESC LIMIT $2"
-                )
-                
-                history = await conn.fetch(query, mobile, limit)
                 return [dict(row) for row in history]
+                
         except Exception as e:
             logger.error(f"Error getting search history: {e}")
             return []
@@ -453,68 +430,85 @@ class FixedDatabaseManager:
             return []
 
     async def get_user_stats(self, mobile: str) -> Dict:
-        """Get user statistics with safe column handling"""
+        """Get user statistics with safe column handling - FIXED"""
         try:
             async with self.pool.acquire() as conn:
+                # Use a more robust query that doesn't rely on column cache
                 stats = await conn.fetchrow("""
                     SELECT 
                         COUNT(*) as total_searches,
                         COALESCE(AVG(compliance_score), 0) as avg_compliance,
                         COUNT(DISTINCT gstin) as unique_companies,
-                        COUNT(CASE WHEN searched_at >= DATE_TRUNC('month', CURRENT_DATE) THEN 1 END) as searches_this_month
+                        COUNT(CASE WHEN searched_at >= CURRENT_DATE - INTERVAL '30 days' THEN 1 END) as searches_this_month
                     FROM search_history 
                     WHERE mobile = $1
                 """, mobile)
                 
                 if stats:
                     return {
-                        "total_searches": int(stats["total_searches"]),
-                        "avg_compliance": float(stats["avg_compliance"]),
-                        "unique_companies": int(stats["unique_companies"]),
-                        "searches_this_month": int(stats["searches_this_month"])
+                        "total_searches": int(stats["total_searches"]) if stats["total_searches"] else 0,
+                        "avg_compliance": round(float(stats["avg_compliance"]) if stats["avg_compliance"] else 0, 1),
+                        "unique_companies": int(stats["unique_companies"]) if stats["unique_companies"] else 0,
+                        "searches_this_month": int(stats["searches_this_month"]) if stats["searches_this_month"] else 0
                     }
                 else:
                     return {"total_searches": 0, "avg_compliance": 0, "unique_companies": 0, "searches_this_month": 0}
+                    
         except Exception as e:
             logger.error(f"Error getting user stats: {e}")
             return {"total_searches": 0, "avg_compliance": 0, "unique_companies": 0, "searches_this_month": 0}
 
+
     async def get_user_profile_data(self, mobile: str) -> Dict:
-        """Get user profile data with safe column handling"""
+        """Get user profile data with safe column handling - FIXED"""
         try:
             async with self.pool.acquire() as conn:
-                # Get user data with safe column selection
-                user_columns = ['mobile', 'created_at']
+                # Get basic user data
+                user_query = """
+                    SELECT mobile, created_at, 
+                           COALESCE(email, '') as email,
+                           COALESCE(last_login, created_at) as last_login
+                    FROM users 
+                    WHERE mobile = $1
+                """
                 
-                # Add optional columns if they exist
-                optional_columns = ['email', 'last_login', 'profile_data']
-                for col in optional_columns:
-                    if self._has_column('users', col):
-                        user_columns.append(col)
+                try:
+                    user_data = await conn.fetchrow(user_query, mobile)
+                except Exception:
+                    # Fallback if some columns don't exist
+                    user_data = await conn.fetchrow("SELECT mobile, created_at FROM users WHERE mobile = $1", mobile)
                 
-                user_query = self._build_safe_select('users', user_columns, "WHERE mobile = $1")
-                user_data = await conn.fetchrow(user_query, mobile)
-                
+                # Get search statistics
                 search_stats = await self.get_user_stats(mobile)
+                
+                # Get recent searches
                 recent_searches = await self.get_search_history(mobile, 5)
                 
-                # Convert user_data to dict and handle missing columns
+                # Format user info
                 user_info = {}
                 if user_data:
-                    user_info = dict(user_data)
-                    # Ensure required fields exist with defaults
-                    user_info.setdefault('email', None)
-                    user_info.setdefault('profile_data', {})
-                    user_info.setdefault('last_login', None)
+                    user_info = {
+                        "mobile": user_data["mobile"],
+                        "created_at": user_data["created_at"],
+                        "created_at_formatted": user_data["created_at"].strftime('%Y-%m-%d') if user_data["created_at"] else None,
+                        "email": user_data.get("email", None),
+                        "last_login": user_data.get("last_login", None),
+                        "profile_data": {}
+                    }
                 
                 return {
                     "user_info": user_info,
                     "search_stats": search_stats,
                     "recent_searches": recent_searches
                 }
+                
         except Exception as e:
             logger.error(f"Error getting user profile: {e}")
-            return {"user_info": {}, "search_stats": {}, "recent_searches": []}
+            return {
+                "user_info": {"mobile": mobile},
+                "search_stats": {"total_searches": 0, "avg_compliance": 0, "unique_companies": 0, "searches_this_month": 0},
+                "recent_searches": []
+            }
 
     # Additional methods for loan management (if needed)
     async def get_user_loan_applications(self, mobile: str) -> List[Dict]:
@@ -876,32 +870,61 @@ async def health_check():
             content={"status": "unhealthy", "error": str(e), "timestamp": datetime.now().isoformat()}
         )
 
+# FIXED Routes for main.py - Replace existing routes
+
 @app.get("/", response_class=HTMLResponse)
 async def dashboard(request: Request, current_user: str = Depends(require_auth)):
-    await db.initialize()
-    
-    # Get user profile data including stats
-    profile_data = await db.get_user_profile_data(current_user)
-    user_stats = profile_data.get("search_stats", {})
-    history = profile_data.get("recent_searches", [])
-    
-    # Ensure we have default values
-    user_profile = {
-        "total_searches": user_stats.get("total_searches", 0),
-        "unique_companies": user_stats.get("unique_companies", 0),
-        "avg_compliance": user_stats.get("avg_compliance", 0),
-        "searches_this_month": user_stats.get("searches_this_month", 0)
-    }
-    
-    return templates.TemplateResponse("index.html", {
-        "request": request,
-        "current_user": current_user,
-        "user_display_name": current_user,
-        "history": history,
-        "user_profile": user_profile,
-        "searches_this_month": user_profile["searches_this_month"],
-        "profile_data": profile_data
-    })
+    """Dashboard route - FIXED"""
+    try:
+        await db.initialize()
+        
+        # Get comprehensive user profile data
+        profile_data = await db.get_user_profile_data(current_user)
+        user_stats = profile_data.get("search_stats", {})
+        history = profile_data.get("recent_searches", [])
+        
+        # Ensure we have default values for the template
+        user_profile = {
+            "total_searches": user_stats.get("total_searches", 0),
+            "unique_companies": user_stats.get("unique_companies", 0),
+            "avg_compliance": user_stats.get("avg_compliance", 0),
+            "searches_this_month": user_stats.get("searches_this_month", 0)
+        }
+        
+        # Debug logging
+        logger.info(f"Dashboard data for {current_user}: {user_profile}")
+        
+        return templates.TemplateResponse("index.html", {
+            "request": request,
+            "current_user": current_user,
+            "user_display_name": current_user,
+            "history": history,
+            "user_profile": user_profile,
+            "searches_this_month": user_profile["searches_this_month"],
+            "profile_data": profile_data
+        })
+        
+    except Exception as e:
+        logger.error(f"Dashboard error for {current_user}: {e}")
+        # Return minimal template data to prevent crashes
+        return templates.TemplateResponse("index.html", {
+            "request": request,
+            "current_user": current_user,
+            "user_display_name": current_user,
+            "history": [],
+            "user_profile": {
+                "total_searches": 0,
+                "unique_companies": 0,
+                "avg_compliance": 0,
+                "searches_this_month": 0
+            },
+            "searches_this_month": 0,
+            "profile_data": {
+                "user_info": {"mobile": current_user},
+                "search_stats": {"total_searches": 0, "avg_compliance": 0, "unique_companies": 0, "searches_this_month": 0},
+                "recent_searches": []
+            }
+        })
 
 @app.get("/login", response_class=HTMLResponse)
 async def get_login(request: Request):
@@ -1201,24 +1224,38 @@ async def analytics_api(current_user: str = Depends(require_auth)):
 
 @app.get("/profile", response_class=HTMLResponse)
 async def profile_page(request: Request, current_user: str = Depends(require_auth)):
-    """User profile page"""
-    await db.initialize()
-    profile_data = await db.get_user_profile_data(current_user)
-    
-    # Fix datetime formatting
-    if profile_data.get("user_info") and profile_data["user_info"].get("created_at"):
-        created_at = profile_data["user_info"]["created_at"]
-        if hasattr(created_at, 'strftime'):
-            profile_data["user_info"]["created_at_formatted"] = created_at.strftime('%Y-%m-%d')
-        else:
-            profile_data["user_info"]["created_at_formatted"] = str(created_at)[:10]
-    
-    return templates.TemplateResponse("profile.html", {
-        "request": request,
-        "current_user": current_user,
-        "profile_data": profile_data,
-        "user_display_name": current_user
-    })
+    """User profile page - FIXED"""
+    try:
+        await db.initialize()
+        profile_data = await db.get_user_profile_data(current_user)
+        
+        # Fix datetime formatting safely
+        if profile_data.get("user_info") and profile_data["user_info"].get("created_at"):
+            created_at = profile_data["user_info"]["created_at"]
+            if hasattr(created_at, 'strftime'):
+                profile_data["user_info"]["created_at_formatted"] = created_at.strftime('%Y-%m-%d')
+            else:
+                profile_data["user_info"]["created_at_formatted"] = str(created_at)[:10]
+        
+        return templates.TemplateResponse("profile.html", {
+            "request": request,
+            "current_user": current_user,
+            "profile_data": profile_data,
+            "user_display_name": current_user
+        })
+        
+    except Exception as e:
+        logger.error(f"Profile page error: {e}")
+        return templates.TemplateResponse("profile.html", {
+            "request": request,
+            "current_user": current_user,
+            "profile_data": {
+                "user_info": {"mobile": current_user},
+                "search_stats": {"total_searches": 0, "avg_compliance": 0, "unique_companies": 0, "searches_this_month": 0},
+                "recent_searches": []
+            },
+            "user_display_name": current_user
+        })
 
 @app.get("/privacy", response_class=HTMLResponse)
 async def privacy_page(request: Request, current_user: Optional[str] = Depends(get_current_user)):
@@ -1510,21 +1547,38 @@ async def api_search(request: Request, gstin: str = Form(...), current_user: str
 
 @app.get("/api/user/stats")
 async def get_user_stats_api(request: Request, current_user: str = Depends(require_auth)):
-    """Get user statistics for profile display"""
-    await db.initialize()
-    stats = await db.get_user_stats(current_user)
-    
-    user_level = get_user_level(stats.get("total_searches", 0))
-    achievements = get_user_achievements(stats.get("total_searches", 0), stats.get("avg_compliance", 0))
-    
-    return JSONResponse({
-        "success": True,
-        "data": {
-            **stats,
-            "user_level": user_level,
-            "achievements": achievements
-        }
-    })
+    """Get user statistics for profile display - FIXED"""
+    try:
+        await db.initialize()
+        stats = await db.get_user_stats(current_user)
+        
+        # Calculate user level
+        user_level = get_user_level(stats.get("total_searches", 0))
+        achievements = get_user_achievements(stats.get("total_searches", 0), stats.get("avg_compliance", 0))
+        
+        return JSONResponse({
+            "success": True,
+            "data": {
+                **stats,
+                "user_level": user_level,
+                "achievements": achievements
+            }
+        })
+        
+    except Exception as e:
+        logger.error(f"User stats API error: {e}")
+        return JSONResponse({
+            "success": False,
+            "error": str(e),
+            "data": {
+                "total_searches": 0,
+                "avg_compliance": 0,
+                "unique_companies": 0,
+                "searches_this_month": 0,
+                "user_level": {"level": "New User", "icon": "fas fa-user", "color": "#6b7280"},
+                "achievements": []
+            }
+        })
 
 @app.get("/api/user/export")
 async def export_user_data(current_user: str = Depends(require_auth)):
@@ -1806,32 +1860,44 @@ def get_user_achievements(total_searches: int, avg_compliance: float) -> list:
     return achievements
 
 async def process_search(request: Request, gstin: str, current_user: str):
+    """Process search with proper compliance score calculation - FIXED"""
     gstin = gstin.strip().upper()
     is_valid, error_message = EnhancedDataValidator.validate_gstin(gstin)
     if not is_valid:
         return templates.TemplateResponse("index.html", {
             "request": request, 
             "current_user": current_user,
-            "error": error_message
+            "error": error_message,
+            "user_profile": {"total_searches": 0, "avg_compliance": 0, "unique_companies": 0, "searches_this_month": 0}
         })
     
     if not api_limiter.is_allowed(current_user):
         return templates.TemplateResponse("index.html", {
             "request": request, 
             "current_user": current_user,
-            "error": "Rate limit exceeded. Please try again later."
+            "error": "Rate limit exceeded. Please try again later.",
+            "user_profile": {"total_searches": 0, "avg_compliance": 0, "unique_companies": 0, "searches_this_month": 0}
         })
     
     if not api_client:
         return templates.TemplateResponse("index.html", {
             "request": request, 
             "current_user": current_user,
-            "error": "GST API service not configured. Please contact administrator."
+            "error": "GST API service not configured. Please contact administrator.",
+            "user_profile": {"total_searches": 0, "avg_compliance": 0, "unique_companies": 0, "searches_this_month": 0}
         })
     
     try:
+        # Fetch company data
         company_data = await api_client.fetch_gstin_data(gstin)
-        compliance_score = calculate_compliance_score(company_data)
+        
+        # Calculate compliance score with error handling
+        try:
+            compliance_score = calculate_compliance_score(company_data)
+            logger.info(f"Calculated compliance score: {compliance_score} for {gstin}")
+        except Exception as e:
+            logger.error(f"Error calculating compliance score: {e}")
+            compliance_score = 50.0  # Default score
         
         # Get AI synopsis
         synopsis = None
@@ -1842,12 +1908,16 @@ async def process_search(request: Request, gstin: str, current_user: str):
                 logger.error(f"Failed to get AI synopsis: {e}")
                 synopsis = None
         
-        # Add to search history
-        await db.add_search_history(
-            current_user, gstin, 
-            company_data.get("lgnm", "Unknown"), 
-            compliance_score, company_data, synopsis
-        )
+        # Add to search history with error handling
+        try:
+            await db.add_search_history(
+                current_user, gstin, 
+                company_data.get("lgnm", "Unknown"), 
+                compliance_score, company_data, synopsis
+            )
+            logger.info(f"✅ Search history saved for {gstin}")
+        except Exception as e:
+            logger.error(f"Failed to save search history: {e}")
         
         # Get late filing analysis
         late_filing_analysis = company_data.get('_late_filing_analysis', {})
@@ -1866,14 +1936,16 @@ async def process_search(request: Request, gstin: str, current_user: str):
         return templates.TemplateResponse("index.html", {
             "request": request, 
             "current_user": current_user,
-            "error": f"Company not found for GSTIN: {gstin}"
+            "error": f"Company not found for GSTIN: {gstin}",
+            "user_profile": {"total_searches": 0, "avg_compliance": 0, "unique_companies": 0, "searches_this_month": 0}
         })
     except Exception as e:
         logger.error(f"Search error: {e}")
         return templates.TemplateResponse("index.html", {
             "request": request, 
             "current_user": current_user,
-            "error": "An error occurred while fetching data. Please try again."
+            "error": "An error occurred while fetching data. Please try again.",
+            "user_profile": {"total_searches": 0, "avg_compliance": 0, "unique_companies": 0, "searches_this_month": 0}
         })
 
 # Error handlers
@@ -1908,6 +1980,15 @@ async def log_client_error(request: Request):
     except:
         return JSONResponse({"success": False})
 
+@app.get("/debug/profile")
+async def debug_profile(current_user: str = Depends(require_auth)):
+    try:
+        await db.initialize()
+        profile_data = await db.get_user_profile_data(current_user)
+        return JSONResponse({"profile_data": profile_data})
+    except Exception as e:
+        return JSONResponse({"error": str(e)})
+    
 # Startup/Shutdown
 @app.on_event("startup")
 async def startup_event():
