@@ -470,7 +470,9 @@ block extra_css %}
         }
     }
 </style>
-{% endblock %} {% block content %}
+{% endblock %}
+
+{% block content %}
 <div class="dashboard-container">
     <!-- Dashboard Hero Section -->
     <section class="dashboard-hero">
@@ -806,7 +808,9 @@ block extra_css %}
         </div>
     </div>
 </div>
-{% endblock %} {% block extra_js %}
+{% endblock %}
+
+{% block extra_js %}
 <script>
     document.addEventListener("DOMContentLoaded", function () {
         console.log("🏠 Dashboard page loaded");
