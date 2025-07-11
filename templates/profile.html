@@ -263,7 +263,7 @@
                 <p style="font-size: var(--text-xl); opacity: 0.9; margin-bottom: 0.5rem;">Active GST Intelligence User</p>
                 <div style="display: flex; flex-wrap: wrap; justify-content: center; gap: 1rem; font-size: var(--text-sm); opacity: 0.8;">
                     {% if profile_data.user_info.created_at %}
-                    <span><i class="fas fa-calendar" style="margin-right: 0.25rem;"></i>Member since {{ profile_data.user_info.created_at[:10] }}</span>
+                    <span><i class="fas fa-calendar" style="margin-right: 0.25rem;"></i>Member since {{ profile_data.user_info.created_at_formatted if profile_data.user_info.created_at_formatted else 'Recently' }}</span>
                     {% endif %}
                     {% if profile_data.user_info.last_login %}
                     <span><i class="fas fa-clock" style="margin-right: 0.25rem;"></i>Last active {{ profile_data.user_info.last_login[:10] }}</span>

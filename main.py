@@ -886,10 +886,11 @@ async def dashboard(request: Request, current_user: str = Depends(require_auth))
     return templates.TemplateResponse("index.html", {
         "request": request,
         "current_user": current_user,
-        "user_display_name": current_user,
+        "user_display_name": current_user,  # Add this
         "history": history,
         "user_profile": user_stats,
-        "searches_this_month": user_stats.get("searches_this_month", 0)
+        "searches_this_month": user_stats.get("searches_this_month", 0),
+        "profile_data": profile_data  # Add this for better data access
     })
 
 @app.get("/login", response_class=HTMLResponse)
@@ -1169,6 +1170,14 @@ async def profile_page(request: Request, current_user: str = Depends(require_aut
     await db.initialize()
     profile_data = await db.get_user_profile_data(current_user)
     
+    # Fix datetime formatting
+    if profile_data.get("user_info") and profile_data["user_info"].get("created_at"):
+        created_at = profile_data["user_info"]["created_at"]
+        if hasattr(created_at, 'strftime'):
+            profile_data["user_info"]["created_at_formatted"] = created_at.strftime('%Y-%m-%d')
+        else:
+            profile_data["user_info"]["created_at_formatted"] = str(created_at)[:10]
+    
     return templates.TemplateResponse("profile.html", {
         "request": request,
         "current_user": current_user,
@@ -1244,7 +1253,13 @@ async def settings_page(request: Request, current_user: str = Depends(require_au
 @app.get("/static/icons/icon-144x144.png")
 async def icon_fallback():
     """Fallback for missing icon"""
-    return FileResponse("static/icons/favicon.png", media_type="image/png")
+    try:
+        return FileResponse("static/icons/favicon.png", media_type="image/png")
+    except:
+        from fastapi.responses import Response
+        import base64
+        transparent_png = base64.b64decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==')
+        return Response(content=transparent_png, media_type="image/png")
 
 @app.get("/favicon.ico")
 async def favicon():

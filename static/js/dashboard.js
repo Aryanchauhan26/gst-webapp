@@ -14,7 +14,7 @@ class UserDashboard {
         this.initializeCharts();
         this.setupRealTimeUpdates();
         
-        debugLog('Enhanced user dashboard initialized');
+        console.log('Enhanced user dashboard initialized');
     }
 
     async loadUserStats() {
@@ -366,7 +366,7 @@ class UserProfileManager {
         this.setupProfileDropdown();
         this.setupAvatarGeneration();
         
-        debugLog('Enhanced user profile manager initialized');
+        console.log('Enhanced user profile manager initialized');
     }
 
     async loadPreferences() {
