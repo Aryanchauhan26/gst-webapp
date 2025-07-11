@@ -180,6 +180,8 @@
 <script>
 // Enhanced Analytics Dashboard with Chart.js integration
 document.addEventListener('DOMContentLoaded', function() {
+    console.log('📊 Analytics dashboard loading...');
+    
     // Ensure Chart.js is loaded
     if (typeof Chart === 'undefined') {
         console.error('Chart.js is not loaded! Analytics charts will not work.');
@@ -188,18 +190,20 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     // Set Chart.js defaults for dark theme
-    Chart.defaults.color = '#a1a1aa';
-    Chart.defaults.borderColor = '#27272a';
+    Chart.defaults.color = getComputedStyle(document.documentElement).getPropertyValue('--text-secondary') || '#a1a1aa';
+    Chart.defaults.borderColor = getComputedStyle(document.documentElement).getPropertyValue('--border-primary') || '#27272a';
     Chart.defaults.backgroundColor = 'rgba(124, 58, 237, 0.1)';
     
     // Initialize charts with error handling
     try {
-            initializeCharts();
-        } catch (error) {
-            console.error('Chart initialization failed:', error);
-            window.GSTPlatform?.errorHandler?.handleAPIError({ status: 500 }, { context: 'chart_init' });
-        }
-    });
+        console.log('📈 Initializing charts...');
+        initializeTrendsChart();
+        initializeDistributionChart();
+        console.log('✅ Charts initialized successfully');
+    } catch (error) {
+        console.error('Chart initialization failed:', error);
+        showChartError();
+    }
     
     // Update timestamps
     updateTimestamps();
@@ -209,31 +213,37 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Initialize chart controls
     initializeChartControls();
-    
-    console.log('📊 Analytics dashboard initialized');
+});
 
-function initializeCharts() {
-    if (typeof Chart === 'undefined') {
-        console.error('Chart.js not loaded - adding fallback');
-        // Create a simple fallback message
-        document.querySelectorAll('canvas').forEach(canvas => {
-            const parent = canvas.parentElement;
-            parent.innerHTML = '<div style="text-align: center; padding: 2rem; color: var(--text-muted);">Charts loading... Please refresh if this persists.</div>';
-        });
-        return;
-    }
+function showChartError() {
+    // Show error message in chart containers
+    const chartContainers = document.querySelectorAll('.chart-container');
+    chartContainers.forEach(container => {
+        const canvas = container.querySelector('canvas');
+        if (canvas) {
+            canvas.style.display = 'none';
+            container.innerHTML += '<div class="chart-error" style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 200px; color: var(--text-secondary); opacity: 0.7;"><i class="fas fa-exclamation-triangle" style="font-size: 2rem; margin-bottom: 0.5rem;"></i><p>Chart could not be loaded</p></div>';
+        }
+    });
+}
 
 function initializeTrendsChart() {
     // Parse the JSON data safely from Jinja
-    const trendsData = JSON.parse('{{ daily_searches | tojson | safe }}');
-    const trendsChartCanvas = document.getElementById('trendsChart');
+    let trendsData = [];
+    try {
+        trendsData = JSON.parse('{{ daily_searches | tojson | safe }}');
+    } catch (e) {
+        console.error('Error parsing trends data:', e);
+        trendsData = [];
+    }
     
+    const trendsChartCanvas = document.getElementById('trendsChart');
     if (!trendsChartCanvas) {
         console.warn('Trends chart canvas not found');
         return;
     }
     
-    // Use unique variable names to avoid redeclaration
+    // Prepare chart data
     let trendsChartData = [];
     let trendsChartLabels = [];
     
@@ -316,7 +326,7 @@ function initializeTrendsChart() {
                         drawBorder: false
                     },
                     ticks: {
-                        color: '#a1a1aa',
+                        color: getComputedStyle(document.documentElement).getPropertyValue('--text-secondary') || '#a1a1aa',
                         font: {
                             size: 11
                         }
@@ -329,7 +339,7 @@ function initializeTrendsChart() {
                         drawBorder: false
                     },
                     ticks: {
-                        color: '#a1a1aa',
+                        color: getComputedStyle(document.documentElement).getPropertyValue('--text-secondary') || '#a1a1aa',
                         font: {
                             size: 11
                         },
@@ -343,15 +353,21 @@ function initializeTrendsChart() {
 
 function initializeDistributionChart() {
     // Parse the JSON data safely from Jinja
-    const distributionData = JSON.parse('{{ score_distribution | tojson | safe }}');
-    const distributionChartCanvas = document.getElementById('distributionChart');
+    let distributionData = [];
+    try {
+        distributionData = JSON.parse('{{ score_distribution | tojson | safe }}');
+    } catch (e) {
+        console.error('Error parsing distribution data:', e);
+        distributionData = [];
+    }
     
+    const distributionChartCanvas = document.getElementById('distributionChart');
     if (!distributionChartCanvas) {
         console.warn('Distribution chart canvas not found');
         return;
     }
     
-    // Use unique variable names to avoid redeclaration
+    // Prepare chart data
     let distributionChartData = [];
     let distributionChartLabels = [];
     let hasDistributionData = false;
@@ -383,7 +399,7 @@ function initializeDistributionChart() {
                     '#f97316', // Average - Orange
                     '#ef4444'  // Poor - Red
                 ] : ['#374151'], // Gray for no data
-                borderColor: '#1a1a1a',
+                borderColor: getComputedStyle(document.documentElement).getPropertyValue('--bg-primary') || '#1a1a1a',
                 borderWidth: 2,
                 hoverBorderWidth: 3
             }]
@@ -424,7 +440,9 @@ function initializeChartControls() {
         btn.addEventListener('click', function() {
             // Remove active class from all buttons in the same group
             const parentControls = this.closest('.chart-controls');
-            parentControls.querySelectorAll('.chart-btn').forEach(b => b.classList.remove('active'));
+            if (parentControls) {
+                parentControls.querySelectorAll('.chart-btn').forEach(b => b.classList.remove('active'));
+            }
             
             // Add active class to clicked button
             this.classList.add('active');
@@ -456,18 +474,7 @@ function updateTimestamps() {
 function searchCompany(gstin) {
     if (gstin) {
         // Navigate to search with the GSTIN
-        const form = document.createElement('form');
-        form.method = 'GET';
-        form.action = '/search';
-        
-        const input = document.createElement('input');
-        input.type = 'hidden';
-        input.name = 'gstin';
-        input.value = gstin;
-        
-        form.appendChild(input);
-        document.body.appendChild(form);
-        form.submit();
+        window.location.href = `/search?gstin=${encodeURIComponent(gstin)}`;
     }
 }
 
@@ -504,6 +511,7 @@ document.addEventListener('click', function(e) {
     }
 });
 </script>
+{% endblock %}
 
 <!-- Analytics-specific styles -->
 <style>

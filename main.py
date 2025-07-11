@@ -144,7 +144,9 @@ class FixedDatabaseManager:
             return True  # Assume column exists if we don't have cache info
         
         table_columns = self._column_cache.get(table, set())
-        return column in table_columns  # Use 'in' operator for sets, not .get()
+        if not table_columns:  # If empty set, assume column exists
+            return True
+        return column in table_columns  # Use 'in' operator for sets
 
     def _build_safe_select(self, table: str, columns: list, where_clause: str = "") -> str:
         """Build a SELECT query with only existing columns"""
@@ -883,14 +885,22 @@ async def dashboard(request: Request, current_user: str = Depends(require_auth))
     user_stats = profile_data.get("search_stats", {})
     history = profile_data.get("recent_searches", [])
     
+    # Ensure we have default values
+    user_profile = {
+        "total_searches": user_stats.get("total_searches", 0),
+        "unique_companies": user_stats.get("unique_companies", 0),
+        "avg_compliance": user_stats.get("avg_compliance", 0),
+        "searches_this_month": user_stats.get("searches_this_month", 0)
+    }
+    
     return templates.TemplateResponse("index.html", {
         "request": request,
         "current_user": current_user,
-        "user_display_name": current_user,  # Add this
+        "user_display_name": current_user,
         "history": history,
-        "user_profile": user_stats,
-        "searches_this_month": user_stats.get("searches_this_month", 0),
-        "profile_data": profile_data  # Add this for better data access
+        "user_profile": user_profile,
+        "searches_this_month": user_profile["searches_this_month"],
+        "profile_data": profile_data
     })
 
 @app.get("/login", response_class=HTMLResponse)
@@ -1100,45 +1110,70 @@ async def search_suggestions(q: str, current_user: str = Depends(require_auth)):
 async def analytics_dashboard(request: Request, current_user: str = Depends(require_auth)):
     await db.initialize()
     
-    # Get analytics data
-    async with db.pool.acquire() as conn:
-        # Get daily searches for the last 7 days
-        daily_searches = await conn.fetch("""
-            SELECT DATE(searched_at) as date, COUNT(*) as search_count, AVG(compliance_score) as avg_score
-            FROM search_history WHERE mobile = $1 AND searched_at >= CURRENT_DATE - INTERVAL '7 days'
-            GROUP BY DATE(searched_at) ORDER BY date
-        """, current_user)
-        
-        # Get compliance score distribution
-        score_distribution = await conn.fetch("""
-            SELECT CASE WHEN compliance_score >= 90 THEN 'Excellent (90-100)'
+    # Get analytics data with better error handling
+    try:
+        async with db.pool.acquire() as conn:
+            # Get daily searches for the last 7 days
+            daily_searches = await conn.fetch("""
+                SELECT DATE(searched_at) as date, COUNT(*) as search_count, AVG(compliance_score) as avg_score
+                FROM search_history WHERE mobile = $1 AND searched_at >= CURRENT_DATE - INTERVAL '7 days'
+                GROUP BY DATE(searched_at) ORDER BY date
+            """, current_user)
+            
+            # Get compliance score distribution
+            score_distribution = await conn.fetch("""
+                SELECT 
+                    CASE 
+                        WHEN compliance_score >= 90 THEN 'Excellent (90-100)'
                         WHEN compliance_score >= 80 THEN 'Very Good (80-89)'
                         WHEN compliance_score >= 70 THEN 'Good (70-79)'
                         WHEN compliance_score >= 60 THEN 'Average (60-69)'
-                        ELSE 'Poor (<60)' END as range, COUNT(*) as count
-            FROM search_history WHERE mobile = $1 AND compliance_score IS NOT NULL GROUP BY range ORDER BY range DESC
-        """, current_user)
-        
-        # Get top searched companies
-        top_companies = await conn.fetch("""
-            SELECT company_name, gstin, COUNT(*) as search_count, MAX(compliance_score) as latest_score
-            FROM search_history WHERE mobile = $1 GROUP BY company_name, gstin
-            ORDER BY search_count DESC LIMIT 10
-        """, current_user)
-        
-        # Get user stats
-        user_stats = await db.get_user_stats(current_user)
+                        ELSE 'Poor (<60)' 
+                    END as range, 
+                    COUNT(*) as count
+                FROM search_history 
+                WHERE mobile = $1 AND compliance_score IS NOT NULL 
+                GROUP BY 
+                    CASE 
+                        WHEN compliance_score >= 90 THEN 'Excellent (90-100)'
+                        WHEN compliance_score >= 80 THEN 'Very Good (80-89)'
+                        WHEN compliance_score >= 70 THEN 'Good (70-79)'
+                        WHEN compliance_score >= 60 THEN 'Average (60-69)'
+                        ELSE 'Poor (<60)' 
+                    END 
+                ORDER BY MIN(compliance_score) DESC
+            """, current_user)
+            
+            # Get top searched companies
+            top_companies = await conn.fetch("""
+                SELECT company_name, gstin, COUNT(*) as search_count, MAX(compliance_score) as latest_score
+                FROM search_history WHERE mobile = $1 
+                GROUP BY company_name, gstin
+                ORDER BY search_count DESC LIMIT 10
+            """, current_user)
+            
+            # Get user stats
+            user_stats = await db.get_user_stats(current_user)
+    except Exception as e:
+        logger.error(f"Analytics data error: {e}")
+        daily_searches = []
+        score_distribution = []
+        top_companies = []
+        user_stats = {"total_searches": 0, "unique_companies": 0, "avg_compliance": 0, "searches_this_month": 0}
     
     # Convert dates for JSON serialization
-    daily_searches = [
-        {**dict(row), "date": row["date"].isoformat() if hasattr(row["date"], "isoformat") else row["date"]}
-        for row in daily_searches
-    ]
+    daily_searches_json = []
+    for row in daily_searches:
+        daily_searches_json.append({
+            "date": row["date"].isoformat() if hasattr(row["date"], "isoformat") else str(row["date"]),
+            "search_count": int(row["search_count"]) if row["search_count"] else 0,
+            "avg_score": float(row["avg_score"]) if row["avg_score"] else 0
+        })
     
     return templates.TemplateResponse("analytics.html", {
         "request": request, 
         "current_user": current_user, 
-        "daily_searches": daily_searches,
+        "daily_searches": daily_searches_json,
         "score_distribution": [dict(row) for row in score_distribution],
         "top_companies": [dict(row) for row in top_companies],
         "total_searches": user_stats.get("total_searches", 0), 

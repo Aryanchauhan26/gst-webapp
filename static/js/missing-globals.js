@@ -462,15 +462,51 @@ window.analytics = {
 // =============================================================================
 window.searchCompany = function(gstin) {
     if (gstin) {
-        window.location.href = `/search?gstin=${gstin}`;
+        window.location.href = `/search?gstin=${encodeURIComponent(gstin)}`;
     }
 };
 
 // Enhanced export functionality
 window.exportToExcel = function() {
-    window.location.href = '/export/history';
-    if (window.notificationManager) {
-        window.notificationManager.showToast('📊 Exporting data...', 'info');
+    try {
+        const link = document.createElement('a');
+        link.href = '/export/history';
+        link.download = 'search_history.csv';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        if (window.notificationManager) {
+            window.notificationManager.show('📊 Exporting data...', 'info');
+        }
+    } catch (error) {
+        console.error('Export error:', error);
+        if (window.notificationManager) {
+            window.notificationManager.show('Export failed', 'error');
+        }
+    }
+};
+
+// Fix theme toggle function
+window.toggleTheme = function() {
+    const html = document.documentElement;
+    const currentTheme = html.getAttribute('data-theme');
+    const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+
+    html.setAttribute('data-theme', newTheme);
+    localStorage.setItem('theme', newTheme);
+
+    // Update theme indicator
+    const indicator = document.getElementById('theme-indicator-icon');
+    if (indicator) {
+        indicator.className = newTheme === 'dark' ? 'fas fa-moon' : 'fas fa-sun';
+    }
+
+    // Emit theme change event
+    if (window.gstApp && window.gstApp.eventBus) {
+        window.gstApp.eventBus.dispatchEvent(new CustomEvent('theme:changed', {
+            detail: { theme: newTheme }
+        }));
     }
 };
 
