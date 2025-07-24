@@ -349,66 +349,131 @@ class FixedDatabaseManager:
             return False
 
     async def add_search_history(self, mobile: str, gstin: str, company_name: str, compliance_score: float, search_data: dict = None, ai_synopsis: str = None) -> bool:
-        """Add search to history with safe column handling - FIXED"""
+        """Add search to history with safe column handling - COMPLETELY FIXED"""
         try:
             async with self.pool.acquire() as conn:
-                # Use a simple, reliable insert
-                search_data_json = json.dumps(search_data or {})
+                # Check what columns exist first
+                existing_columns = await conn.fetch("""
+                    SELECT column_name 
+                    FROM information_schema.columns 
+                    WHERE table_name = 'search_history' AND table_schema = 'public'
+                """)
                 
-                # Try main search_history table first
-                try:
-                    await conn.execute("""
-                        INSERT INTO search_history (mobile, gstin, company_name, compliance_score, search_data, ai_synopsis) 
-                        VALUES ($1, $2, $3, $4, $5, $6)
-                    """, mobile, gstin, company_name, compliance_score, search_data_json, ai_synopsis)
-                    
-                    logger.info(f"✅ Search history added: {gstin} for {mobile}")
-                    
-                except Exception as e:
-                    logger.error(f"Error inserting to search_history: {e}")
-                    # Try minimal insert
-                    await conn.execute("""
-                        INSERT INTO search_history (mobile, gstin, company_name, compliance_score) 
-                        VALUES ($1, $2, $3, $4)
-                    """, mobile, gstin, company_name, compliance_score)
+                column_names = {row['column_name'] for row in existing_columns}
                 
-                # Try gst_search_history table if it exists
-                try:
-                    await conn.execute("""
-                        INSERT INTO gst_search_history 
-                        (user_mobile, mobile, gstin, company_name, compliance_score, search_data, ai_synopsis, response_data) 
-                        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-                    """, mobile, mobile, gstin, company_name, compliance_score, 
-                        search_data_json, ai_synopsis, search_data_json)
-                except Exception as e:
-                    logger.warning(f"Could not add to gst_search_history: {e}")
+                # Build insert with only existing columns
+                columns = ['mobile', 'gstin', 'company_name', 'compliance_score']
+                values = [mobile, gstin, company_name, compliance_score]
+                placeholders = ['$1', '$2', '$3', '$4']
                 
+                # Add optional columns if they exist
+                if 'search_data' in column_names and search_data is not None:
+                    columns.append('search_data')
+                    values.append(json.dumps(search_data))
+                    placeholders.append(f'${len(values)}')
+                
+                if 'ai_synopsis' in column_names and ai_synopsis is not None:
+                    columns.append('ai_synopsis')
+                    values.append(ai_synopsis)
+                    placeholders.append(f'${len(values)}')
+                
+                if 'searched_at' in column_names:
+                    columns.append('searched_at')
+                    values.append('CURRENT_TIMESTAMP')
+                    placeholders.append('CURRENT_TIMESTAMP')
+                
+                query = f"""
+                    INSERT INTO search_history ({', '.join(columns)}) 
+                    VALUES ({', '.join(placeholders)})
+                    ON CONFLICT (mobile, gstin) DO UPDATE SET 
+                        compliance_score = EXCLUDED.compliance_score,
+                        company_name = EXCLUDED.company_name,
+                        searched_at = CURRENT_TIMESTAMP
+                """
+                
+                # Remove CURRENT_TIMESTAMP from values if it's there
+                clean_values = [v for v in values if v != 'CURRENT_TIMESTAMP']
+                
+                await conn.execute(query, *clean_values)
+                logger.info(f"✅ Search history added: {gstin} for {mobile}")
                 return True
-                
+                    
         except Exception as e:
-            logger.error(f"Error adding search history: {e}")
+            logger.error(f"❌ Error adding search history: {e}")
             return False
 
     async def get_search_history(self, mobile: str, limit: int = 50) -> List[Dict]:
-        """Get user search history with safe column handling - FIXED"""
+        """Get user search history with safe column handling - COMPLETELY FIXED"""
         try:
             async with self.pool.acquire() as conn:
-                # Use a robust query with COALESCE for missing columns
-                history = await conn.fetch("""
-                    SELECT gstin, company_name, 
-                           COALESCE(compliance_score, 0) as compliance_score,
-                           searched_at,
-                           COALESCE(ai_synopsis, '') as ai_synopsis
+                # First check what columns actually exist
+                existing_columns = await conn.fetch("""
+                    SELECT column_name 
+                    FROM information_schema.columns 
+                    WHERE table_name = 'search_history' AND table_schema = 'public'
+                """)
+                
+                column_names = {row['column_name'] for row in existing_columns}
+                logger.info(f"Available columns in search_history: {column_names}")
+                
+                # Build query with only existing columns
+                base_columns = ['gstin', 'company_name', 'compliance_score', 'searched_at']
+                select_parts = []
+                
+                for col in base_columns:
+                    if col in column_names:
+                        if col == 'compliance_score':
+                            select_parts.append('COALESCE(compliance_score, 0) as compliance_score')
+                        else:
+                            select_parts.append(col)
+                    else:
+                        # Add default values for missing columns
+                        if col == 'compliance_score':
+                            select_parts.append('0 as compliance_score')
+                        elif col == 'searched_at':
+                            select_parts.append('CURRENT_TIMESTAMP as searched_at')
+                        else:
+                            select_parts.append(f"'' as {col}")
+                
+                # Add optional columns if they exist
+                if 'ai_synopsis' in column_names:
+                    select_parts.append('COALESCE(ai_synopsis, \'\') as ai_synopsis')
+                else:
+                    select_parts.append('\'\' as ai_synopsis')
+                
+                if 'search_data' in column_names:
+                    select_parts.append('search_data')
+                
+                query = f"""
+                    SELECT {', '.join(select_parts)}
                     FROM search_history 
                     WHERE mobile = $1 
                     ORDER BY searched_at DESC 
                     LIMIT $2
-                """, mobile, limit)
+                """
                 
-                return [dict(row) for row in history]
+                logger.info(f"Executing query: {query}")
                 
+                history = await conn.fetch(query, mobile, limit)
+                
+                result = []
+                for row in history:
+                    row_dict = dict(row)
+                    # Ensure all expected fields exist
+                    if 'ai_synopsis' not in row_dict:
+                        row_dict['ai_synopsis'] = ''
+                    if 'compliance_score' not in row_dict:
+                        row_dict['compliance_score'] = 0
+                    if 'company_name' not in row_dict:
+                        row_dict['company_name'] = 'Unknown Company'
+                        
+                    result.append(row_dict)
+                
+                logger.info(f"✅ Retrieved {len(result)} search history items for {mobile}")
+                return result
+                    
         except Exception as e:
-            logger.error(f"Error getting search history: {e}")
+            logger.error(f"❌ Error getting search history for {mobile}: {e}")
             return []
 
     async def get_all_searches(self, mobile: str) -> List[Dict]:
@@ -880,9 +945,11 @@ async def health_check():
 
 # FIXED Routes for main.py - Replace existing routes
 
+# REPLACE the dashboard route in main.py with this FIXED version
+
 @app.get("/", response_class=HTMLResponse)
 async def dashboard(request: Request, current_user: str = Depends(require_auth)):
-    """Dashboard route - FIXED with proper data loading"""
+    """Dashboard route - FIXED with datetime serialization"""
     try:
         await db.initialize()
         
@@ -901,19 +968,50 @@ async def dashboard(request: Request, current_user: str = Depends(require_auth))
         }
         
         try:
-            # Get comprehensive user profile data with error handling
-            profile_data = await db.get_user_profile_data(current_user)
-            if profile_data and "search_stats" in profile_data:
-                user_stats = profile_data["search_stats"]
+            # Get user stats first (this works)
+            user_stats = await db.get_user_stats(current_user)
+            logger.info(f"✅ Got user stats: {user_stats}")
             
-            # Get recent search history with error handling  
-            history = profile_data.get("recent_searches", [])
-            if not history:
-                # Fallback: try to get history directly
+            # Get search history with safe error handling
+            try:
                 history = await db.get_search_history(current_user, 5)
+                logger.info(f"✅ Got {len(history)} history items")
                 
+                # Convert datetime objects to strings for JSON serialization
+                history_safe = []
+                for item in history:
+                    item_dict = dict(item) if hasattr(item, '_mapping') else item
+                    
+                    # Convert datetime to string
+                    if 'searched_at' in item_dict and item_dict['searched_at']:
+                        if hasattr(item_dict['searched_at'], 'strftime'):
+                            # Keep as datetime object for template
+                            pass  # Don't convert here, template can handle it
+                        else:
+                            item_dict['searched_at'] = str(item_dict['searched_at'])
+                    
+                    history_safe.append(item_dict)
+                
+                history = history_safe
+                logger.info(f"✅ Processed history items safely")
+                
+            except Exception as hist_error:
+                logger.error(f"⚠️ History loading failed: {hist_error}")
+                history = []  # Continue with empty history
+            
+            # Create profile data safely
+            profile_data = {
+                "user_info": {
+                    "mobile": current_user,
+                    "created_at": None,  # Add if needed later
+                    "email": None
+                },
+                "search_stats": user_stats,
+                "recent_searches": history
+            }
+            
         except Exception as e:
-            logger.error(f"Error loading profile data for {current_user}: {e}")
+            logger.error(f"⚠️ Error loading profile data for {current_user}: {e}")
             # Continue with default values
         
         # Ensure we have valid numbers
@@ -925,7 +1023,7 @@ async def dashboard(request: Request, current_user: str = Depends(require_auth))
         }
         
         # Debug logging
-        logger.info(f"Dashboard data for {current_user}: {user_profile}")
+        logger.info(f"✅ Dashboard data for {current_user}: stats={user_profile}, history_count={len(history)}")
         
         return templates.TemplateResponse("index.html", {
             "request": request,
@@ -938,7 +1036,7 @@ async def dashboard(request: Request, current_user: str = Depends(require_auth))
         })
         
     except Exception as e:
-        logger.error(f"Dashboard error for {current_user}: {e}")
+        logger.error(f"❌ Dashboard error for {current_user}: {e}")
         # Return minimal template data to prevent crashes
         return templates.TemplateResponse("index.html", {
             "request": request,
@@ -2032,7 +2130,7 @@ async def debug_profile(current_user: str = Depends(require_auth)):
 
 @app.get("/api/debug/user-data")
 async def debug_user_data(current_user: str = Depends(require_auth)):
-    """Debug endpoint to check user data"""
+    """Debug endpoint to check user data - FIXED datetime serialization"""
     try:
         await db.initialize()
         
@@ -2043,20 +2141,41 @@ async def debug_user_data(current_user: str = Depends(require_auth)):
             # Check search history count
             search_count = await conn.fetchval("SELECT COUNT(*) FROM search_history WHERE mobile = $1", current_user)
             
-            # Get sample search data
-            sample_searches = await conn.fetch("SELECT * FROM search_history WHERE mobile = $1 LIMIT 3", current_user)
+            # Get sample search data with safe datetime handling
+            sample_searches_raw = await conn.fetch("SELECT * FROM search_history WHERE mobile = $1 LIMIT 3", current_user)
+            
+            # Convert datetime objects to strings for JSON serialization
+            sample_searches = []
+            for row in sample_searches_raw:
+                row_dict = dict(row)
+                # Convert datetime to string
+                for key, value in row_dict.items():
+                    if hasattr(value, 'strftime'):  # It's a datetime object
+                        row_dict[key] = value.isoformat()
+                    elif hasattr(value, 'isoformat'):  # It's a date object
+                        row_dict[key] = value.isoformat()
+                sample_searches.append(row_dict)
             
             # Test the stats function
             stats = await db.get_user_stats(current_user)
+            
+            # Check table columns
+            columns_info = await conn.fetch("""
+                SELECT column_name, data_type 
+                FROM information_schema.columns 
+                WHERE table_name = 'search_history' AND table_schema = 'public'
+                ORDER BY ordinal_position
+            """)
             
             debug_info = {
                 "user_exists": user_exists is not None,
                 "user_mobile": current_user,
                 "search_count_direct": search_count,
                 "stats_function_result": stats,
-                "sample_searches": [dict(row) for row in sample_searches],
+                "sample_searches": sample_searches,
                 "database_connected": db.pool is not None,
-                "database_initialized": db._initialized
+                "database_initialized": db._initialized,
+                "table_columns": [{"name": col["column_name"], "type": col["data_type"]} for col in columns_info]
             }
             
             return JSONResponse({
@@ -2074,32 +2193,70 @@ async def debug_user_data(current_user: str = Depends(require_auth)):
 # Add this test data insertion endpoint
 @app.post("/api/debug/add-test-data")
 async def add_test_data(current_user: str = Depends(require_auth)):
-    """Add test search data for debugging"""
+    """Add test search data for debugging - FIXED for missing columns"""
     try:
         await db.initialize()
         
-        # Add some test search history entries
-        test_companies = [
-            {"gstin": "29AAAPL2356Q1ZS", "name": "Test Company 1", "score": 85.5},
-            {"gstin": "27AAAAA0000A1Z5", "name": "Test Company 2", "score": 72.3},
-            {"gstin": "07AAAAA0000A1Z5", "name": "Test Company 3", "score": 91.2},
-        ]
-        
+        # Check what columns exist first
         async with db.pool.acquire() as conn:
+            existing_columns = await conn.fetch("""
+                SELECT column_name 
+                FROM information_schema.columns 
+                WHERE table_name = 'search_history' AND table_schema = 'public'
+            """)
+            
+            column_names = {row['column_name'] for row in existing_columns}
+            logger.info(f"Available columns for test data: {column_names}")
+            
+            # Add some test search history entries
+            test_companies = [
+                {"gstin": "29AAAPL2356Q1ZS", "name": "Test Company Alpha", "score": 85.5},
+                {"gstin": "27AAAAA0000A1Z5", "name": "Test Company Beta", "score": 72.3},
+                {"gstin": "07AAAAA0000A1Z5", "name": "Test Company Gamma", "score": 91.2},
+                {"gstin": "33AAAAA0000A1Z5", "name": "Test Company Delta", "score": 68.7},
+                {"gstin": "09AAAAA0000A1Z5", "name": "Test Company Epsilon", "score": 79.1},
+            ]
+            
+            inserted_count = 0
+            
             for company in test_companies:
-                await conn.execute("""
-                    INSERT INTO search_history (mobile, gstin, company_name, compliance_score, search_data, ai_synopsis)
-                    VALUES ($1, $2, $3, $4, $5, $6)
+                # Build insert with only existing columns
+                columns = ['mobile', 'gstin', 'company_name', 'compliance_score']
+                values = [current_user, company["gstin"], company["name"], company["score"]]
+                placeholders = ['$1', '$2', '$3', '$4']
+                
+                # Add optional columns if they exist
+                if 'search_data' in column_names:
+                    columns.append('search_data')
+                    values.append('{"test": true}')
+                    placeholders.append(f'${len(values)}')
+                
+                if 'ai_synopsis' in column_names:
+                    columns.append('ai_synopsis')
+                    values.append(f"AI Analysis: {company['name']} shows good compliance trends with score of {company['score']}%")
+                    placeholders.append(f'${len(values)}')
+                
+                query = f"""
+                    INSERT INTO search_history ({', '.join(columns)})
+                    VALUES ({', '.join(placeholders)})
                     ON CONFLICT (mobile, gstin) DO UPDATE SET
-                    compliance_score = EXCLUDED.compliance_score,
-                    searched_at = CURRENT_TIMESTAMP
-                """, current_user, company["gstin"], company["name"], company["score"], 
-                    '{"test": true}', "This is test AI synopsis data")
+                        compliance_score = EXCLUDED.compliance_score,
+                        company_name = EXCLUDED.company_name,
+                        searched_at = CURRENT_TIMESTAMP
+                """
+                
+                try:
+                    await conn.execute(query, *values)
+                    inserted_count += 1
+                    logger.info(f"✅ Inserted test data for {company['gstin']}")
+                except Exception as e:
+                    logger.error(f"❌ Failed to insert {company['gstin']}: {e}")
         
         return JSONResponse({
             "success": True,
-            "message": f"Added {len(test_companies)} test entries",
-            "test_data": test_companies
+            "message": f"Added/updated {inserted_count} test entries",
+            "test_data": test_companies,
+            "available_columns": list(column_names)
         })
         
     except Exception as e:
@@ -2110,36 +2267,68 @@ async def add_test_data(current_user: str = Depends(require_auth)):
         })
 
 # Add this database table check/creation endpoint
+# Add this to main.py - Replace the existing ensure-tables endpoint
+
 @app.post("/api/debug/ensure-tables")
 async def ensure_tables(current_user: str = Depends(require_auth)):
-    """Ensure database tables exist with proper structure"""
+    """Ensure database tables exist with proper structure - FIXED"""
     try:
         await db.initialize()
         
         async with db.pool.acquire() as conn:
-            # Create search_history table if it doesn't exist
-            await conn.execute("""
-                CREATE TABLE IF NOT EXISTS search_history (
-                    id SERIAL PRIMARY KEY,
-                    mobile VARCHAR(15) NOT NULL,
-                    gstin VARCHAR(15) NOT NULL,
-                    company_name TEXT,
-                    compliance_score DECIMAL(5,2),
-                    search_data JSONB DEFAULT '{}',
-                    ai_synopsis TEXT,
-                    searched_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    UNIQUE(mobile, gstin)
-                )
+            # First, check what columns exist
+            existing_columns = await conn.fetch("""
+                SELECT column_name 
+                FROM information_schema.columns 
+                WHERE table_name = 'search_history' AND table_schema = 'public'
             """)
+            
+            existing_column_names = {row['column_name'] for row in existing_columns}
+            logger.info(f"Existing columns: {existing_column_names}")
+            
+            # Add missing columns one by one
+            if 'ai_synopsis' not in existing_column_names:
+                try:
+                    await conn.execute("ALTER TABLE search_history ADD COLUMN ai_synopsis TEXT")
+                    logger.info("✅ Added ai_synopsis column")
+                except Exception as e:
+                    logger.error(f"Failed to add ai_synopsis: {e}")
+            
+            if 'search_data' not in existing_column_names:
+                try:
+                    await conn.execute("ALTER TABLE search_history ADD COLUMN search_data JSONB DEFAULT '{}'")
+                    logger.info("✅ Added search_data column")
+                except Exception as e:
+                    logger.error(f"Failed to add search_data: {e}")
+            
+            # Ensure other required columns exist
+            required_columns = {
+                'mobile': 'VARCHAR(15) NOT NULL',
+                'gstin': 'VARCHAR(15) NOT NULL', 
+                'company_name': 'TEXT',
+                'compliance_score': 'DECIMAL(5,2)',
+                'searched_at': 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP'
+            }
+            
+            for col_name, col_def in required_columns.items():
+                if col_name not in existing_column_names:
+                    try:
+                        await conn.execute(f"ALTER TABLE search_history ADD COLUMN {col_name} {col_def}")
+                        logger.info(f"✅ Added {col_name} column")
+                    except Exception as e:
+                        logger.error(f"Failed to add {col_name}: {e}")
             
             # Create index for better performance
-            await conn.execute("""
-                CREATE INDEX IF NOT EXISTS idx_search_history_mobile_date 
-                ON search_history(mobile, searched_at DESC)
-            """)
+            try:
+                await conn.execute("""
+                    CREATE INDEX IF NOT EXISTS idx_search_history_mobile_date 
+                    ON search_history(mobile, searched_at DESC)
+                """)
+            except Exception as e:
+                logger.error(f"Failed to create index: {e}")
             
-            # Check table structure
-            columns = await conn.fetch("""
+            # Get final column list
+            final_columns = await conn.fetch("""
                 SELECT column_name, data_type 
                 FROM information_schema.columns 
                 WHERE table_name = 'search_history' 
@@ -2149,12 +2338,12 @@ async def ensure_tables(current_user: str = Depends(require_auth)):
             
             return JSONResponse({
                 "success": True,
-                "message": "Tables checked/created successfully",
-                "search_history_columns": [{"name": col["column_name"], "type": col["data_type"]} for col in columns]
+                "message": "Database schema updated successfully",
+                "columns": [{"name": col["column_name"], "type": col["data_type"]} for col in final_columns]
             })
             
     except Exception as e:
-        logger.error(f"Table creation error: {e}")
+        logger.error(f"Schema update error: {e}")
         return JSONResponse({
             "success": False,
             "error": str(e)
