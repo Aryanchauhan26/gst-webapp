@@ -432,32 +432,40 @@ class FixedDatabaseManager:
     async def get_user_stats(self, mobile: str) -> Dict:
         """Get user statistics with safe column handling - FIXED"""
         try:
+            await self.initialize()
             async with self.pool.acquire() as conn:
-                # Use a more robust query that doesn't rely on column cache
+                # Use a more robust query that handles missing data
                 stats = await conn.fetchrow("""
                     SELECT 
-                        COUNT(*) as total_searches,
-                        COALESCE(AVG(compliance_score), 0) as avg_compliance,
-                        COUNT(DISTINCT gstin) as unique_companies,
-                        COUNT(CASE WHEN searched_at >= CURRENT_DATE - INTERVAL '30 days' THEN 1 END) as searches_this_month
+                        COALESCE(COUNT(*), 0) as total_searches,
+                        COALESCE(ROUND(AVG(COALESCE(compliance_score, 0))::numeric, 1), 0) as avg_compliance,
+                        COALESCE(COUNT(DISTINCT COALESCE(gstin, '')), 0) as unique_companies,
+                        COALESCE(COUNT(CASE 
+                            WHEN searched_at >= CURRENT_DATE - INTERVAL '30 days' 
+                            THEN 1 
+                            ELSE NULL 
+                        END), 0) as searches_this_month
                     FROM search_history 
                     WHERE mobile = $1
                 """, mobile)
                 
                 if stats:
-                    return {
+                    result = {
                         "total_searches": int(stats["total_searches"]) if stats["total_searches"] else 0,
-                        "avg_compliance": round(float(stats["avg_compliance"]) if stats["avg_compliance"] else 0, 1),
+                        "avg_compliance": float(stats["avg_compliance"]) if stats["avg_compliance"] else 0.0,
                         "unique_companies": int(stats["unique_companies"]) if stats["unique_companies"] else 0,
                         "searches_this_month": int(stats["searches_this_month"]) if stats["searches_this_month"] else 0
                     }
+                    
+                    logger.info(f"✅ User stats loaded for {mobile}: {result}")
+                    return result
                 else:
-                    return {"total_searches": 0, "avg_compliance": 0, "unique_companies": 0, "searches_this_month": 0}
+                    logger.warning(f"⚠️ No stats found for user {mobile}")
+                    return {"total_searches": 0, "avg_compliance": 0.0, "unique_companies": 0, "searches_this_month": 0}
                     
         except Exception as e:
-            logger.error(f"Error getting user stats: {e}")
-            return {"total_searches": 0, "avg_compliance": 0, "unique_companies": 0, "searches_this_month": 0}
-
+            logger.error(f"❌ Error getting user stats for {mobile}: {e}")
+            return {"total_searches": 0, "avg_compliance": 0.0, "unique_companies": 0, "searches_this_month": 0}
 
     async def get_user_profile_data(self, mobile: str) -> Dict:
         """Get user profile data with safe column handling - FIXED"""
@@ -874,21 +882,46 @@ async def health_check():
 
 @app.get("/", response_class=HTMLResponse)
 async def dashboard(request: Request, current_user: str = Depends(require_auth)):
-    """Dashboard route - FIXED"""
+    """Dashboard route - FIXED with proper data loading"""
     try:
         await db.initialize()
         
-        # Get comprehensive user profile data
-        profile_data = await db.get_user_profile_data(current_user)
-        user_stats = profile_data.get("search_stats", {})
-        history = profile_data.get("recent_searches", [])
+        # Initialize default values
+        user_stats = {
+            "total_searches": 0,
+            "unique_companies": 0, 
+            "avg_compliance": 0,
+            "searches_this_month": 0
+        }
+        history = []
+        profile_data = {
+            "user_info": {"mobile": current_user},
+            "search_stats": user_stats,
+            "recent_searches": []
+        }
         
-        # Ensure we have default values for the template
+        try:
+            # Get comprehensive user profile data with error handling
+            profile_data = await db.get_user_profile_data(current_user)
+            if profile_data and "search_stats" in profile_data:
+                user_stats = profile_data["search_stats"]
+            
+            # Get recent search history with error handling  
+            history = profile_data.get("recent_searches", [])
+            if not history:
+                # Fallback: try to get history directly
+                history = await db.get_search_history(current_user, 5)
+                
+        except Exception as e:
+            logger.error(f"Error loading profile data for {current_user}: {e}")
+            # Continue with default values
+        
+        # Ensure we have valid numbers
         user_profile = {
-            "total_searches": user_stats.get("total_searches", 0),
-            "unique_companies": user_stats.get("unique_companies", 0),
-            "avg_compliance": user_stats.get("avg_compliance", 0),
-            "searches_this_month": user_stats.get("searches_this_month", 0)
+            "total_searches": int(user_stats.get("total_searches", 0)),
+            "unique_companies": int(user_stats.get("unique_companies", 0)),
+            "avg_compliance": float(user_stats.get("avg_compliance", 0)),
+            "searches_this_month": int(user_stats.get("searches_this_month", 0))
         }
         
         # Debug logging
@@ -1546,22 +1579,31 @@ async def api_search(request: Request, gstin: str = Form(...), current_user: str
         return JSONResponse({"success": False, "error": str(e)})
 
 @app.get("/api/user/stats")
-async def get_user_stats_api(request: Request, current_user: str = Depends(require_auth)):
-    """Get user statistics for profile display - FIXED"""
+async def get_user_stats_api(current_user: str = Depends(require_auth)):
+    """Get user statistics - FIXED VERSION"""
     try:
         await db.initialize()
         stats = await db.get_user_stats(current_user)
         
         # Calculate user level
-        user_level = get_user_level(stats.get("total_searches", 0))
-        achievements = get_user_achievements(stats.get("total_searches", 0), stats.get("avg_compliance", 0))
+        total_searches = stats.get("total_searches", 0)
+        
+        if total_searches >= 100:
+            user_level = {"level": "Expert", "icon": "fas fa-crown", "color": "#f59e0b"}
+        elif total_searches >= 50:
+            user_level = {"level": "Advanced", "icon": "fas fa-star", "color": "#8b5cf6"}
+        elif total_searches >= 20:
+            user_level = {"level": "Intermediate", "icon": "fas fa-user-graduate", "color": "#06b6d4"}
+        elif total_searches >= 5:
+            user_level = {"level": "Beginner", "icon": "fas fa-seedling", "color": "#10b981"}
+        else:
+            user_level = {"level": "New User", "icon": "fas fa-user-plus", "color": "#6b7280"}
         
         return JSONResponse({
             "success": True,
             "data": {
                 **stats,
-                "user_level": user_level,
-                "achievements": achievements
+                "user_level": user_level
             }
         })
         
@@ -1575,8 +1617,7 @@ async def get_user_stats_api(request: Request, current_user: str = Depends(requi
                 "avg_compliance": 0,
                 "unique_companies": 0,
                 "searches_this_month": 0,
-                "user_level": {"level": "New User", "icon": "fas fa-user", "color": "#6b7280"},
-                "achievements": []
+                "user_level": {"level": "New User", "icon": "fas fa-user", "color": "#6b7280"}
             }
         })
 
@@ -1988,7 +2029,136 @@ async def debug_profile(current_user: str = Depends(require_auth)):
         return JSONResponse({"profile_data": profile_data})
     except Exception as e:
         return JSONResponse({"error": str(e)})
-    
+
+@app.get("/api/debug/user-data")
+async def debug_user_data(current_user: str = Depends(require_auth)):
+    """Debug endpoint to check user data"""
+    try:
+        await db.initialize()
+        
+        # Check if user exists
+        async with db.pool.acquire() as conn:
+            user_exists = await conn.fetchrow("SELECT mobile FROM users WHERE mobile = $1", current_user)
+            
+            # Check search history count
+            search_count = await conn.fetchval("SELECT COUNT(*) FROM search_history WHERE mobile = $1", current_user)
+            
+            # Get sample search data
+            sample_searches = await conn.fetch("SELECT * FROM search_history WHERE mobile = $1 LIMIT 3", current_user)
+            
+            # Test the stats function
+            stats = await db.get_user_stats(current_user)
+            
+            debug_info = {
+                "user_exists": user_exists is not None,
+                "user_mobile": current_user,
+                "search_count_direct": search_count,
+                "stats_function_result": stats,
+                "sample_searches": [dict(row) for row in sample_searches],
+                "database_connected": db.pool is not None,
+                "database_initialized": db._initialized
+            }
+            
+            return JSONResponse({
+                "success": True,
+                "debug_info": debug_info
+            })
+            
+    except Exception as e:
+        logger.error(f"Debug endpoint error: {e}")
+        return JSONResponse({
+            "success": False,
+            "error": str(e)
+        })
+
+# Add this test data insertion endpoint
+@app.post("/api/debug/add-test-data")
+async def add_test_data(current_user: str = Depends(require_auth)):
+    """Add test search data for debugging"""
+    try:
+        await db.initialize()
+        
+        # Add some test search history entries
+        test_companies = [
+            {"gstin": "29AAAPL2356Q1ZS", "name": "Test Company 1", "score": 85.5},
+            {"gstin": "27AAAAA0000A1Z5", "name": "Test Company 2", "score": 72.3},
+            {"gstin": "07AAAAA0000A1Z5", "name": "Test Company 3", "score": 91.2},
+        ]
+        
+        async with db.pool.acquire() as conn:
+            for company in test_companies:
+                await conn.execute("""
+                    INSERT INTO search_history (mobile, gstin, company_name, compliance_score, search_data, ai_synopsis)
+                    VALUES ($1, $2, $3, $4, $5, $6)
+                    ON CONFLICT (mobile, gstin) DO UPDATE SET
+                    compliance_score = EXCLUDED.compliance_score,
+                    searched_at = CURRENT_TIMESTAMP
+                """, current_user, company["gstin"], company["name"], company["score"], 
+                    '{"test": true}', "This is test AI synopsis data")
+        
+        return JSONResponse({
+            "success": True,
+            "message": f"Added {len(test_companies)} test entries",
+            "test_data": test_companies
+        })
+        
+    except Exception as e:
+        logger.error(f"Test data insertion error: {e}")
+        return JSONResponse({
+            "success": False,
+            "error": str(e)
+        })
+
+# Add this database table check/creation endpoint
+@app.post("/api/debug/ensure-tables")
+async def ensure_tables(current_user: str = Depends(require_auth)):
+    """Ensure database tables exist with proper structure"""
+    try:
+        await db.initialize()
+        
+        async with db.pool.acquire() as conn:
+            # Create search_history table if it doesn't exist
+            await conn.execute("""
+                CREATE TABLE IF NOT EXISTS search_history (
+                    id SERIAL PRIMARY KEY,
+                    mobile VARCHAR(15) NOT NULL,
+                    gstin VARCHAR(15) NOT NULL,
+                    company_name TEXT,
+                    compliance_score DECIMAL(5,2),
+                    search_data JSONB DEFAULT '{}',
+                    ai_synopsis TEXT,
+                    searched_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE(mobile, gstin)
+                )
+            """)
+            
+            # Create index for better performance
+            await conn.execute("""
+                CREATE INDEX IF NOT EXISTS idx_search_history_mobile_date 
+                ON search_history(mobile, searched_at DESC)
+            """)
+            
+            # Check table structure
+            columns = await conn.fetch("""
+                SELECT column_name, data_type 
+                FROM information_schema.columns 
+                WHERE table_name = 'search_history' 
+                AND table_schema = 'public'
+                ORDER BY ordinal_position
+            """)
+            
+            return JSONResponse({
+                "success": True,
+                "message": "Tables checked/created successfully",
+                "search_history_columns": [{"name": col["column_name"], "type": col["data_type"]} for col in columns]
+            })
+            
+    except Exception as e:
+        logger.error(f"Table creation error: {e}")
+        return JSONResponse({
+            "success": False,
+            "error": str(e)
+        })    
 # Startup/Shutdown
 @app.on_event("startup")
 async def startup_event():
