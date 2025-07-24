@@ -77,6 +77,20 @@ except ImportError:
     WEASYPRINT_AVAILABLE = False
 
 # Environment Configuration
+try:
+    from api_debug_fix import (
+        enhanced_gst_client, 
+        enhanced_ai_client, 
+        debug_api_status,
+        RAPIDAPI_KEY,
+        ANTHROPIC_API_KEY,
+        RAPIDAPI_HOST
+    )
+    ENHANCED_APIS_AVAILABLE = True
+    logger.info("✅ Enhanced API clients loaded successfully")
+except ImportError as e:
+    logger.error(f"❌ Failed to import enhanced API clients: {e}")
+    ENHANCED_APIS_AVAILABLE = False
 RAPIDAPI_KEY = os.getenv("RAPIDAPI_KEY")
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY") 
 RAPIDAPI_HOST = os.getenv("RAPIDAPI_HOST", "gst-return-status.p.rapidapi.com")
@@ -730,38 +744,60 @@ login_limiter = RateLimiter()
 api_limiter = RateLimiter(max_attempts=60, window_minutes=1)
 
 # GST API Client
-class GSAPIClient:
-    def __init__(self, api_key: str, host: str):
-        self.api_key = api_key
-        self.host = host
-        self.headers = {
-            "X-RapidAPI-Key": api_key,
-            "X-RapidAPI-Host": host
-        }
-    
-    async def fetch_gstin_data(self, gstin: str) -> Dict:
-        """Fetch GSTIN data from RapidAPI"""
-        try:
-            async with httpx.AsyncClient() as client:
-                response = await client.get(
-                    f"https://{self.host}/gstin/{gstin}",
-                    headers=self.headers,
-                    timeout=30.0
-                )
-                
-                if response.status_code == 200:
-                    data = response.json()
-                    return data
-                else:
-                    raise HTTPException(status_code=404, detail="Company not found")
+if ENHANCED_APIS_AVAILABLE:
+    api_client = enhanced_gst_client
+    ai_client = enhanced_ai_client
+else:
+    class GSAPIClient:
+        def __init__(self, api_key: str, host: str):
+            self.api_key = api_key
+            self.host = host
+            self.headers = {
+                "X-RapidAPI-Key": api_key,
+                "X-RapidAPI-Host": host
+            }
+        
+        async def fetch_gstin_data(self, gstin: str) -> Dict:
+            """Fetch GSTIN data from RapidAPI"""
+            try:
+                async with httpx.AsyncClient() as client:
+                    response = await client.get(
+                        f"https://{self.host}/gstin/{gstin}",
+                        headers=self.headers,
+                        timeout=30.0
+                    )
                     
-        except httpx.TimeoutException:
-            raise HTTPException(status_code=504, detail="API timeout")
-        except Exception as e:
-            logger.error(f"GST API error: {e}")
-            raise HTTPException(status_code=500, detail="API service error")
+                    if response.status_code == 200:
+                        data = response.json()
+                        return data
+                    else:
+                        raise HTTPException(status_code=404, detail="Company not found")
+                        
+            except httpx.TimeoutException:
+                raise HTTPException(status_code=504, detail="API timeout")
+            except Exception as e:
+                logger.error(f"GST API error: {e}")
+                raise HTTPException(status_code=500, detail="API service error")
 
-api_client = GSAPIClient(RAPIDAPI_KEY, RAPIDAPI_HOST) if RAPIDAPI_KEY else None
+    api_client = GSAPIClient(RAPIDAPI_KEY, RAPIDAPI_HOST) if RAPIDAPI_KEY else None
+    ai_client = None
+
+# FIXED: Enhanced AI synopsis function
+async def get_enhanced_ai_synopsis(company_data: dict) -> Optional[str]:
+    """Get AI synopsis using enhanced client or fallback"""
+    try:
+        if ENHANCED_APIS_AVAILABLE and enhanced_ai_client:
+            return await enhanced_ai_client.get_synopsis(company_data)
+        elif ANTHROPIC_API_KEY:
+            # Fallback to original anthro_ai import
+            from anthro_ai import get_anthropic_synopsis
+            return await get_anthropic_synopsis(company_data)
+        else:
+            logger.warning("No AI service available")
+            return None
+    except Exception as e:
+        logger.error(f"AI synopsis error: {e}")
+        return None
 
 # Validation functions
 def validate_mobile(mobile: str) -> tuple[bool, str]:
@@ -2138,12 +2174,16 @@ async def process_search(request: Request, gstin: str, current_user: str):
         
         # Get AI synopsis
         synopsis = None
-        if ANTHROPIC_API_KEY:
-            try:
-                synopsis = await get_anthropic_synopsis(company_data)
-            except Exception as e:
-                logger.error(f"Failed to get AI synopsis: {e}")
-                synopsis = None
+        try:
+            logger.info("🤖 Attempting to generate AI synopsis...")
+            synopsis = await get_enhanced_ai_synopsis(company_data)
+            if synopsis:
+                logger.info("✅ AI synopsis generated successfully")
+            else:
+                logger.warning("⚠️ AI synopsis returned None")
+        except Exception as e:
+            logger.error(f"❌ AI synopsis generation failed: {e}")
+            synopsis = "AI analysis temporarily unavailable"
         
         # Add to search history with error handling
         try:
@@ -2185,6 +2225,105 @@ async def process_search(request: Request, gstin: str, current_user: str):
             "user_profile": {"total_searches": 0, "avg_compliance": 0, "unique_companies": 0, "searches_this_month": 0}
         })
 
+# DEBUG ENDPOINTS - Add these before error handlers
+@app.get("/debug/api-status")
+async def debug_api_status_endpoint(current_user: str = Depends(require_auth)):
+    """Debug endpoint to check API status"""
+    try:
+        if ENHANCED_APIS_AVAILABLE:
+            results = await debug_api_status()
+            return JSONResponse({
+                "success": True,
+                "debug_info": results,
+                "enhanced_apis": True
+            })
+        else:
+            # Basic check for original implementation
+            return JSONResponse({
+                "success": True,
+                "debug_info": {
+                    "environment": {
+                        "rapidapi_key_set": bool(RAPIDAPI_KEY),
+                        "anthropic_key_set": bool(ANTHROPIC_API_KEY),
+                        "rapidapi_host": RAPIDAPI_HOST or "not set"
+                    },
+                    "gst_api": {"success": bool(api_client), "message": "Using original client"},
+                    "anthropic_api": {"success": bool(ANTHROPIC_API_KEY), "message": "Using original client"}
+                },
+                "enhanced_apis": False,
+                "recommendation": "Create api_debug_fix.py for enhanced debugging"
+            })
+    except Exception as e:
+        logger.error(f"Debug endpoint error: {e}")
+        return JSONResponse({
+            "success": False,
+            "error": str(e)
+        })
+
+@app.post("/debug/test-gst-api")
+async def test_gst_api_endpoint(
+    gstin: str = Form(...), 
+    current_user: str = Depends(require_auth)
+):
+    """Test GST API with a specific GSTIN"""
+    try:
+        if not api_client:
+            return JSONResponse({
+                "success": False,
+                "error": "GST API client not configured"
+            })
+        
+        logger.info(f"Testing GST API with GSTIN: {gstin}")
+        company_data = await api_client.fetch_gstin_data(gstin)
+        
+        return JSONResponse({
+            "success": True,
+            "message": "GST API test successful",
+            "data": {
+                "gstin": gstin,
+                "company_name": company_data.get("lgnm", "Unknown"),
+                "status": company_data.get("sts", "Unknown"),
+                "data_keys": list(company_data.keys())
+            }
+        })
+        
+    except Exception as e:
+        logger.error(f"GST API test error: {e}")
+        return JSONResponse({
+            "success": False,
+            "error": str(e)
+        })
+
+@app.post("/debug/test-ai-synopsis")
+async def test_ai_synopsis_endpoint(current_user: str = Depends(require_auth)):
+    """Test AI synopsis generation"""
+    try:
+        # Sample company data for testing
+        test_company_data = {
+            "lgnm": "Test Company Pvt Ltd",
+            "sts": "Active", 
+            "rgdt": "01/01/2020",
+            "gstin": "29AAAPL2356Q1ZS"
+        }
+        
+        synopsis = await get_enhanced_ai_synopsis(test_company_data)
+        
+        return JSONResponse({
+            "success": True,
+            "message": "AI synopsis test completed",
+            "data": {
+                "synopsis": synopsis,
+                "test_data": test_company_data
+            }
+        })
+        
+    except Exception as e:
+        logger.error(f"AI synopsis test error: {e}")
+        return JSONResponse({
+            "success": False,
+            "error": str(e)
+        })
+    
 # Error handlers
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request: Request, exc: HTTPException):
@@ -2453,6 +2592,21 @@ async def startup_event():
     try:
         await db.initialize()
         setup_template_globals()
+        
+        # Add API debugging on startup
+        if ENHANCED_APIS_AVAILABLE:
+            logger.info("🔧 Running startup API diagnostics...")
+            try:
+                results = await debug_api_status()
+                logger.info(f"📊 API Status: GST={'✅' if results.get('gst_api', {}).get('success') else '❌'}, "
+                           f"AI={'✅' if results.get('anthropic_api', {}).get('success') else '❌'}")
+            except Exception as e:
+                logger.error(f"❌ Startup API diagnostics failed: {e}")
+        else:
+            logger.warning("⚠️ Enhanced API debugging not available")
+            logger.info(f"📊 Basic API Check: GST={'✅' if api_client else '❌'}, "
+                       f"AI={'✅' if ANTHROPIC_API_KEY else '❌'}")
+        
         logger.info("✅ Application started successfully!")
     except Exception as e:
         logger.error(f"❌ Startup failed: {e}")
