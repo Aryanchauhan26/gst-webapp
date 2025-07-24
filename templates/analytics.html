@@ -79,7 +79,7 @@
                 </div>
             </div>
             <div class="chart-container">
-                <canvas id="trendsChart" width="400" height="200"></canvas>
+                <canvas id="trendsChart"></canvas>
             </div>
         </div>
 
@@ -92,7 +92,7 @@
                 </h3>
             </div>
             <div class="chart-container">
-                <canvas id="distributionChart" width="400" height="200"></canvas>
+                <canvas id="distributionChart"></canvas>
                 <div class="chart-legend">
                     <div class="legend-item excellent">Excellent (90-100%)</div>
                     <div class="legend-item good">Good (70-89%)</div>
@@ -174,358 +174,591 @@
         </div>
     </div>
 </main>
+
+<!-- Hidden data containers for JavaScript -->
+<script type="application/json" id="analytics-data">
+{
+    "daily_searches": {{ daily_searches | tojson | safe if daily_searches else '[]' }},
+    "score_distribution": {{ score_distribution | tojson | safe if score_distribution else '[]' }},
+    "top_companies": {{ top_companies | tojson | safe if top_companies else '[]' }}
+}
+</script>
 {% endblock %}
 
 {% block extra_js %}
 <script>
-// Enhanced Analytics Dashboard with Chart.js integration
-document.addEventListener('DOMContentLoaded', function() {
-    console.log('📊 Analytics dashboard loading...');
-    
-    // Ensure Chart.js is loaded
-    if (typeof Chart === 'undefined') {
-        console.error('Chart.js is not loaded! Analytics charts will not work.');
-        showChartError();
-        return;
+// FIXED Analytics Dashboard - Complete rewrite for reliability
+class AnalyticsDashboard {
+    constructor() {
+        this.charts = {};
+        this.data = null;
+        this.isInitialized = false;
+        
+        console.log('📊 Analytics Dashboard initializing...');
+        this.init();
     }
-    
-    // Set Chart.js defaults for dark theme
-    Chart.defaults.color = getComputedStyle(document.documentElement).getPropertyValue('--text-secondary') || '#a1a1aa';
-    Chart.defaults.borderColor = getComputedStyle(document.documentElement).getPropertyValue('--border-primary') || '#27272a';
-    Chart.defaults.backgroundColor = 'rgba(124, 58, 237, 0.1)';
-    
-    // Initialize charts with error handling
-    try {
-        console.log('📈 Initializing charts...');
-        initializeTrendsChart();
-        initializeDistributionChart();
-        console.log('✅ Charts initialized successfully');
-    } catch (error) {
-        console.error('Chart initialization failed:', error);
-        showChartError();
-    }
-    
-    // Update timestamps
-    updateTimestamps();
-    
-    // Auto-refresh data every 30 seconds
-    setInterval(updateTimestamps, 30000);
-    
-    // Initialize chart controls
-    initializeChartControls();
-});
 
-function showChartError() {
-    // Show error message in chart containers
-    const chartContainers = document.querySelectorAll('.chart-container');
-    chartContainers.forEach(container => {
-        const canvas = container.querySelector('canvas');
-        if (canvas) {
-            canvas.style.display = 'none';
-            container.innerHTML += '<div class="chart-error" style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 200px; color: var(--text-secondary); opacity: 0.7;"><i class="fas fa-exclamation-triangle" style="font-size: 2rem; margin-bottom: 0.5rem;"></i><p>Chart could not be loaded</p></div>';
-        }
-    });
-}
-
-function initializeTrendsChart() {
-    // Parse the JSON data safely from Jinja
-    let trendsData = [];
-    try {
-        trendsData = JSON.parse('{{ daily_searches | tojson | safe }}');
-    } catch (e) {
-        console.error('Error parsing trends data:', e);
-        trendsData = [];
-    }
-    
-    const trendsChartCanvas = document.getElementById('trendsChart');
-    if (!trendsChartCanvas) {
-        console.warn('Trends chart canvas not found');
-        return;
-    }
-    
-    // Prepare chart data
-    let trendsChartData = [];
-    let trendsChartLabels = [];
-    
-    if (trendsData && Array.isArray(trendsData) && trendsData.length > 0) {
-        trendsChartLabels = trendsData.map(item => {
-            const date = new Date(item.date);
-            return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-        });
-        trendsChartData = trendsData.map(item => item.search_count || 0);
-    } else {
-        // Generate sample data for empty state
-        const today = new Date();
-        for (let i = 6; i >= 0; i--) {
-            const date = new Date(today);
-            date.setDate(date.getDate() - i);
-            trendsChartLabels.push(date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }));
-            trendsChartData.push(0);
-        }
-    }
-    
-    const trendsCtx = trendsChartCanvas.getContext('2d');
-    
-    // Create gradient
-    const trendsGradient = trendsCtx.createLinearGradient(0, 0, 0, 200);
-    trendsGradient.addColorStop(0, 'rgba(124, 58, 237, 0.3)');
-    trendsGradient.addColorStop(1, 'rgba(124, 58, 237, 0.05)');
-    
-    new Chart(trendsCtx, {
-        type: 'line',
-        data: {
-            labels: trendsChartLabels,
-            datasets: [{
-                label: 'Daily Searches',
-                data: trendsChartData,
-                borderColor: '#7c3aed',
-                backgroundColor: trendsGradient,
-                borderWidth: 2,
-                fill: true,
-                tension: 0.4,
-                pointBackgroundColor: '#7c3aed',
-                pointBorderColor: '#ffffff',
-                pointBorderWidth: 2,
-                pointRadius: 4,
-                pointHoverRadius: 6
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            interaction: {
-                intersect: false,
-                mode: 'index'
-            },
-            plugins: {
-                legend: {
-                    display: false
-                },
-                tooltip: {
-                    backgroundColor: 'rgba(26, 26, 26, 0.95)',
-                    titleColor: '#ffffff',
-                    bodyColor: '#a1a1aa',
-                    borderColor: '#7c3aed',
-                    borderWidth: 1,
-                    cornerRadius: 8,
-                    displayColors: false,
-                    callbacks: {
-                        title: function(context) {
-                            return context[0].label;
-                        },
-                        label: function(context) {
-                            return `${context.parsed.y} searches`;
-                        }
+    async init() {
+        try {
+            // Wait for DOM to be fully ready
+            if (document.readyState !== 'complete') {
+                await new Promise(resolve => {
+                    if (document.readyState === 'loading') {
+                        document.addEventListener('DOMContentLoaded', resolve);
+                    } else {
+                        resolve();
                     }
+                });
+            }
+
+            // Wait for Chart.js to be available
+            await this.waitForChartJS();
+            
+            // Load and validate data
+            this.loadData();
+            
+            // Configure Chart.js defaults
+            this.configureChartDefaults();
+            
+            // Initialize charts
+            await this.initializeCharts();
+            
+            // Setup controls and interactions
+            this.setupControls();
+            this.setupCompanyInteractions();
+            
+            // Update timestamps
+            this.updateTimestamps();
+            setInterval(() => this.updateTimestamps(), 30000);
+            
+            this.isInitialized = true;
+            console.log('✅ Analytics Dashboard initialized successfully');
+            
+        } catch (error) {
+            console.error('❌ Analytics Dashboard initialization failed:', error);
+            this.showError('Failed to initialize analytics dashboard');
+        }
+    }
+
+    async waitForChartJS() {
+        return new Promise((resolve, reject) => {
+            let attempts = 0;
+            const maxAttempts = 50; // 5 seconds max wait
+            
+            const checkChartJS = () => {
+                if (typeof Chart !== 'undefined') {
+                    console.log('✅ Chart.js is available');
+                    resolve();
+                } else if (attempts >= maxAttempts) {
+                    reject(new Error('Chart.js failed to load after 5 seconds'));
+                } else {
+                    attempts++;
+                    setTimeout(checkChartJS, 100);
                 }
+            };
+            
+            checkChartJS();
+        });
+    }
+
+    loadData() {
+        try {
+            // Get data from JSON script tag
+            const dataElement = document.getElementById('analytics-data');
+            if (dataElement) {
+                this.data = JSON.parse(dataElement.textContent);
+                console.log('📊 Analytics data loaded:', this.data);
+            } else {
+                console.warn('⚠️ No analytics data found, using empty data');
+                this.data = {
+                    daily_searches: [],
+                    score_distribution: [],
+                    top_companies: []
+                };
+            }
+        } catch (error) {
+            console.error('❌ Error loading analytics data:', error);
+            this.data = {
+                daily_searches: [],
+                score_distribution: [],
+                top_companies: []
+            };
+        }
+    }
+
+    configureChartDefaults() {
+        // Get CSS custom properties for theming
+        const rootStyles = getComputedStyle(document.documentElement);
+        const textColor = rootStyles.getPropertyValue('--text-secondary').trim() || '#94a3b8';
+        const borderColor = rootStyles.getPropertyValue('--border-primary').trim() || '#334155';
+        
+        // Configure Chart.js defaults
+        Chart.defaults.color = textColor;
+        Chart.defaults.borderColor = borderColor;
+        Chart.defaults.backgroundColor = 'rgba(124, 58, 237, 0.1)';
+        Chart.defaults.font.family = 'Inter, -apple-system, BlinkMacSystemFont, sans-serif';
+        Chart.defaults.font.size = 12;
+        
+        console.log('🎨 Chart.js defaults configured');
+    }
+
+    async initializeCharts() {
+        try {
+            await Promise.all([
+                this.initTrendsChart(),
+                this.initDistributionChart()
+            ]);
+            console.log('📈 All charts initialized');
+        } catch (error) {
+            console.error('❌ Chart initialization failed:', error);
+            this.showChartError();
+        }
+    }
+
+    async initTrendsChart() {
+        const canvas = document.getElementById('trendsChart');
+        if (!canvas) {
+            console.warn('⚠️ Trends chart canvas not found');
+            return;
+        }
+
+        // Prepare data
+        const { labels, data } = this.prepareTrendsData();
+        
+        // Create gradient
+        const ctx = canvas.getContext('2d');
+        const gradient = ctx.createLinearGradient(0, 0, 0, 300);
+        gradient.addColorStop(0, 'rgba(124, 58, 237, 0.3)');
+        gradient.addColorStop(1, 'rgba(124, 58, 237, 0.05)');
+
+        // Destroy existing chart if exists
+        if (this.charts.trends) {
+            this.charts.trends.destroy();
+        }
+
+        this.charts.trends = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Daily Searches',
+                    data: data,
+                    borderColor: '#7c3aed',
+                    backgroundColor: gradient,
+                    borderWidth: 3,
+                    fill: true,
+                    tension: 0.4,
+                    pointBackgroundColor: '#7c3aed',
+                    pointBorderColor: '#ffffff',
+                    pointBorderWidth: 2,
+                    pointRadius: 5,
+                    pointHoverRadius: 8,
+                    pointHoverBackgroundColor: '#7c3aed',
+                    pointHoverBorderColor: '#ffffff',
+                    pointHoverBorderWidth: 3
+                }]
             },
-            scales: {
-                x: {
-                    grid: {
-                        color: 'rgba(39, 39, 42, 0.3)',
-                        drawBorder: false
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: {
+                    intersect: false,
+                    mode: 'index'
+                },
+                plugins: {
+                    legend: {
+                        display: false
                     },
-                    ticks: {
-                        color: getComputedStyle(document.documentElement).getPropertyValue('--text-secondary') || '#a1a1aa',
-                        font: {
-                            size: 11
+                    tooltip: {
+                        backgroundColor: 'rgba(15, 23, 42, 0.95)',
+                        titleColor: '#f1f5f9',
+                        bodyColor: '#cbd5e1',
+                        borderColor: '#7c3aed',
+                        borderWidth: 1,
+                        cornerRadius: 12,
+                        displayColors: false,
+                        titleFont: {
+                            size: 14,
+                            weight: '600'
+                        },
+                        bodyFont: {
+                            size: 13
+                        },
+                        padding: 12,
+                        callbacks: {
+                            title: function(context) {
+                                return context[0].label;
+                            },
+                            label: function(context) {
+                                const value = context.parsed.y;
+                                const plural = value === 1 ? 'search' : 'searches';
+                                return `${value} ${plural}`;
+                            }
                         }
                     }
                 },
-                y: {
-                    beginAtZero: true,
-                    grid: {
-                        color: 'rgba(39, 39, 42, 0.3)',
-                        drawBorder: false
-                    },
-                    ticks: {
-                        color: getComputedStyle(document.documentElement).getPropertyValue('--text-secondary') || '#a1a1aa',
-                        font: {
-                            size: 11
+                scales: {
+                    x: {
+                        grid: {
+                            color: 'rgba(51, 65, 85, 0.3)',
+                            drawBorder: false
                         },
-                        stepSize: 1
+                        ticks: {
+                            color: '#94a3b8',
+                            font: {
+                                size: 11,
+                                weight: '500'
+                            }
+                        }
+                    },
+                    y: {
+                        beginAtZero: true,
+                        grid: {
+                            color: 'rgba(51, 65, 85, 0.3)',
+                            drawBorder: false
+                        },
+                        ticks: {
+                            color: '#94a3b8',
+                            font: {
+                                size: 11,
+                                weight: '500'
+                            },
+                            stepSize: 1,
+                            callback: function(value) {
+                                return Number.isInteger(value) ? value : '';
+                            }
+                        }
+                    }
+                },
+                elements: {
+                    point: {
+                        hoverRadius: 8
                     }
                 }
             }
-        }
-    });
-}
+        });
 
-function initializeDistributionChart() {
-    // Parse the JSON data safely from Jinja
-    let distributionData = [];
-    try {
-        distributionData = JSON.parse('{{ score_distribution | tojson | safe }}');
-    } catch (e) {
-        console.error('Error parsing distribution data:', e);
-        distributionData = [];
+        console.log('📈 Trends chart initialized');
     }
-    
-    const distributionChartCanvas = document.getElementById('distributionChart');
-    if (!distributionChartCanvas) {
-        console.warn('Distribution chart canvas not found');
-        return;
+
+    async initDistributionChart() {
+        const canvas = document.getElementById('distributionChart');
+        if (!canvas) {
+            console.warn('⚠️ Distribution chart canvas not found');
+            return;
+        }
+
+        // Prepare data
+        const { labels, data, colors, hasData } = this.prepareDistributionData();
+
+        // Destroy existing chart if exists
+        if (this.charts.distribution) {
+            this.charts.distribution.destroy();
+        }
+
+        const ctx = canvas.getContext('2d');
+        
+        this.charts.distribution = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: labels,
+                datasets: [{
+                    data: data,
+                    backgroundColor: colors,
+                    borderColor: getComputedStyle(document.documentElement).getPropertyValue('--bg-card') || '#1e293b',
+                    borderWidth: 3,
+                    hoverBorderWidth: 4,
+                    hoverOffset: 8
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                cutout: '65%',
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        backgroundColor: 'rgba(15, 23, 42, 0.95)',
+                        titleColor: '#f1f5f9',
+                        bodyColor: '#cbd5e1',
+                        borderColor: '#7c3aed',
+                        borderWidth: 1,
+                        cornerRadius: 12,
+                        displayColors: true,
+                        titleFont: {
+                            size: 14,
+                            weight: '600'
+                        },
+                        bodyFont: {
+                            size: 13
+                        },
+                        padding: 12,
+                        callbacks: {
+                            label: function(context) {
+                                if (!hasData) {
+                                    return 'Start searching to see compliance distribution';
+                                }
+                                const label = context.label || '';
+                                const value = context.parsed || 0;
+                                const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
+                                return `${label}: ${value} companies (${percentage}%)`;
+                            }
+                        }
+                    }
+                },
+                animation: {
+                    animateRotate: true,
+                    duration: 1000
+                }
+            }
+        });
+
+        console.log('🍩 Distribution chart initialized');
     }
-    
-    // Prepare chart data
-    let distributionChartData = [];
-    let distributionChartLabels = [];
-    let hasDistributionData = false;
-    
-    if (distributionData && Array.isArray(distributionData) && distributionData.length > 0) {
-        distributionChartLabels = distributionData.map(item => item.range || 'Unknown');
-        distributionChartData = distributionData.map(item => item.count || 0);
-        hasDistributionData = distributionChartData.some(value => value > 0);
+
+    prepareTrendsData() {
+        const dailySearches = this.data.daily_searches || [];
+        
+        if (dailySearches.length > 0) {
+            const labels = dailySearches.map(item => {
+                try {
+                    const date = new Date(item.date);
+                    return date.toLocaleDateString('en-US', { 
+                        month: 'short', 
+                        day: 'numeric' 
+                    });
+                } catch (e) {
+                    return 'Invalid Date';
+                }
+            });
+            
+            const data = dailySearches.map(item => item.search_count || 0);
+            
+            return { labels, data };
+        } else {
+            // Generate sample data for empty state
+            const labels = [];
+            const data = [];
+            const today = new Date();
+            
+            for (let i = 6; i >= 0; i--) {
+                const date = new Date(today);
+                date.setDate(date.getDate() - i);
+                labels.push(date.toLocaleDateString('en-US', { 
+                    month: 'short', 
+                    day: 'numeric' 
+                }));
+                data.push(0);
+            }
+            
+            return { labels, data };
+        }
     }
-    
-    // If no data, show placeholder
-    if (!hasDistributionData) {
-        distributionChartLabels = ['No Data Yet'];
-        distributionChartData = [1];
-    }
-    
-    const distributionCtx = distributionChartCanvas.getContext('2d');
-    
-    new Chart(distributionCtx, {
-        type: 'doughnut',
-        data: {
-            labels: distributionChartLabels,
-            datasets: [{
-                data: distributionChartData,
-                backgroundColor: hasDistributionData ? [
+
+    prepareDistributionData() {
+        const scoreDistribution = this.data.score_distribution || [];
+        
+        if (scoreDistribution.length > 0) {
+            const hasData = scoreDistribution.some(item => (item.count || 0) > 0);
+            
+            if (hasData) {
+                const labels = scoreDistribution.map(item => item.range || 'Unknown');
+                const data = scoreDistribution.map(item => item.count || 0);
+                const colors = [
                     '#10b981', // Excellent - Green
-                    '#3b82f6', // Very Good - Blue  
+                    '#3b82f6', // Very Good - Blue
                     '#f59e0b', // Good - Yellow
                     '#f97316', // Average - Orange
                     '#ef4444'  // Poor - Red
-                ] : ['#374151'], // Gray for no data
-                borderColor: getComputedStyle(document.documentElement).getPropertyValue('--bg-primary') || '#1a1a1a',
-                borderWidth: 2,
-                hoverBorderWidth: 3
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            cutout: '60%',
-            plugins: {
-                legend: {
-                    display: false // We use custom legend
-                },
-                tooltip: {
-                    backgroundColor: 'rgba(26, 26, 26, 0.95)',
-                    titleColor: '#ffffff',
-                    bodyColor: '#a1a1aa',
-                    borderColor: '#7c3aed',
-                    borderWidth: 1,
-                    cornerRadius: 8,
-                    displayColors: true,
-                    callbacks: {
-                        label: function(context) {
-                            if (!hasDistributionData) return 'Start searching to see distribution';
-                            const total = context.dataset.data.reduce((a, b) => a + b, 0);
-                            const percentage = ((context.parsed / total) * 100).toFixed(1);
-                            return `${context.label}: ${context.parsed} (${percentage}%)`;
-                        }
-                    }
+                ];
+                
+                return { labels, data, colors, hasData: true };
+            }
+        }
+        
+        // No data state
+        return {
+            labels: ['No Data Available'],
+            data: [1],
+            colors: ['#475569'],
+            hasData: false
+        };
+    }
+
+    setupControls() {
+        // Chart period buttons
+        document.querySelectorAll('.chart-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                // Remove active class from siblings
+                const parent = e.target.closest('.chart-controls');
+                if (parent) {
+                    parent.querySelectorAll('.chart-btn').forEach(b => b.classList.remove('active'));
+                }
+                
+                // Add active class to clicked button
+                e.target.classList.add('active');
+                
+                const period = e.target.dataset.period;
+                console.log('📅 Chart period changed to:', period);
+                
+                // Here you could implement period-based data loading
+                // this.loadPeriodData(period);
+            });
+        });
+    }
+
+    setupCompanyInteractions() {
+        // Company row click handlers
+        document.addEventListener('click', (e) => {
+            const companyRow = e.target.closest('.company-row');
+            if (companyRow) {
+                const gstin = companyRow.dataset.gstin;
+                if (gstin) {
+                    this.searchCompany(gstin);
                 }
             }
-        }
-    });
-}
+        });
+    }
 
-function initializeChartControls() {
-    // Chart period buttons
-    document.querySelectorAll('.chart-btn').forEach(btn => {
-        btn.addEventListener('click', function() {
-            // Remove active class from all buttons in the same group
-            const parentControls = this.closest('.chart-controls');
-            if (parentControls) {
-                parentControls.querySelectorAll('.chart-btn').forEach(b => b.classList.remove('active'));
+    searchCompany(gstin) {
+        if (gstin) {
+            console.log('🔍 Searching company:', gstin);
+            window.location.href = `/search?gstin=${encodeURIComponent(gstin)}`;
+        }
+    }
+
+    updateTimestamps() {
+        const now = new Date();
+        const timeString = now.toLocaleTimeString('en-IN', { 
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit'
+        });
+        
+        const lastUpdatedElement = document.getElementById('lastUpdated');
+        if (lastUpdatedElement) {
+            lastUpdatedElement.textContent = `Updated at ${timeString}`;
+        }
+    }
+
+    showError(message) {
+        // Show error notification
+        console.error('Analytics error:', message);
+        
+        if (window.notificationManager) {
+            window.notificationManager.show(message, 'error');
+        }
+    }
+
+    showChartError() {
+        // Show error in chart containers
+        const chartContainers = document.querySelectorAll('.chart-container');
+        chartContainers.forEach(container => {
+            const canvas = container.querySelector('canvas');
+            if (canvas) {
+                canvas.style.display = 'none';
+                
+                if (!container.querySelector('.chart-error')) {
+                    const errorDiv = document.createElement('div');
+                    errorDiv.className = 'chart-error';
+                    errorDiv.innerHTML = `
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <p>Chart unavailable</p>
+                        <button onclick="window.location.reload()" class="btn btn--sm">Retry</button>
+                    `;
+                    container.appendChild(errorDiv);
+                }
+            }
+        });
+    }
+
+    // Public method to refresh data
+    async refresh() {
+        console.log('🔄 Refreshing analytics data...');
+        
+        try {
+            // Show loading state
+            const liveIndicator = document.querySelector('.live-indicator');
+            if (liveIndicator) {
+                liveIndicator.classList.add('loading');
             }
             
-            // Add active class to clicked button
-            this.classList.add('active');
+            // Reload the page to get fresh data
+            setTimeout(() => {
+                window.location.reload();
+            }, 500);
             
-            const period = this.dataset.period;
-            console.log('Chart period changed to:', period);
-            
-            // You can implement period-based data loading here
-            // Example: loadChartData(period);
-        });
-    });
-}
-
-function updateTimestamps() {
-    const now = new Date();
-    const timeString = now.toLocaleTimeString('en-IN', { 
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit'
-    });
-    
-    const lastUpdatedElement = document.getElementById('lastUpdated');
-    if (lastUpdatedElement) {
-        lastUpdatedElement.textContent = `Updated at ${timeString}`;
-    }
-}
-
-// Company search function
-function searchCompany(gstin) {
-    if (gstin) {
-        // Navigate to search with the GSTIN
-        window.location.href = `/search?gstin=${encodeURIComponent(gstin)}`;
-    }
-}
-
-// Company row click handlers
-document.addEventListener('click', function(e) {
-    const companyRow = e.target.closest('.company-row');
-    if (companyRow) {
-        const gstin = companyRow.dataset.gstin;
-        if (gstin) {
-            searchCompany(gstin);
+        } catch (error) {
+            console.error('Refresh failed:', error);
+            this.showError('Failed to refresh data');
         }
     }
-});
 
-// Refresh analytics data
-function refreshAnalytics() {
-    // Show loading state
-    const liveIndicator = document.querySelector('.live-indicator');
-    if (liveIndicator) {
-        liveIndicator.classList.add('loading');
+    // Public method to destroy charts (cleanup)
+    destroy() {
+        Object.values(this.charts).forEach(chart => {
+            if (chart && typeof chart.destroy === 'function') {
+                chart.destroy();
+            }
+        });
+        this.charts = {};
+        this.isInitialized = false;
+        console.log('🧹 Analytics dashboard cleaned up');
     }
-    
-    // Reload the page to get fresh data
-    setTimeout(() => {
-        window.location.reload();
-    }, 500);
 }
 
-// Add refresh button functionality if exists
-document.addEventListener('click', function(e) {
-    if (e.target.matches('[data-action="refresh"]')) {
-        e.preventDefault();
-        refreshAnalytics();
+// Global functions for backward compatibility
+window.searchCompany = function(gstin) {
+    if (window.analyticsDashboard) {
+        window.analyticsDashboard.searchCompany(gstin);
+    } else if (gstin) {
+        window.location.href = `/search?gstin=${encodeURIComponent(gstin)}`;
+    }
+};
+
+window.refreshAnalytics = function() {
+    if (window.analyticsDashboard) {
+        window.analyticsDashboard.refresh();
+    } else {
+        window.location.reload();
+    }
+};
+
+// Initialize the dashboard
+document.addEventListener('DOMContentLoaded', function() {
+    // Small delay to ensure all dependencies are loaded
+    setTimeout(() => {
+        window.analyticsDashboard = new AnalyticsDashboard();
+    }, 100);
+});
+
+// Cleanup on page unload
+window.addEventListener('beforeunload', function() {
+    if (window.analyticsDashboard) {
+        window.analyticsDashboard.destroy();
     }
 });
 </script>
 {% endblock %}
 
 {% block extra_css %}
-<!-- Analytics-specific styles -->
 <style>
+    /* FIXED Analytics Styles - Complete rewrite for better reliability */
+    
     .live-indicator {
         display: flex;
         align-items: center;
         gap: 0.75rem;
-        padding: 1rem;
+        padding: 1rem 1.5rem;
         background: var(--bg-card);
-        border: 1px solid var(--border-color);
+        border: 1px solid var(--border-primary);
         border-radius: 12px;
         margin-bottom: 2rem;
-        box-shadow: var(--shadow-sm);
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        transition: all 0.3s ease;
     }
 
     .live-dot {
@@ -533,23 +766,32 @@ document.addEventListener('click', function(e) {
         height: 8px;
         background: #10b981;
         border-radius: 50%;
-        animation: blink 2s infinite;
+        animation: pulse-dot 2s infinite ease-in-out;
+        box-shadow: 0 0 8px rgba(16, 185, 129, 0.5);
     }
 
     .last-updated {
         margin-left: auto;
         font-size: 0.875rem;
         color: var(--text-secondary);
+        font-weight: 500;
     }
 
-    @keyframes blink {
-        0%, 50% { opacity: 1; }
-        51%, 100% { opacity: 0.3; }
+    @keyframes pulse-dot {
+        0%, 100% { 
+            opacity: 1; 
+            transform: scale(1);
+        }
+        50% { 
+            opacity: 0.6; 
+            transform: scale(1.2);
+        }
     }
 
+    /* Stats Grid - Enhanced */
     .stats-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
         gap: 1.5rem;
         margin-bottom: 2rem;
     }
@@ -557,15 +799,16 @@ document.addEventListener('click', function(e) {
     .stat-card {
         display: flex;
         align-items: center;
-        gap: 1rem;
+        gap: 1.25rem;
         padding: 1.5rem;
         background: var(--bg-card);
-        border: 1px solid var(--border-color);
-        border-radius: 12px;
+        border: 1px solid var(--border-primary);
+        border-radius: 16px;
         position: relative;
         overflow: hidden;
         transition: all 0.3s ease;
         cursor: pointer;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
     }
 
     .stat-card::before {
@@ -574,15 +817,15 @@ document.addEventListener('click', function(e) {
         top: 0;
         left: 0;
         right: 0;
-        height: 3px;
+        height: 4px;
         background: var(--accent-gradient);
         opacity: 0;
         transition: opacity 0.3s ease;
     }
 
     .stat-card:hover {
-        transform: translateY(-2px);
-        box-shadow: var(--shadow-lg);
+        transform: translateY(-4px);
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
         border-color: var(--accent-primary);
     }
 
@@ -591,104 +834,137 @@ document.addEventListener('click', function(e) {
     }
 
     .stat-icon {
-        width: 48px;
-        height: 48px;
+        width: 56px;
+        height: 56px;
         background: var(--accent-gradient);
-        border-radius: 12px;
+        border-radius: 14px;
         display: flex;
         align-items: center;
         justify-content: center;
-        font-size: 1.25rem;
+        font-size: 1.4rem;
         color: white;
         flex-shrink: 0;
+        box-shadow: 0 4px 12px rgba(124, 58, 237, 0.3);
     }
 
     .stat-content {
         flex: 1;
-        min-width: 0;
+        margin-left: 0.5rem;
     }
 
     .stat-value {
-        font-size: 2rem;
-        font-weight: 700;
+        font-size: 2.25rem;
+        font-weight: 800;
         color: var(--text-primary);
         line-height: 1;
-        margin-bottom: 0.25rem;
+        margin-bottom: 0.375rem;
+        letter-spacing: -0.025em;
     }
 
     .stat-label {
-        font-size: 0.875rem;
+        font-size: 0.9rem;
         color: var(--text-secondary);
-        margin-bottom: 0.5rem;
+        margin-bottom: 0.75rem;
+        font-weight: 600;
     }
 
     .stat-change {
-        font-size: 0.75rem;
+        font-size: 0.8rem;
         font-weight: 600;
-        padding: 0.25rem 0.5rem;
-        border-radius: 6px;
-        display: inline-block;
+        padding: 0.375rem 0.75rem;
+        border-radius: 8px;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.25rem;
     }
 
     .stat-change.positive {
-        background: rgba(16, 185, 129, 0.1);
+        background: rgba(16, 185, 129, 0.15);
         color: #10b981;
+        border: 1px solid rgba(16, 185, 129, 0.3);
     }
 
     .stat-change.neutral {
-        background: rgba(161, 161, 170, 0.1);
-        color: #a1a1aa;
+        background: rgba(59, 130, 246, 0.15);
+        color: #3b82f6;
+        border: 1px solid rgba(59, 130, 246, 0.3);
     }
 
+    /* Charts Grid - Enhanced */
     .charts-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+        grid-template-columns: repeat(auto-fit, minmax(450px, 1fr));
         gap: 2rem;
         margin-bottom: 2rem;
     }
 
     .chart-card {
         background: var(--bg-card);
-        border: 1px solid var(--border-color);
-        border-radius: 16px;
-        padding: 1.5rem;
-        box-shadow: var(--shadow-sm);
+        border: 1px solid var(--border-primary);
+        border-radius: 20px;
+        padding: 1.75rem;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        transition: all 0.3s ease;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .chart-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 2px;
+        background: var(--accent-gradient);
+        opacity: 0.6;
+    }
+
+    .chart-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
     }
 
     .chart-header {
         display: flex;
         align-items: center;
         justify-content: space-between;
-        margin-bottom: 1.5rem;
+        margin-bottom: 1.75rem;
         padding-bottom: 1rem;
-        border-bottom: 1px solid var(--border-color);
+        border-bottom: 1px solid var(--border-primary);
     }
 
     .chart-title {
         display: flex;
         align-items: center;
-        gap: 0.5rem;
-        font-size: 1.125rem;
-        font-weight: 600;
+        gap: 0.75rem;
+        font-size: 1.2rem;
+        font-weight: 700;
         color: var(--text-primary);
         margin: 0;
     }
 
+    .chart-title i {
+        font-size: 1.1rem;
+        color: var(--accent-primary);
+    }
+
     .chart-controls {
         display: flex;
-        gap: 0.5rem;
+        gap: 0.375rem;
     }
 
     .chart-btn {
-        padding: 0.375rem 0.75rem;
+        padding: 0.5rem 1rem;
         background: var(--bg-secondary);
-        border: 1px solid var(--border-color);
-        border-radius: 6px;
-        font-size: 0.75rem;
+        border: 1px solid var(--border-primary);
+        border-radius: 8px;
+        font-size: 0.8rem;
         font-weight: 600;
         color: var(--text-secondary);
         cursor: pointer;
         transition: all 0.2s ease;
+        user-select: none;
     }
 
     .chart-btn.active,
@@ -696,19 +972,26 @@ document.addEventListener('click', function(e) {
         background: var(--accent-primary);
         border-color: var(--accent-primary);
         color: white;
+        transform: translateY(-1px);
+        box-shadow: 0 2px 8px rgba(124, 58, 237, 0.3);
     }
 
     .chart-container {
         position: relative;
-        height: 300px;
+        height: 350px;
         margin-bottom: 1rem;
+    }
+
+    .chart-container canvas {
+        border-radius: 12px;
     }
 
     .chart-legend {
         display: flex;
         flex-wrap: wrap;
-        gap: 1rem;
+        gap: 1.25rem;
         justify-content: center;
+        margin-top: 1rem;
     }
 
     .legend-item {
@@ -717,13 +1000,14 @@ document.addEventListener('click', function(e) {
         gap: 0.5rem;
         font-size: 0.875rem;
         color: var(--text-secondary);
+        font-weight: 500;
     }
 
     .legend-item::before {
         content: '';
-        width: 12px;
-        height: 12px;
-        border-radius: 2px;
+        width: 14px;
+        height: 14px;
+        border-radius: 3px;
         flex-shrink: 0;
     }
 
@@ -732,23 +1016,41 @@ document.addEventListener('click', function(e) {
     .legend-item.average::before { background: #f59e0b; }
     .legend-item.poor::before { background: #ef4444; }
 
+    /* Companies List - Enhanced */
     .companies-list {
-        max-height: 400px;
+        max-height: 450px;
         overflow-y: auto;
+        border-radius: 12px;
+    }
+
+    .companies-list::-webkit-scrollbar {
+        width: 6px;
+    }
+
+    .companies-list::-webkit-scrollbar-track {
+        background: var(--bg-secondary);
+        border-radius: 3px;
+    }
+
+    .companies-list::-webkit-scrollbar-thumb {
+        background: var(--border-primary);
+        border-radius: 3px;
     }
 
     .company-row {
         display: flex;
         align-items: center;
         justify-content: space-between;
-        padding: 1rem;
-        border-bottom: 1px solid var(--border-color);
+        padding: 1.25rem;
+        border-bottom: 1px solid var(--border-primary);
         cursor: pointer;
         transition: all 0.2s ease;
+        position: relative;
     }
 
     .company-row:hover {
         background: var(--bg-hover);
+        transform: translateX(4px);
     }
 
     .company-row:last-child {
@@ -757,105 +1059,128 @@ document.addEventListener('click', function(e) {
 
     .company-info {
         flex: 1;
+        margin-right: 1rem;
         min-width: 0;
     }
 
     .company-name {
         font-weight: 600;
         color: var(--text-primary);
-        margin-bottom: 0.25rem;
+        margin-bottom: 0.375rem;
+        font-size: 0.95rem;
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
     }
 
     .company-gstin {
-        font-size: 0.875rem;
+        font-size: 0.8rem;
         color: var(--text-secondary);
-        font-family: monospace;
+        font-family: 'JetBrains Mono', monospace;
+        letter-spacing: 0.5px;
     }
 
     .company-stats {
         display: flex;
         align-items: center;
-        gap: 1rem;
+        gap: 1.5rem;
         flex-shrink: 0;
     }
 
     .search-count {
         display: flex;
         align-items: center;
-        gap: 0.25rem;
-        font-size: 0.875rem;
+        gap: 0.375rem;
+        font-size: 0.85rem;
         color: var(--text-secondary);
+        font-weight: 500;
+    }
+
+    .search-count i {
+        font-size: 0.75rem;
+        color: var(--accent-primary);
     }
 
     .score-badge {
-        padding: 0.25rem 0.5rem;
-        border-radius: 6px;
-        font-size: 0.75rem;
-        font-weight: 600;
+        padding: 0.375rem 0.75rem;
+        border-radius: 8px;
+        font-size: 0.8rem;
+        font-weight: 700;
         text-align: center;
-        min-width: 50px;
+        min-width: 60px;
+        border: 2px solid transparent;
     }
 
     .score-excellent {
-        background: rgba(16, 185, 129, 0.1);
+        background: rgba(16, 185, 129, 0.15);
         color: #10b981;
+        border-color: rgba(16, 185, 129, 0.3);
     }
 
     .score-good {
-        background: rgba(59, 130, 246, 0.1);
+        background: rgba(59, 130, 246, 0.15);
         color: #3b82f6;
+        border-color: rgba(59, 130, 246, 0.3);
     }
 
     .score-average {
-        background: rgba(245, 158, 11, 0.1);
+        background: rgba(245, 158, 11, 0.15);
         color: #f59e0b;
+        border-color: rgba(245, 158, 11, 0.3);
     }
 
+    /* Empty State - Enhanced */
     .empty-state {
         text-align: center;
-        padding: 3rem 1rem;
+        padding: 4rem 2rem;
         color: var(--text-secondary);
     }
 
     .empty-state i {
-        font-size: 3rem;
-        margin-bottom: 1rem;
-        opacity: 0.5;
+        font-size: 4rem;
+        margin-bottom: 1.5rem;
+        opacity: 0.4;
+        color: var(--accent-primary);
     }
 
+    .empty-state p {
+        font-size: 1.1rem;
+        margin: 0;
+        font-weight: 500;
+    }
+
+    /* Insights Panel - Enhanced */
     .insights-panel {
         margin-top: 2rem;
     }
 
     .insight-card {
         display: flex;
-        gap: 1rem;
-        padding: 1.5rem;
+        gap: 1.5rem;
+        padding: 2rem;
         background: var(--bg-card);
-        border: 1px solid var(--border-color);
-        border-radius: 12px;
-        box-shadow: var(--shadow-sm);
+        border: 1px solid var(--border-primary);
+        border-radius: 16px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
     }
 
     .insight-icon {
-        width: 48px;
-        height: 48px;
+        width: 56px;
+        height: 56px;
         background: linear-gradient(135deg, #f59e0b, #f97316);
-        border-radius: 12px;
+        border-radius: 14px;
         display: flex;
         align-items: center;
         justify-content: center;
-        font-size: 1.25rem;
+        font-size: 1.4rem;
         color: white;
         flex-shrink: 0;
+        box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);
     }
 
     .insight-content h4 {
-        font-size: 1.125rem;
-        font-weight: 600;
+        font-size: 1.25rem;
+        font-weight: 700;
         color: var(--text-primary);
         margin: 0 0 1rem 0;
     }
@@ -867,71 +1192,148 @@ document.addEventListener('click', function(e) {
     }
 
     .insight-content li {
-        padding: 0.5rem 0;
+        padding: 0.75rem 0;
         color: var(--text-secondary);
-        font-size: 0.875rem;
+        font-size: 0.95rem;
+        font-weight: 500;
+        border-bottom: 1px solid var(--border-primary);
     }
 
+    .insight-content li:last-child {
+        border-bottom: none;
+    }
+
+    /* Chart Error State */
     .chart-error {
         display: flex;
         flex-direction: column;
         align-items: center;
         justify-content: center;
-        height: 200px;
+        height: 350px;
         color: var(--text-secondary);
-        opacity: 0.7;
+        text-align: center;
     }
 
     .chart-error i {
-        font-size: 2rem;
-        margin-bottom: 0.5rem;
+        font-size: 3rem;
+        margin-bottom: 1rem;
+        opacity: 0.5;
+        color: var(--error);
     }
 
-    /* Loading state */
+    .chart-error p {
+        margin: 0 0 1rem 0;
+        font-size: 1.1rem;
+        font-weight: 600;
+    }
+
+    .chart-error .btn {
+        padding: 0.5rem 1rem;
+        background: var(--accent-primary);
+        color: white;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        font-size: 0.875rem;
+        font-weight: 600;
+        transition: all 0.2s ease;
+    }
+
+    .chart-error .btn:hover {
+        background: var(--accent-secondary);
+        transform: translateY(-1px);
+    }
+
+    /* Loading States */
     .live-indicator.loading .live-dot {
         background: #f59e0b;
-        animation: pulse 1s infinite;
+        animation: pulse-loading 1s infinite;
     }
 
-    @keyframes pulse {
+    @keyframes pulse-loading {
         0% { transform: scale(1); opacity: 1; }
-        50% { transform: scale(1.2); opacity: 0.7; }
+        50% { transform: scale(1.3); opacity: 0.7; }
         100% { transform: scale(1); opacity: 1; }
     }
 
-    /* Responsive Design */
+    /* Responsive Design - Enhanced */
+    @media (max-width: 1024px) {
+        .charts-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+
     @media (max-width: 768px) {
         .stats-grid {
             grid-template-columns: 1fr;
             gap: 1rem;
         }
 
-        .charts-grid {
-            grid-template-columns: 1fr;
-            gap: 1.5rem;
+        .stat-card {
+            padding: 1.25rem;
         }
 
-        .stat-card {
-            padding: 1rem;
+        .stat-icon {
+            width: 48px;
+            height: 48px;
+            font-size: 1.2rem;
+        }
+
+        .stat-value {
+            font-size: 1.875rem;
         }
 
         .chart-card {
+            padding: 1.25rem;
+        }
+
+        .chart-container {
+            height: 280px;
+        }
+
+        .company-row {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 0.75rem;
             padding: 1rem;
+        }
+
+        .company-stats {
+            align-self: stretch;
+            justify-content: space-between;
+        }
+
+        .insight-card {
+            flex-direction: column;
+            padding: 1.5rem;
+            gap: 1rem;
+        }
+
+        .insight-icon {
+            align-self: center;
+        }
+    }
+
+    @media (max-width: 480px) {
+        .charts-grid {
+            gap: 1.5rem;
         }
 
         .chart-container {
             height: 250px;
         }
 
-        .company-row {
-            flex-direction: column;
-            align-items: flex-start;
-            gap: 0.5rem;
+        .chart-controls {
+            gap: 0.25rem;
         }
 
-        .company-stats {
-            align-self: stretch;
-            justify-content: space-between;
+        .chart-btn {
+            padding: 0.375rem 0.75rem;
+            font-size: 0.75rem;
+        }
+
+        .legend-item {
+            font-size: 0.8rem;
         }
     }
 </style>
