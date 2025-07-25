@@ -1328,15 +1328,174 @@ async def logout(request: Request):
     response.delete_cookie("session_token")
     return response
 
+# FIXED Search Routes - Replace in main.py
+
 @app.get("/search")
 async def search_gstin_get(request: Request, gstin: str = None, current_user: str = Depends(require_auth)):
+    """Handle GET requests to /search with GSTIN parameter"""
     if gstin:
+        logger.info(f"GET search request for GSTIN: {gstin}")
         return await process_search(request, gstin, current_user)
+    
+    # If no GSTIN provided, redirect to dashboard
+    logger.warning("GET search request without GSTIN, redirecting to dashboard")
     return RedirectResponse(url="/", status_code=302)
 
 @app.post("/search")
 async def search_gstin_post(request: Request, gstin: str = Form(...), current_user: str = Depends(require_auth)):
+    """Handle POST requests to /search with form data"""
+    logger.info(f"POST search request for GSTIN: {gstin}")
     return await process_search(request, gstin, current_user)
+
+async def process_search(request: Request, gstin: str, current_user: str):
+    """Process search with enhanced error handling and debugging"""
+    try:
+        # Clean and validate GSTIN
+        gstin = gstin.strip().upper()
+        logger.info(f"🔍 Processing search for GSTIN: {gstin} by user: {current_user}")
+        
+        # Enhanced validation
+        if not gstin:
+            logger.error("Empty GSTIN provided")
+            return await render_dashboard_with_error(request, current_user, "Please enter a GSTIN")
+        
+        if len(gstin) != 15:
+            logger.error(f"Invalid GSTIN length: {len(gstin)}")
+            return await render_dashboard_with_error(request, current_user, f"GSTIN must be 15 characters (received {len(gstin)})")
+        
+        # Basic format validation
+        if not gstin.replace('0', '').replace('1', '').replace('2', '').replace('3', '').replace('4', '').replace('5', '').replace('6', '').replace('7', '').replace('8', '').replace('9', '').replace('A', '').replace('B', '').replace('C', '').replace('D', '').replace('E', '').replace('F', '').replace('G', '').replace('H', '').replace('I', '').replace('J', '').replace('K', '').replace('L', '').replace('M', '').replace('N', '').replace('O', '').replace('P', '').replace('Q', '').replace('R', '').replace('S', '').replace('T', '').replace('U', '').replace('V', '').replace('W', '').replace('X', '').replace('Y', '').replace('Z', '') == '':
+            logger.info(f"GSTIN format appears valid: {gstin}")
+        else:
+            logger.error(f"GSTIN contains invalid characters: {gstin}")
+            return await render_dashboard_with_error(request, current_user, "GSTIN contains invalid characters")
+        
+        # Rate limiting check
+        if not api_limiter.is_allowed(current_user):
+            logger.warning(f"Rate limit exceeded for user: {current_user}")
+            return await render_dashboard_with_error(request, current_user, "Rate limit exceeded. Please try again later.")
+        
+        # API client check
+        if not api_client:
+            logger.error("GST API service not configured")
+            return await render_dashboard_with_error(request, current_user, "GST API service not configured. Please contact administrator.")
+        
+        logger.info(f"🌐 Fetching data from GST API for: {gstin}")
+        
+        # Fetch company data
+        try:
+            company_data = await api_client.fetch_gstin_data(gstin)
+            logger.info(f"✅ Successfully fetched company data for: {gstin}")
+        except HTTPException as e:
+            logger.error(f"HTTPException while fetching data: {e.detail}")
+            if e.status_code == 404:
+                return await render_dashboard_with_error(request, current_user, f"Company not found for GSTIN: {gstin}")
+            else:
+                return await render_dashboard_with_error(request, current_user, f"API Error: {e.detail}")
+        except Exception as e:
+            logger.error(f"Unexpected error while fetching data: {str(e)}")
+            return await render_dashboard_with_error(request, current_user, "Failed to fetch company data. Please try again.")
+        
+        # Calculate compliance score
+        try:
+            compliance_score = calculate_compliance_score(company_data)
+            logger.info(f"📊 Calculated compliance score: {compliance_score} for {gstin}")
+        except Exception as e:
+            logger.error(f"Error calculating compliance score: {e}")
+            compliance_score = 50.0  # Default score
+            logger.info(f"Using default compliance score: {compliance_score}")
+        
+        # Get AI synopsis
+        synopsis = None
+        try:
+            logger.info("🤖 Attempting to generate AI synopsis...")
+            synopsis = await get_enhanced_ai_synopsis(company_data)
+            if synopsis:
+                logger.info("✅ AI synopsis generated successfully")
+            else:
+                logger.warning("⚠️ AI synopsis returned None")
+                synopsis = "AI analysis temporarily unavailable"
+        except Exception as e:
+            logger.error(f"❌ AI synopsis generation failed: {e}")
+            synopsis = "AI analysis temporarily unavailable"
+        
+        # Add to search history
+        try:
+            await db.add_search_history(
+                current_user, gstin, 
+                company_data.get("lgnm", "Unknown"), 
+                compliance_score, company_data, synopsis
+            )
+            logger.info(f"✅ Search history saved for {gstin}")
+        except Exception as e:
+            logger.error(f"Failed to save search history: {e}")
+            # Don't fail the request for this
+        
+        # Get late filing analysis
+        late_filing_analysis = company_data.get('_late_filing_analysis', {})
+        
+        logger.info(f"🎯 Rendering results page for {gstin}")
+        
+        # Render results page
+        return templates.TemplateResponse("results.html", {
+            "request": request,
+            "current_user": current_user,
+            "company_data": company_data,
+            "compliance_score": compliance_score,
+            "synopsis": synopsis,
+            "late_filing_analysis": late_filing_analysis,
+            "gstin": gstin
+        })
+        
+    except Exception as e:
+        logger.error(f"❌ Critical error in process_search: {str(e)}", exc_info=True)
+        return await render_dashboard_with_error(request, current_user, "An unexpected error occurred. Please try again.")
+
+async def render_dashboard_with_error(request: Request, current_user: str, error_message: str):
+    """Helper function to render dashboard with error message"""
+    try:
+        # Get user profile data for dashboard
+        await db.initialize()
+        user_stats = await db.get_user_stats(current_user)
+        history = await db.get_search_history(current_user, 5)
+        
+        # Convert history to template-safe format
+        safe_history = []
+        for item in history:
+            safe_item = serialize_for_template(item)
+            safe_history.append(safe_item)
+        
+        return templates.TemplateResponse("index.html", {
+            "request": request, 
+            "current_user": current_user,
+            "user_display_name": current_user,
+            "error": error_message,
+            "history": safe_history,
+            "user_profile": user_stats,
+            "searches_this_month": user_stats.get("searches_this_month", 0),
+            "profile_data": {
+                "user_info": {"mobile": current_user, "created_at": None, "email": None},
+                "search_stats": user_stats,
+                "recent_searches": []
+            }
+        })
+    except Exception as e:
+        logger.error(f"Error rendering dashboard with error: {e}")
+        # Fallback error response
+        return templates.TemplateResponse("index.html", {
+            "request": request,
+            "current_user": current_user,  
+            "user_display_name": current_user,
+            "error": error_message,
+            "history": [],
+            "user_profile": {"total_searches": 0, "avg_compliance": 0, "unique_companies": 0, "searches_this_month": 0},
+            "searches_this_month": 0,
+            "profile_data": {
+                "user_info": {"mobile": current_user},
+                "search_stats": {"total_searches": 0, "avg_compliance": 0, "unique_companies": 0, "searches_this_month": 0},
+                "recent_searches": []
+            }
+        })
 
 @app.get("/history", response_class=HTMLResponse)
 async def view_history(request: Request, current_user: str = Depends(require_auth)):

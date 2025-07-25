@@ -469,6 +469,99 @@ block extra_css %}
             grid-template-columns: repeat(2, 1fr);
         }
     }
+
+    /* Add this CSS to the <style> section in index.html */
+
+/* FIXED: Search input field */
+.search-input {
+    width: 100% !important;
+    padding: 1.25rem 1.5rem 1.25rem 4rem !important;
+    font-size: 1.125rem !important;
+    border: 2px solid var(--border-primary) !important;
+    border-radius: var(--radius-xl) !important;
+    background: var(--bg-input) !important;
+    color: var(--text-primary) !important;
+    transition: all var(--transition) !important;
+    font-family: 'JetBrains Mono', monospace !important;
+    letter-spacing: 1px !important;
+    
+    /* Ensure input is interactive */
+    pointer-events: auto !important;
+    user-select: text !important;
+    -webkit-user-select: text !important;
+    -moz-user-select: text !important;
+    -ms-user-select: text !important;
+    
+    /* Remove any conflicting styles */
+    opacity: 1 !important;
+    cursor: text !important;
+    
+    /* Ensure it's not disabled */
+}
+
+.search-input:focus {
+    border-color: var(--accent-primary) !important;
+    box-shadow: 0 0 0 4px rgba(124, 58, 237, 0.1) !important;
+    outline: none !important;
+}
+
+.search-input:disabled,
+.search-input[disabled] {
+    opacity: 0.6 !important;
+    cursor: not-allowed !important;
+    pointer-events: none !important;
+}
+
+/* Ensure search button works properly */
+.search-button {
+    width: 100% !important;
+    padding: 1.25rem !important;
+    font-size: 1.125rem !important;
+    font-weight: 600 !important;
+    background: var(--accent-gradient) !important;
+    color: white !important;
+    border: none !important;
+    border-radius: var(--radius-xl) !important;
+    cursor: pointer !important;
+    transition: all var(--transition) !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 0.75rem !important;
+}
+
+.search-button:hover:not(:disabled) {
+    transform: translateY(-2px) !important;
+    box-shadow: var(--hover-shadow), var(--glow) !important;
+}
+
+.search-button:disabled {
+    opacity: 0.6 !important;
+    cursor: not-allowed !important;
+    transform: none !important;
+    background: #6b7280 !important;
+}
+
+/* Fix any conflicting form styles */
+.search-form * {
+    pointer-events: auto !important;
+}
+
+.search-input-group {
+    position: relative !important;
+    margin-bottom: 1.5rem !important;
+}
+
+.search-icon {
+    position: absolute !important;
+    left: 1.25rem !important;
+    top: 50% !important;
+    transform: translateY(-50%) !important;
+    color: var(--text-muted) !important;
+    font-size: 1.25rem !important;
+    pointer-events: none !important;
+    z-index: 1 !important;
+}
 </style>
 {% endblock %}
 
@@ -960,39 +1053,83 @@ function initSearchForm() {
 
     console.log("🔍 Initializing search form...");
 
-    // GSTIN input formatting and validation
+    // FIXED: GSTIN input formatting and validation
     if (searchInput) {
+        // Enable the input field immediately
+        searchInput.disabled = false;
+        searchInput.readonly = false;
+        
         searchInput.addEventListener("input", function (e) {
+            console.log("Input event triggered:", e.target.value);
+            
+            // Allow all alphanumeric characters and format them
             let value = e.target.value
                 .toUpperCase()
-                .replace(/[^A-Z0-9]/g, "");
+                .replace(/[^A-Z0-9]/g, ""); // Only allow letters and numbers
+            
+            // Limit to 15 characters
             if (value.length > 15) value = value.slice(0, 15);
+            
+            // Update the input value
             e.target.value = value;
 
-            // Real-time validation
-            const isValid = validateGSTIN(value);
+            // SIMPLIFIED validation - just check length and basic format
+            const isValid = value.length === 15 && /^[0-9]{2}[A-Z0-9]{13}$/.test(value);
+            
+            console.log("Validation result:", isValid, "for value:", value);
             
             // Update button state
             if (searchBtn) {
                 searchBtn.disabled = !isValid;
-                searchBtn.style.opacity = isValid ? "1" : "0.6";
                 
                 if (isValid) {
+                    searchBtn.style.opacity = "1";
+                    searchBtn.style.cursor = "pointer";
                     searchBtn.innerHTML = '<i class="fas fa-chart-line"></i><span>Analyze Compliance</span>';
+                } else if (value.length > 0) {
+                    searchBtn.style.opacity = "0.7";
+                    searchBtn.innerHTML = '<i class="fas fa-search"></i><span>Keep typing...</span>';
                 } else {
+                    searchBtn.style.opacity = "0.6";
                     searchBtn.innerHTML = '<i class="fas fa-search"></i><span>Enter Valid GSTIN</span>';
                 }
             }
             
             // Update input styling
-            if (value.length > 0) {
+            if (value.length === 15) {
                 if (isValid) {
-                    e.target.style.borderColor = 'var(--success)';
+                    e.target.style.borderColor = '#10b981'; // Green
+                    e.target.style.boxShadow = '0 0 0 3px rgba(16, 185, 129, 0.1)';
                 } else {
-                    e.target.style.borderColor = 'var(--warning)';
+                    e.target.style.borderColor = '#f59e0b'; // Yellow
+                    e.target.style.boxShadow = '0 0 0 3px rgba(245, 158, 11, 0.1)';
                 }
+            } else if (value.length > 0) {
+                e.target.style.borderColor = '#3b82f6'; // Blue
+                e.target.style.boxShadow = '0 0 0 3px rgba(59, 130, 246, 0.1)';
             } else {
                 e.target.style.borderColor = 'var(--border-primary)';
+                e.target.style.boxShadow = 'none';
+            }
+        });
+
+        // Clear any restrictions on the input
+        searchInput.removeAttribute('pattern');
+        searchInput.style.pointerEvents = 'auto';
+        searchInput.style.userSelect = 'text';
+        
+        // Focus event
+        searchInput.addEventListener('focus', function() {
+            console.log("Input focused");
+            this.style.borderColor = '#7c3aed';
+            this.style.boxShadow = '0 0 0 3px rgba(124, 58, 237, 0.1)';
+        });
+        
+        // Blur event
+        searchInput.addEventListener('blur', function() {
+            if (!this.value) {
+                this.style.borderColor = 'var(--border-primary)';
+                this.style.boxShadow = 'none';
             }
         });
 
@@ -1013,22 +1150,21 @@ function initSearchForm() {
         }, 3000);
     }
 
-    // Form submission
-    searchForm.addEventListener("submit", async function (e) {
+    // FIXED: Form submission - much simpler approach
+    searchForm.addEventListener("submit", function (e) {
         e.preventDefault();
         
         console.log("🔍 Form submitted");
 
-        const formData = new FormData(searchForm);
-        const gstin = formData.get("gstin")?.trim();
+        const gstin = searchInput?.value?.trim();
 
         if (!gstin) {
             showNotification("Please enter a GSTIN", "warning");
             return;
         }
 
-        if (!validateGSTIN(gstin)) {
-            showNotification("Invalid GSTIN format", "error");
+        if (gstin.length !== 15) {
+            showNotification("GSTIN must be exactly 15 characters", "error");
             return;
         }
 
@@ -1036,46 +1172,14 @@ function initSearchForm() {
         setSearchLoading(true);
 
         try {
-            console.log("📡 Searching for:", gstin);
+            console.log("📡 Redirecting to search for:", gstin);
             
-            // Use GET method to match the existing route
-            const response = await fetch(`/search?gstin=${encodeURIComponent(gstin)}`, {
-                method: "GET",
-                credentials: "same-origin",
-            });
-
-            if (response.ok) {
-                // Check if it's a redirect or JSON response
-                const contentType = response.headers.get('content-type');
-                
-                if (contentType && contentType.includes('application/json')) {
-                    const data = await response.json();
-                    if (data.success) {
-                        showSearchResults(data.data);
-                        showNotification("Search completed successfully", "success");
-                    } else {
-                        throw new Error(data.error || "Search failed");
-                    }
-                } else {
-                    // It's likely an HTML response (redirect to results page)
-                    window.location.href = `/search?gstin=${encodeURIComponent(gstin)}`;
-                    return;
-                }
-            } else {
-                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-            }
-
-            // Clear form on success
-            searchForm.reset();
-            if (searchBtn) {
-                searchBtn.disabled = true;
-                searchBtn.style.opacity = "0.6";
-            }
-
+            // Simple redirect - let the server handle everything
+            window.location.href = `/search?gstin=${encodeURIComponent(gstin)}`;
+            
         } catch (error) {
             console.error("❌ Search error:", error);
-            showNotification(error.message || "Search failed. Please try again.", "error");
-        } finally {
+            showNotification("Search failed. Please try again.", "error");
             setSearchLoading(false);
         }
     });

@@ -711,14 +711,80 @@ class AnalyticsDashboard {
 }
 
 // Global functions for backward compatibility
+// FIXED: Global navigation functions
 window.searchCompany = function(gstin) {
-    if (window.analyticsDashboard) {
-        window.analyticsDashboard.searchCompany(gstin);
-    } else if (gstin) {
-        window.location.href = `/search?gstin=${encodeURIComponent(gstin)}`;
+    console.log('🔍 Searching company:', gstin);
+    
+    if (!gstin) {
+        console.error('No GSTIN provided');
+        return;
     }
+    
+    // Clean the GSTIN
+    const cleanGstin = gstin.toString().trim().toUpperCase();
+    
+    if (cleanGstin.length !== 15) {
+        console.error('Invalid GSTIN length:', cleanGstin.length);
+        if (window.notificationManager) {
+            window.notificationManager.show('Invalid GSTIN format', 'error');
+        }
+        return;
+    }
+    
+    // Show loading state if we're on dashboard
+    const searchBtn = document.getElementById('search-btn');
+    if (searchBtn) {
+        searchBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i><span>Loading...</span>';
+        searchBtn.disabled = true;
+    }
+    
+    // Navigate to search results
+    window.location.href = `/search?gstin=${encodeURIComponent(cleanGstin)}`;
 };
 
+// FIXED: Company row click handlers for history and analytics pages
+document.addEventListener('click', function(e) {
+    // Handle company row clicks
+    const companyRow = e.target.closest('[data-gstin]');
+    if (companyRow && companyRow.dataset.gstin) {
+        // Don't trigger if clicking on a button or link inside the row
+        if (e.target.closest('button, a, form')) {
+            return;
+        }
+        
+        const gstin = companyRow.dataset.gstin;
+        console.log('Company row clicked:', gstin);
+        window.searchCompany(gstin);
+        return;
+    }
+    
+    // Handle explicit search company calls
+    const searchAction = e.target.closest('[onclick*="searchCompany"]');
+    if (searchAction) {
+        e.preventDefault();
+        const onclickAttr = searchAction.getAttribute('onclick');
+        const gstinMatch = onclickAttr.match(/searchCompany\(['"]([^'"]+)['"]\)/);
+        if (gstinMatch && gstinMatch[1]) {
+            window.searchCompany(gstinMatch[1]);
+        }
+        return;
+    }
+});
+
+// FIXED: Form submission handlers for view buttons
+document.addEventListener('submit', function(e) {
+    // Handle search forms in history/analytics
+    if (e.target.action && e.target.action.includes('/search')) {
+        const gstinInput = e.target.querySelector('input[name="gstin"]');
+        if (gstinInput && gstinInput.value) {
+            console.log('Search form submitted with GSTIN:', gstinInput.value);
+            // Let the form submit normally
+            return;
+        }
+    }
+});
+
+// FIXED: Analytics page company search
 window.refreshAnalytics = function() {
     if (window.analyticsDashboard) {
         window.analyticsDashboard.refresh();
@@ -727,20 +793,15 @@ window.refreshAnalytics = function() {
     }
 };
 
-// Initialize the dashboard
-document.addEventListener('DOMContentLoaded', function() {
-    // Small delay to ensure all dependencies are loaded
-    setTimeout(() => {
-        window.analyticsDashboard = new AnalyticsDashboard();
-    }, 100);
-});
+// Add debugging for navigation issues
+console.log('🔧 Navigation functions loaded');
 
-// Cleanup on page unload
-window.addEventListener('beforeunload', function() {
-    if (window.analyticsDashboard) {
-        window.analyticsDashboard.destroy();
-    }
-});
+// Test function for debugging
+window.testNavigation = function(gstin) {
+    console.log('Testing navigation with GSTIN:', gstin);
+    window.searchCompany(gstin || '29AAAPL2356Q1ZS');
+};
+
 </script>
 {% endblock %}
 
