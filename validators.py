@@ -541,7 +541,7 @@ def get_validation_rules(form_type: str) -> Dict[str, Dict]:
 if __name__ == "__main__":
     # Test GSTIN validation
     test_gstins = [
-        "29AAAPL2356Q1ZS",  # Valid
+        "07AAGFF2194N1Z1",  # Valid
         "29AAAPL2356Q1ZX",  # Invalid check digit
         "INVALID",  # Invalid format
         "29AAAPL2356Q1",  # Too short

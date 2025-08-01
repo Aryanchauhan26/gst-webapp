@@ -438,7 +438,7 @@ class FixedDatabaseManager:
     async def add_search_history(self, mobile: str, gstin: str, company_name: str, compliance_score: float, search_data: dict = None, ai_synopsis: str = None) -> bool:
         """Add search to history with safe column handling - COMPLETELY FIXED"""
         try:
-            async with self.pool.acquire() as conn:
+            async with db.pool.acquire() as conn:
                 # Check what columns exist first
                 existing_columns = await conn.fetch("""
                     SELECT column_name 
@@ -469,17 +469,29 @@ class FixedDatabaseManager:
                     values.append('CURRENT_TIMESTAMP')
                     placeholders.append('CURRENT_TIMESTAMP')
                 
+                # FIXED: Use proper ON CONFLICT handling
                 query = f"""
                     INSERT INTO search_history ({', '.join(columns)}) 
                     VALUES ({', '.join(placeholders)})
                     ON CONFLICT (mobile, gstin) DO UPDATE SET 
-                        compliance_score = EXCLUDED.compliance_score,
                         company_name = EXCLUDED.company_name,
+                        compliance_score = EXCLUDED.compliance_score,
                         searched_at = CURRENT_TIMESTAMP
                 """
                 
-                # Remove CURRENT_TIMESTAMP from values if it's there
-                clean_values = [v for v in values if v != 'CURRENT_TIMESTAMP']
+                # Only if we have the constraint, otherwise use simple INSERT
+                if 'searched_at' in placeholders:
+                    query = f"""
+                        INSERT INTO search_history ({', '.join(columns[:-1])}) 
+                        VALUES ({', '.join(placeholders[:-1])})
+                        ON CONFLICT (mobile, gstin) DO UPDATE SET 
+                            company_name = EXCLUDED.company_name,
+                            compliance_score = EXCLUDED.compliance_score
+                    """
+                    # Remove CURRENT_TIMESTAMP from values
+                    clean_values = [v for v in values if v != 'CURRENT_TIMESTAMP']
+                else:
+                    clean_values = values
                 
                 await conn.execute(query, *clean_values)
                 logger.info(f"✅ Search history added: {gstin} for {mobile}")
@@ -487,7 +499,18 @@ class FixedDatabaseManager:
                     
         except Exception as e:
             logger.error(f"❌ Error adding search history: {e}")
-            return False
+            # Fallback: try simple insert without ON CONFLICT
+            try:
+                async with db.pool.acquire() as conn:
+                    await conn.execute("""
+                        INSERT INTO search_history (mobile, gstin, company_name, compliance_score, searched_at)
+                        VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP)
+                    """, mobile, gstin, company_name, compliance_score)
+                logger.info(f"✅ Fallback search history insert successful")
+                return True
+            except Exception as fallback_error:
+                logger.error(f"❌ Fallback insert also failed: {fallback_error}")
+                return False
 
     async def get_search_history(self, mobile: str, limit: int = 50) -> List[Dict]:
         """Get user search history with safe column handling - COMPLETELY FIXED"""
@@ -2700,7 +2723,7 @@ async def debug_api_status_endpoint(current_user: str = Depends(require_auth)):
         if api_client:
             try:
                 # Use a known test GSTIN
-                test_gstin = "29AAAPL2356Q1ZS"
+                test_gstin = "07AAGFF2194N1Z1"
                 logger.info(f"Testing with GSTIN: {test_gstin}")
                 
                 gst_result = await api_client.fetch_gstin_data(test_gstin)
@@ -3092,6 +3115,23 @@ async def debug_user_data(current_user: str = Depends(require_auth)):
             "success": False,
             "error": str(e)
         })
+    
+@app.get("/api/debug/check-api-keys")
+async def check_api_keys(current_user: str = Depends(require_auth)):
+    """Debug API key configuration"""
+    return JSONResponse({
+        "rapidapi_key": {
+            "configured": bool(RAPIDAPI_KEY),
+            "length": len(RAPIDAPI_KEY) if RAPIDAPI_KEY else 0,
+            "prefix": RAPIDAPI_KEY[:10] + "..." if RAPIDAPI_KEY else "None"
+        },
+        "anthropic_key": {
+            "configured": bool(ANTHROPIC_API_KEY),
+            "length": len(ANTHROPIC_API_KEY) if ANTHROPIC_API_KEY else 0,
+            "valid_format": ANTHROPIC_API_KEY.startswith('sk-ant-') if ANTHROPIC_API_KEY else False,
+            "prefix": ANTHROPIC_API_KEY[:15] + "..." if ANTHROPIC_API_KEY else "None"
+        }
+    })
 
 # Add this test data insertion endpoint
 @app.post("/api/debug/add-test-data")
@@ -3250,7 +3290,49 @@ async def ensure_tables(current_user: str = Depends(require_auth)):
         return JSONResponse({
             "success": False,
             "error": str(e)
-        })    
+        }) 
+
+@app.post("/api/debug/fix-search-history-constraint")
+async def fix_search_history_constraint(current_user: str = Depends(require_auth)):
+    """Fix the search_history table constraint issue"""
+    try:
+        await db.initialize()
+        
+        async with db.pool.acquire() as conn:
+            # Add the missing unique constraint
+            try:
+                await conn.execute("""
+                    ALTER TABLE search_history 
+                    ADD CONSTRAINT unique_mobile_gstin 
+                    UNIQUE (mobile, gstin)
+                """)
+                logger.info("✅ Added unique constraint to search_history")
+                
+                return JSONResponse({
+                    "success": True,
+                    "message": "Database constraint fixed successfully"
+                })
+                
+            except Exception as e:
+                if "already exists" in str(e).lower():
+                    return JSONResponse({
+                        "success": True,
+                        "message": "Constraint already exists"
+                    })
+                else:
+                    logger.error(f"Constraint creation failed: {e}")
+                    return JSONResponse({
+                        "success": False,
+                        "error": str(e)
+                    })
+                    
+    except Exception as e:
+        logger.error(f"Database fix error: {e}")
+        return JSONResponse({
+            "success": False,
+            "error": str(e)
+        })
+        
 # Startup/Shutdown
 @app.on_event("startup")
 async def startup_event():

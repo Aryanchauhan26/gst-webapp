@@ -459,7 +459,7 @@ async def debug_api_status() -> Dict[str, Any]:
     # Test GST API
     logger.info("🧪 Testing GST API...")
     try:
-        test_gstin = "29AAAPL2356Q1ZS"  # Known test GSTIN
+        test_gstin = "07AAGFF2194N1Z1"  # Known test GSTIN
         gst_data = await enhanced_gst_client.fetch_gstin_data(test_gstin)
         
         debug_results["gst_api"] = {
