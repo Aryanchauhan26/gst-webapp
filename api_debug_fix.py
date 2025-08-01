@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Enhanced API Debug and Fix Module for GST Intelligence Platform
-Provides robust GST API and Anthropic AI API clients with comprehensive error handling
+FIXED API Debug and Fix Module for GST Intelligence Platform
+Enhanced data processing to handle different API response formats
 """
 
 import os
@@ -38,7 +38,7 @@ except ImportError:
     logger.warning("⚠️ Anthropic package not available")
 
 class EnhancedGSTClient:
-    """Enhanced GST API client with robust error handling and multiple fallbacks"""
+    """FIXED Enhanced GST API client with better data processing"""
     
     def __init__(self, api_key: str = None, host: str = None):
         self.api_key = api_key or RAPIDAPI_KEY
@@ -58,12 +58,12 @@ class EnhancedGSTClient:
             "User-Agent": "GST-Intelligence-Platform/2.0"
         }
         
-        logger.info(f"🔧 GST API Client initialized: {self.host}")
+        logger.info(f"🔧 FIXED GST API Client initialized: {self.host}")
         logger.info(f"🔑 API Key: {'✅ SET' if self.api_key else '❌ MISSING'}")
 
     async def fetch_gstin_data(self, gstin: str) -> Dict[str, Any]:
         """
-        Fetch GSTIN data with enhanced error handling and multiple endpoint attempts
+        FIXED: Fetch GSTIN data with enhanced error handling and flexible data processing
         """
         gstin = gstin.strip().upper()
         
@@ -96,18 +96,27 @@ class EnhancedGSTClient:
                     
                     if response.status_code == 200:
                         try:
-                            data = response.json()
+                            raw_data = response.json()
+                            
+                            # ✅ FIXED: Log the actual response to debug
+                            logger.info(f"🔍 RAW API Response structure: {list(raw_data.keys()) if isinstance(raw_data, dict) else type(raw_data)}")
+                            logger.info(f"🔍 RAW API Response sample: {str(raw_data)[:500]}...")
+                            
+                            # ✅ FIXED: Enhanced data processing with multiple format support
+                            processed_data = self._process_gst_data_enhanced(raw_data, gstin)
+                            
                             logger.info(f"✅ GST API success for {gstin}")
-                            return self._process_gst_data(data, gstin)
+                            logger.info(f"✅ Processed company: {processed_data.get('lgnm', 'Unknown')}")
+                            return processed_data
+                            
                         except json.JSONDecodeError as e:
                             logger.error(f"❌ JSON decode error: {e}")
-                            logger.error(f"Raw response: {response.text[:500]}")
+                            logger.error(f"Raw response text: {response.text[:500]}")
                             continue
                     
                     elif response.status_code == 404:
                         logger.warning(f"⚠️ 404 Not Found for endpoint {endpoint}")
                         if i == len(endpoints) - 1:  # Last endpoint
-                            # Try with mock data for testing
                             logger.info("🔄 Generating mock data for testing")
                             return self._generate_mock_data(gstin)
                         continue
@@ -136,49 +145,268 @@ class EnhancedGSTClient:
         logger.warning("⚠️ All GST API endpoints failed, using mock data")
         return self._generate_mock_data(gstin)
 
-    def _process_gst_data(self, data: Dict, gstin: str) -> Dict:
-        """Process and validate GST API response data"""
+    def _process_gst_data_enhanced(self, raw_data: Dict, gstin: str) -> Dict:
+        """
+        ✅ FIXED: Enhanced data processing that handles multiple API response formats
+        """
         try:
-            # Ensure basic structure
+            logger.info(f"🔧 Processing GST data for {gstin}")
+            
+            # Handle different response formats
+            actual_data = raw_data
+            
+            # Check if data is wrapped in a 'data' field
+            if isinstance(raw_data, dict) and 'data' in raw_data:
+                actual_data = raw_data['data']
+                logger.info("📦 Found data wrapper, extracting inner data")
+            
+            # Check if it's a success/result wrapper
+            if isinstance(raw_data, dict) and 'result' in raw_data:
+                actual_data = raw_data['result']
+                logger.info("📦 Found result wrapper, extracting result data")
+            
+            # Check if it's wrapped in 'response' or 'gstin_data'
+            if isinstance(raw_data, dict):
+                for wrapper_key in ['response', 'gstin_data', 'gst_data', 'info']:
+                    if wrapper_key in raw_data:
+                        actual_data = raw_data[wrapper_key]
+                        logger.info(f"📦 Found {wrapper_key} wrapper, extracting data")
+                        break
+            
+            # Log the keys we're working with
+            if isinstance(actual_data, dict):
+                logger.info(f"🔍 Available data keys: {list(actual_data.keys())}")
+            
+            # ✅ FIXED: Flexible field mapping to handle different API formats
             processed_data = {
                 "gstin": gstin,
-                "lgnm": data.get("lgnm", "Unknown Company"),
-                "tradeName": data.get("tradeName", data.get("tradeNam", "")),
-                "sts": data.get("sts", "Unknown"),
-                "rgdt": data.get("rgdt", ""),
-                "ctb": data.get("ctb", ""),
-                "pan": data.get("pan", gstin[:10] if len(gstin) >= 10 else ""),
-                "adr": data.get("adr", ""),
-                "stj": data.get("stj", ""),
-                "ctj": data.get("ctj", ""),
-                "returns": data.get("returns", []),
-                "nba": data.get("nba", []),
-                "einvoiceStatus": data.get("einvoiceStatus", "No"),
-                "fillingFreq": data.get("fillingFreq", {}),
-                "compCategory": data.get("compCategory", ""),
-                "dty": data.get("dty", ""),
-                "meta": data.get("meta", {}),
-                "pincode": data.get("pincode", "")
+                
+                # Try multiple possible field names for company name
+                "lgnm": self._get_field_value(actual_data, [
+                    "lgnm", "legal_name", "legalName", "company_name", 
+                    "companyName", "tradeName", "trade_name", "business_name"
+                ], "Unknown Company"),
+                
+                # Trade name variants
+                "tradeName": self._get_field_value(actual_data, [
+                    "tradeName", "tradeNam", "trade_name", "trading_name",
+                    "business_name", "name"
+                ], ""),
+                
+                # Status variants
+                "sts": self._get_field_value(actual_data, [
+                    "sts", "status", "business_status", "registration_status",
+                    "gstin_status", "state"
+                ], "Unknown"),
+                
+                # Registration date variants
+                "rgdt": self._get_field_value(actual_data, [
+                    "rgdt", "registration_date", "reg_date", "registrationDate",
+                    "date_of_registration"
+                ], ""),
+                
+                # Constitution/Business type variants
+                "ctb": self._get_field_value(actual_data, [
+                    "ctb", "constitution", "business_type", "businessType",
+                    "entity_type", "company_type"
+                ], ""),
+                
+                # PAN variants
+                "pan": self._get_field_value(actual_data, [
+                    "pan", "pan_number", "panNumber"
+                ], gstin[:10] if len(gstin) >= 10 else ""),
+                
+                # Address variants
+                "adr": self._get_field_value(actual_data, [
+                    "adr", "address", "business_address", "pradr",
+                    "principal_address", "registered_address"
+                ], ""),
+                
+                # State jurisdiction variants
+                "stj": self._get_field_value(actual_data, [
+                    "stj", "state_jurisdiction", "state_code", "state"
+                ], ""),
+                
+                # Central jurisdiction variants
+                "ctj": self._get_field_value(actual_data, [
+                    "ctj", "center_jurisdiction", "central_jurisdiction"
+                ], ""),
+                
+                # Returns - handle different formats
+                "returns": self._process_returns_data(actual_data),
+                
+                # Nature of business variants
+                "nba": self._get_field_value(actual_data, [
+                    "nba", "nature_of_business", "business_nature", 
+                    "natureOfBusiness", "business_activities"
+                ], []),
+                
+                # E-invoice status variants
+                "einvoiceStatus": self._get_field_value(actual_data, [
+                    "einvoiceStatus", "e_invoice_status", "einvoice",
+                    "eInvoiceStatus", "e_invoice"
+                ], "No"),
+                
+                # Filing frequency variants
+                "fillingFreq": self._get_field_value(actual_data, [
+                    "fillingFreq", "filing_frequency", "filingFrequency",
+                    "return_frequency"
+                ], {}),
+                
+                # Company category variants
+                "compCategory": self._get_field_value(actual_data, [
+                    "compCategory", "company_category", "taxpayer_type",
+                    "registration_type"
+                ], ""),
+                
+                # Additional fields
+                "dty": self._get_field_value(actual_data, [
+                    "dty", "duty_type", "taxpayer_category"
+                ], ""),
+                
+                "meta": self._get_field_value(actual_data, [
+                    "meta", "metadata", "additional_info"
+                ], {}),
+                
+                "pincode": self._get_field_value(actual_data, [
+                    "pincode", "pin_code", "postal_code", "zip"
+                ], "")
             }
             
-            logger.info(f"✅ Processed GST data for {gstin}")
+            # ✅ FIXED: Additional processing for better data quality
+            self._enhance_processed_data(processed_data, actual_data)
+            
+            logger.info(f"✅ Successfully processed GST data for {gstin}")
+            logger.info(f"📊 Company: {processed_data['lgnm']}")
+            logger.info(f"📊 Status: {processed_data['sts']}")
+            logger.info(f"📊 Returns count: {len(processed_data.get('returns', []))}")
+            
             return processed_data
             
         except Exception as e:
-            logger.error(f"❌ Error processing GST data: {e}")
+            logger.error(f"❌ Error processing GST data for {gstin}: {e}")
+            logger.error(f"❌ Traceback: {traceback.format_exc()}")
             return self._generate_mock_data(gstin)
 
-    def _generate_mock_data(self, gstin: str) -> Dict:
-        """Generate mock GST data for testing purposes"""
-        logger.info(f"🔄 Generating mock data for GSTIN: {gstin}")
+    def _get_field_value(self, data: Dict, field_names: List[str], default_value: Any) -> Any:
+        """
+        ✅ FIXED: Get field value trying multiple possible field names
+        """
+        if not isinstance(data, dict):
+            return default_value
         
-        # Extract state code from GSTIN
+        for field_name in field_names:
+            if field_name in data and data[field_name] is not None:
+                value = data[field_name]
+                # Don't return empty strings as valid values, try next field
+                if isinstance(value, str) and value.strip():
+                    return value.strip()
+                elif not isinstance(value, str) and value:
+                    return value
+        
+        return default_value
+
+    def _process_returns_data(self, data: Dict) -> List[Dict]:
+        """
+        ✅ FIXED: Process returns data with flexible format handling
+        """
+        returns = []
+        
+        # Try different possible locations for returns data
+        returns_fields = ["returns", "gst_returns", "filings", "return_data", "gstReturns"]
+        
+        for field in returns_fields:
+            if field in data and isinstance(data[field], list):
+                returns = data[field]
+                break
+        
+        # If returns is still empty, try to construct from other fields
+        if not returns and isinstance(data, dict):
+            # Look for return-related fields
+            for key, value in data.items():
+                if 'return' in key.lower() or 'gstr' in key.lower():
+                    if isinstance(value, list):
+                        returns = value
+                        break
+                    elif isinstance(value, dict):
+                        # Convert single return object to list
+                        returns = [value]
+                        break
+        
+        # Standardize return objects
+        standardized_returns = []
+        for return_item in returns:
+            if isinstance(return_item, dict):
+                std_return = {
+                    "rtntype": self._get_field_value(return_item, [
+                        "rtntype", "return_type", "type", "returnType"
+                    ], ""),
+                    "taxp": self._get_field_value(return_item, [
+                        "taxp", "tax_period", "period", "month"
+                    ], ""),
+                    "fy": self._get_field_value(return_item, [
+                        "fy", "financial_year", "year"
+                    ], ""),
+                    "dof": self._get_field_value(return_item, [
+                        "dof", "date_of_filing", "filing_date", "filed_date"
+                    ], "")
+                }
+                standardized_returns.append(std_return)
+        
+        logger.info(f"📋 Processed {len(standardized_returns)} returns")
+        return standardized_returns
+
+    def _enhance_processed_data(self, processed_data: Dict, raw_data: Dict):
+        """
+        ✅ FIXED: Enhance processed data with additional logic
+        """
+        try:
+            # Fix status values
+            status = processed_data.get("sts", "").lower()
+            if status in ["active", "1", "yes", "true"]:
+                processed_data["sts"] = "Active"
+            elif status in ["inactive", "cancelled", "suspended", "0", "no", "false"]:
+                processed_data["sts"] = "Inactive"
+            elif status:
+                processed_data["sts"] = status.title()
+            
+            # Ensure PAN is extracted from GSTIN if not provided
+            if not processed_data.get("pan") and processed_data.get("gstin"):
+                processed_data["pan"] = processed_data["gstin"][:10]
+            
+            # Ensure arrays are properly formatted
+            if not isinstance(processed_data.get("nba"), list):
+                nba_value = processed_data.get("nba", "")
+                if isinstance(nba_value, str) and nba_value:
+                    processed_data["nba"] = [nba_value]
+                else:
+                    processed_data["nba"] = []
+            
+            # Ensure filing frequency is a dict
+            if not isinstance(processed_data.get("fillingFreq"), dict):
+                processed_data["fillingFreq"] = {}
+            
+            # Ensure meta is a dict
+            if not isinstance(processed_data.get("meta"), dict):
+                processed_data["meta"] = {}
+            
+            # Add some computed fields to meta
+            processed_data["meta"].update({
+                "total_returns": len(processed_data.get("returns", [])),
+                "processed_at": datetime.now().isoformat(),
+                "data_source": "enhanced_api_client"
+            })
+            
+        except Exception as e:
+            logger.error(f"Error enhancing processed data: {e}")
+
+    def _generate_mock_data(self, gstin: str) -> Dict:
+        """Generate realistic mock data when API fails"""
         state_code = gstin[:2] if len(gstin) >= 2 else "29"
         
-        # Mock company names based on GSTIN patterns
         company_names = {
             "29": "Maharashtra Test Company Pvt Ltd",
-            "07": "Delhi Sample Industries Ltd",
+            "07": "Delhi Sample Industries Ltd", 
             "27": "Punjab Demo Corporation",
             "33": "Tamil Nadu Mock Enterprises",
             "09": "Uttar Pradesh Test Solutions"
@@ -186,7 +414,6 @@ class EnhancedGSTClient:
         
         company_name = company_names.get(state_code, f"Test Company {state_code} Pvt Ltd")
         
-        # Generate realistic mock data
         mock_data = {
             "gstin": gstin,
             "lgnm": company_name,
@@ -199,47 +426,25 @@ class EnhancedGSTClient:
             "stj": f"State - {state_code}, Ward - Test Ward",
             "ctj": f"Central - Range-{state_code}, Division-Test",
             "returns": [
-                {
-                    "rtntype": "GSTR1",
-                    "taxp": "122023",
-                    "fy": "2023-24",
-                    "dof": "11/01/2024"
-                },
-                {
-                    "rtntype": "GSTR3B", 
-                    "taxp": "122023",
-                    "fy": "2023-24",
-                    "dof": "20/01/2024"
-                },
-                {
-                    "rtntype": "GSTR1",
-                    "taxp": "112023",
-                    "fy": "2023-24", 
-                    "dof": "11/12/2023"
-                },
-                {
-                    "rtntype": "GSTR3B",
-                    "taxp": "112023",
-                    "fy": "2023-24",
-                    "dof": "20/12/2023"
-                }
+                {"rtntype": "GSTR1", "taxp": "122023", "fy": "2023-24", "dof": "11/01/2024"},
+                {"rtntype": "GSTR3B", "taxp": "122023", "fy": "2023-24", "dof": "20/01/2024"},
+                {"rtntype": "GSTR1", "taxp": "112023", "fy": "2023-24", "dof": "11/12/2023"},
+                {"rtntype": "GSTR3B", "taxp": "112023", "fy": "2023-24", "dof": "20/12/2023"}
             ],
             "nba": ["Trading", "Manufacturing", "Services"],
             "einvoiceStatus": "Yes" if int(state_code) > 20 else "No",
-            "fillingFreq": {
-                "GSTR1": "M",
-                "GSTR3B": "M"
-            },
+            "fillingFreq": {"GSTR1": "M", "GSTR3B": "M"},
             "compCategory": "Regular",
             "dty": "Regular",
             "meta": {
                 "latestgtsr1": "122023",
-                "latestgtsr3b": "122023"
+                "latestgtsr3b": "122023",
+                "is_mock_data": True
             },
             "pincode": f"{state_code}0001"
         }
         
-        logger.info(f"✅ Generated mock data for {gstin}")
+        logger.info(f"📝 Generated enhanced mock data for GSTIN: {gstin}")
         return mock_data
 
 class EnhancedAnthropicClient:
@@ -456,10 +661,12 @@ async def debug_api_status() -> Dict[str, Any]:
     for key, value in debug_results["environment"].items():
         logger.info(f"📋 {key}: {value}")
     
-    # Test GST API
-    logger.info("🧪 Testing GST API...")
+    # Test GST API with enhanced debugging
+    logger.info("🧪 Testing GST API with enhanced debugging...")
     try:
         test_gstin = "07AAGFF2194N1Z1"  # Known test GSTIN
+        logger.info(f"🎯 Testing with GSTIN: {test_gstin}")
+        
         gst_data = await enhanced_gst_client.fetch_gstin_data(test_gstin)
         
         debug_results["gst_api"] = {
@@ -467,7 +674,10 @@ async def debug_api_status() -> Dict[str, Any]:
             "message": "GST API connection successful",
             "test_gstin": test_gstin,
             "response_keys": list(gst_data.keys()) if gst_data else [],
-            "company_name": gst_data.get("lgnm", "N/A") if gst_data else "N/A"
+            "company_name": gst_data.get("lgnm", "N/A") if gst_data else "N/A",
+            "status": gst_data.get("sts", "N/A") if gst_data else "N/A",
+            "returns_count": len(gst_data.get("returns", [])) if gst_data else 0,
+            "is_mock_data": gst_data.get("meta", {}).get("is_mock_data", False) if gst_data else False
         }
         logger.info("✅ GST API Status: SUCCESS")
         
@@ -521,27 +731,33 @@ async def debug_api_status() -> Dict[str, Any]:
 # Test functionality
 if __name__ == "__main__":
     async def test_apis():
-        """Test both APIs"""
-        print("🧪 Testing Enhanced API Clients...")
+        """Test both APIs with enhanced debugging"""
+        print("🧪 Testing FIXED Enhanced API Clients...")
         
-        # Test GST API
+        # Test GST API with a real GSTIN
         try:
-            result = await enhanced_gst_client.fetch_gstin_data("29AAAPL2356Q1ZS")
-            print(f"✅ GST API Test: {result.get('lgnm', 'Success')}")
+            test_gstin = "29AAAPL2356Q1ZS"
+            print(f"🎯 Testing GST API with: {test_gstin}")
+            result = await enhanced_gst_client.fetch_gstin_data(test_gstin)
+            print(f"✅ GST API Test Result:")
+            print(f"   Company: {result.get('lgnm', 'Unknown')}")
+            print(f"   Status: {result.get('sts', 'Unknown')}")
+            print(f"   Returns: {len(result.get('returns', []))}")
+            print(f"   Mock Data: {result.get('meta', {}).get('is_mock_data', False)}")
         except Exception as e:
             print(f"❌ GST API Test Failed: {e}")
         
         # Test Anthropic API
         try:
-            test_data = {"lgnm": "Test Company", "sts": "Active"}
+            test_data = {"lgnm": "Test Company", "sts": "Active", "returns": []}
             synopsis = await enhanced_ai_client.get_synopsis(test_data)
-            print(f"✅ AI API Test: {synopsis[:50]}..." if synopsis else "❌ No synopsis")
+            print(f"✅ AI API Test: {synopsis[:50] if synopsis else 'No synopsis'}...")
         except Exception as e:
             print(f"❌ AI API Test Failed: {e}")
         
         # Debug status
         status = await debug_api_status()
-        print(f"📊 Debug Results: GST={status['gst_api']['success']}, AI={status['anthropic_api']['success']}")
+        print(f"📊 Final Status: GST={status['gst_api']['success']}, AI={status['anthropic_api']['success']}")
 
     # Run tests
     asyncio.run(test_apis())

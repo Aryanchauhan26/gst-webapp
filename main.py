@@ -3111,7 +3111,164 @@ async def test_database_insert(current_user: str = Depends(require_auth)):
             "success": False,
             "error": str(e)
         })
-    
+
+# Add this to your main.py after the existing debug endpoints
+
+@app.post("/debug/analyze-api-response")
+async def analyze_api_response(
+    gstin: str = Form(...), 
+    current_user: str = Depends(require_auth)
+):
+    """
+    ✅ NEW: Analyze raw API response vs processed data
+    This will show you exactly what your API returns and how it's processed
+    """
+    try:
+        logger.info(f"🔍 ANALYZING API RESPONSE for GSTIN: {gstin}")
+        
+        if not api_client:
+            return JSONResponse({
+                "success": False,
+                "error": "GST API client not available"
+            })
+        
+        # Clean GSTIN
+        gstin = gstin.strip().upper()
+        
+        # Make direct API call to see raw response
+        headers = {
+            "X-RapidAPI-Key": RAPIDAPI_KEY,
+            "X-RapidAPI-Host": RAPIDAPI_HOST,
+            "Content-Type": "application/json",
+            "Accept": "application/json"
+        }
+        
+        raw_response_data = None
+        response_status = None
+        response_headers = None
+        
+        # Try the main endpoint
+        url = f"https://{RAPIDAPI_HOST}/free/gstin/{gstin}"
+        
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.get(url, headers=headers)
+            response_status = response.status_code
+            response_headers = dict(response.headers)
+            
+            if response.status_code == 200:
+                raw_response_data = response.json()
+            else:
+                raw_response_data = {"error": response.text}
+        
+        # Now get processed data from our enhanced client
+        processed_data = await api_client.fetch_gstin_data(gstin)
+        
+        # Create analysis
+        analysis = {
+            "success": True,
+            "gstin": gstin,
+            "timestamp": datetime.now().isoformat(),
+            
+            # Raw API Response
+            "raw_api_response": {
+                "status_code": response_status,
+                "headers": response_headers,
+                "data": raw_response_data,
+                "data_type": type(raw_response_data).__name__,
+                "data_keys": list(raw_response_data.keys()) if isinstance(raw_response_data, dict) else [],
+                "data_size": len(str(raw_response_data)) if raw_response_data else 0
+            },
+            
+            # Processed Data
+            "processed_data": {
+                "data": processed_data,
+                "company_name": processed_data.get("lgnm", "NOT_FOUND"),
+                "status": processed_data.get("sts", "NOT_FOUND"),
+                "returns_count": len(processed_data.get("returns", [])),
+                "is_mock_data": processed_data.get("meta", {}).get("is_mock_data", False)
+            },
+            
+            # Field Mapping Analysis
+            "field_mapping_analysis": {},
+            
+            # Recommendations
+            "recommendations": []
+        }
+        
+        # Analyze field mapping
+        if isinstance(raw_response_data, dict):
+            analysis["field_mapping_analysis"] = {
+                "company_name_fields": [k for k in raw_response_data.keys() if any(x in k.lower() for x in ['name', 'lgnm', 'company', 'legal'])],
+                "status_fields": [k for k in raw_response_data.keys() if any(x in k.lower() for x in ['status', 'sts', 'state'])],
+                "returns_fields": [k for k in raw_response_data.keys() if any(x in k.lower() for x in ['return', 'filing', 'gstr'])],
+                "all_fields": list(raw_response_data.keys())
+            }
+        
+        # Generate recommendations
+        if processed_data.get("lgnm") == "Unknown Company":
+            analysis["recommendations"].append("❌ Company name not found - check field mapping")
+        
+        if processed_data.get("sts") == "Unknown":
+            analysis["recommendations"].append("❌ Status not found - check status field mapping")
+        
+        if len(processed_data.get("returns", [])) == 0:
+            analysis["recommendations"].append("⚠️ No returns data found - check returns field mapping")
+        
+        if processed_data.get("meta", {}).get("is_mock_data"):
+            analysis["recommendations"].append("⚠️ Using mock data - API call may have failed")
+        else:
+            analysis["recommendations"].append("✅ Using real API data")
+        
+        return JSONResponse(analysis)
+        
+    except Exception as e:
+        logger.error(f"❌ API response analysis error: {e}")
+        return JSONResponse({
+            "success": False,
+            "error": str(e),
+            "traceback": traceback.format_exc()
+        })
+
+@app.get("/debug/test-with-postman-gstin")
+async def test_with_postman_gstin(current_user: str = Depends(require_auth)):
+    """
+    ✅ NEW: Test with the same GSTIN you're using in Postman
+    """
+    try:
+        # Use the same GSTIN from your logs
+        test_gstin = "06AADCU2714R1ZZ"
+        
+        logger.info(f"🧪 Testing with Postman GSTIN: {test_gstin}")
+        
+        # Test our enhanced client
+        start_time = time.time()
+        result = await enhanced_gst_client.fetch_gstin_data(test_gstin)
+        processing_time = (time.time() - start_time) * 1000
+        
+        return JSONResponse({
+            "success": True,
+            "test_gstin": test_gstin,
+            "processing_time_ms": round(processing_time, 2),
+            "result": {
+                "company_name": result.get("lgnm", "NOT_FOUND"),
+                "status": result.get("sts", "NOT_FOUND"), 
+                "returns_count": len(result.get("returns", [])),
+                "registration_date": result.get("rgdt", "NOT_FOUND"),
+                "pan": result.get("pan", "NOT_FOUND"),
+                "is_mock_data": result.get("meta", {}).get("is_mock_data", False)
+            },
+            "full_data": result,
+            "data_keys": list(result.keys()),
+            "message": "Check if this matches your Postman results"
+        })
+        
+    except Exception as e:
+        logger.error(f"❌ Postman GSTIN test failed: {e}")
+        return JSONResponse({
+            "success": False,
+            "error": str(e)
+        })
+
 @app.get("/debug/profile")
 async def debug_profile(current_user: str = Depends(require_auth)):
     try:
