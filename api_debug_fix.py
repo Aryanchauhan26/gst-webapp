@@ -75,7 +75,7 @@ class EnhancedGSTClient:
         
         # Multiple endpoint attempts
         endpoints = [
-            f"/gstin/{gstin}",
+            f"/free/gstin/{gstin}",
             f"/api/gstin/{gstin}",
             f"/v1/gstin/{gstin}",
             f"/gst/gstin/{gstin}"
