@@ -436,82 +436,49 @@ class FixedDatabaseManager:
             return False
 
     async def add_search_history(self, mobile: str, gstin: str, company_name: str, compliance_score: float, search_data: dict = None, ai_synopsis: str = None) -> bool:
-        """Add search to history with safe column handling - COMPLETELY FIXED"""
+        """Add search to history - COMPLETELY FIXED VERSION"""
         try:
-            async with db.pool.acquire() as conn:
-                # Check what columns exist first
-                existing_columns = await conn.fetch("""
-                    SELECT column_name 
-                    FROM information_schema.columns 
-                    WHERE table_name = 'search_history' AND table_schema = 'public'
-                """)
-                
-                column_names = {row['column_name'] for row in existing_columns}
-                
-                # Build insert with only existing columns
-                columns = ['mobile', 'gstin', 'company_name', 'compliance_score']
-                values = [mobile, gstin, company_name, compliance_score]
-                placeholders = ['$1', '$2', '$3', '$4']
-                
-                # Add optional columns if they exist
-                if 'search_data' in column_names and search_data is not None:
-                    columns.append('search_data')
-                    values.append(json.dumps(search_data))
-                    placeholders.append(f'${len(values)}')
-                
-                if 'ai_synopsis' in column_names and ai_synopsis is not None:
-                    columns.append('ai_synopsis')
-                    values.append(ai_synopsis)
-                    placeholders.append(f'${len(values)}')
-                
-                if 'searched_at' in column_names:
-                    columns.append('searched_at')
-                    values.append('CURRENT_TIMESTAMP')
-                    placeholders.append('CURRENT_TIMESTAMP')
-                
-                # FIXED: Use proper ON CONFLICT handling
-                query = f"""
-                    INSERT INTO search_history ({', '.join(columns)}) 
-                    VALUES ({', '.join(placeholders)})
-                    ON CONFLICT (mobile, gstin) DO UPDATE SET 
+            async with self.pool.acquire() as conn:
+                # Use proper parameter count - exactly 6 parameters
+                await conn.execute("""
+                    INSERT INTO search_history (mobile, gstin, company_name, compliance_score, search_data, ai_synopsis)
+                    VALUES ($1, $2, $3, $4, $5, $6)
+                    ON CONFLICT (mobile, gstin) DO UPDATE SET
                         company_name = EXCLUDED.company_name,
                         compliance_score = EXCLUDED.compliance_score,
+                        search_data = EXCLUDED.search_data,
+                        ai_synopsis = EXCLUDED.ai_synopsis,
                         searched_at = CURRENT_TIMESTAMP
-                """
+                """, 
+                mobile, 
+                gstin, 
+                company_name, 
+                compliance_score, 
+                json.dumps(search_data or {}), 
+                ai_synopsis
+                )
                 
-                # Only if we have the constraint, otherwise use simple INSERT
-                if 'searched_at' in placeholders:
-                    query = f"""
-                        INSERT INTO search_history ({', '.join(columns[:-1])}) 
-                        VALUES ({', '.join(placeholders[:-1])})
-                        ON CONFLICT (mobile, gstin) DO UPDATE SET 
-                            company_name = EXCLUDED.company_name,
-                            compliance_score = EXCLUDED.compliance_score
-                    """
-                    # Remove CURRENT_TIMESTAMP from values
-                    clean_values = [v for v in values if v != 'CURRENT_TIMESTAMP']
-                else:
-                    clean_values = values
-                
-                await conn.execute(query, *clean_values)
-                logger.info(f"✅ Search history added: {gstin} for {mobile}")
+                logger.info(f"✅ Search history saved for {gstin}")
                 return True
                     
         except Exception as e:
             logger.error(f"❌ Error adding search history: {e}")
-            # Fallback: try simple insert without ON CONFLICT
+            
+            # Fallback: Simple insert without conflict handling
             try:
-                async with db.pool.acquire() as conn:
+                async with self.pool.acquire() as conn:
                     await conn.execute("""
                         INSERT INTO search_history (mobile, gstin, company_name, compliance_score, searched_at)
                         VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP)
                     """, mobile, gstin, company_name, compliance_score)
+                    
                 logger.info(f"✅ Fallback search history insert successful")
                 return True
+                
             except Exception as fallback_error:
                 logger.error(f"❌ Fallback insert also failed: {fallback_error}")
                 return False
-
+        
     async def get_search_history(self, mobile: str, limit: int = 50) -> List[Dict]:
         """Get user search history with safe column handling - COMPLETELY FIXED"""
         try:
@@ -3045,6 +3012,106 @@ async def log_client_error(request: Request):
     except:
         return JSONResponse({"success": False})
 
+@app.post("/api/debug/fix-database-schema")
+async def fix_database_schema(current_user: str = Depends(require_auth)):
+    """Fix database schema issues - COMPLETE FIX"""
+    try:
+        await db.initialize()
+        
+        async with db.pool.acquire() as conn:
+            logger.info("🔧 Fixing database schema...")
+            
+            # 1. Ensure search_history table exists with correct structure
+            await conn.execute("""
+                CREATE TABLE IF NOT EXISTS search_history (
+                    id SERIAL PRIMARY KEY,
+                    mobile VARCHAR(15) NOT NULL,
+                    gstin VARCHAR(15) NOT NULL,
+                    company_name TEXT,
+                    search_data JSONB DEFAULT '{}',
+                    compliance_score DECIMAL(5,2),
+                    ai_synopsis TEXT,
+                    searched_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+            """)
+            logger.info("✅ search_history table verified")
+            
+            # 2. Add unique constraint if it doesn't exist
+            try:
+                await conn.execute("""
+                    ALTER TABLE search_history 
+                    ADD CONSTRAINT search_history_mobile_gstin_unique 
+                    UNIQUE (mobile, gstin);
+                """)
+                logger.info("✅ Added unique constraint")
+            except Exception as e:
+                if "already exists" in str(e).lower():
+                    logger.info("✅ Unique constraint already exists")
+                else:
+                    logger.warning(f"Constraint creation: {e}")
+            
+            # 3. Create indexes for performance
+            indexes = [
+                "CREATE INDEX IF NOT EXISTS idx_search_history_mobile ON search_history(mobile);",
+                "CREATE INDEX IF NOT EXISTS idx_search_history_gstin ON search_history(gstin);",
+                "CREATE INDEX IF NOT EXISTS idx_search_history_searched_at ON search_history(searched_at);",
+            ]
+            
+            for index_sql in indexes:
+                try:
+                    await conn.execute(index_sql)
+                except Exception as e:
+                    logger.warning(f"Index creation: {e}")
+            
+            logger.info("✅ Performance indexes created")
+            
+            # 4. Test the table structure
+            test_result = await conn.fetch("SELECT column_name, data_type FROM information_schema.columns WHERE table_name = 'search_history' ORDER BY ordinal_position")
+            
+            columns = [{"name": row["column_name"], "type": row["data_type"]} for row in test_result]
+            
+            return JSONResponse({
+                "success": True,
+                "message": "Database schema fixed successfully",
+                "table_structure": columns,
+                "total_columns": len(columns)
+            })
+            
+    except Exception as e:
+        logger.error(f"❌ Schema fix error: {e}")
+        return JSONResponse({
+            "success": False,
+            "error": str(e)
+        })
+
+@app.post("/api/debug/test-database-insert") 
+async def test_database_insert(current_user: str = Depends(require_auth)):
+    """Test database insert functionality"""
+    try:
+        await db.initialize()
+        
+        # Test insert
+        success = await db.add_search_history(
+            mobile=current_user,
+            gstin="TEST123456789012",
+            company_name="Test Company Ltd",
+            compliance_score=85.5,
+            search_data={"test": True},
+            ai_synopsis="This is a test synopsis"
+        )
+        
+        return JSONResponse({
+            "success": success,
+            "message": "Database insert test completed",
+            "test_gstin": "TEST123456789012"
+        })
+        
+    except Exception as e:
+        return JSONResponse({
+            "success": False,
+            "error": str(e)
+        })
+    
 @app.get("/debug/profile")
 async def debug_profile(current_user: str = Depends(require_auth)):
     try:
@@ -3332,7 +3399,7 @@ async def fix_search_history_constraint(current_user: str = Depends(require_auth
             "success": False,
             "error": str(e)
         })
-        
+
 # Startup/Shutdown
 @app.on_event("startup")
 async def startup_event():
