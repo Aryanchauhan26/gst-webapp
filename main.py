@@ -33,6 +33,24 @@ from dataclasses import dataclass, asdict
 from contextlib import asynccontextmanager
 from decimal import Decimal
 
+def clean_data_for_json(data):
+    """
+    ✅ FIXED: Clean data to make it JSON serializable by handling datetime objects
+    """
+    if isinstance(data, dict):
+        cleaned = {}
+        for key, value in data.items():
+            cleaned[key] = clean_data_for_json(value)
+        return cleaned
+    elif isinstance(data, list):
+        return [clean_data_for_json(item) for item in data]
+    elif hasattr(data, 'isoformat'):  # datetime, date objects
+        return data.isoformat()
+    elif hasattr(data, '__dict__'):  # Custom objects
+        return str(data)
+    else:
+        return data
+
 class DateTimeEncoder(json.JSONEncoder):
     """Custom JSON encoder that handles datetime objects"""
     def default(self, obj):
@@ -436,9 +454,12 @@ class FixedDatabaseManager:
             return False
 
     async def add_search_history(self, mobile: str, gstin: str, company_name: str, compliance_score: float, search_data: dict = None, ai_synopsis: str = None) -> bool:
-        """Add search to history - COMPLETELY FIXED VERSION"""
+        """Add search to history - DATETIME SERIALIZATION FIXED"""
         try:
             async with self.pool.acquire() as conn:
+                # ✅ FIXED: Clean search_data to remove datetime objects before JSON serialization
+                cleaned_search_data = clean_data_for_json(search_data) if search_data else {}
+                
                 # Use proper parameter count - exactly 6 parameters
                 await conn.execute("""
                     INSERT INTO search_history (mobile, gstin, company_name, compliance_score, search_data, ai_synopsis)
@@ -454,11 +475,11 @@ class FixedDatabaseManager:
                 gstin, 
                 company_name, 
                 compliance_score, 
-                json.dumps(search_data or {}), 
+                json.dumps(cleaned_search_data),  # ✅ Now properly serialized
                 ai_synopsis
                 )
                 
-                logger.info(f"✅ Search history saved for {gstin}")
+                logger.info(f"✅ Search history saved for {gstin} without datetime errors")
                 return True
                     
         except Exception as e:

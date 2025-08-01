@@ -447,8 +447,10 @@ class EnhancedGSTClient:
         logger.info(f"📝 Generated enhanced mock data for GSTIN: {gstin}")
         return mock_data
 
+# Replace the entire EnhancedAnthropicClient class in your api_debug_fix.py with this pure web version
+
 class EnhancedAnthropicClient:
-    """Enhanced Anthropic AI client with robust error handling"""
+    """Pure web-based company synopsis generator - NO GST information"""
     
     def __init__(self, api_key: str = None):
         self.api_key = api_key or ANTHROPIC_API_KEY
@@ -458,7 +460,7 @@ class EnhancedAnthropicClient:
         self.request_count = 0
         self.error_count = 0
         
-        logger.info(f"🤖 Anthropic Client initializing...")
+        logger.info(f"🌐 Pure Web Synopsis AI Client initializing...")
         logger.info(f"🔑 API Key: {'✅ SET' if self.api_key else '❌ MISSING'}")
         
         self._initialize_client()
@@ -475,7 +477,6 @@ class EnhancedAnthropicClient:
             self.is_available = False
             return
 
-        # Validate API key format
         if not self.api_key.startswith('sk-ant-'):
             logger.warning(f"❌ Invalid API key format. Expected 'sk-ant-', got: {self.api_key[:10]}...")
             self.is_available = False
@@ -484,33 +485,222 @@ class EnhancedAnthropicClient:
         try:
             self.client = anthropic.Anthropic(api_key=self.api_key)
             self.is_available = True
-            logger.info("✅ Anthropic client initialized successfully")
+            logger.info("✅ Pure web synopsis AI client initialized successfully")
         except Exception as e:
             logger.error(f"❌ Failed to initialize Anthropic client: {e}")
             self.last_error = str(e)
             self.is_available = False
 
+    async def web_search_company_info(self, company_name: str) -> Optional[str]:
+        """
+        🌐 Search the web for pure business information about the company
+        """
+        try:
+            logger.info(f"🔍 Web searching for business info: {company_name}")
+            
+            # Clean company name for better search
+            clean_name = company_name.replace("PRIVATE LIMITED", "").replace("PVT LTD", "").replace("LIMITED", "").strip()
+            
+            search_queries = [
+                f'"{company_name}" company business services',
+                f'"{clean_name}" what does company do',
+                f'"{company_name}" products services about',
+                f'"{clean_name}" company profile business',
+                f'{clean_name} company India business'
+            ]
+            
+            web_results = []
+            
+            # Try DuckDuckGo first
+            for query in search_queries[:3]:
+                try:
+                    logger.info(f"🔍 Searching: {query}")
+                    
+                    async with httpx.AsyncClient(timeout=15.0) as client:
+                        # DuckDuckGo instant answer
+                        search_url = f"https://api.duckduckgo.com/?q={query}&format=json&no_html=1&skip_disambig=1"
+                        
+                        response = await client.get(search_url)
+                        if response.status_code == 200:
+                            data = response.json()
+                            
+                            if data.get('Abstract'):
+                                web_results.append(f"Business Overview: {data['Abstract']}")
+                                logger.info("✅ Found DuckDuckGo abstract")
+                            
+                            if data.get('AbstractText'):
+                                web_results.append(f"Company Details: {data['AbstractText']}")
+                                logger.info("✅ Found DuckDuckGo abstract text")
+                            
+                            # Check related topics for business info
+                            if data.get('RelatedTopics'):
+                                for topic in data['RelatedTopics'][:3]:
+                                    if isinstance(topic, dict) and topic.get('Text'):
+                                        text = topic['Text']
+                                        # Filter for business-relevant content
+                                        if any(keyword in text.lower() for keyword in ['company', 'business', 'services', 'products', 'industry', 'founded', 'specializes']):
+                                            web_results.append(f"Business Info: {text}")
+                                            logger.info("✅ Found related business topic")
+                            
+                            if web_results:
+                                break
+                                
+                except Exception as e:
+                    logger.warning(f"DuckDuckGo search failed for '{query}': {e}")
+            
+            # If no results from DuckDuckGo, try basic web scraping
+            if not web_results:
+                try:
+                    logger.info(f"🔍 Trying web scraping for {company_name}")
+                    
+                    async with httpx.AsyncClient(
+                        timeout=15.0,
+                        headers={
+                            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+                        }
+                    ) as client:
+                        
+                        # Search for company website or business listings
+                        search_urls = [
+                            f"https://www.google.com/search?q={company_name.replace(' ', '+')}+company+website",
+                            f"https://www.google.com/search?q={company_name.replace(' ', '+')}+business+services",
+                            f"https://www.bing.com/search?q={company_name.replace(' ', '+')}+company+profile"
+                        ]
+                        
+                        for search_url in search_urls[:2]:
+                            try:
+                                response = await client.get(search_url)
+                                if response.status_code == 200:
+                                    text = response.text.lower()
+                                    
+                                    # Look for business-related information in the HTML
+                                    business_keywords = [
+                                        'software', 'technology', 'consulting', 'services', 'solutions',
+                                        'manufacturing', 'trading', 'healthcare', 'education', 'finance',
+                                        'real estate', 'construction', 'retail', 'wholesale', 'logistics',
+                                        'telecommunications', 'media', 'entertainment', 'hospitality',
+                                        'agriculture', 'textiles', 'pharmaceuticals', 'chemicals',
+                                        'automotive', 'electronics', 'machinery', 'energy'
+                                    ]
+                                    
+                                    found_keywords = [kw for kw in business_keywords if kw in text]
+                                    if found_keywords:
+                                        # Try to extract context around these keywords
+                                        sector_info = f"Business sectors identified: {', '.join(found_keywords[:5])}"
+                                        web_results.append(sector_info)
+                                        logger.info(f"✅ Extracted business sectors: {found_keywords[:3]}")
+                                        break
+                                        
+                            except Exception as e:
+                                logger.warning(f"Web scraping failed for {search_url}: {e}")
+                
+                except Exception as e:
+                    logger.warning(f"Web scraping error: {e}")
+            
+            # Try to get industry info from company name analysis
+            if not web_results:
+                logger.info("🔍 Analyzing company name for business type")
+                business_type = self._analyze_company_name(company_name)
+                if business_type:
+                    web_results.append(f"Business type inferred: {business_type}")
+                    logger.info(f"✅ Inferred business type: {business_type}")
+            
+            if web_results:
+                combined_info = " | ".join(web_results)
+                logger.info(f"✅ Successfully gathered web information for {company_name}")
+                return combined_info
+            else:
+                logger.warning(f"❌ No web information found for {company_name}")
+                return None
+                
+        except Exception as e:
+            logger.error(f"❌ Web search error for {company_name}: {e}")
+            return None
+
+    def _analyze_company_name(self, company_name: str) -> Optional[str]:
+        """Analyze company name to infer business type"""
+        name_lower = company_name.lower()
+        
+        business_indicators = {
+            'technology': ['tech', 'software', 'systems', 'solutions', 'digital', 'cyber', 'data', 'cloud', 'ai', 'ml'],
+            'consulting': ['consulting', 'consultancy', 'advisory', 'management', 'strategy'],
+            'manufacturing': ['manufacturing', 'industries', 'products', 'engineering', 'machinery'],
+            'healthcare': ['health', 'medical', 'pharma', 'bio', 'clinic', 'hospital'],
+            'finance': ['finance', 'financial', 'capital', 'investment', 'bank', 'credit'],
+            'education': ['education', 'learning', 'training', 'academy', 'institute'],
+            'real estate': ['real estate', 'property', 'construction', 'builders', 'developers'],
+            'retail': ['retail', 'mart', 'store', 'shop', 'commerce', 'trading'],
+            'logistics': ['logistics', 'transport', 'shipping', 'cargo', 'delivery'],
+            'energy': ['energy', 'power', 'solar', 'renewable', 'electricity'],
+            'media': ['media', 'advertising', 'marketing', 'communications', 'creative'],
+            'hospitality': ['hotel', 'hospitality', 'travel', 'tourism', 'restaurant']
+        }
+        
+        for sector, keywords in business_indicators.items():
+            if any(keyword in name_lower for keyword in keywords):
+                return f"Company appears to operate in the {sector} sector based on name analysis"
+        
+        return None
+
     async def get_synopsis(self, company_data: Dict) -> Optional[str]:
-        """Generate AI synopsis for company data"""
+        """
+        🌐 Generate PURE business synopsis from web information only
+        """
         if not self.is_available:
-            logger.warning("⚠️ Anthropic client not available, using fallback")
-            return self._generate_fallback_synopsis(company_data)
+            logger.warning("⚠️ Anthropic client not available")
+            return "Company information lookup is currently unavailable."
 
         try:
             self.request_count += 1
             
-            prompt = self._create_analysis_prompt(company_data)
+            company_name = company_data.get('lgnm', 'Unknown Company')
             
-            # Try multiple models in order of preference
-            models = [
-                "claude-3-5-sonnet-20241022",
-                "claude-3-sonnet-20240229", 
-                "claude-3-haiku-20240307"
-            ]
+            if company_name == 'Unknown Company':
+                return "Company name not available for information lookup."
+            
+            logger.info(f"🌐 Starting pure web search for: {company_name}")
+            
+            # Get web information
+            web_info = await self.web_search_company_info(company_name)
+            
+            if not web_info:
+                logger.info("❌ No web information found")
+                return f"No business information available online for {company_name}. The company may be a newer business or may not have a significant web presence."
+            
+            # Create web-only prompt
+            prompt = f"""
+            Based on web research, provide a concise business summary for this company:
+
+            **Company Name:** {company_name}
+
+            **Web Information Found:**
+            {web_info}
+
+            **Instructions:**
+            Write a professional 2-3 sentence business summary that covers:
+            1. What this company does (products/services)
+            2. Which industry/sector they operate in
+            3. Their market focus or specialization
+
+            **Important Requirements:**
+            - Focus ONLY on business operations and services
+            - Do NOT mention any registration details, compliance, or legal status
+            - Do NOT include GST, tax, or regulatory information
+            - Write as if describing the company to a potential customer or partner
+            - Keep it business-focused and informative
+
+            **Style:** Professional business description
+            **Length:** 80-120 words maximum
+
+            Provide only the business summary based on the web information found.
+            """
+            
+            # Generate AI response
+            models = ["claude-3-5-sonnet-20241022", "claude-3-sonnet-20240229", "claude-3-haiku-20240307"]
             
             for model in models:
                 try:
-                    logger.info(f"🤖 Attempting AI analysis with model: {model}")
+                    logger.info(f"🤖 Generating web-based synopsis with: {model}")
                     
                     response = await asyncio.to_thread(
                         self.client.messages.create,
@@ -521,112 +711,65 @@ class EnhancedAnthropicClient:
                     )
                     
                     if response and response.content:
-                        synopsis = response.content[0].text
-                        logger.info("✅ AI synopsis generated successfully")
-                        return self._clean_synopsis(synopsis)
+                        synopsis = response.content[0].text.strip()
+                        cleaned_synopsis = self._clean_synopsis(synopsis)
                         
-                except anthropic.APIError as e:
+                        logger.info("✅ Generated pure business synopsis from web data")
+                        return cleaned_synopsis
+                        
+                except Exception as e:
                     logger.warning(f"⚠️ Model {model} failed: {e}")
                     continue
-                except Exception as e:
-                    logger.warning(f"⚠️ Model {model} error: {e}")
-                    continue
             
-            # All models failed
-            logger.error("❌ All Anthropic models failed")
-            self.error_count += 1
-            return self._generate_fallback_synopsis(company_data)
+            # All AI models failed, return basic web info
+            logger.warning("❌ All AI models failed, returning raw web info")
+            return f"{company_name} - {web_info.replace(' | ', '. ')}"
             
         except Exception as e:
-            logger.error(f"❌ AI synopsis generation failed: {e}")
-            self.error_count += 1
-            return self._generate_fallback_synopsis(company_data)
-
-    def _create_analysis_prompt(self, company_data: Dict) -> str:
-        """Create analysis prompt for AI"""
-        company_name = company_data.get('lgnm', 'Unknown Company')
-        status = company_data.get('sts', 'Unknown')
-        gstin = company_data.get('gstin', 'N/A')
-        registration_date = company_data.get('rgdt', 'Unknown')
-        returns_count = len(company_data.get('returns', []))
-        
-        prompt = f"""
-        Analyze this GST-registered company and provide a concise professional summary:
-
-        Company: {company_name}
-        GSTIN: {gstin}
-        Status: {status}
-        Registration Date: {registration_date}
-        Returns Filed: {returns_count}
-        Business Type: {company_data.get('ctb', 'Not specified')}
-
-        Provide a 2-3 sentence analysis focusing on:
-        1. Overall compliance status
-        2. Business health indicators
-        3. Any notable observations
-
-        Keep it professional and factual. Limit to 150 words.
-        """
-        
-        return prompt.strip()
+            logger.error(f"❌ Synopsis generation failed: {e}")
+            return f"Unable to retrieve business information for {company_name} at this time."
 
     def _clean_synopsis(self, synopsis: str) -> str:
-        """Clean and format AI synopsis"""
+        """Clean synopsis and remove any GST-related content"""
         if not synopsis:
-            return "Analysis not available"
+            return "Business information not available"
         
-        # Remove markdown and formatting
+        # Remove common GST-related phrases that might slip in
+        gst_phrases = [
+            'gst', 'gstin', 'registration', 'compliance', 'returns', 'filing', 
+            'tax', 'regulatory', 'registered', 'incorporation', 'legal status'
+        ]
+        
+        # Clean the text
+        lines = synopsis.split('. ')
+        cleaned_lines = []
+        
+        for line in lines:
+            line_lower = line.lower()
+            # Skip lines that contain GST-related terms
+            if not any(phrase in line_lower for phrase in gst_phrases):
+                cleaned_lines.append(line)
+        
+        cleaned_synopsis = '. '.join(cleaned_lines)
+        
+        # Remove markdown formatting
         import re
-        synopsis = re.sub(r'\*\*(.*?)\*\*', r'\1', synopsis)
-        synopsis = re.sub(r'\*(.*?)\*', r'\1', synopsis)
-        synopsis = re.sub(r'#{1,6}\s*', '', synopsis)
+        cleaned_synopsis = re.sub(r'\*\*(.*?)\*\*', r'\1', cleaned_synopsis)
+        cleaned_synopsis = re.sub(r'\*(.*?)\*', r'\1', cleaned_synopsis)
         
         # Clean whitespace
-        synopsis = ' '.join(synopsis.split())
+        cleaned_synopsis = ' '.join(cleaned_synopsis.split())
         
         # Ensure proper punctuation
-        if synopsis and not synopsis.endswith(('.', '!', '?')):
-            synopsis += '.'
+        if cleaned_synopsis and not cleaned_synopsis.endswith(('.', '!', '?')):
+            cleaned_synopsis += '.'
         
-        # Limit length
-        if len(synopsis) > 400:
-            synopsis = synopsis[:397] + '...'
-        
-        return synopsis or "Unable to generate analysis"
+        return cleaned_synopsis or "Business information not available from web sources."
 
     def _generate_fallback_synopsis(self, company_data: Dict) -> str:
-        """Generate fallback synopsis without AI"""
-        try:
-            company_name = company_data.get('lgnm', 'Company')
-            status = company_data.get('sts', 'Unknown')
-            returns_count = len(company_data.get('returns', []))
-            
-            if status.lower() == 'active':
-                status_desc = "maintains active GST registration"
-            else:
-                status_desc = f"has {status.lower()} registration status"
-            
-            if returns_count >= 10:
-                filing_desc = "demonstrates consistent filing activity"
-            elif returns_count >= 5:
-                filing_desc = "shows moderate filing compliance"
-            elif returns_count > 0:
-                filing_desc = "has limited filing history"
-            else:
-                filing_desc = "shows no recent filing activity"
-            
-            synopsis = f"{company_name} {status_desc} and {filing_desc}. "
-            
-            if returns_count > 0:
-                synopsis += f"The company has filed {returns_count} returns, indicating ongoing business operations."
-            else:
-                synopsis += "Further verification of compliance status may be required."
-            
-            return synopsis
-            
-        except Exception as e:
-            logger.error(f"Fallback synopsis generation failed: {e}")
-            return "Company analysis is temporarily unavailable."
+        """Simple fallback when everything fails"""
+        company_name = company_data.get('lgnm', 'Unknown Company')
+        return f"Business information for {company_name} is not available through web sources at this time."
 
 # Global instances
 enhanced_gst_client = EnhancedGSTClient()
